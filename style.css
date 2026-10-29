@@ -360,3 +360,47 @@ body.mode-fish .nav { justify-content: flex-start; }
   body.mode-fish .chip.time small { display: none; }
   body.mode-fish .chip.loc { max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
 }
+
+/* =========================================================
+   Penyempurnaan 2A — rumah 10 level, tata ruang, akuarium
+   ========================================================= */
+.chip.time { position: relative; }
+.time-note {
+  position: absolute; right: 0; top: calc(100% + 5px); white-space: nowrap; font-size: 11px; font-weight: 700;
+  background: rgba(23, 63, 80, .88); color: var(--cream); padding: 4px 9px; border-radius: 999px;
+  opacity: 0; transform: translateY(-4px); transition: opacity .3s, transform .3s; pointer-events: none;
+}
+.time-note.show { opacity: 1; transform: translateY(0); }
+
+.layout-btn {
+  position: fixed; z-index: 6; right: 16px; top: calc(env(safe-area-inset-top, 0px) + 54px);
+  border: 0; border-radius: 999px; padding: 9px 14px; font: 700 13px var(--font); cursor: pointer;
+  background: var(--cream); color: var(--ink); box-shadow: 0 3px 10px rgba(10, 35, 45, .25);
+}
+body.editing .joy, body.editing .act-btn, body.editing .hint { display: none !important; }
+.layout-bar {
+  position: fixed; z-index: 7; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  width: min(560px, calc(100% - 24px)); background: var(--cream); border-radius: 16px; padding: 10px 12px; box-shadow: var(--shadow);
+  border: 3px solid var(--ink); display: flex; flex-direction: column; gap: 8px;
+}
+.lb-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.lb-row b { flex: 1; min-width: 120px; font-size: 14px; }
+.lb-stored { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; }
+.chip-btn { border: 0; background: #ece6d3; color: var(--ink); border-radius: 999px; padding: 6px 10px; font: 600 12px var(--font); cursor: pointer; }
+
+/* renovasi */
+.renov-strip { display: flex; gap: 4px; margin-bottom: 10px; }
+.renov-strip .rs { flex: 1; text-align: center; font: 800 12px var(--font); padding: 5px 0; border-radius: 8px; background: #ece6d3; color: #9b927a; }
+.renov-strip .rs.done { background: var(--mint); color: var(--ink); }
+.renov-strip .rs.cur { background: var(--ink); color: var(--gold); }
+.renov-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 480px) { .renov-cols { grid-template-columns: 1fr; } }
+.renov-card { background: #fff; border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.renov-card.next { border: 2px solid var(--gold); }
+.renov-prev { width: 100%; height: auto; aspect-ratio: 300 / 190; border-radius: 10px; display: block; }
+.renov-feats { margin: 10px 0; padding-left: 20px; font-size: 13px; columns: 2; }
+@media (max-width: 480px) { .renov-feats { columns: 1; } }
+.renov-buy { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--cream); border: 1px solid #ebdfbd; border-radius: 12px; padding: 10px 12px; }
+.renov-buy b { color: #8a6412; font-size: 18px; }
+
+}

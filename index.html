@@ -19,7 +19,7 @@
   </div>
   <div class="hud-right">
     <div class="chip loc"><span id="locName">Muara Kampung</span></div>
-    <div class="chip time"><span id="clockIcon">☀️</span><b id="clock">06:00</b><small id="dayLabel">Hari 1</small></div>
+    <div class="chip time"><span id="clockIcon">☀️</span><b id="clock">06:00</b><small id="dayLabel">Hari 1</small><span id="timeNote" class="time-note"></span></div>
     <button class="chip icon-btn misi" id="misiBtn" aria-label="Misi harian">📋<span id="misiBadge" class="badge hidden">0</span></button>
     <button class="chip icon-btn" id="dexBtn" aria-label="Koleksi ikan">📖</button>
     <button class="chip icon-btn" id="muteBtn" aria-label="Suara">🔊</button>
@@ -59,6 +59,16 @@
   </div>
 </div>
 <div id="fade" class="fade"></div>
+
+<!-- Rumahku: Mode Tata Ruang -->
+<button id="layoutBtn" class="layout-btn hidden" aria-label="Tata ruang">🛠️ Tata Ruang</button>
+<div id="layoutBar" class="layout-bar hidden">
+  <div class="lb-row"><b id="lbTitle">Ketuk & geser perabot</b>
+    <button class="btn small" id="lbRotate">↻ Putar</button>
+    <button class="btn small ghost" id="lbStore">📦 Gudang</button>
+    <button class="btn small gold" id="lbDone">✔ Selesai</button></div>
+  <div class="lb-stored" id="lbStored"></div>
+</div>
 
 <!-- Navigasi bawah (mode mancing). Pasar/Toko/Peta kini didatangi langsung di pulau -->
 <nav class="nav">
@@ -119,6 +129,8 @@
 <script src="world/map.js"></script>
 <script src="world/draw.js"></script>
 <script src="world/life.js"></script>
+<script src="world/home-data.js"></script>
+<script src="world/house-draw.js"></script>
 <script src="world/home.js"></script>
 <script src="world/world.js"></script>
 <script src="game.js"></script>

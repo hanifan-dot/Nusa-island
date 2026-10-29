@@ -73,10 +73,10 @@ const FISH = [
 
   // ---------- Selat Sunda ----------
   { id: "baronang", name: "Baronang", loc: "selat", rarity: "biasa", wMin: .3, wMax: 1.5, price: 28, power: 2, color: "#8f8a5a", belly: "#d8d3a4", shape: [1, .55], fin: "round", spots: "#6c6840", desc: "Hati-hati, siripnya beracun." },
-  { id: "kembung", name: "Kembung", loc: "selat", rarity: "biasa", wMin: .1, wMax: .5, price: 25, power: 1, color: "#4f7aa0", belly: "#dfe8ee", shape: [1.15, .36], fin: "pointed", stripes: "#2d5070", desc: "Ikan rakyat yang selalu ada di pasar." },
+  { id: "kembung", pelagic: true, name: "Kembung", loc: "selat", rarity: "biasa", wMin: .1, wMax: .5, price: 25, power: 1, color: "#4f7aa0", belly: "#dfe8ee", shape: [1.15, .36], fin: "pointed", stripes: "#2d5070", desc: "Ikan rakyat yang selalu ada di pasar." },
   { id: "kakap", name: "Kakap Merah", loc: "selat", rarity: "langka", wMin: 1, wMax: 7, price: 55, power: 4, color: "#cc4b3f", belly: "#f3b3a3", shape: [1.15, .46], fin: "pointed", desc: "Merah merona, favorit restoran seafood." },
-  { id: "tenggiri", name: "Tenggiri", loc: "selat", rarity: "langka", wMin: 2, wMax: 12, price: 50, power: 5, color: "#5d7f9c", belly: "#e8eef2", shape: [1.6, .28], fin: "pointed", spots: "#3c5a73", desc: "Bahan pempek terbaik. Larinya kencang!" },
-  { id: "barakuda", name: "Barakuda", loc: "selat", rarity: "epik", wMin: 3, wMax: 20, price: 70, power: 7, color: "#7b8f99", belly: "#e1e7ea", shape: [1.75, .24], fin: "pointed", stripes: "#4f626b", desc: "Gigi tajam, serangan cepat seperti torpedo." },
+  { id: "tenggiri", pelagic: true, name: "Tenggiri", loc: "selat", rarity: "langka", wMin: 2, wMax: 12, price: 50, power: 5, color: "#5d7f9c", belly: "#e8eef2", shape: [1.6, .28], fin: "pointed", spots: "#3c5a73", desc: "Bahan pempek terbaik. Larinya kencang!" },
+  { id: "barakuda", pelagic: true, name: "Barakuda", loc: "selat", rarity: "epik", wMin: 3, wMax: 20, price: 70, power: 7, color: "#7b8f99", belly: "#e1e7ea", shape: [1.75, .24], fin: "pointed", stripes: "#4f626b", desc: "Gigi tajam, serangan cepat seperti torpedo." },
   { id: "kerapu_raksasa", name: "Kerapu Raksasa", loc: "selat", rarity: "legenda", wMin: 40, wMax: 150, price: 60, power: 9, color: "#5a5a3c", belly: "#b8b27d", shape: [1.2, .52], fin: "round", spots: "#3a3a24", night: true, desc: "Monster karang. Bisa menelan ikan lain bulat-bulat." },
 
   // ---------- Raja Ampat ----------
@@ -87,11 +87,11 @@ const FISH = [
   { id: "napoleon", name: "Napoleon", loc: "ampat", rarity: "legenda", wMin: 20, wMax: 120, price: 70, power: 9, color: "#3b8f8a", belly: "#86c9b5", shape: [1.25, .55], fin: "round", hump: true, protected: true, desc: "Ikan berjidat besar. Dilindungi, jadi dilepas lagi dan kamu dapat hadiah konservasi." },
 
   // ---------- Laut Banda ----------
-  { id: "terbang", name: "Ikan Terbang", loc: "banda", rarity: "biasa", wMin: .2, wMax: .6, price: 40, power: 2, color: "#3f6fa8", belly: "#dde8f2", shape: [1.3, .3], fin: "sail", desc: "Bisa melayang di atas ombak sejauh 50 meter." },
-  { id: "cakalang", name: "Cakalang", loc: "banda", rarity: "biasa", wMin: 1, wMax: 8, price: 35, power: 4, color: "#344e78", belly: "#e3e7ee", shape: [1.2, .42], fin: "pointed", stripes: "#2b3f5f", desc: "Bahan cakalang fufu khas Manado." },
-  { id: "tuna", name: "Tuna Sirip Kuning", loc: "banda", rarity: "langka", wMin: 15, wMax: 90, price: 45, power: 7, color: "#26406b", belly: "#dfe4ec", shape: [1.3, .46], fin: "pointed", finColor: "#f2c12e", desc: "Atlet samudra. Siap-siap tangan pegal." },
-  { id: "layaran", name: "Ikan Layaran", loc: "banda", rarity: "epik", wMin: 20, wMax: 70, price: 55, power: 8, color: "#2e4f86", belly: "#d4dcea", shape: [1.8, .3], fin: "sail", bill: true, desc: "Ikan tercepat di laut. Siripnya seperti layar kapal." },
-  { id: "marlin", name: "Marlin Biru", loc: "banda", rarity: "legenda", wMin: 80, wMax: 400, price: 40, power: 10, color: "#1f3f7a", belly: "#cfd9ea", shape: [1.9, .32], fin: "pointed", bill: true, desc: "Raja samudra. Butuh joran terbaik dan kesabaran." },
+  { id: "terbang", pelagic: true, name: "Ikan Terbang", loc: "banda", rarity: "biasa", wMin: .2, wMax: .6, price: 40, power: 2, color: "#3f6fa8", belly: "#dde8f2", shape: [1.3, .3], fin: "sail", desc: "Bisa melayang di atas ombak sejauh 50 meter." },
+  { id: "cakalang", pelagic: true, name: "Cakalang", loc: "banda", rarity: "biasa", wMin: 1, wMax: 8, price: 35, power: 4, color: "#344e78", belly: "#e3e7ee", shape: [1.2, .42], fin: "pointed", stripes: "#2b3f5f", desc: "Bahan cakalang fufu khas Manado." },
+  { id: "tuna", pelagic: true, name: "Tuna Sirip Kuning", loc: "banda", rarity: "langka", wMin: 15, wMax: 90, price: 45, power: 7, color: "#26406b", belly: "#dfe4ec", shape: [1.3, .46], fin: "pointed", finColor: "#f2c12e", desc: "Atlet samudra. Siap-siap tangan pegal." },
+  { id: "layaran", pelagic: true, name: "Ikan Layaran", loc: "banda", rarity: "epik", wMin: 20, wMax: 70, price: 55, power: 8, color: "#2e4f86", belly: "#d4dcea", shape: [1.8, .3], fin: "sail", bill: true, desc: "Ikan tercepat di laut. Siripnya seperti layar kapal." },
+  { id: "marlin", pelagic: true, name: "Marlin Biru", loc: "banda", rarity: "legenda", wMin: 80, wMax: 400, price: 40, power: 10, color: "#1f3f7a", belly: "#cfd9ea", shape: [1.9, .32], fin: "pointed", bill: true, desc: "Raja samudra. Butuh joran terbaik dan kesabaran." },
   { id: "hiu_paus", name: "Hiu Paus Kecil", loc: "banda", rarity: "legenda", wMin: 300, wMax: 900, price: 15, power: 10, color: "#4a6078", belly: "#d6dde4", shape: [1.7, .4], fin: "pointed", spots: "#e8eef3", night: true, protected: true, desc: "Raksasa lembut yang dilindungi. Dilepas lagi, kamu dapat hadiah konservasi." },
 ];
 

@@ -109,8 +109,8 @@ function resize(w, h, dpr) {
   if (Math.abs(want - NW.getTerrainScale()) > 0.15) NW.buildTerrain(want);
 }
 function camTarget() {
-  Z = inHome() ? ZI : ZW;
-  if (inHome()) { const c = NW.home.center(); return { x: c.x, y: c.y - 30 }; }
+  if (inHome()) { const ct = NW.home.camTarget(player, W, H, ZW); Z = ct.z; return ct; }
+  Z = ZW;
   const p = NW.P(player.x, player.y, NW.LIFT); return { x: p.x, y: p.y - 22 };
 }
 function snapCamera() { const t = camTarget(); cam.x = t.x; cam.y = t.y; }
@@ -121,7 +121,7 @@ const keys = new Set();
 let moved = false;
 const joyEl = $("joy"), knobEl = $("joyKnob");
 function joyHome() { const r = joyEl.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
-function blocked() { return dialog.open || busy || N().isPanelOpen() || !N().isStarted() || $("fade").classList.contains("on"); }
+function blocked() { return dialog.open || busy || N().isPanelOpen() || !N().isStarted() || $("fade").classList.contains("on") || (NW.home && NW.home.isEditing()); }
 
 function onDown(e) {
   if (N().mode() !== "world") return;
@@ -310,7 +310,7 @@ function updateBusy(dt) {
 // Dipanggil game.js saat kembali ke darat
 function onEnter(at) {
   busy = false; fadeStarted = false; player.rod = 0; closeDialog();
-  if (NW.home) NW.home.state.active = false;
+  if (NW.home) NW.home.reset();
   const S = N().S;
   if (at === "dock") { player.x = NW.SPOT.x - 1.1; player.y = NW.SPOT.y; player.dir = 4; }
   else if (at === "boat") { player.x = NW.BOAT.x; player.y = NW.DOCK.y1 + 0.6; player.dir = 5; }
@@ -415,7 +415,7 @@ function update(dt) {
   if (busy) updateBusy(dt);
   const v = blocked() ? { x: 0, y: 0, m: 0 } : inputVec();
   if (v.m > 0.05) {
-    const SPEED = inHome() ? 120 : 150;
+    const SPEED = inHome() ? (NW.home.scene === "room" ? 115 : 140) : 150;
     const d = screenToWorld(v.x * SPEED * dt, v.y * SPEED * dt);
     const nx = player.x + d.x, ny = player.y + d.y;
     if (walkable(nx, ny)) { player.x = nx; player.y = ny; }
@@ -553,11 +553,6 @@ function draw(ctx, t) {
     ctx.fillStyle = "#fff9ec"; ctx.fillText(n.name, p.x, p.y);
   }
   ctx.globalAlpha = 1;
-  // nama "Rumahku" di atas pintu
-  const hb = NW.buildings[2], hp = NW.P(hb.x0 + (hb.x1 - hb.x0) * 0.32, hb.y1 + 0.3, NW.LIFT + hb.stilts + hb.h + 6);
-  if (Math.hypot(player.x - 9.5, player.y - 15.5) < 4) {
-    ctx.font = "800 9px system-ui, sans-serif"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(23,63,80,.85)"; ctx.strokeText("🏠 Rumahku", hp.x, hp.y); ctx.fillStyle = "#fff0b0"; ctx.fillText("🏠 Rumahku", hp.x, hp.y);
-  }
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
 function occludes(o, pRect) {
@@ -578,21 +573,14 @@ function drawTargetBubble(ctx, t) {
   ctx.fillText(target.icon, tp.x, tp.y - bob + 1);
 }
 function drawHome(ctx, t) {
-  const dk = N().darkness();
+  NW.home.drawScene(ctx, t, N().darkness(), player, { W, H, DPR, worldXf: () => worldXf(ctx) });
+  if (!NW.home.isEditing()) { worldXf(ctx); drawTargetBubble(ctx, t); }
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  const g = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, Math.max(W, H) * 0.7);
-  g.addColorStop(0, "#2a3b45"); g.addColorStop(1, "#121c22");
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  worldXf(ctx);
-  NW.home.draw(ctx, t, dk, player);
-  if (dk > 0.05) {
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    ctx.fillStyle = `rgba(14,24,58,${(dk * (NW.home.lit() ? 0.28 : 0.55)).toFixed(3)})`; ctx.fillRect(0, 0, W, H);
-    worldXf(ctx);
-    if (NW.home.lit()) { ctx.globalCompositeOperation = "lighter"; const p = NW.P(3.5, 3, 60); const gl = ctx.createRadialGradient(p.x, p.y, 4, p.x, p.y, 190); gl.addColorStop(0, `rgba(255,190,110,${0.4 * dk})`); gl.addColorStop(1, "rgba(255,190,110,0)"); ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(p.x, p.y, 190, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
-  }
-  drawTargetBubble(ctx, t);
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+// layar → tile (dipakai Mode Tata Ruang)
+function toTile(cx, cy, z = 0) {
+  const wx = (cx - W / 2) / Z + cam.x, wy = (cy - H / 2) / Z + cam.y + z;
+  return { x: (wx / HW + wy / HH) / 2, y: (wy / HH - wx / HW) / 2 };
 }
 function drawObj(c, o, t, night, claim) {
   switch (o.kind) {
@@ -611,6 +599,8 @@ function drawObj(c, o, t, night, claim) {
     case "net": return NW.drawNet(c, o);
     case "well": return NW.drawWell(c, o);
     case "boat": return NW.drawBoat(c, o, t);
+    case "gate": return NW.HOUSE.gateDraw(c, o.x, o.y, t, "RUMAHKU", NW.LIFT);
+    case "bamboo": return NW.drawBamboo(c, o, t);
   }
 }
 function drawFarBoat(c, t, view) {
@@ -623,5 +613,5 @@ function drawFarBoat(c, t, view) {
   c.fillStyle = "#e2574c"; c.beginPath(); c.moveTo(p.x - 4, p.y - 6 + bob); c.lineTo(p.x - 4, p.y - 30 + bob); c.lineTo(p.x - 16, p.y - 8 + bob); c.fill();
 }
 
-NW.world = { resize, update, draw, onEnter, updateHint, closeDialog, snapCamera, player, npcs, get target() { return target; }, interact, isBusy: () => busy, placeNPC, actNow };
+NW.world = { toTile, resize, update, draw, onEnter, updateHint, closeDialog, snapCamera, player, npcs, get target() { return target; }, interact, isBusy: () => busy, placeNPC, actNow };
 })();

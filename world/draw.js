@@ -519,6 +519,18 @@ function drawMailbox(c, o, t) {
   c.fillStyle = "#c8443a"; c.beginPath(); c.moveTo(b.x - 8, b.y - 17); c.lineTo(b.x + 8, b.y - 17); c.lineTo(b.x + 8, b.y - 25); c.arc(b.x, b.y - 25, 8, 0, Math.PI, true); c.closePath(); c.fill();
   c.fillStyle = "#e0b84c"; c.fillRect(b.x + 7, b.y - 32 + Math.sin(t * 2) * 0.6, 2, 9); c.fillRect(b.x + 7, b.y - 32, 6, 4);
 }
+// rumpun bambu
+function drawBamboo(c, o, t) {
+  const b = P(o.x, o.y, LIFT), s = o.s;
+  c.fillStyle = "rgba(20,40,30,.18)"; c.beginPath(); c.ellipse(b.x + 6, b.y + 1, 20 * s, 7 * s, 0, 0, 7); c.fill();
+  for (let i = 0; i < 7; i++) {
+    const dx = (i - 3) * 4 * s, h = (60 + (i % 3) * 16) * s, sw = Math.sin(t * 1.1 + i + o.x) * 3;
+    c.strokeStyle = i % 2 ? "#6f9a3c" : "#7fae45"; c.lineWidth = 3 * s; c.lineCap = "round";
+    c.beginPath(); c.moveTo(b.x + dx, b.y); c.quadraticCurveTo(b.x + dx + sw * 0.3, b.y - h * 0.6, b.x + dx + sw, b.y - h); c.stroke();
+    c.strokeStyle = "rgba(60,90,30,.6)"; c.lineWidth = 1; for (let k = 0.25; k < 1; k += 0.22) { const y = b.y - h * k; c.beginPath(); c.moveTo(b.x + dx - 1.5 * s + sw * k, y); c.lineTo(b.x + dx + 1.5 * s + sw * k, y); c.stroke(); }
+    c.fillStyle = "#5f9a3a"; for (let k = 0; k < 3; k++) { c.beginPath(); c.ellipse(b.x + dx + sw + (k - 1) * 7 * s, b.y - h + k * 6 * s, 8 * s, 2.5 * s, (k - 1) * 0.6, 0, 7); c.fill(); }
+  }
+}
 // layangan Dika: (x,y) = tangan di dunia, terbang ke arah laut
 function drawKite(c, ch, t) {
   const h = P(ch.x, ch.y, LIFT + 18), k = { x: h.x + 70 + Math.sin(t * 0.7) * 12, y: h.y - 120 + Math.sin(t * 1.1) * 10 };
@@ -729,6 +741,6 @@ function lightAt(c, x, y, z, r, col, a) {
 Object.assign(NW, {
   P, LIFT, COL, mix, shade, rgba, buildTerrain, drawTerrain, drawWater, getTerrainScale: () => terrainScale,
   drawHouse, drawShop, drawMarketBack, drawMarketFront, drawPalm, drawTree, drawBush, drawRock, drawLamp, drawSign,
-  drawBench, drawBoard, drawMailbox, drawKite, drawCrate, drawBarrel, drawNet, drawWell, drawBoat, drawCharacter, drawBird, drawJump, drawButterfly, lightAt, DIRV,
+  drawBench, drawBoard, drawMailbox, drawKite, drawBamboo, drawCrate, drawBarrel, drawNet, drawWell, drawBoat, drawCharacter, drawBird, drawJump, drawButterfly, lightAt, DIRV,
 });
 })();

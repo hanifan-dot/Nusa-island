@@ -58,7 +58,6 @@ for (let y = DOCK.y0; y <= DOCK.y1; y++) for (let x = DOCK.x0; x <= DOCK.x1; x++
 const buildings = [
   { id: "pasar", kind: "market", x0: E - 10, y0: 17, x1: E - 6, y1: 19, h: 34, name: "Pasar Ikan Bu Sari" },
   { id: "toko", kind: "shop", x0: E - 9, y0: 22, x1: E - 6, y1: 24.5, h: 44, door: "x", name: "Toko Pancing Pak Bono", roof: "#3d6f8f", wall: "#f3e2bd" },
-  { id: "rumah1", kind: "house", x0: 8.5, y0: 12, x1: 11.5, y1: 14.5, h: 34, door: "y", stilts: 14, roof: "#b5562f", wall: "#d9a66b", name: "Rumahku", mine: true },
   { id: "rumah2", kind: "house", x0: 13, y0: 24, x1: 15.5, y1: 26.5, h: 36, door: "x", roof: "#c2603b", wall: "#efd9b0", name: "Rumah Pak Darto" },
   { id: "rumah3", kind: "house", x0: 8, y0: 23.5, x1: 10.5, y1: 25.5, h: 34, door: "x", stilts: 12, roof: "#8f4a2c", wall: "#c99a62", name: "Rumah Bu Sari" },
   { id: "rumah4", kind: "house", x0: 13.5, y0: 9, x1: 16.5, y1: 11.5, h: 36, door: "y", roof: "#2f6b58", wall: "#f1e6cf", name: "Rumah Dika" },
@@ -76,7 +75,7 @@ const points = [
   { id: "rumah2", x: 15.5 + 0.6, y: 25.25, r: 0.9, icon: "🚪", label: "Ketuk", owner: "darto" },
   { id: "rumah3", x: 11.5, y: 24.5, r: 0.8, icon: "🚪", label: "Ketuk", owner: "sari" },
   { id: "rumah4", x: 14.46, y: 12.15, r: 0.8, icon: "🚪", label: "Ketuk", owner: "dika" },
-  { id: "home", x: 9.46, y: 15.5, r: 0.95, icon: "🏠", label: "Masuk" },
+  { id: "home", x: 9.8, y: 14.75, r: 0.95, icon: "🏡", label: "Rumahku" },
   { id: "board", x: 20.3, y: 19.95, r: 0.95, icon: "📋", label: "Misi" },
 ];
 
@@ -117,7 +116,11 @@ const flowerBeds = [
 const objects = []; // {kind, x, y, ...}
 const solids = [];  // collision: {x,y,r} lingkaran atau {x0,y0,x1,y1} kotak
 
+// Gapura menuju halaman pribadi Rumahku (rumah pemain tidak ditaruh di peta umum)
+const HOME_GATE = { x: 9.8, y: 14.0 };
+const CLEAR = [{ x0: 7.6, y0: 11.0, x1: 12.2, y1: 15.2 }];
 function nearAny(x, y, pad) {
+  for (const r of CLEAR) if (x > r.x0 - pad * 0.3 && x < r.x1 + pad * 0.3 && y > r.y0 - pad * 0.3 && y < r.y1 + pad * 0.3) return true;
   for (const b of buildings) if (x > b.x0 - pad && x < b.x1 + pad && y > b.y0 - pad && y < b.y1 + pad) return true;
   for (const p of points) if (Math.hypot(x - p.x, y - p.y) < pad + 0.6) return true;
   for (const o of objects) if (Math.hypot(x - o.x, y - o.y) < pad + 0.5) return true;
@@ -174,7 +177,8 @@ objects.push({ kind: "barrel", x: E - 5.7, y: 19.7 });
 objects.push({ kind: "well", x: 12.6, y: 16.8 });
 signs.forEach((s) => objects.push({ kind: "sign", x: s.x, y: s.y, title: s.title }));
 objects.push({ kind: "board", x: 20.3, y: 19.25 });
-objects.push({ kind: "mailbox", x: 8.35, y: 15.35 });
+objects.push({ kind: "gate", x: HOME_GATE.x, y: HOME_GATE.y });
+for (const [x, y, s] of [[8.2, 12.2, 1.1], [11.4, 12.0, 1.0], [8.4, 13.4, 0.8], [11.3, 13.3, 0.9], [9.8, 11.6, 1.2]]) objects.push({ kind: "bamboo", x, y, s });
 objects.push({ kind: "boat", x: BOAT.x, y: BOAT.y });
 
 // collision objek
@@ -185,6 +189,8 @@ for (const o of objects) {
   else if (o.kind === "rock") solids.push({ x: o.x, y: o.y, r: 0.28 * o.s });
   else if (o.kind === "lamp" || o.kind === "sign" || o.kind === "mailbox") solids.push({ x: o.x, y: o.y, r: 0.16 });
   else if (o.kind === "board") solids.push({ x: o.x, y: o.y, r: 0.3 });
+  else if (o.kind === "gate") { solids.push({ x: o.x - 0.6, y: o.y, r: 0.18 }, { x: o.x + 0.6, y: o.y, r: 0.18 }, { x0: o.x - 0.6, y0: o.y - 2.8, x1: o.x + 0.6, y1: o.y - 0.15 }); }
+  else if (o.kind === "bamboo") solids.push({ x: o.x, y: o.y, r: 0.35 * o.s });
   else if (o.kind === "crate" || o.kind === "barrel") solids.push({ x: o.x, y: o.y, r: 0.3 });
   else if (o.kind === "well") solids.push({ x: o.x, y: o.y, r: 0.5 });
   else if (o.kind === "bench") solids.push({ x: o.x, y: o.y, r: 0.35 });
@@ -218,7 +224,7 @@ const START = { x: 19.5, y: 20.6 };
 
 Object.assign(NW, {
   T, MW, MH, TW, TH, tiles, tileAt, isLandT, hash2, rng, islandD, DOCK, SPOT, BOAT, SHORE_E, START,
-  buildings, objects, points, signs, NAV, NAV_EDGES, flowerBeds, PARK, lamps, solids, walkable, shoreEdges,
+  buildings, objects, points, signs, NAV, NAV_EDGES, HOME_GATE, flowerBeds, PARK, lamps, solids, walkable, shoreEdges,
   // konversi tile → piksel dunia (sebelum kamera)
   iso: (x, y) => ({ x: (x - y) * TW / 2, y: (x + y) * TH / 2 }),
 });

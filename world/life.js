@@ -24,18 +24,25 @@ const TEMPLATES = {
   trash: { w: 1, make: () => ({ n: 2, coins: 90, stars: 1 }), text: (m) => `Bersihkan muara: angkat ${m.n} sampah`, icon: "♻️", hint: () => "Sampah ikut tersangkut saat memancing. Jangan dibuang lagi ke laut!" },
 };
 
+// ---------- Periode misi ----------
+// Satu periode = satu tanggal kalender di perangkat (reset 00:00), BUKAN hari di dalam game
+// yang berganti tiap 8 menit. Isi misi diturunkan dari periodId (deterministik), jadi server
+// nanti bisa membuat ulang daftar yang sama dan memvalidasi progres & klaim.
+function periodId(d = new Date()) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+function msToReset() { const n = new Date(), m = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1); return m - n; }
+const hashStr = (s) => { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 function rngFor(seed) { let s = (seed * 2654435761) >>> 0 || 3; return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return ((s >>> 0) % 100000) / 100000; }; }
 
-function generate(day) {
-  const S = N().S;
-  if (day === 1 && S.stats.caught === 0) { // misi perkenalan
+function generate(period, tutorial) {
+  if (tutorial) { // misi perkenalan
     return [
       Object.assign({ type: "catch_any" }, { n: 2, coins: 60, stars: 1 }),
       Object.assign({ type: "talk" }, { npc: "darto", n: 1, coins: 40, stars: 1 }),
       Object.assign({ type: "sell" }, { n: 50, coins: 60, stars: 1 }),
-    ].map(init);
+    ].map((m, i) => init(m, period, i, "t"));
   }
-  const r = rngFor(day * 97 + 13), list = [], used = new Set();
+  const day = Object.keys(N().S.missionLog || {}).length + 1;
+  const r = rngFor(hashStr(period)), list = [], used = new Set();
   const pool = Object.keys(TEMPLATES).filter((k) => !(k === "night" && day < 2));
   while (list.length < 3) {
     let total = 0; for (const k of pool) if (!used.has(k)) total += TEMPLATES[k].w;
@@ -46,17 +53,38 @@ function generate(day) {
     const m = Object.assign({ type: pickK }, TEMPLATES[pickK].make(r));
     // hadiah naik sedikit seiring hari
     m.coins = Math.round(m.coins * (1 + Math.min(day, 15) * 0.06));
-    list.push(init(m));
+    list.push(init(m, period, list.length, "d"));
   }
   return list;
 }
-function init(m) { return Object.assign(m, { p: 0, done: false, claimed: false }); }
+function init(m, period, i, kind) { return Object.assign(m, { id: `${period}#${kind}${i}:${m.type}`, p: 0, done: false, claimed: false }); }
 
 function ensure() {
-  const S = N().S;
-  if (!S.missions || S.missions.day !== S.day || !Array.isArray(S.missions.list)) S.missions = { day: S.day, list: generate(S.day) };
+  const S = N().S, period = periodId();
+  S.missionLog = S.missionLog || {};
+  if (S.missions && Array.isArray(S.missions.list) && !S.missions.period) {
+    // misi lama (Tahap 2A, per hari game) → jadikan periode hari ini, progres & klaim tetap
+    S.missions.period = period;
+    S.missions.list.forEach((m, i) => { if (!m.id) m.id = `${period}#m${i}:${m.type}`; if (m.claimed) logClaim(m); });
+  }
+  if (!S.missions || S.missions.period !== period || !Array.isArray(S.missions.list)) {
+    // jenis set per periode dicatat, jadi membuat ulang periode yang sama selalu menghasilkan misi (dan ID) yang sama
+    S.missionKinds = S.missionKinds || {};
+    if (!S.missionKinds[period]) S.missionKinds[period] = !S.missionsTutorialDone && S.stats.caught === 0 ? "t" : "d";
+    const tutorial = S.missionKinds[period] === "t";
+    S.missions = { period, list: generate(period, tutorial) };
+    if (tutorial) S.missionsTutorialDone = true;
+    const kk = Object.keys(S.missionKinds).sort(); while (kk.length > 14) delete S.missionKinds[kk.shift()];
+    // klaim yang sudah tercatat untuk periode ini tetap dianggap sudah diambil
+    const claimed = new Set(S.missionLog[period] || []);
+    S.missions.list.forEach((m) => { if (claimed.has(m.id)) { m.claimed = true; m.done = true; m.p = m.n; } });
+    // simpan log 14 periode terakhir saja
+    const keys = Object.keys(S.missionLog).sort(); while (keys.length > 14) delete S.missionLog[keys.shift()];
+  }
   return S.missions.list;
 }
+function logClaim(m) { const S = N().S, p = S.missions.period; (S.missionLog[p] = S.missionLog[p] || []); if (!S.missionLog[p].includes(m.id)) S.missionLog[p].push(m.id); }
+const isClaimed = (m) => m.claimed || ((N().S.missionLog[N().S.missions.period] || []).includes(m.id));
 function advance(pred, amount = 1) {
   let changed = false;
   for (const m of ensure()) {
@@ -83,7 +111,8 @@ function hook() {
   });
   g.on("sell", (amount) => advance((m) => m.type === "sell", amount));
   g.on("perfect", () => advance((m) => m.type === "perfect"));
-  g.on("day", () => { ensure(); refreshBadge(); });
+  g.on("day", () => { ensure(); refreshBadge(); }); // hari game tidak mengganti misi; hanya cek periode
+  setInterval(() => { if (N().S.missions && N().S.missions.period !== periodId()) { ensure(); refreshBadge(); N().toast("📋 Misi harian baru tersedia!", "good"); } }, 30000);
   g.registerPanel("missions", { title: () => "📋 Misi Harian", render: renderPanel, act });
   ensure(); refreshBadge();
 }
@@ -125,7 +154,7 @@ function renderPanel() {
   const pct = lv.next ? ((S.rep - lv.at) / (lv.next[0] - lv.at)) * 100 : 100;
   let h = `<div class="rep-card"><div class="rep-star">⭐ ${S.rep}</div><div class="grow"><b>${lv.name}</b><div class="muted">${toNext}</div>
     <div class="progress-line"><div style="width:${pct.toFixed(0)}%"></div></div></div></div>
-    <p class="muted">Hari ${S.day}. Misi berganti setiap hari baru, atau setelah tidur di Rumahku.</p><div class="list">`;
+    <p class="muted">Maksimal 3 misi per hari. Misi baru dalam <b>${(() => { const ms = msToReset(), hh = Math.floor(ms / 3600000), mm = Math.floor((ms % 3600000) / 60000); return `${hh} jam ${mm} menit`; })()}</b> (pukul 00:00 di perangkatmu).</p><div class="list">`;
   list.forEach((m, i) => {
     const T = TEMPLATES[m.type], hint = T.hint ? T.hint(m) : "";
     const showP = m.type === "sell" ? `🪙 ${N().fmt(m.p)} / ${N().fmt(m.n)}` : `${m.p} / ${m.n}`;
@@ -134,7 +163,7 @@ function renderPanel() {
       <div class="grow"><div class="nm">${T.text(m)}</div>
         <div class="bar-mini"><div style="width:${((m.p / m.n) * 100).toFixed(0)}%"></div></div>
         <div class="sub">${showP} · Hadiah 🪙 ${N().fmt(m.coins)} + ${"⭐".repeat(m.stars)}${hint ? " · " + hint : ""}</div></div>
-      ${m.claimed ? `<span class="muted">✔ Diambil</span>` : m.done ? `<button class="btn gold small" data-act="claim" data-arg="${i}">Ambil</button>` : ""}</div>`;
+      ${isClaimed(m) ? `<span class="muted">✔ Diambil</span>` : m.done ? `<button class="btn gold small" data-act="claim" data-arg="${i}">Ambil</button>` : ""}</div>`;
   });
   h += `</div><h3 class="sub-h">Pertemanan</h3><div class="list">`;
   for (const id of ["darto", "sari", "dika"]) h += `<div class="row friend"><div class="grow"><div class="nm">${NPC_NAMES[id]}</div></div><div class="hearts">${hearts(id)}</div></div>`;
@@ -143,16 +172,16 @@ function renderPanel() {
 function act(a, arg) {
   if (a !== "claim") return;
   const S = N().S, m = ensure()[+arg];
-  if (!m || !m.done || m.claimed) return;
-  m.claimed = true; S.money += m.coins; S.rep += m.stars;
+  if (!m || !m.done || isClaimed(m)) return; // hadiah hanya sekali
+  m.claimed = true; logClaim(m); S.money += m.coins; S.rep += m.stars;
   N().sfx("coin"); N().toast(`+🪙 ${N().fmt(m.coins)} · +${m.stars} ⭐`, "good");
   N().save(); N().refreshHUD(); N().renderPanel();
 }
-function claimable() { return ensure().filter((m) => m.done && !m.claimed).length; }
+function claimable() { return ensure().filter((m) => m.done && !isClaimed(m)).length; }
 function refreshBadge() {
   const b = $("misiBadge"); if (!b) return;
   const n = claimable(); b.textContent = n; b.classList.toggle("hidden", !n);
 }
 
-NW.life = { hook, talked, deliverOption, hearts, addFriend, claimable, refreshBadge, repLevel, ensure, NPC_NAMES };
+NW.life = { periodId, msToReset, hook, talked, deliverOption, hearts, addFriend, claimable, refreshBadge, repLevel, ensure, NPC_NAMES };
 })();

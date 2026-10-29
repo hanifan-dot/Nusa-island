@@ -46,7 +46,9 @@ const DEFAULT = () => ({
   muted: false,
   world: null, // posisi pemain di Muara Kampung (Island Life)
   // Tahap 2A
-  home: { items: [], cat: null }, // perabot Rumahku yang sudah dibeli
+  home: null,                    // Rumahku (skema berversi, dibuat oleh migrasi)
+  v: 3, seq: 0,                  // versi simpanan & penghitung uid
+  missionLog: {},                // misi yang sudah diklaim per periode (anti klaim ganda)
   missions: null,                // misi harian { day, list }
   rep: 0,                        // bintang reputasi kampung
   friends: {},                   // pertemanan NPC (0..5)
@@ -59,19 +61,38 @@ function emit(type, data) { (listeners[type] || []).forEach((fn) => { try { fn(d
 let S = DEFAULT();
 // Mode: "world" = jalan-jalan di pulau, "fish" = sistem mancing lama
 let MODE = "world", fishFrom = "dock";
+// Versi simpanan: 1 = Tahap 1, 2 = Tahap 2A, 3 = rumah 10 level + ikan ber-uid.
+// Sebelum migrasi, data lama disalin ke kunci cadangan sehingga tidak pernah hilang diam-diam.
+const SAVE_VERSION = 3;
+let loadNote = "";
+function backup(raw, tag) { try { const k = `${SAVE_KEY}-backup-${tag}`; if (!localStorage.getItem(k)) localStorage.setItem(k, raw); } catch (e) {} }
 function load() {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (raw) {
-      const d = JSON.parse(raw);
+  let raw = null;
+  try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { loadNote = "Penyimpanan browser tidak tersedia, progres tidak bisa disimpan."; }
+  if (raw) {
+    let d = null;
+    try { d = JSON.parse(raw); } catch (e) { backup(raw, "rusak-" + Date.now()); loadNote = "Data simpanan tidak terbaca. Salinannya diamankan sebagai cadangan."; }
+    if (d && typeof d === "object") {
+      const from = d.v || (d.home || d.missions ? 2 : 1);
+      if (from < SAVE_VERSION) backup(raw, "v" + from);
       S = Object.assign(DEFAULT(), d);
       S.up = Object.assign(DEFAULT().up, d.up || {});
       S.stats = Object.assign(DEFAULT().stats, d.stats || {});
-      S.home = Object.assign(DEFAULT().home, d.home || {});
+      S.home = d.home || null;
+      S.friends = d.friends || {}; S.talked = d.talked || {}; S.missionLog = d.missionLog || {};
+      if (!Array.isArray(S.cooler)) S.cooler = [];
     }
-  } catch (e) { /* storage tidak tersedia: main tanpa simpan */ }
+  }
+  migrate();
 }
-function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
+function migrate() {
+  const r = NW.HD.migrateHome(S);           // rumah lama → skema berversi (perabot tetap)
+  const fixed = NW.HD.ensureFishUids(S);     // setiap ikan mendapat uid, duplikat dibersihkan
+  if (r.from === "2A") loadNote = "Rumahku diperbarui ke sistem 10 level. Semua perabot tetap ada.";
+  S.v = SAVE_VERSION;
+  return { home: r, fixed };
+}
+function save() { try { S.v = SAVE_VERSION; localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
 
 // ---------- Audio (WebAudio sederhana) ----------
 let AC = null, noiseBuf = null;
@@ -347,7 +368,7 @@ function landFish(fish, w) {
   if (fish.rarity === "legenda") S.stats.legends++;
   let reward = 0;
   if (fish.protected) { reward = Math.round(fish.price * PRICE_SCALE * w * 1.2); S.money += reward; S.stats.earned += reward; }
-  else S.cooler.push({ id: fish.id, w });
+  else S.cooler.push({ uid: NW.HD.newUid(S, "i"), id: fish.id, w, t: Date.now() }); // setiap ikan punya identitas unik
   emit("catch", { fish, w, night: isNight(), loc: LOCATIONS[S.loc].id });
   save(); refreshHUD();
   SFX.catch(fish.rarity);
@@ -361,13 +382,16 @@ function tickTime(dt) {
   const prevNight = isNight();
   S.hour += dt * HOURS_PER_SEC;
   if (S.hour >= 24) { S.hour -= 24; newDay(); }
-  if (prevNight !== isNight() && started) toast(isNight() ? "Malam tiba 🌙 Ikan malam mulai keluar" : "Pagi tiba ☀️");
+  if (prevNight !== isNight() && started) clockNote(isNight() ? "🌙 Malam, ikan malam keluar" : "☀️ Pagi tiba");
   refreshClock();
   saveT += dt; if (saveT > 5) { saveT = 0; save(); }
 }
+// catatan waktu kecil di bawah jam (tidak menutupi karakter)
+let noteT = 0;
+function clockNote(msg) { const n = $("timeNote"); if (!n) return; n.textContent = msg; n.classList.add("show"); clearTimeout(noteT); noteT = setTimeout(() => n.classList.remove("show"), 3500); }
 function newDay() {
   S.day++; S.talked = {};
-  toast(`Hari ${S.day} — harga pasar & misi baru! 📈`);
+  clockNote(`📈 Hari ${S.day}: harga pasar berubah`);
   emit("day", S.day); save(); refreshHUD();
 }
 // tidur di Rumahku: lewati malam sampai jam 06:00
@@ -1076,7 +1100,7 @@ $("panelBody").addEventListener("click", (e) => {
   const el = e.target.closest("[data-act]"); if (!el) return;
   const act = el.dataset.act, arg = el.dataset.arg;
   if (act === "sellAll") sellAll();
-  if (act === "sell") sellOne(+arg);
+  if (act === "sell") sellOne(arg);
   if (act === "buy") buy(arg);
   if (act === "tab") { dexTab = arg; SFX.click(); renderPanel(); }
   if (act === "go") travel(+arg);
@@ -1103,7 +1127,7 @@ function marketHTML() {
       ${f.emoji ? `<div class="emo">${f.emoji}</div>` : `<img src="${fishImg(f.id)}" alt="">`}
       <div class="grow"><div class="nm">${f.name}</div><div class="sub">${fmtW(it.w)} · ${RARITY[f.rarity].label} ${trendHTML(f.id)}</div></div>
       <div class="price">🪙 ${fmt(priceOf(it))}</div>
-      <button class="btn small" data-act="sell" data-arg="${i}">Jual</button></div>`;
+      <button class="btn small" data-act="sell" data-arg="${it.uid}">Jual</button></div>`;
   });
   return h + `</div>`;
 }
@@ -1113,8 +1137,8 @@ function sellAll() {
   S.money += total; S.stats.earned += total; S.cooler = []; emit("sell", total);
   SFX.coin(); toast(`Terjual! +🪙 ${fmt(total)}`, "good"); save(); refreshHUD(); renderPanel();
 }
-function sellOne(i) {
-  const it = S.cooler[i]; if (!it) return;
+function sellOne(uid) {
+  const i = S.cooler.findIndex((x) => x.uid === uid), it = S.cooler[i]; if (!it) return; // hanya ikan di coolbox yang bisa dijual
   const p = priceOf(it); S.money += p; S.stats.earned += p; S.cooler.splice(i, 1); emit("sell", p);
   SFX.coin(); save(); refreshHUD(); renderPanel();
 }
@@ -1236,7 +1260,7 @@ function loop(now) {
 window.Nusa = {
   get S() { return S; },
   mode: () => MODE, isStarted: () => started,
-  isPanelOpen: () => !$("panelWrap").classList.contains("hidden") || !$("catchWrap").classList.contains("hidden") || !$("shareWrap").classList.contains("hidden"),
+  isPanelOpen: () => !$("panelWrap").classList.contains("hidden") || !$("catchWrap").classList.contains("hidden") || !$("shareWrap").classList.contains("hidden") || !!($("aqWrap") && !$("aqWrap").classList.contains("hidden")),
   openPanel, enterFishing, goWorld, tickTime, darkness, goldenHour, isNight, marketTip, setHint, save, toast,
   coolerFull: () => S.cooler.length >= coolerCap(),
   sfx: (n) => { initAudio(); if (SFX[n]) SFX[n](); },
@@ -1247,6 +1271,8 @@ window.Nusa = {
 load();
 S.loc = 0; // permainan selalu dimulai dari Muara Kampung
 NW.life.hook(); NW.home.hook(); // Tahap 2A: misi harian & Rumahku
+if (loadNote) setTimeout(() => toast(loadNote), 1200);
+save(); // simpan hasil migrasi (data lama sudah dicadangkan)
 resize(); buildScenery(); initAmbient(); refreshHUD(); applyMode();
 NW.world.resize(W, H, DPR); NW.world.onEnter("start"); updateHint();
 document.addEventListener("visibilitychange", () => { if (document.hidden) save(); });
