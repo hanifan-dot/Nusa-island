@@ -14,7 +14,10 @@ pip install playwright && python -m playwright install chromium
 python tests/browser/test_rumah_akuarium.py   # penyempurnaan 2A: rumah 10 level, tata ruang, akuarium, misi, NPC, simpanan lama
 python tests/browser/test_tahap2a.py          # regresi Tahap 2A: misi, NPC, Rumahku, tidur, kartu tangkapan
 python tests/browser/test_tahap1.py           # regresi Tahap 1: berjalan, collision, pasar, toko, mancing, kapal, joystick
+python tests/browser/test_bumbu1.py           # Bumbu 1: cerita 4 bab, 3 keahlian, dialog NPC, sudut dermaga, petunjuk, migrasi v3→v4
 ```
-Catatan: cek pertama di `test_tahap1.py` ("save lama") memuat ulang halaman setelah
-menulis simpanan, sehingga game menimpanya saat `pagehide`. Itu batasan skrip uji;
-pemuatan simpanan lama diuji dengan benar di `test_rumah_akuarium.py` (A1–A3).
+Simpanan lama ditanam lewat `add_init_script` sebelum game dimuat. Kalau ditulis lalu
+`reload()`, game akan menimpanya dengan state yang sedang berjalan saat `pagehide`.
+
+Semua uji berjalan di Chromium headless di server, termasuk "HP-emulasi" (viewport
+kecil, DPR 2, sentuh). Angka FPS di sana **bukan** bukti performa di HP Android asli.
