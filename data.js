@@ -1,0 +1,127 @@
+// =========================================================
+//  NUSA ISLAND — data lokasi, ikan, dan upgrade
+// =========================================================
+
+const RARITY = {
+  sampah:  { label: "Sampah",  color: "#8a8f8c", weight: 8,  glow: "rgba(138,143,140,0)" },
+  biasa:   { label: "Biasa",   color: "#7fb59f", weight: 60, glow: "rgba(127,181,159,.35)" },
+  langka:  { label: "Langka",  color: "#4aa3df", weight: 24, glow: "rgba(74,163,223,.55)" },
+  epik:    { label: "Epik",    color: "#b56ce8", weight: 9,  glow: "rgba(181,108,232,.65)" },
+  legenda: { label: "Legenda", color: "#f0b53a", weight: 2.2, glow: "rgba(240,181,58,.85)" },
+};
+const RARITY_ORDER = ["sampah", "biasa", "langka", "epik", "legenda"];
+
+// Lokasi: dibuka dengan level kapal
+const LOCATIONS = [
+  {
+    id: "muara", name: "Muara Kampung", short: "Muara", boat: 1,
+    desc: "Sungai cokelat tenang di tepi kampung. Tempat semua pemancing memulai.",
+    sky: ["#9fd3e6", "#f6e7c1"], water: ["#7d8f6a", "#4f5f3f"], fog: "#c9d6b5",
+    shore: "palm", shoreColor: "#3f6b45",
+  },
+  {
+    id: "toba", name: "Danau Toba", short: "Toba", boat: 2,
+    desc: "Danau vulkanik raksasa yang dalam dan dingin, dikelilingi bukit.",
+    sky: ["#8ec5e0", "#e6eef0"], water: ["#3e7d8c", "#1d4a5a"], fog: "#b7cfd6",
+    shore: "hills", shoreColor: "#4f7a63",
+  },
+  {
+    id: "selat", name: "Selat Sunda", short: "Selat", boat: 3,
+    desc: "Arus kuat di antara dua pulau. Ikan predator suka berburu di sini.",
+    sky: ["#79b8de", "#f3dcc0"], water: ["#2f7fa3", "#174c6a"], fog: "#a9c8d8",
+    shore: "volcano", shoreColor: "#55645c",
+  },
+  {
+    id: "ampat", name: "Raja Ampat", short: "R. Ampat", boat: 4,
+    desc: "Laut biru jernih dengan pulau karst. Surga terumbu karang.",
+    sky: ["#62b9e8", "#d9f3f2"], water: ["#1fa3b0", "#0d5f7a"], fog: "#9fdbe0",
+    shore: "karst", shoreColor: "#3e7d5a",
+  },
+  {
+    id: "banda", name: "Laut Banda", short: "Banda", boat: 5,
+    desc: "Laut dalam, jauh dari daratan. Raksasa samudra bersembunyi di bawah.",
+    sky: ["#4f8fd0", "#e9e3d2"], water: ["#1a5c9c", "#0a2a55"], fog: "#90b3d6",
+    shore: "far", shoreColor: "#4c6a7a",
+  },
+];
+
+// power: 1 (jinak) .. 10 (monster). price = Rp per kg (koin)
+// night: true = hanya malam, false = hanya siang, undefined = kapan saja
+// shape: [panjang, tinggi] relatif; fin: "pointed"|"round"|"sail"|"long"
+const FISH = [
+  // ---------- Sampah (semua lokasi) ----------
+  { id: "sandal", name: "Sandal Jepit", loc: "*", rarity: "sampah", wMin: .1, wMax: .3, price: 5, power: 1, emoji: "🩴", desc: "Sebelah doang. Pasangannya entah di mana." },
+  { id: "kaleng", name: "Kaleng Sarden", loc: "*", rarity: "sampah", wMin: .1, wMax: .2, price: 4, power: 1, emoji: "🥫", desc: "Kosong. Ikan sardennya sudah lebih dulu kabur." },
+  { id: "sepatu", name: "Sepatu Bot", loc: "*", rarity: "sampah", wMin: .5, wMax: 1.2, price: 6, power: 2, emoji: "🥾", desc: "Berat, basah, dan ada kepitingnya." },
+
+  // ---------- Muara Kampung ----------
+  { id: "nila", name: "Nila", loc: "muara", rarity: "biasa", wMin: .2, wMax: 1.2, price: 18, power: 1, color: "#8c9a8a", belly: "#d9d6c4", shape: [1, .45], fin: "round", desc: "Ikan sejuta umat. Enak digoreng atau dibakar." },
+  { id: "mujair", name: "Mujair", loc: "muara", rarity: "biasa", wMin: .2, wMax: .9, price: 15, power: 1, color: "#6d7362", belly: "#c4c2a8", shape: [1, .5], fin: "round", desc: "Saudara dekat nila yang lebih gelap." },
+  { id: "lele", name: "Lele", loc: "muara", rarity: "biasa", wMin: .3, wMax: 2.5, price: 20, power: 2, color: "#4b4a42", belly: "#a39d86", shape: [1.4, .3], fin: "long", whisker: true, night: true, desc: "Aktif di malam hari. Kumisnya jadi radar." },
+  { id: "patin", name: "Patin", loc: "muara", rarity: "langka", wMin: 1, wMax: 8, price: 30, power: 4, color: "#9aa3a8", belly: "#e6e8e3", shape: [1.35, .38], fin: "pointed", whisker: true, desc: "Ikan sungai besar yang licin dan kuat." },
+  { id: "gabus", name: "Gabus", loc: "muara", rarity: "langka", wMin: .5, wMax: 4, price: 38, power: 4, color: "#3f4a3a", belly: "#b8b59a", shape: [1.45, .32], fin: "long", spots: "#2a3127", desc: "Predator rawa. Bisa bertahan di lumpur." },
+  { id: "toman", name: "Toman", loc: "muara", rarity: "epik", wMin: 3, wMax: 15, price: 55, power: 6, color: "#2f3b34", belly: "#d07a3a", shape: [1.5, .34], fin: "long", spots: "#1b221d", desc: "Raja gabus yang galak. Jangan dekat-dekat sarangnya." },
+  { id: "arwana", name: "Arwana Super Red", loc: "muara", rarity: "legenda", wMin: 1, wMax: 4, price: 900, power: 7, color: "#d8452f", belly: "#f4b28a", shape: [1.45, .36], fin: "long", scales: true, night: true, desc: "Ikan naga pembawa hoki. Muncul hanya saat malam." },
+
+  // ---------- Danau Toba ----------
+  { id: "mas", name: "Ikan Mas", loc: "toba", rarity: "biasa", wMin: .4, wMax: 3, price: 22, power: 2, color: "#d79a2e", belly: "#f4dd9a", shape: [1, .5], fin: "round", scales: true, desc: "Kuning keemasan, primadona arsik Batak." },
+  { id: "pora", name: "Pora-pora", loc: "toba", rarity: "biasa", wMin: .05, wMax: .2, price: 30, power: 1, color: "#b8c4c2", belly: "#eef2ef", shape: [1.1, .38], fin: "pointed", desc: "Kecil tapi banyak. Enak dijadikan teri." },
+  { id: "nila_toba", name: "Nila Keramba", loc: "toba", rarity: "biasa", wMin: .3, wMax: 1.5, price: 18, power: 2, color: "#8d8796", belly: "#ddd6dc", shape: [1, .46], fin: "round", desc: "Kabur dari keramba, sekarang hidup bebas." },
+  { id: "jurung", name: "Ikan Jurung", loc: "toba", rarity: "langka", wMin: 1, wMax: 6, price: 45, power: 5, color: "#7a8b55", belly: "#dfe0b5", shape: [1.25, .4], fin: "pointed", scales: true, desc: "Ikan sungai berarus deras yang suka naik ke danau." },
+  { id: "batak", name: "Ikan Batak", loc: "toba", rarity: "epik", wMin: 2, wMax: 9, price: 120, power: 6, color: "#a87d3b", belly: "#efd6a0", shape: [1.3, .42], fin: "pointed", scales: true, desc: "Ikan upacara adat. Langka dan sangat dihormati." },
+  { id: "dewa", name: "Ikan Dewa", loc: "toba", rarity: "legenda", wMin: 5, wMax: 18, price: 400, power: 8, color: "#c9b35a", belly: "#fff3c4", shape: [1.3, .44], fin: "pointed", scales: true, night: false, desc: "Konon dijaga leluhur. Hanya muncul saat matahari tinggi." },
+
+  // ---------- Selat Sunda ----------
+  { id: "baronang", name: "Baronang", loc: "selat", rarity: "biasa", wMin: .3, wMax: 1.5, price: 28, power: 2, color: "#8f8a5a", belly: "#d8d3a4", shape: [1, .55], fin: "round", spots: "#6c6840", desc: "Hati-hati, siripnya beracun." },
+  { id: "kembung", name: "Kembung", loc: "selat", rarity: "biasa", wMin: .1, wMax: .5, price: 25, power: 1, color: "#4f7aa0", belly: "#dfe8ee", shape: [1.15, .36], fin: "pointed", stripes: "#2d5070", desc: "Ikan rakyat yang selalu ada di pasar." },
+  { id: "kakap", name: "Kakap Merah", loc: "selat", rarity: "langka", wMin: 1, wMax: 7, price: 55, power: 4, color: "#cc4b3f", belly: "#f3b3a3", shape: [1.15, .46], fin: "pointed", desc: "Merah merona, favorit restoran seafood." },
+  { id: "tenggiri", name: "Tenggiri", loc: "selat", rarity: "langka", wMin: 2, wMax: 12, price: 50, power: 5, color: "#5d7f9c", belly: "#e8eef2", shape: [1.6, .28], fin: "pointed", spots: "#3c5a73", desc: "Bahan pempek terbaik. Larinya kencang!" },
+  { id: "barakuda", name: "Barakuda", loc: "selat", rarity: "epik", wMin: 3, wMax: 20, price: 70, power: 7, color: "#7b8f99", belly: "#e1e7ea", shape: [1.75, .24], fin: "pointed", stripes: "#4f626b", desc: "Gigi tajam, serangan cepat seperti torpedo." },
+  { id: "kerapu_raksasa", name: "Kerapu Raksasa", loc: "selat", rarity: "legenda", wMin: 40, wMax: 150, price: 60, power: 9, color: "#5a5a3c", belly: "#b8b27d", shape: [1.2, .52], fin: "round", spots: "#3a3a24", night: true, desc: "Monster karang. Bisa menelan ikan lain bulat-bulat." },
+
+  // ---------- Raja Ampat ----------
+  { id: "badut", name: "Ikan Badut", loc: "ampat", rarity: "biasa", wMin: .05, wMax: .2, price: 60, power: 1, color: "#f07b2a", belly: "#f7a65e", shape: [1, .52], fin: "round", stripes: "#ffffff", desc: "Tinggal di anemon. Kayaknya pernah lihat di film..." },
+  { id: "kakatua", name: "Kakatua", loc: "ampat", rarity: "biasa", wMin: .5, wMax: 4, price: 32, power: 2, color: "#2fb39a", belly: "#9fe0c8", shape: [1.15, .48], fin: "round", scales: true, desc: "Gigi seperti paruh, suka gigit karang." },
+  { id: "sunu", name: "Kerapu Sunu", loc: "ampat", rarity: "langka", wMin: 1, wMax: 6, price: 90, power: 4, color: "#d6423f", belly: "#ef9a8b", shape: [1.2, .44], fin: "round", spots: "#3c86c9", desc: "Merah berbintik biru. Harganya mahal di ekspor." },
+  { id: "gt", name: "Kuwe GT", loc: "ampat", rarity: "epik", wMin: 10, wMax: 50, price: 50, power: 8, color: "#5b6670", belly: "#c7ced3", shape: [1.15, .56], fin: "pointed", desc: "Giant Trevally. Pemancing dunia datang demi ikan ini." },
+  { id: "napoleon", name: "Napoleon", loc: "ampat", rarity: "legenda", wMin: 20, wMax: 120, price: 70, power: 9, color: "#3b8f8a", belly: "#86c9b5", shape: [1.25, .55], fin: "round", hump: true, protected: true, desc: "Ikan berjidat besar. Dilindungi, jadi dilepas lagi dan kamu dapat hadiah konservasi." },
+
+  // ---------- Laut Banda ----------
+  { id: "terbang", name: "Ikan Terbang", loc: "banda", rarity: "biasa", wMin: .2, wMax: .6, price: 40, power: 2, color: "#3f6fa8", belly: "#dde8f2", shape: [1.3, .3], fin: "sail", desc: "Bisa melayang di atas ombak sejauh 50 meter." },
+  { id: "cakalang", name: "Cakalang", loc: "banda", rarity: "biasa", wMin: 1, wMax: 8, price: 35, power: 4, color: "#344e78", belly: "#e3e7ee", shape: [1.2, .42], fin: "pointed", stripes: "#2b3f5f", desc: "Bahan cakalang fufu khas Manado." },
+  { id: "tuna", name: "Tuna Sirip Kuning", loc: "banda", rarity: "langka", wMin: 15, wMax: 90, price: 45, power: 7, color: "#26406b", belly: "#dfe4ec", shape: [1.3, .46], fin: "pointed", finColor: "#f2c12e", desc: "Atlet samudra. Siap-siap tangan pegal." },
+  { id: "layaran", name: "Ikan Layaran", loc: "banda", rarity: "epik", wMin: 20, wMax: 70, price: 55, power: 8, color: "#2e4f86", belly: "#d4dcea", shape: [1.8, .3], fin: "sail", bill: true, desc: "Ikan tercepat di laut. Siripnya seperti layar kapal." },
+  { id: "marlin", name: "Marlin Biru", loc: "banda", rarity: "legenda", wMin: 80, wMax: 400, price: 40, power: 10, color: "#1f3f7a", belly: "#cfd9ea", shape: [1.9, .32], fin: "pointed", bill: true, desc: "Raja samudra. Butuh joran terbaik dan kesabaran." },
+  { id: "hiu_paus", name: "Hiu Paus Kecil", loc: "banda", rarity: "legenda", wMin: 300, wMax: 900, price: 15, power: 10, color: "#4a6078", belly: "#d6dde4", shape: [1.7, .4], fin: "pointed", spots: "#e8eef3", night: true, protected: true, desc: "Raksasa lembut yang dilindungi. Dilepas lagi, kamu dapat hadiah konservasi." },
+];
+
+// Upgrade: level 1 gratis. cost[i] = harga naik ke level i+1
+const UPGRADES = {
+  rod: {
+    name: "Joran", icon: "🎣",
+    levels: ["Joran Bambu", "Joran Fiber", "Joran Karbon", "Joran Pro Titanium", "Joran Legenda Nusa"],
+    cost: [0, 400, 1800, 6500, 22000],
+    info: ["Kuat 1×, tarik 1×", "Kuat 1.25×, tarik 1.2×", "Kuat 1.55×, tarik 1.4×", "Kuat 1.9×, tarik 1.65×", "Kuat 2.4×, tarik 1.95×"],
+    strength: [1, 1.25, 1.55, 1.9, 2.4], reel: [1, 1.2, 1.4, 1.65, 1.95],
+  },
+  bait: {
+    name: "Umpan", icon: "🪱",
+    levels: ["Cacing Tanah", "Udang Segar", "Umpan Racikan", "Umpan Lampu Malam", "Umpan Rahasia Datuk"],
+    cost: [0, 300, 1400, 5000, 16000],
+    info: ["Normal", "Gigit lebih cepat, sedikit lebih hoki", "Ikan langka +", "Ikan epik +", "Legenda jauh lebih sering"],
+    luck: [1, 1.25, 1.6, 2.1, 2.9], speed: [1, 1.2, 1.35, 1.5, 1.7],
+  },
+  cooler: {
+    name: "Coolbox", icon: "🧊",
+    levels: ["Ember Bekas", "Coolbox Kecil", "Coolbox Besar", "Palka Kapal", "Gudang Es"],
+    cost: [0, 250, 1100, 4200, 13000],
+    info: ["Muat 8 ikan", "Muat 15 ikan", "Muat 25 ikan", "Muat 40 ikan", "Muat 70 ikan"],
+    cap: [8, 15, 25, 40, 70],
+  },
+  boat: {
+    name: "Kapal", icon: "⛵",
+    levels: ["Sampan Kayu", "Perahu Motor", "Kapal Nelayan", "Speedboat", "Kapal Ekspedisi"],
+    cost: [0, 1200, 5000, 16000, 50000],
+    info: ["Buka: Muara Kampung", "Buka: Danau Toba", "Buka: Selat Sunda", "Buka: Raja Ampat", "Buka: Laut Banda"],
+  },
+};

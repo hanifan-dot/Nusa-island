@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#173f50">
+<meta name="description" content="Nusa Island — game mancing 2.5D keliling Nusantara. Tangkap ikan khas tiap pulau, jual di pasar, upgrade kapal, dan buru ikan legenda.">
+<title>Nusa Island — Mancing Nusantara</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- HUD atas -->
+<header class="hud">
+  <div class="hud-left">
+    <div class="chip money" title="Koin"><span>🪙</span><b id="money">0</b></div>
+    <div class="chip" id="coolerChip" title="Isi coolbox"><span>🧊</span><b id="cooler">0/8</b></div>
+  </div>
+  <div class="hud-right">
+    <div class="chip loc"><span id="locName">Muara Kampung</span></div>
+    <div class="chip time"><span id="clockIcon">☀️</span><b id="clock">06:00</b><small id="dayLabel">Hari 1</small></div>
+    <button class="chip icon-btn" id="muteBtn" aria-label="Suara">🔊</button>
+  </div>
+</header>
+
+<!-- Teks bantuan di tengah -->
+<div id="hint" class="hint">Tahan layar untuk mengayun, lepas untuk melempar</div>
+<div id="toast" class="toast"></div>
+
+<!-- Meter lempar & tarik -->
+<div id="powerMeter" class="meter power hidden">
+  <div class="meter-sweet"></div>
+  <div class="meter-fill" id="powerFill"></div>
+</div>
+
+<div id="fightUI" class="fight hidden">
+  <div class="fight-name" id="fightName">???</div>
+  <div class="bar-label">Tegangan senar</div>
+  <div class="bar tension" id="tensionBar"><div class="zone-danger"></div><div class="bar-fill" id="tensionFill"></div></div>
+  <div class="bar-label">Jarak ikan</div>
+  <div class="bar progress"><div class="bar-fill" id="progressFill"></div></div>
+  <div class="fight-tip" id="fightTip">Tahan = gulung · Lepas = kendurkan</div>
+</div>
+
+<!-- Navigasi bawah -->
+<nav class="nav">
+  <button data-panel="market"><span>🏪</span>Pasar</button>
+  <button data-panel="shop"><span>🛠️</span>Toko</button>
+  <button data-panel="dex"><span>📖</span>Koleksi</button>
+  <button data-panel="map"><span>🗺️</span>Peta</button>
+</nav>
+
+<!-- Panel -->
+<div id="panelWrap" class="panel-wrap hidden">
+  <section class="panel" role="dialog" aria-modal="true">
+    <header class="panel-head">
+      <h2 id="panelTitle">Pasar</h2>
+      <button class="close" id="panelClose" aria-label="Tutup">✕</button>
+    </header>
+    <div class="panel-body" id="panelBody"></div>
+  </section>
+</div>
+
+<!-- Kartu tangkapan -->
+<div id="catchWrap" class="catch-wrap hidden">
+  <div class="catch-card" id="catchCard">
+    <div class="catch-rarity" id="catchRarity">Langka</div>
+    <canvas id="catchArt" width="320" height="180"></canvas>
+    <h3 id="catchName">Ikan</h3>
+    <div class="catch-weight" id="catchWeight">0 kg</div>
+    <p id="catchDesc"></p>
+    <div class="catch-badges" id="catchBadges"></div>
+    <div class="catch-actions">
+      <button class="btn ghost" id="shareBtn">📸 Simpan Kartu</button>
+      <button class="btn" id="catchOk">Lanjut Mancing</button>
+    </div>
+  </div>
+</div>
+
+<!-- Layar awal -->
+<div id="splash" class="splash">
+  <div class="splash-inner">
+    <div class="logo">NUSA<br><span>ISLAND</span></div>
+    <p class="tag">Mancing keliling Nusantara 🎣</p>
+    <button class="btn big" id="startBtn">Mulai Mancing</button>
+    <p class="small">Dari kreator Kota Nusa</p>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
