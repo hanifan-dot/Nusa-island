@@ -90,10 +90,49 @@ Struktur kode dunia pulau ada di folder `world/`:
 - `world/house-draw.js`: gambar 10 rumah, halaman, interior, dan perabot.
 - `world/home.js`: halaman pribadi & interior, Mode Tata Ruang, renovasi, dan katalog.
 - `world/aquarium.js`: menu akuarium dengan drag-and-drop (Pointer Events).
-- `world/look.js`: joran di punggung, gelar tangkapan, label nama, dan nama pemain lokal.
+- `world/look.js`: 10 model joran (punggung, tangan, pratinjau katalog), gelar tangkapan, label nama, dan nama pemain lokal.
+- `world/inventory.js`: menu Inventaris (daftar virtual) dan Pasar Bu Sari (jual per kelangkaan dengan konfirmasi).
+- `world/hold.js`: pamer ikan (pose menurut berat, tombol berhenti, berhenti otomatis).
+- `fishmath.js`: berat ikan, harga, tekanan fight, dan kelelahan sebagai fungsi murni (bisa diuji dengan Node).
 - `world/story.js`: cerita 4 bab, keahlian nelayan, obrolan NPC yang diingat, sudut dermaga, dan petunjuk pemain baru.
 - `tests/`: uji logika (Node) dan uji browser (Playwright). Lihat `tests/README.md`.
 - `game.js`: sistem mancing lama, pasar, toko, koleksi, simpanan, event, dan perpindahan mode pulau ↔ mancing.
+
+## Bumbu 1.2 — Nelayan Sultan: inventaris, pasar, pamer ikan & 10 joran
+- **Coolbox sampai 200 ikan** (kapasitas = jumlah ikan, bukan kg; HUD menampilkan misalnya `18/40`). Tingkat 1–5 tidak berubah dari versi lama, jadi simpanan lama tetap valid.
+
+  | Tingkat | Nama | Muat | Harga |
+  |---|---|---|---|
+  | 1 | Ember Bekas | 8 | gratis |
+  | 2 | Coolbox Kecil | 15 | 250 |
+  | 3 | Coolbox Besar | 25 | 1.100 |
+  | 4 | Palka Kapal | 40 | 4.200 |
+  | 5 | Gudang Es | 70 | 13.000 |
+  | 6 | Palka Samudra | 100 | 19.000 |
+  | 7 | Gudang Pendingin | 125 | 27.000 |
+  | 8 | Pabrik Es Mini | 150 | 37.000 |
+  | 9 | Gudang Beku Kampung | 175 | 49.000 |
+  | 10 | Gudang Beku Raya | 200 | 65.000 |
+- **Menu Inventaris** (ketuk chip 🧊): daftar virtual (hanya ±18 baris yang ada di DOM walau isinya 200), urut Kelangkaan/Nama/Berat/Harga, pencarian, filter kelangkaan, dan 🔒. Gambar ikan di-cache satu per spesies. Ketuk ikan untuk kartu detail: gambar, nama, kelangkaan, berat asli, harga, kunci, dan **🐟 Pamerkan Ikan**. Ikan terkunci tidak ikut terjual massal dan tidak dipakai misi/cerita.
+- **Pasar Bu Sari**: jual cepat per kelangkaan (Biasa/Common, Langka/Uncommon, Epik/Epic, Legenda/Legendary, Sampah/Trash) dan "semua yang tidak dikunci". Selalu lewat konfirmasi (jumlah, perkiraan koin, daftar ringkas, Konfirmasi/Batal), memakai harga pasar harian. Koin dan statistik ditambah satu kali (klik ganda aman). Ikan akuarium tidak ikut terjual. Ada peringatan bila ikan yang dijual dibutuhkan misi harian atau cerita aktif. Jual satuan tetap seperti dulu.
+- **Pamer ikan** (`world/hold.js`): karakter memegang ikan pilihan di Muara Kampung. Hanya tampilan, ikan tetap di coolbox (tidak digandakan, tidak mengubah statistik, tidak disimpan ke save). Pose menurut berat: ≤2 kg didekap di dada, >2–10 dua tangan ke depan, >10–30 diangkat dengan badan menahan beban, >30–100 di atas dada/bahu, >100–250 pose kemenangan, >250–500 pose legenda (ikan di atas kepala, berjuang lucu), >500 pajangan khusus. Skala ikan logaritmik dan dibatasi supaya tidak memenuhi layar. Terbaca dari 8 arah, ada tangan/badan/ekspresi/keringat/kilau, label nama + berat, dan tombol **✋ Berhenti Memegang** di antara joystick dan tombol aksi. Berhenti otomatis bila ikan terjual, masuk akuarium, tidak lagi dimiliki, atau mulai memancing. Ikan sampah dan ikan dilindungi (Hiu Paus) tidak bisa dipamerkan.
+- **10 joran** (katalog di Toko Pak Bono dengan pratinjau, harga, kemampuan, deskripsi, dan penanda "Dipakai"). Kepemilikan lama (level 1–5) tidak berubah; pembelian tetap berurutan dan dijaga dari potong koin ganda.
+
+  | # | Joran | Harga | Ikan nyaman hingga | Kuat | Tarik |
+  |---|---|---|---|---|---|
+  | 1 | Joran Bambu Kampung | gratis | 8 kg | 1× | 1× |
+  | 2 | Joran Fiber Muara | 400 | 18 kg | 1,25× | 1,2× |
+  | 3 | Joran Karbon Sungai | 1.800 | 40 kg | 1,55× | 1,4× |
+  | 4 | Joran Titanium Pesisir | 6.500 | 80 kg | 1,9× | 1,65× |
+  | 5 | Joran Legenda Nusa | 22.000 | 150 kg | 2,4× | 1,95× |
+  | 6 | Joran Baja Samudra | 32.000 | 200 kg | 2,75× | 2,2× |
+  | 7 | Joran Arus Dalam | 46.000 | 260 kg | 3,1× | 2,45× |
+  | 8 | Joran Titan Nelayan | 62.000 | 330 kg | 3,45× | 2,7× |
+  | 9 | Joran Raja Laut | 80.000 | 420 kg | 3,8× | 2,95× |
+  | 10 | Joran Penakluk Samudra | 110.000 | 500 kg | 4,2× | 3,2× |
+- **Ikan raksasa**: spesies yang sudah ada punya ekor ekstrem sangat langka (marlin sampai 500 kg dengan peluang ±1,4% per marlin, kerapu raksasa 260, tuna 200, napoleon 190, GT 80, layaran 110); ikan kecil tetap paling sering dan peluang legenda tidak naik. Berat >100 kg dihargai dengan kompresi (eksponen 0,7): marlin 500 kg ±29 ribu koin pada harga pasar tertinggi (rumus lama: 87 ribu), jadi tidak membeli semua upgrade otomatis.
+- **Perlawanan menurut ukuran** (`fishmath.js`, fungsi murni): makin berat ikan, makin kuat dan sering menyentak, makin lama sentakannya, dan gulungan saat sentakan malah menyeret (harus membaca aba-aba). Ikan ≤20 kg tidak terpengaruh ukuran (Pak Darto tetap bisa diselesaikan). Ikan lelah seiring waktu agar fight tidak berlarut. Joran di luar toleransi 2× kapasitas memberi peringatan dan risiko senar putus; senar putus hanya kehilangan ikan, tanpa kerusakan permanen. Joran terbaik menaikkan peluang tetapi tidak menjamin raksasa. Penyetelan dilakukan dengan `tests/browser/balance_sim.py`.
+- Simpanan versi 6 (`nusa-island-v1` tetap). Cadangan otomatis: `nusa-island-v1-backup-v5` (dan v4 untuk simpanan yang lebih lama). Tingkat joran/coolbox lama tidak pernah diturunkan.
 
 ## Cara mancing
 1. **Tahan layar** untuk mengayun joran, **lepas** untuk melempar. Lepas di zona atas meteran untuk *Lemparan Sempurna* (lebih hoki). Ketuk sisi kiri atau kanan layar untuk mengarahkan lemparan.

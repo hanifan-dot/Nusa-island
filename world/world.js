@@ -111,7 +111,7 @@ function resize(w, h, dpr) {
 function camTarget() {
   if (inHome()) { const ct = NW.home.camTarget(player, W, H, ZW); Z = ct.z; return ct; }
   Z = ZW;
-  const p = NW.P(player.x, player.y, NW.LIFT); return { x: p.x, y: p.y - 22 };
+  const p = NW.P(player.x, player.y, NW.LIFT); return { x: p.x, y: p.y - 22 - (NW.hold ? NW.hold.camLift() : 0) };
 }
 function snapCamera() { const t = camTarget(); cam.x = t.x; cam.y = t.y; }
 
@@ -303,7 +303,7 @@ function interact() {
 
 // ---------- Masuk mode mancing ----------
 let fadeStarted = false;
-function startFishing() { busy = true; busyT = 0; onUp(); keys.clear(); player.dir = 0; N().sfx("click"); }
+function startFishing() { if (NW.hold) NW.hold.stop("fishing"); busy = true; busyT = 0; onUp(); keys.clear(); player.dir = 0; N().sfx("click"); }
 function updateBusy(dt) {
   busyT += dt;
   player.rod = clamp(busyT / 0.55, 0, 1);
@@ -423,6 +423,7 @@ function updateNPC(n, dt) {
 let saveT = 0;
 function update(dt) {
   N().tickTime(dt);
+  if (NW.hold) { NW.hold.validate(); player.hold = NW.hold.frame(); } // ikan terjual / pindah ke akuarium → berhenti; pose hanya tampilan
   if (busy) updateBusy(dt);
   const v = blocked() ? { x: 0, y: 0, m: 0 } : inputVec();
   if (v.m > 0.05) {
@@ -508,7 +509,8 @@ function draw(ctx, t) {
       NW.drawCharacter(ctx, it.ch, t);
       if (it.ch === player) { // label nama + gelar: ikut urutan kedalaman, jadi tertutup bangunan di depannya
         const pb = NW.P(player.x, player.y, NW.LIFT + (NW.tileAt(player.x, player.y) === NW.T.DOCK ? 4 : 0));
-        NW.look.drawPlayerLabel(ctx, pb, 1.0 / Z);
+        NW.look.drawPlayerLabel(ctx, pb, 1.0 / Z, NW.hold ? NW.hold.labelLift() : 0);
+        if (NW.hold) NW.hold.drawTag(ctx, pb, 1.0 / Z);
       }
     }
     else if (it.b) { if (it.b.kind === "shop") NW.drawShop(ctx, it.b, t, night); else NW.drawHouse(ctx, it.b, t, night); }

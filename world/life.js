@@ -136,8 +136,11 @@ function deliverOption(npcId) {
   const S = N().S;
   const m = ensure().find((x) => x.type === "deliver" && x.npc === npcId && !x.done);
   if (!m) return null;
-  const idx = S.cooler.findIndex((it) => it.id === m.fish);
-  if (idx < 0) return { missing: true, text: `Aku lagi butuh ${fishName(m.fish)}. Kalau dapat, bawa ke sini ya!` };
+  const idx = S.cooler.findIndex((it) => it.id === m.fish && !it.lock); // ikan terkunci tidak pernah ikut terambil
+  if (idx < 0) {
+    const locked = S.cooler.some((it) => it.id === m.fish && it.lock);
+    return { missing: true, text: locked ? `Aku butuh ${fishName(m.fish)}. Ikanmu masih terkunci 🔒, buka kuncinya di Inventaris kalau mau memberikannya.` : `Aku lagi butuh ${fishName(m.fish)}. Kalau dapat, bawa ke sini ya!` };
+  }
   return {
     label: `🎁 Berikan ${fishName(m.fish)}`,
     act: () => {
@@ -145,6 +148,11 @@ function deliverOption(npcId) {
       advance((x) => x === m); N().refreshHUD();
     },
   };
+}
+
+// ikan yang sedang dibutuhkan misi aktif (dipakai pasar untuk memperingatkan sebelum menjual)
+function fishNeeds() {
+  return ensure().filter((m) => m.type === "deliver" && !m.done).map((m) => ({ ids: [m.fish], n: 1, why: `Misi harian: antar ${fishName(m.fish)} ke ${NPC_NAMES[m.npc]}` }));
 }
 
 // ---------- Panel ----------
@@ -183,5 +191,5 @@ function refreshBadge() {
   const n = claimable(); b.textContent = n; b.classList.toggle("hidden", !n);
 }
 
-NW.life = { periodId, msToReset, hook, talked, deliverOption, hearts, addFriend, claimable, refreshBadge, repLevel, ensure, NPC_NAMES };
+NW.life = { fishNeeds, periodId, msToReset, hook, talked, deliverOption, hearts, addFriend, claimable, refreshBadge, repLevel, ensure, NPC_NAMES };
 })();

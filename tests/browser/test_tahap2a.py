@@ -65,7 +65,7 @@ with sync_playwright() as p:
     # jual sungguhan lewat pasar
     ev(pg, "window.__nusa.S.cooler.push({id:'patin',w:3})")
     pt = ev(pg, "NW.points.find(p=>p.id=='pasar')"); tp(pg, pt["x"], pt["y"] + 0.2); act(pg); finish_dialog(pg)
-    pg.click("#dlgOpts .btn.gold"); time.sleep(0.4); pg.click("[data-act=sellAll]"); time.sleep(0.3); pg.click("#panelClose")
+    pg.click("#dlgOpts .btn.gold"); time.sleep(0.4); pg.click("[data-act=sellAll]"); time.sleep(0.2); pg.click("[data-act=confirmSell]"); time.sleep(0.3); pg.click("#panelClose")
     ok("misi jual selesai setelah menjual di pasar", ev(pg, "window.__nusa.S.missions.list[2].done"))
     ok("badge 📋 menunjukkan 3 hadiah", pg.inner_text("#misiBadge") == "3" and pg.is_visible("#misiBadge"))
     money0, rep0 = ev(pg, "window.__nusa.S.money"), ev(pg, "window.__nusa.S.rep")
@@ -83,7 +83,7 @@ with sync_playwright() as p:
     if has_opt: pg.locator("#dlgOpts .btn.gold").first.click(); time.sleep(0.5)
     close_dialog(pg)
     ok("antar ikan: sandal keluar dari coolbox & misi selesai", ev(pg, "!window.__nusa.S.cooler.some(i=>i.id=='sandal') && window.__nusa.S.missions.list[3].done"))
-    ok("antar ikan menaikkan pertemanan Dika", ev(pg, "window.__nusa.S.friends.dika") >= 1)
+    ok("antar ikan menaikkan pertemanan Dika", (ev(pg, "window.__nusa.S.friends.dika") or 0) >= 1)  # None bila Dika sempat berpindah saat beban tinggi → FAIL, bukan crash
 
     # ---------- jadwal NPC ----------
     sched = {}

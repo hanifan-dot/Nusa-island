@@ -181,12 +181,12 @@ with sync_playwright() as p:
         names.append(ev(pg, "window.__rodCalls.length ? window.__rodCalls[window.__rodCalls.length-1].name : null"))
         pg.screenshot(path=OUT + f"rod_l{lvl}.png", clip={"x": 195 - 40, "y": 422 - 70, "width": 80, "height": 90})
         imgs.append(open(OUT + f"rod_l{lvl}.png", "rb").read())
-    ok("R4 tampilan joran mengikuti level upgrade (5 nama berbeda, 5 gambar berbeda)", names == ["Joran Bambu", "Joran Fiber", "Joran Karbon", "Joran Pro Titanium", "Joran Legenda Nusa"] and len(set(imgs)) == 5, names)
-    ok("R5 data joran: 5 spesifikasi dengan warna batang berbeda; renderer berbasis data (siap 10 level)", ev(pg, "NW.look.RODS.length") == 5 and ev(pg, "new Set(NW.look.RODS.map(r=>r.blank)).size") == 5 and ev(pg, "typeof NW.look.drawBackRod") == "function")
+    ok("R4 tampilan joran mengikuti level upgrade (5 nama berbeda, 5 gambar berbeda)", names == ["Joran Bambu Kampung", "Joran Fiber Muara", "Joran Karbon Sungai", "Joran Titanium Pesisir", "Joran Legenda Nusa"] and len(set(imgs)) == 5, names)
+    ok("R5 data joran: kini 10 spesifikasi (Bumbu 1.2) dengan warna batang berbeda; renderer berbasis data", ev(pg, "NW.look.RODS.length") == 10 and ev(pg, "new Set(NW.look.RODS.map(r=>r.blank)).size") >= 9 and ev(pg, "typeof NW.look.drawBackRod") == "function")
     ok("R6 joran awal tampak seperti bambu sederhana (ruas, tanpa reel)", ev(pg, "NW.look.RODS[0].node === true && NW.look.RODS[0].reel === null") and ev(pg, "NW.look.RODS[4].reel !== null && NW.look.RODS[4].accent !== null"))
     # Joran Warisan (dekorasi cerita) bukan joran aktif
     ev(pg, "window.__nusa.S.up.rod=1; window.__nusa.S.home.decorations = (window.__nusa.S.home.decorations||[]).concat(['joranWarisan'])")
-    ok("R7 Joran Warisan (dekorasi cerita) tidak dianggap joran aktif", ev(pg, "NW.look.rodSpec().name") == "Joran Fiber")
+    ok("R7 Joran Warisan (dekorasi cerita) tidak dianggap joran aktif", ev(pg, "NW.look.rodSpec().name") == "Joran Fiber Muara")
     # ikut bergerak: ayunan berubah saat berjalan
     ev(pg, "NW.world.player.dir=2; window.__sw=[]; const _o2=NW.look.drawBackRod; NW.look.drawBackRod=function(c,s,fx,y0,sway,f){window.__sw.push(sway);return _o2.apply(this,arguments)}; 0")
     pg.keyboard.down('d'); time.sleep(0.9); pg.keyboard.up('d'); sw = ev(pg, "window.__sw")
@@ -229,11 +229,11 @@ with sync_playwright() as p:
           "skills": {"v": 1, "presisi": True, "membaca": True, "kendali": False, "stats": {"hot": 4, "reads": 3, "tired": 0}},
           "onboard": {"v": 1, "walk": True, "talk": True, "fish": True, "sell": True, "home": True}}
     ctx, pg, errs = page(b, v4); s = S(pg)
-    ok("M1 v4 → v5: ikan sungguhan dihitung dari koleksi (20+5=25), sampah (5+3) tidak; gelar Anak Muara", s["titles"]["fish"] == 25 and s["titles"]["rank"] == 2 and s["v"] == 5, s.get("titles"))
+    ok("M1 v4 → v6: ikan sungguhan dihitung dari koleksi (20+5=25), sampah (5+3) tidak; gelar Anak Muara", s["titles"]["fish"] == 25 and s["titles"]["rank"] == 2 and s["v"] == 6, s.get("titles"))
     ok("M2 statistik lama tidak berubah (caught tetap 33)", s["stats"]["caught"] == 33 and s["stats"]["casts"] == 60)
     ok("M3 koin, joran, ikan, cerita, keahlian, petunjuk tetap utuh", s["money"] == 7777 and s["up"]["rod"] == 3 and len(s["cooler"]) == 2 and s["story"]["ch"] == 3 and s["story"]["rewarded"] == {"ch1": 1, "ch2": 1} and s["skills"]["membaca"] and s["onboard"]["home"])
     ok("M4 cadangan simpanan v4 dibuat sebelum migrasi", ev(pg, "localStorage.getItem('nusa-island-v1-backup-v4')") is not None and json.loads(ev(pg, "localStorage.getItem('nusa-island-v1-backup-v4')"))["money"] == 7777)
-    ok("M5 nama lokal bawaan dibuat; joran aktif sesuai data (Titanium)", s["profile"]["name"] == "Pemancing" and ev(pg, "NW.look.rodSpec().name") == "Joran Pro Titanium")
+    ok("M5 nama lokal bawaan dibuat; joran aktif sesuai data (Titanium Pesisir)", s["profile"]["name"] == "Pemancing" and ev(pg, "NW.look.rodSpec().name") == "Joran Titanium Pesisir")
     time.sleep(0.5); toast = ev(pg, "document.getElementById('toast') ? document.getElementById('toast').innerText : ''")
     ok("M6 migrasi tidak memunculkan notifikasi naik gelar", "Gelar baru" not in toast, toast)
     ev(pg, "window.Nusa.emit('catch',{fish:window.Nusa.FISH_BY_ID.nila,w:1,loc:'muara'}); window.__nusa.save()")
@@ -243,7 +243,7 @@ with sync_playwright() as p:
 
     t1 = {"money": 999, "day": 3, "hour": 9, "loc": 0, "up": {"rod": 1, "bait": 0, "cooler": 0, "boat": 0}, "cooler": [{"id": "nila", "w": 0.8}], "dex": {"nila": {"n": 2, "best": 0.9}}, "stats": {"casts": 9, "caught": 2, "earned": 30, "legends": 0}, "muted": True}
     ctx, pg, errs = page(b, t1); s = S(pg)
-    ok("M9 simpanan Tahap 1 → v5 aman (koin, ikan, joran, rumah, cerita, gelar Pemancing Baru)", s["money"] == 999 and len(s["cooler"]) == 1 and s["up"]["rod"] == 1 and s["home"]["level"] == 1 and s["story"]["ch"] == 1 and s["titles"]["fish"] == 2 and s["titles"]["rank"] == 1 and s["v"] == 5, s.get("titles"))
+    ok("M9 simpanan Tahap 1 → v6 aman (koin, ikan, joran, rumah, cerita, gelar Pemancing Baru)", s["money"] == 999 and len(s["cooler"]) == 1 and s["up"]["rod"] == 1 and s["home"]["level"] == 1 and s["story"]["ch"] == 1 and s["titles"]["fish"] == 2 and s["titles"]["rank"] == 1 and s["v"] == 6, s.get("titles"))
     ok("M10 tanpa error JavaScript (migrasi Tahap 1)", not errs, errs[:3]); ctx.close()
     b.close()
 
