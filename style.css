@@ -320,3 +320,43 @@ body.mode-fish .nav { justify-content: flex-start; }
   body.mode-world .hint { font-size: 12.5px; padding: 7px 13px; }
 }
 @media (max-width: 700px) { .banner { top: 24%; font-size: 23px; } }
+
+/* =========================================================
+   Tahap 2A — misi, rumah, perbaikan visual
+   ========================================================= */
+.icon-btn.misi { position: relative; }
+.badge {
+  position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
+  background: var(--danger); color: #fff; font: 800 11px/17px var(--font); text-align: center;
+  box-shadow: 0 0 0 2px var(--cream); animation: pulse 1.2s infinite;
+}
+.rep-card { display: flex; gap: 12px; align-items: center; background: var(--ink); color: var(--cream); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }
+.rep-card .muted { color: var(--mint); opacity: .9; }
+.rep-card .progress-line { background: rgba(255, 255, 255, .15); margin: 6px 0 0; }
+.rep-star { font: 800 22px var(--display); color: var(--gold); white-space: nowrap; }
+.mission { display: flex; gap: 10px; align-items: center; background: #fff; border-radius: 12px; padding: 10px 12px; border-left: 4px solid #d9d2bd; }
+.mission.done { border-left-color: var(--gold); background: #fffaf0; }
+.mission.claimed { opacity: .6; border-left-color: var(--teal); }
+.m-ic { font-size: 24px; width: 34px; text-align: center; flex: none; }
+.mission .nm { font-weight: 700; font-size: 14px; }
+.mission .sub { font-size: 12px; opacity: .7; margin-top: 3px; }
+.bar-mini { height: 6px; background: #e6e0cc; border-radius: 4px; overflow: hidden; margin-top: 5px; }
+.bar-mini div { height: 100%; background: linear-gradient(90deg, var(--teal), var(--gold)); }
+.sub-h { font: 700 15px var(--display); margin: 16px 0 8px; }
+.row.friend { border-left-color: #f1a0a8; }
+.hearts { font-size: 13px; letter-spacing: 1px; white-space: nowrap; }
+.share-wrap { position: fixed; inset: 0; z-index: 13; background: rgba(10, 30, 40, .78); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.share-card { width: min(360px, 100%); background: var(--cream); border-radius: 18px; padding: 14px; text-align: center; box-shadow: var(--shadow); }
+.share-card img { width: 100%; border-radius: 10px; display: block; -webkit-touch-callout: default; user-select: auto; -webkit-user-select: auto; pointer-events: auto; }
+.share-card p { font-size: 13px; margin: 10px 0; }
+
+/* HUD HP satu baris: lokasi disembunyikan di pulau (sudah ada judul lokasi) */
+@media (max-width: 480px) {
+  .hud { flex-wrap: nowrap; padding-left: 10px; padding-right: 10px; }
+  .hud-left, .hud-right { flex-wrap: nowrap; gap: 4px; }
+  .chip { padding: 5px 8px; font-size: 12.5px; gap: 3px; }
+  .icon-btn { padding: 5px 7px; }
+  body.mode-world .chip.loc { display: none; }
+  body.mode-fish .chip.time small { display: none; }
+  body.mode-fish .chip.loc { max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
+}

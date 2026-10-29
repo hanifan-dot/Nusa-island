@@ -12,11 +12,20 @@ Pemain sekarang mulai di pulau **Muara Kampung** yang bisa dijelajahi dalam tamp
 - **NPC**: Pak Darto (nelayan yang bolak-balik ke dermaga), Bu Sari (pedagang di pasar), Dika (anak yang jalan-jalan di kampung). Ajak bicara untuk tips.
 - Siang, sore, dan malam dengan lampu jalan dan jendela yang menyala.
 
+## Tahap 2A — Rumahku, misi harian, aktivitas NPC
+- **Rumahku** (rumah panggung di barat laut, ada kotak surat merah): masuk lewat pintu. Isinya kasur untuk **tidur sampai pagi** (mulai 18:00) atau tidur siang (11:00–17:00), **akuarium** yang otomatis memajang ikan terlangka dari koleksimu, dan **katalog perabot** di meja: karpet tenun, tanaman, lampu gantung, lukisan senja, radio (musik santai), rak trofi, kucing Si Belang, dan akuarium besar. Beberapa perabot butuh ⭐ reputasi.
+- **Misi harian**: 3 misi baru setiap hari, dilihat di papan misi dekat jalan utama atau tombol 📋 di atas. Jenisnya antara lain tangkap ikan, tangkap jenis tertentu, jual, lemparan sempurna, antar ikan ke warga, ngobrol, mancing malam, dan bersihkan sampah. Hadiahnya koin dan ⭐ reputasi (Pendatang → Legenda Muara).
+- **Aktivitas NPC mengikuti jam**: Pak Darto mancing pagi, istirahat di taman, memperbaiki jaring sore, lalu tidur. Bu Sari berjualan 06–17, menyapu halaman, lalu pulang. Dika mengejar kupu-kupu, main layangan di pantai, dan mengambil air di sumur. Malam hari mereka tidur di rumah masing-masing.
+- **Pertemanan** ❤️ naik saat ngobrol (sekali sehari) dan saat mengantar ikan. Teman dekat punya obrolan khusus.
+- Malam hari pasar tutup, tapi **kotak titipan** tetap bisa dipakai untuk menjual.
+
 Struktur kode dunia pulau ada di folder `world/`:
-- `world/map.js`: bentuk pulau, jalan, dermaga, bangunan, objek, dan collision.
-- `world/draw.js`: semua gambar isometrik (terrain, air, bangunan, pohon, karakter).
-- `world/world.js`: pemain, joystick, kamera, NPC, dialog, dan interaksi.
-- `game.js`: sistem mancing lama, pasar, toko, koleksi, simpanan, dan perpindahan mode pulau ↔ mancing.
+- `world/map.js`: bentuk pulau, jalan, jaringan jalur NPC, dermaga, bangunan, objek, dan collision.
+- `world/draw.js`: semua gambar isometrik (terrain, air, bangunan, pohon, karakter, properti NPC).
+- `world/world.js`: pemain, joystick, kamera, jadwal & jalur NPC, dialog, dan interaksi.
+- `world/life.js`: misi harian, reputasi, dan pertemanan.
+- `world/home.js`: interior Rumahku, perabot, kucing, dan katalog.
+- `game.js`: sistem mancing lama, pasar, toko, koleksi, simpanan, event, dan perpindahan mode pulau ↔ mancing.
 
 ## Cara mancing
 1. **Tahan layar** untuk mengayun joran, **lepas** untuk melempar. Lepas di zona atas meteran untuk *Lemparan Sempurna* (lebih hoki). Ketuk sisi kiri atau kanan layar untuk mengarahkan lemparan.

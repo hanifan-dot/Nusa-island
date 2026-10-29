@@ -406,12 +406,13 @@ function drawMarketFront(c, b, t) {
     c.beginPath(); c.arc(p.x, p.y, 3.2, 0, Math.PI); c.fill();
   }
   c.fillStyle = "#c8443a"; poly(c, [P(b.x1 + o, b.y0 - o * 0.5, zt), P(b.x1 + o, b.y1 + o, zb), P(b.x1 + o, b.y1 + o, zb - 4), P(b.x1 + o, b.y0 - o * 0.5, zt - 4)]); c.fill();
-  // papan nama gantung
+  // papan nama gantung (menghadap kamera supaya terbaca)
   const sp = P((b.x0 + b.x1) / 2, b.y1 + o + 0.02, zb - 2);
-  c.strokeStyle = "#5a3a20"; c.lineWidth = 1; c.beginPath(); c.moveTo(sp.x - 18, sp.y + 3); c.lineTo(sp.x - 18, sp.y + 7); c.moveTo(sp.x + 18, sp.y + 21); c.lineTo(sp.x + 18, sp.y + 25); c.stroke();
-  const sb = { x0: (b.x0 + b.x1) / 2 - 0.65, x1: (b.x0 + b.x1) / 2 + 0.65, y0: b.y1 + o, y1: b.y1 + o + 0.01 };
-  c.fillStyle = "#173f50"; poly(c, quadOnFace("y", sb, zb - 20, 13, 0, 1, 0, 1)); c.fill();
-  faceText(c, "y", P((sb.x0 + sb.x1) / 2, sb.y1, zb - 13.5), "PASAR IKAN", 7.5, "#fff0b0");
+  c.strokeStyle = "#5a3a20"; c.lineWidth = 1.2; c.beginPath(); c.moveTo(sp.x - 22, sp.y - 2); c.lineTo(sp.x - 22, sp.y + 6); c.moveTo(sp.x + 22, sp.y - 2); c.lineTo(sp.x + 22, sp.y + 6); c.stroke();
+  c.fillStyle = "#0f2f3d"; c.fillRect(sp.x - 33, sp.y + 5, 66, 17);
+  c.fillStyle = "#173f50"; c.fillRect(sp.x - 31.5, sp.y + 6.5, 63, 14);
+  c.font = "800 8.5px system-ui, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = "#fff0b0";
+  c.fillText("PASAR IKAN", sp.x, sp.y + 14);
 }
 
 // ---------- Alam ----------
@@ -481,12 +482,54 @@ function drawLamp(c, o, night) {
 }
 function drawSign(c, o) {
   const b = P(o.x, o.y, LIFT);
-  c.fillStyle = "rgba(20,40,30,.18)"; c.beginPath(); c.ellipse(b.x + 6, b.y + 1, 10, 3, 0, 0, 7); c.fill();
-  c.fillStyle = "#6b4527"; c.fillRect(b.x - 1.8, b.y - 24, 3.6, 24);
-  c.fillStyle = "#c08a52"; c.fillRect(b.x - 17, b.y - 32, 34, 13);
-  c.fillStyle = "#8a5a32"; c.fillRect(b.x - 17, b.y - 21, 34, 2);
-  c.font = "700 5.5px system-ui, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = "#3b2410";
-  c.fillText(o.title.toUpperCase(), b.x, b.y - 26.5, 31);
+  c.fillStyle = "rgba(20,40,30,.18)"; c.beginPath(); c.ellipse(b.x + 8, b.y + 1, 14, 4, 0, 0, 7); c.fill();
+  c.fillStyle = "#6b4527"; c.fillRect(b.x - 2, b.y - 26, 4, 26);
+  const w = 52, h = 20, y = b.y - 44;
+  c.fillStyle = "#8a5a32"; c.fillRect(b.x - w / 2 - 1.5, y - 1.5, w + 3, h + 3);
+  c.fillStyle = "#d9aa6c"; c.fillRect(b.x - w / 2, y, w, h);
+  c.fillStyle = "rgba(0,0,0,.08)"; c.fillRect(b.x - w / 2, y + h / 2, w, 1);
+  c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = "#3b2410";
+  const words = o.title.toUpperCase().split(" ");
+  c.font = "800 7.5px system-ui, sans-serif";
+  if (words.length > 1 && c.measureText(o.title.toUpperCase()).width > w - 6) {
+    const half = Math.ceil(words.length / 2);
+    c.fillText(words.slice(0, half).join(" "), b.x, y + 6.5, w - 4); c.fillText(words.slice(half).join(" "), b.x, y + 14, w - 4);
+  } else c.fillText(o.title.toUpperCase(), b.x, y + h / 2 + 0.5, w - 4);
+}
+function drawBoard(c, o, t, alert) {
+  const b = P(o.x, o.y, LIFT);
+  c.fillStyle = "rgba(20,40,30,.2)"; c.beginPath(); c.ellipse(b.x + 8, b.y + 2, 22, 6, 0, 0, 7); c.fill();
+  c.fillStyle = "#6b4527"; c.fillRect(b.x - 20, b.y - 34, 4, 34); c.fillRect(b.x + 16, b.y - 34, 4, 34);
+  c.fillStyle = "#8a5a32"; c.fillRect(b.x - 22, b.y - 52, 44, 26);
+  c.fillStyle = "#c79a64"; c.fillRect(b.x - 19, b.y - 49, 38, 20);
+  const notes = [["#fff6e4", -15, -47, 0.08], ["#a9dbc0", -3, -46, -0.06], ["#fff0b0", 8, -48, 0.05]];
+  for (const [col, x, y, r] of notes) { c.save(); c.translate(b.x + x + 5, b.y + y + 7); c.rotate(r); c.fillStyle = col; c.fillRect(-5, -7, 10, 13); c.fillStyle = "rgba(60,40,20,.45)"; c.fillRect(-3.5, -3, 7, 1); c.fillRect(-3.5, 0, 6, 1); c.fillStyle = "#e2574c"; c.beginPath(); c.arc(0, -6, 1.3, 0, 7); c.fill(); c.restore(); }
+  c.fillStyle = "#b5562f"; c.beginPath(); c.moveTo(b.x - 26, b.y - 51); c.lineTo(b.x, b.y - 62); c.lineTo(b.x + 26, b.y - 51); c.closePath(); c.fill();
+  c.font = "800 6px system-ui, sans-serif"; c.textAlign = "center"; c.fillStyle = "#fff0b0"; c.fillText("MISI", b.x, b.y - 54);
+  if (alert) {
+    const y = b.y - 74 - Math.abs(Math.sin(t * 4)) * 4;
+    c.fillStyle = "#e0b84c"; c.strokeStyle = "#173f50"; c.lineWidth = 1.5; c.beginPath(); c.arc(b.x, y, 8, 0, 7); c.fill(); c.stroke();
+    c.fillStyle = "#173f50"; c.font = "900 11px system-ui, sans-serif"; c.textBaseline = "middle"; c.fillText("!", b.x, y + 0.5);
+  }
+}
+function drawMailbox(c, o, t) {
+  const b = P(o.x, o.y, LIFT);
+  c.fillStyle = "rgba(20,40,30,.18)"; c.beginPath(); c.ellipse(b.x + 4, b.y + 1, 7, 2.5, 0, 0, 7); c.fill();
+  c.fillStyle = "#6b4527"; c.fillRect(b.x - 1.5, b.y - 18, 3, 18);
+  c.fillStyle = "#c8443a"; c.beginPath(); c.moveTo(b.x - 8, b.y - 17); c.lineTo(b.x + 8, b.y - 17); c.lineTo(b.x + 8, b.y - 25); c.arc(b.x, b.y - 25, 8, 0, Math.PI, true); c.closePath(); c.fill();
+  c.fillStyle = "#e0b84c"; c.fillRect(b.x + 7, b.y - 32 + Math.sin(t * 2) * 0.6, 2, 9); c.fillRect(b.x + 7, b.y - 32, 6, 4);
+}
+// layangan Dika: (x,y) = tangan di dunia, terbang ke arah laut
+function drawKite(c, ch, t) {
+  const h = P(ch.x, ch.y, LIFT + 18), k = { x: h.x + 70 + Math.sin(t * 0.7) * 12, y: h.y - 120 + Math.sin(t * 1.1) * 10 };
+  c.strokeStyle = "rgba(255,255,255,.8)"; c.lineWidth = 0.8;
+  c.beginPath(); c.moveTo(h.x + 6, h.y); c.quadraticCurveTo(h.x + 50, h.y - 40, k.x, k.y + 14); c.stroke();
+  c.save(); c.translate(k.x, k.y); c.rotate(Math.sin(t * 1.4) * 0.15);
+  c.fillStyle = "#e2574c"; c.beginPath(); c.moveTo(0, -14); c.lineTo(11, 0); c.lineTo(0, 16); c.lineTo(-11, 0); c.closePath(); c.fill();
+  c.fillStyle = "#fff6e4"; c.beginPath(); c.moveTo(0, -14); c.lineTo(11, 0); c.lineTo(0, 0); c.closePath(); c.fill(); c.beginPath(); c.moveTo(0, 16); c.lineTo(-11, 0); c.lineTo(0, 0); c.closePath(); c.fill();
+  c.strokeStyle = "#e0b84c"; c.lineWidth = 1.5; c.beginPath(); c.moveTo(0, 16);
+  for (let i = 1; i <= 5; i++) c.lineTo(Math.sin(t * 5 + i) * 4, 16 + i * 6); c.stroke();
+  c.restore();
 }
 function drawBench(c, o) {
   const b = P(o.x, o.y, LIFT);
@@ -558,7 +601,7 @@ function drawBoat(c, o, t) {
 // dir: 0 E, 1 SE, 2 S, 3 SW, 4 W, 5 NW, 6 N, 7 NE (arah di layar)
 const DIRV = [[1, 0], [0.7, 0.7], [0, 1], [-0.7, 0.7], [-1, 0], [-0.7, -0.7], [0, -1], [0.7, -0.7]];
 function drawCharacter(c, ch, t) {
-  const b = P(ch.x, ch.y, LIFT + (NW.tileAt(ch.x, ch.y) === NW.T.DOCK ? 4 : 0));
+  const b = P(ch.x, ch.y, ch.z !== undefined ? ch.z : LIFT + (NW.tileAt(ch.x, ch.y) === NW.T.DOCK ? 4 : 0));
   const st = ch.style, [fx, fy] = DIRV[ch.dir];
   const moving = ch.moving, ph = ch.walk;
   const bob = moving ? Math.abs(Math.sin(ph)) * 2.2 : Math.sin(t * 2.2 + (ch.seed || 0)) * 0.6;
@@ -586,6 +629,19 @@ function drawCharacter(c, ch, t) {
   if (!back && st.collar) { c.fillStyle = st.collar; c.beginPath(); c.moveTo(-3, y0 - 22); c.lineTo(0, y0 - 18); c.lineTo(3, y0 - 22); c.fill(); }
   // lengan depan
   if (side) arm(fx * -1.5, armSwing); else arm(7.5, -armSwing);
+  // properti aktivitas
+  if (ch.prop === "net") {
+    const w = Math.sin(t * 6) * 1.5;
+    c.strokeStyle = "rgba(70,90,80,.9)"; c.lineWidth = 0.8;
+    for (let i = 0; i < 4; i++) { c.beginPath(); c.moveTo(-8 + i * 5, y0 - 15 + w); c.lineTo(-10 + i * 5, y0 - 4); c.stroke(); }
+    for (let j = 0; j < 3; j++) { c.beginPath(); c.moveTo(-9, y0 - 13 + j * 3.5 + w * 0.5); c.lineTo(9, y0 - 13 + j * 3.5 - w * 0.5); c.stroke(); }
+    c.fillStyle = "#e2574c"; c.beginPath(); c.arc(9, y0 - 6, 1.6, 0, 7); c.fill();
+  } else if (ch.prop === "basket") {
+    c.fillStyle = "#b8864a"; c.fillRect(fx * 6 - 6, y0 - 15, 12, 7); c.fillStyle = "#8c9a8a"; c.beginPath(); c.ellipse(fx * 6, y0 - 15, 5, 2, 0, 0, 7); c.fill();
+  } else if (ch.prop === "broom") {
+    c.strokeStyle = "#8a5a32"; c.lineWidth = 1.6; const sw = Math.sin(t * 5) * 4; c.beginPath(); c.moveTo(fx * 5, y0 - 18); c.lineTo(fx * 10 + sw, y0 + 1); c.stroke();
+    c.fillStyle = "#d9b45e"; c.beginPath(); c.moveTo(fx * 10 + sw - 4, y0 + 1); c.lineTo(fx * 10 + sw + 4, y0 + 1); c.lineTo(fx * 10 + sw, y0 - 5); c.fill();
+  }
   // joran (saat bersiap mancing)
   if (ch.rod > 0) {
     const k = ch.rod;
@@ -673,6 +729,6 @@ function lightAt(c, x, y, z, r, col, a) {
 Object.assign(NW, {
   P, LIFT, COL, mix, shade, rgba, buildTerrain, drawTerrain, drawWater, getTerrainScale: () => terrainScale,
   drawHouse, drawShop, drawMarketBack, drawMarketFront, drawPalm, drawTree, drawBush, drawRock, drawLamp, drawSign,
-  drawBench, drawCrate, drawBarrel, drawNet, drawWell, drawBoat, drawCharacter, drawBird, drawJump, drawButterfly, lightAt, DIRV,
+  drawBench, drawBoard, drawMailbox, drawKite, drawCrate, drawBarrel, drawNet, drawWell, drawBoat, drawCharacter, drawBird, drawJump, drawButterfly, lightAt, DIRV,
 });
 })();

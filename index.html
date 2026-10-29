@@ -20,6 +20,7 @@
   <div class="hud-right">
     <div class="chip loc"><span id="locName">Muara Kampung</span></div>
     <div class="chip time"><span id="clockIcon">☀️</span><b id="clock">06:00</b><small id="dayLabel">Hari 1</small></div>
+    <button class="chip icon-btn misi" id="misiBtn" aria-label="Misi harian">📋<span id="misiBadge" class="badge hidden">0</span></button>
     <button class="chip icon-btn" id="dexBtn" aria-label="Koleksi ikan">📖</button>
     <button class="chip icon-btn" id="muteBtn" aria-label="Suara">🔊</button>
   </div>
@@ -95,6 +96,15 @@
   </div>
 </div>
 
+<!-- Kartu untuk disimpan manual (bila unduhan diblokir) -->
+<div id="shareWrap" class="share-wrap hidden">
+  <div class="share-card">
+    <img id="shareImg" alt="Kartu tangkapan Nusa Island">
+    <p>Di HP: tekan lama gambar lalu pilih <b>Simpan gambar</b>. Di laptop: klik kanan → Simpan gambar.</p>
+    <button class="btn" id="shareClose">Tutup</button>
+  </div>
+</div>
+
 <!-- Layar awal -->
 <div id="splash" class="splash">
   <div class="splash-inner">
@@ -108,6 +118,8 @@
 <script src="data.js"></script>
 <script src="world/map.js"></script>
 <script src="world/draw.js"></script>
+<script src="world/life.js"></script>
+<script src="world/home.js"></script>
 <script src="world/world.js"></script>
 <script src="game.js"></script>
 </body>

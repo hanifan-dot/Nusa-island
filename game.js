@@ -45,7 +45,17 @@ const DEFAULT = () => ({
   cooler: [], dex: {}, stats: { casts: 0, caught: 0, earned: 0, legends: 0 },
   muted: false,
   world: null, // posisi pemain di Muara Kampung (Island Life)
+  // Tahap 2A
+  home: { items: [], cat: null }, // perabot Rumahku yang sudah dibeli
+  missions: null,                // misi harian { day, list }
+  rep: 0,                        // bintang reputasi kampung
+  friends: {},                   // pertemanan NPC (0..5)
+  talked: {},                    // NPC yang sudah diajak bicara hari ini
 });
+// ---------- Event (dipakai misi harian) ----------
+const listeners = {};
+function on(type, fn) { (listeners[type] = listeners[type] || []).push(fn); }
+function emit(type, data) { (listeners[type] || []).forEach((fn) => { try { fn(data); } catch (e) { console.error(e); } }); }
 let S = DEFAULT();
 // Mode: "world" = jalan-jalan di pulau, "fish" = sistem mancing lama
 let MODE = "world", fishFrom = "dock";
@@ -57,6 +67,7 @@ function load() {
       S = Object.assign(DEFAULT(), d);
       S.up = Object.assign(DEFAULT().up, d.up || {});
       S.stats = Object.assign(DEFAULT().stats, d.stats || {});
+      S.home = Object.assign(DEFAULT().home, d.home || {});
     }
   } catch (e) { /* storage tidak tersedia: main tanpa simpan */ }
 }
@@ -272,7 +283,7 @@ function doCast() {
   G.phase = "flying"; G.bob.vis = true; G.bob.sink = 0;
   S.stats.casts++;
   SFX.cast();
-  if (G.perfect) toast("Lemparan Sempurna! ✨ Lebih hoki", "good");
+  if (G.perfect) { toast("Lemparan Sempurna! ✨ Lebih hoki", "good"); emit("perfect"); }
   updateHint();
 }
 function landBobber() {
@@ -337,6 +348,7 @@ function landFish(fish, w) {
   let reward = 0;
   if (fish.protected) { reward = Math.round(fish.price * PRICE_SCALE * w * 1.2); S.money += reward; S.stats.earned += reward; }
   else S.cooler.push({ id: fish.id, w });
+  emit("catch", { fish, w, night: isNight(), loc: LOCATIONS[S.loc].id });
   save(); refreshHUD();
   SFX.catch(fish.rarity);
   showCatchCard(fish, w, { isNew, isRecord, reward });
@@ -348,10 +360,20 @@ let last = performance.now(), started = false, saveT = 0;
 function tickTime(dt) {
   const prevNight = isNight();
   S.hour += dt * HOURS_PER_SEC;
-  if (S.hour >= 24) { S.hour -= 24; S.day++; toast(`Hari ${S.day} — harga pasar berubah! 📈`); }
+  if (S.hour >= 24) { S.hour -= 24; newDay(); }
   if (prevNight !== isNight() && started) toast(isNight() ? "Malam tiba 🌙 Ikan malam mulai keluar" : "Pagi tiba ☀️");
   refreshClock();
   saveT += dt; if (saveT > 5) { saveT = 0; save(); }
+}
+function newDay() {
+  S.day++; S.talked = {};
+  toast(`Hari ${S.day} — harga pasar & misi baru! 📈`);
+  emit("day", S.day); save(); refreshHUD();
+}
+// tidur di Rumahku: lewati malam sampai jam 06:00
+function sleepUntilMorning() {
+  if (S.hour >= 6) newDay(); else { S.talked = {}; emit("day", S.day); }
+  S.hour = 6; save(); refreshHUD();
 }
 function goldenHour() {
   const h = S.hour, bell = (a, b) => (h > a && h < b ? Math.sin(((h - a) / (b - a)) * Math.PI) : 0);
@@ -834,7 +856,11 @@ function drawFish(c, f, x, y, L) {
   c.fillStyle = finCol;
   c.beginPath();
   if (f.fin === "sail") {
-    c.moveTo(hx - bl * 0.22, y - bh * 0.4); c.quadraticCurveTo(x, y - bh * 1.6, tx + bl * 0.2, y - bh * 0.35);
+    c.moveTo(hx - bl * 0.2, y - bh * 0.4); c.bezierCurveTo(hx - bl * 0.3, y - bh * 3.2, tx + bl * 0.35, y - bh * 3.0, tx + bl * 0.15, y - bh * 0.35);
+    c.closePath(); c.fill();
+    c.fillStyle = shade(finCol, 0.35);
+    for (let i = 0; i < 7; i++) { c.beginPath(); c.arc(hx - bl * (0.32 + i * 0.07), y - bh * (0.9 + (i % 3) * 0.55), Math.max(1, bh * 0.08), 0, 7); c.fill(); }
+    c.fillStyle = finCol; c.beginPath();
   } else if (f.fin === "long" || f.fin === "round") {
     c.moveTo(hx - bl * 0.3, y - bh * 0.48); c.quadraticCurveTo(x - bl * 0.05, y - bh * 0.85, tx + bl * 0.08, y - bh * 0.22);
   } else {
@@ -932,6 +958,7 @@ function refreshHUD() {
   cc.classList.toggle("full", S.cooler.length >= coolerCap());
   $("locName").textContent = LOCATIONS[S.loc].name;
   $("muteBtn").textContent = S.muted ? "🔇" : "🔊";
+  if (window.NW && NW.life) NW.life.refreshBadge();
   refreshClock();
 }
 let lastClock = "";
@@ -976,6 +1003,7 @@ $("catchOk").addEventListener("click", () => {
   if (S.cooler.length >= coolerCap()) toast("Coolbox penuh! Jual di Pasar 🏪", "bad");
 });
 $("shareBtn").addEventListener("click", () => { SFX.click(); if (lastCatch) shareCard(lastCatch); });
+$("shareClose").addEventListener("click", () => { SFX.click(); $("shareWrap").classList.add("hidden"); });
 
 function shareCard({ fish, w }) {
   const R = RARITY[fish.rarity], L = LOCATIONS[S.loc];
@@ -1005,20 +1033,23 @@ function shareCard({ fish, w }) {
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       navigator.share({ files: [file], title: "Nusa Island", text: `Aku dapat ${fish.name} ${fmtW(w)} di Nusa Island! 🎣` }).catch(() => {});
     } else {
-      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = file.name;
-      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-      toast("Kartu tersimpan! Siap diposting 📸", "good");
+      try { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); } catch (_) {}
+      // tampilkan juga gambarnya: di HP tekan lama untuk menyimpan (berguna bila unduhan diblokir)
+      $("shareImg").src = c.toDataURL("image/png"); $("shareWrap").classList.remove("hidden");
     }
   }, "image/png");
 }
 
 // ---------- Panel ----------
 let currentPanel = null, dexTab = null;
+const extraPanels = {}; // panel dari modul lain: { title, render(), act(act, arg) }
+function registerPanel(name, def) { extraPanels[name] = def; }
 document.querySelectorAll(".nav button[data-panel]").forEach((b) => b.addEventListener("click", () => { SFX.click(); openPanel(b.dataset.panel); }));
 $("panelClose").addEventListener("click", closePanel);
 $("panelWrap").addEventListener("click", (e) => { if (e.target.id === "panelWrap") closePanel(); });
 $("muteBtn").addEventListener("click", () => { S.muted = !S.muted; save(); refreshHUD(); initAudio(); });
 $("dexBtn").addEventListener("click", () => { SFX.click(); openPanel("dex"); });
+$("misiBtn").addEventListener("click", () => { SFX.click(); openPanel("missions"); });
 $("landBtn").addEventListener("click", () => {
   if (["fight", "bite", "charging", "result"].includes(G.phase)) return;
   SFX.click();
@@ -1034,6 +1065,7 @@ function closePanel() { SFX.click(); $("panelWrap").classList.add("hidden"); cur
 function renderPanel() {
   const body = $("panelBody");
   const titles = { market: "🏪 Pasar Ikan", shop: "🛠️ Toko Perlengkapan", dex: "📖 Koleksi Ikan", map: "🗺️ Peta Nusantara" };
+  if (extraPanels[currentPanel]) { $("panelTitle").textContent = extraPanels[currentPanel].title(); body.innerHTML = extraPanels[currentPanel].render(); return; }
   $("panelTitle").textContent = titles[currentPanel];
   if (currentPanel === "market") body.innerHTML = marketHTML();
   if (currentPanel === "shop") body.innerHTML = shopHTML();
@@ -1048,6 +1080,7 @@ $("panelBody").addEventListener("click", (e) => {
   if (act === "buy") buy(arg);
   if (act === "tab") { dexTab = arg; SFX.click(); renderPanel(); }
   if (act === "go") travel(+arg);
+  if (extraPanels[currentPanel] && extraPanels[currentPanel].act) extraPanels[currentPanel].act(act, arg, el);
 });
 
 function trendHTML(id) {
@@ -1077,12 +1110,12 @@ function marketHTML() {
 function sellAll() {
   const total = S.cooler.reduce((s, it) => s + priceOf(it), 0);
   if (!total) return;
-  S.money += total; S.stats.earned += total; S.cooler = [];
+  S.money += total; S.stats.earned += total; S.cooler = []; emit("sell", total);
   SFX.coin(); toast(`Terjual! +🪙 ${fmt(total)}`, "good"); save(); refreshHUD(); renderPanel();
 }
 function sellOne(i) {
   const it = S.cooler[i]; if (!it) return;
-  const p = priceOf(it); S.money += p; S.stats.earned += p; S.cooler.splice(i, 1);
+  const p = priceOf(it); S.money += p; S.stats.earned += p; S.cooler.splice(i, 1); emit("sell", p);
   SFX.coin(); save(); refreshHUD(); renderPanel();
 }
 
@@ -1203,14 +1236,17 @@ function loop(now) {
 window.Nusa = {
   get S() { return S; },
   mode: () => MODE, isStarted: () => started,
-  isPanelOpen: () => !$("panelWrap").classList.contains("hidden") || !$("catchWrap").classList.contains("hidden"),
+  isPanelOpen: () => !$("panelWrap").classList.contains("hidden") || !$("catchWrap").classList.contains("hidden") || !$("shareWrap").classList.contains("hidden"),
   openPanel, enterFishing, goWorld, tickTime, darkness, goldenHour, isNight, marketTip, setHint, save, toast,
   coolerFull: () => S.cooler.length >= coolerCap(),
   sfx: (n) => { initAudio(); if (SFX[n]) SFX[n](); },
+  tone, on, emit, registerPanel, renderPanel: () => currentPanel && renderPanel(), currentPanel: () => currentPanel, closePanel,
+  sleepUntilMorning, refreshHUD, drawFish, fishImg, priceOf, fmt, fmtW, FISH_BY_ID, coolerCap,
 };
 
 load();
 S.loc = 0; // permainan selalu dimulai dari Muara Kampung
+NW.life.hook(); NW.home.hook(); // Tahap 2A: misi harian & Rumahku
 resize(); buildScenery(); initAmbient(); refreshHUD(); applyMode();
 NW.world.resize(W, H, DPR); NW.world.onEnter("start"); updateHint();
 document.addEventListener("visibilitychange", () => { if (document.hidden) save(); });
