@@ -20,6 +20,7 @@
   <div class="hud-right">
     <div class="chip loc"><span id="locName">Muara Kampung</span></div>
     <div class="chip time"><span id="clockIcon">☀️</span><b id="clock">06:00</b><small id="dayLabel">Hari 1</small></div>
+    <button class="chip icon-btn" id="dexBtn" aria-label="Koleksi ikan">📖</button>
     <button class="chip icon-btn" id="muteBtn" aria-label="Suara">🔊</button>
   </div>
 </header>
@@ -43,8 +44,24 @@
   <div class="fight-tip" id="fightTip">Tahan = gulung · Lepas = kendurkan</div>
 </div>
 
-<!-- Navigasi bawah -->
+<!-- Kontrol dunia pulau -->
+<div id="joy" class="joy" aria-hidden="true"><div id="joyKnob" class="joy-knob"></div></div>
+<button id="actBtn" class="act-btn hidden" aria-label="Interaksi"></button>
+<div id="banner" class="banner"></div>
+<div id="dlg" class="dlg hidden" role="dialog" aria-live="polite">
+  <div class="dlg-avatar" id="dlgAvatar">💬</div>
+  <div class="dlg-main">
+    <div class="dlg-head"><b id="dlgName">Nama</b><small id="dlgRole"></small></div>
+    <p id="dlgText"></p>
+    <div class="dlg-opts" id="dlgOpts"></div>
+    <div class="dlg-more" id="dlgMore">Ketuk untuk lanjut ▾</div>
+  </div>
+</div>
+<div id="fade" class="fade"></div>
+
+<!-- Navigasi bawah (mode mancing). Pasar/Toko/Peta kini didatangi langsung di pulau -->
 <nav class="nav">
+  <button id="landBtn"><span>🏝️</span>Ke Darat</button>
   <button data-panel="market"><span>🏪</span>Pasar</button>
   <button data-panel="shop"><span>🛠️</span>Toko</button>
   <button data-panel="dex"><span>📖</span>Koleksi</button>
@@ -82,13 +99,16 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <div class="logo">NUSA<br><span>ISLAND</span></div>
-    <p class="tag">Mancing keliling Nusantara 🎣</p>
+    <p class="tag">Hidup di pulau, mancing keliling Nusantara 🎣</p>
     <button class="btn big" id="startBtn">Mulai Mancing</button>
     <p class="small">Dari kreator Kota Nusa</p>
   </div>
 </div>
 
 <script src="data.js"></script>
+<script src="world/map.js"></script>
+<script src="world/draw.js"></script>
+<script src="world/world.js"></script>
 <script src="game.js"></script>
 </body>
 </html>
