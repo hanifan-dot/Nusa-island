@@ -525,3 +525,19 @@ body.editing .joy, body.editing .act-btn, body.editing .hint { display: none !im
 .sell-warn { background: #fff0d6; border: 1px solid #f0c27a; color: #6b4300; border-radius: 10px; padding: 8px 10px; font-size: 13px; margin-bottom: 8px; }
 .sell-btns { display: flex; gap: 8px; } .sell-btns .btn { flex: 1; min-height: 46px; }
 #coolerChip { cursor: pointer; }
+
+/* Katalog joran (Bumbu 1.2) */
+.rod-head { display: flex; gap: 12px; align-items: center; background: #fff; border-radius: 14px; padding: 12px; margin-bottom: 8px; }
+.rod-head .ic { font-size: 30px; width: 44px; text-align: center; }
+.rod-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.rod-card { display: flex; gap: 10px; align-items: center; background: #fff; border-radius: 12px; padding: 8px 10px; border-left: 4px solid #d8d2bc; }
+.rod-card.cur { border-left-color: var(--gold); background: #fffbe9; box-shadow: 0 0 0 1.5px var(--gold) inset; }
+.rod-card.old { opacity: .6; }
+.rod-card img { width: 44px; height: 66px; flex: none; object-fit: contain; }
+.rod-card .grow { flex: 1; min-width: 0; }
+.rod-card .nm { font-weight: 700; font-size: 14px; }
+.rod-card .sub { font-size: 12px; opacity: .78; }
+.rod-card .price-line { font-weight: 700; color: #8a6412; opacity: 1; }
+.rod-tag { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #ece6d3; margin-left: 4px; white-space: nowrap; }
+.rod-tag.on { background: var(--gold); color: #3b2a05; }
+.rod-tag.lock { opacity: .7; }

@@ -255,15 +255,15 @@ function chooseFish() {
   let roll = Math.random() * total, rar = avail[0];
   for (let i = 0; i < avail.length; i++) { roll -= ws[i]; if (roll <= 0) { rar = avail[i]; break; } }
   const fish = pick(pool.filter((f) => f.rarity === rar));
-  const wr = Math.pow(Math.random(), 2.3);
-  const w = Math.round((fish.wMin + (fish.wMax - fish.wMin) * wr) * 100) / 100;
-  return { fish, w, wr };
+  const { w, wr, extreme } = NW.FM.rollWeight(fish); // Bumbu 1.2: spesies tertentu punya ekor ukuran ekstrem yang sangat langka
+  return { fish, w, wr, extreme };
 }
 
 // ---------- Harga harian ----------
 function priceMult(id, day = S.day) { return 0.7 + seeded(hashStr(id + ":" + day))() * 0.75; }
 const PRICE_SCALE = 3;
-function priceOf(item) { const f = FISH_BY_ID[item.id]; return Math.max(1, Math.round(f.price * PRICE_SCALE * item.w * priceMult(item.id))); }
+// Bumbu 1.2: berat di atas 100 kg dikompres (NW.FM.effectiveKg) agar ikan raksasa tidak merusak ekonomi
+function priceOf(item) { return NW.FM.priceFor(FISH_BY_ID[item.id], item.w, priceMult(item.id), PRICE_SCALE); }
 
 // ---------- Input ----------
 function press(px) {
@@ -342,12 +342,14 @@ function triggerBite() {
 }
 function startFight() {
   const { fish, w, wr } = G.pending;
-  const pe = fish.power * (0.85 + 0.3 * wr);
-  G.fight = { fish, w, pe, T: 0.25, P: 0.18, surge: 0, surgeT: rand(0.8, 2), slack: 0, over: 0, fx: G.bob.x, fxT: G.bob.x, z0: G.bob.z,
+  const pe = NW.FM.fightPower(fish, w, wr);                     // ikan ≤ 20 kg: sama persis seperti dulu
+  const rodCap = UPGRADES.rod.cap[upLvl("rod")], om = NW.FM.overloadMuls(w, rodCap);
+  G.fight = { fish, w, pe, big: NW.FM.bigness(w), weak: om.weak, riseMul: om.rise, reelMul: om.reel, T: 0.25, P: 0.18, surge: 0, surgeT: rand(0.8, 2), slack: 0, over: 0, fx: G.bob.x, fxT: G.bob.x, z0: G.bob.z,
     challenge: !!G.pending.challenge, perfect: !!G.perfect, reads: 0, tired: 0, readWin: 0, readDone: true, tiredT: 0, tiredHold: 0, tiredDone: true, warn: false };
   $("tensionBar").classList.toggle("ideal", skill("kendali"));
   G.phase = "fight";
-  $("fightName").textContent = G.pending.challenge ? "🏆 Ikan uji Pak Darto!" : fish.rarity === "legenda" ? "⚠️ Sesuatu yang BESAR…" : fish.rarity === "epik" ? "Tarikannya kuat!" : "Strike! 🎣";
+  $("fightName").textContent = G.pending.challenge ? "🏆 Ikan uji Pak Darto!" : G.fight.weak ? "⚠️ Joran kurang kuat untuk ikan ini!" : fish.rarity === "legenda" ? "⚠️ Sesuatu yang BESAR…" : fish.rarity === "epik" ? "Tarikannya kuat!" : "Strike! 🎣";
+  if (G.fight.weak) toast(`⚠️ Joran kurang kuat! Ikan ±${fmtW(w)}, batas joran ${UPGRADES.rod.cap[upLvl("rod")]} kg. Senar bisa putus.`, "bad");
   $("fightUI").classList.remove("hidden");
   setNavLocked(true);
   splashAt(G.bob.x, G.bob.z, 14); SFX.splash();
@@ -383,7 +385,7 @@ function landFish(fish, w) {
   S.stats.caught++;
   if (fish.rarity === "legenda") S.stats.legends++;
   let reward = 0;
-  if (fish.protected) { reward = Math.round(fish.price * PRICE_SCALE * w * 1.2); S.money += reward; S.stats.earned += reward; }
+  if (fish.protected) { reward = Math.round(fish.price * PRICE_SCALE * NW.FM.effectiveKg(w) * 1.2); S.money += reward; S.stats.earned += reward; }
   else S.cooler.push({ uid: NW.HD.newUid(S, "i"), id: fish.id, w, t: Date.now() }); // setiap ikan punya identitas unik
   emit("catch", { fish, w, night: isNight(), loc: LOCATIONS[S.loc].id });
   save(); refreshHUD();
@@ -487,7 +489,10 @@ function update(dt) {
 
 function updateFight(dt) {
   const F = G.fight; if (!F) return;
-  const lv = upLvl("rod"), str = UPGRADES.rod.strength[lv], reel = UPGRADES.rod.reel[lv];
+  const lv = upLvl("rod"), str = UPGRADES.rod.strength[lv], reel = UPGRADES.rod.reel[lv] * F.reelMul; // reelMul < 1 hanya bila ikan jauh melebihi kapasitas joran
+  const big = F.big; // 0 untuk ikan ≤ 20 kg → faktor ukuran di bawah sama dengan perilaku lama
+  F.age = (F.age || 0) + dt;
+  const pe = F.pe * NW.FM.fatigue(F.age); // ikan lelah seiring waktu: pertarungan raksasa tidak berlarut-larut
   // ikan menyentak
   F.surgeT -= dt;
   const wasSurging = F.surge > 0;
@@ -498,11 +503,11 @@ function updateFight(dt) {
   }
   else if (F.surgeT <= 0) {
     if (skill("membaca")) { F.readWin = 0.35; F.readDone = false; } // lepas dalam 0,35 dtk = bacaan tepat
-    F.surge = rand(0.45, 0.9 + F.pe * 0.08);
-    F.surgeT = Math.max(0.7, rand(1.3, 3.2) - F.pe * 0.1);
+    F.surge = rand(0.45, 0.9 + pe * 0.08) + NW.FM.TUNE.surgeLen * big;               // ikan besar menyentak lebih lama
+    F.surgeT = Math.max(0.7, rand(1.3, 3.2) * (1 - NW.FM.TUNE.surgeFreq * big) - pe * 0.1); // dan lebih sering
     if (F.challenge) F.surgeT = Math.min(F.surgeT, 2.1); // ujian: sentakan teratur supaya bisa dibaca
-    F.fxT = clamp(F.fx + rand(-0.9, 0.9), -1.4, 1.4);
-    splashAt(G.bob.x, G.bob.z, 8 + F.pe); SFX.surge();
+    F.fxT = clamp(F.fx + rand(-0.9, 0.9) * (1 + 0.5 * big), -1.4, 1.4); // arah tarikan berubah lebih lebar
+    splashAt(G.bob.x, G.bob.z, 8 + pe); SFX.surge();
   }
   const surging = F.surge > 0;
   if (!F.readDone) { if (!G.holding) { F.readDone = true; F.reads++; emit("read"); } else if ((F.readWin -= dt) <= 0) F.readDone = true; }
@@ -512,13 +517,14 @@ function updateFight(dt) {
   if (G.holding) {
     // Kendali Senar: gulungan lebih cepat & senar lebih awet HANYA saat ikan lelah / di zona ideal
     const kb = tired ? 1.4 : 1, zb = skill("kendali") && F.T > 0.45 && F.T < 0.8 ? 1.08 : 1;
-    const rate = 0.17 * reel / (0.55 + F.pe * 0.12) * kb * zb;
-    F.P += rate * dt * (surging ? 0.25 : 1);
-    F.T += (0.28 + F.pe * 0.055) * (surging ? 2.3 : 1) * dt / str * (tired ? 0.75 : 1);
+    const rate = 0.17 * reel / (0.55 + pe * 0.12) * kb * zb;
+    // ikan besar: menggulung saat ikan menyentak malah menyeret kembali (harus baca aba-aba, bukan sekadar menahan layar)
+    F.P += rate * dt * (surging ? 0.25 - NW.FM.TUNE.surgeProg * big : 1);
+    F.T += (0.28 + pe * 0.055) * (surging ? 2.3 + NW.FM.TUNE.surgeRise * big : 1) * dt / str * (tired ? 0.75 : 1) * F.riseMul;
     G.tickT -= dt; if (G.tickT <= 0) { G.tickT = 0.07; SFX.tick(); }
   } else {
     F.T -= 0.65 * dt;
-    F.P -= (0.02 + (surging ? 0.05 + F.pe * 0.012 : 0)) * dt;
+    F.P -= (0.02 + (surging ? 0.05 + pe * 0.012 : 0)) * dt;
   }
   // ikan uji Pak Darto tidak menyerah sebelum pemain menunjukkan keahlian (keberhasilan = tindakan, bukan untung)
   if (F.challenge && (F.reads < 2 || F.tired < 2)) F.P = Math.min(F.P, 0.9);
@@ -540,7 +546,7 @@ function updateFight(dt) {
   $("tensionBar").classList.toggle("shake", F.T > 0.82);
   $("tensionBar").classList.toggle("warn", F.warn); $("tensionBar").classList.toggle("tired", tired);
   const tip = $("fightTip");
-  tip.textContent = F.T > 0.82 ? "⚠️ Senar hampir putus, LEPAS!" : F.warn ? "⚡ Ikan bersiap menyentak — lepas!" : tired ? "😮‍💨 Ikan lelah — gulung!" : F.slack > 0.8 ? "Senar kendur, tahan lagi!" : surging ? "Ikan menyentak! Hati-hati" : "Tahan = gulung · Lepas = kendurkan";
+  tip.textContent = F.T > 0.82 ? "⚠️ Senar hampir putus, LEPAS!" : F.warn ? "⚡ Ikan bersiap menyentak — lepas!" : tired ? "😮‍💨 Ikan lelah — gulung!" : F.slack > 0.8 ? "Senar kendur, tahan lagi!" : surging ? "Ikan menyentak! Hati-hati" : F.weak ? "⚠️ Joran kurang kuat — gulung pelan, lepas sering" : "Tahan = gulung · Lepas = kendurkan";
   tip.classList.toggle("cue-warn", F.warn); tip.classList.toggle("cue-tired", tired);
   if (F.challenge) $("fightName").textContent = `🏆 Ujian · baca ${Math.min(2, F.reads)}/2 · gulung ${Math.min(2, F.tired)}/2`;
 }
@@ -828,13 +834,9 @@ function drawBoat(dk) {
 
   // joran
   const tip = rodTip();
-  const rodCol = night(["#c9a46a", "#3d5a6c", "#222831", "#9aa6b0", "#e0b84c"][upLvl("rod")]);
-  ctx.strokeStyle = rodCol; ctx.lineCap = "round";
+  // bentuk, warna, gagang, reel, dan ornamen mengikuti joran aktif (NW.look.RODS, 10 tingkat)
   const mx = (hp.x + tip.x) / 2 + G.rodBend * 30 * U, my = (hp.y + tip.y) / 2 - 10 * U + G.rodBend * 10 * U;
-  ctx.lineWidth = 6 * U; ctx.beginPath(); ctx.moveTo(hp.x - Math.cos(G.rodAngle) * 30 * U, hp.y - Math.sin(G.rodAngle) * 30 * U); ctx.lineTo(hp.x, hp.y); ctx.stroke();
-  ctx.lineWidth = 3.5 * U; ctx.beginPath(); ctx.moveTo(hp.x, hp.y); ctx.quadraticCurveTo(mx, my, tip.x, tip.y); ctx.stroke();
-  // reel
-  ctx.fillStyle = night("#d8dde0"); ctx.beginPath(); ctx.arc(hp.x + 6 * U, hp.y + 8 * U, 7 * U, 0, 7); ctx.fill();
+  NW.look.drawHeldRod(ctx, NW.look.rodSpec(upLvl("rod")), hp, { x: mx, y: my }, tip, { x: hp.x - Math.cos(G.rodAngle) * 30 * U, y: hp.y - Math.sin(G.rodAngle) * 30 * U }, U, night);
 }
 
 // Tampilan depan dermaga Muara (saat mancing dari darat)
@@ -1157,7 +1159,7 @@ function renderPanel() {
 $("panelBody").addEventListener("click", (e) => {
   const el = e.target.closest("[data-act]"); if (!el) return;
   const act = el.dataset.act, arg = el.dataset.arg;
-  if (act === "buy") buy(arg);
+  if (act === "buy") buy(arg, el.dataset.lv === undefined ? undefined : +el.dataset.lv);
   if (act === "tab") { dexTab = arg; SFX.click(); renderPanel(); }
   if (act === "go") travel(+arg);
   if (extraPanels[currentPanel] && extraPanels[currentPanel].act) extraPanels[currentPanel].act(act, arg, el);
@@ -1167,21 +1169,43 @@ function trendHTML(id) {
   const m = priceMult(id);
   return m >= 1.12 ? `<span class="trend-up">▲ ${Math.round((m - 1) * 100)}%</span>` : m <= 0.88 ? `<span class="trend-down">▼ ${Math.round((1 - m) * 100)}%</span>` : "";
 }
+// Katalog joran Toko Pak Bono: pratinjau, nama, harga, kemampuan, deskripsi, dan status tiap joran.
+function rodShopHTML() {
+  const U2 = UPGRADES.rod, lv = upLvl("rod"), n = U2.levels.length;
+  let h = `<div class="rod-head"><div class="ic">🎣</div><div class="grow"><b>Joran</b><div class="muted">Dipakai sekarang: <b>${U2.levels[lv]}</b> · ikan hingga ${U2.cap[lv]} kg</div></div></div><div class="rod-list">`;
+  for (let i = 0; i < n; i++) {
+    const cur = i === lv, owned = i < lv, next = i === lv + 1, cost = U2.cost[i];
+    const st = cur ? `<span class="rod-tag on">✔ Dipakai</span>` : owned ? `<span class="rod-tag">Sudah dilewati</span>` : next ? "" : `<span class="rod-tag lock">🔒 Beli yang sebelumnya dulu</span>`;
+    const price = i === 0 ? `Harga katalog 🪙 ${fmt(U2.catalog[0])} · diberikan gratis` : `🪙 ${fmt(cost)}`;
+    h += `<div class="rod-card ${cur ? "cur" : ""} ${owned ? "old" : ""}"><img src="${NW.look.rodPreview(i)}" alt="${U2.levels[i]}" width="44" height="66">
+      <div class="grow"><div class="nm">${i + 1}. ${U2.levels[i]} ${st}</div>
+      <div class="sub">${U2.info[i]} · Kuat ${U2.strength[i]}× · Tarik ${U2.reel[i]}×</div>
+      <div class="sub">${U2.desc[i]}</div>
+      <div class="sub price-line">${price}</div></div>
+      ${next ? `<button class="btn ${S.money >= cost ? "gold" : ""}" data-act="buy" data-arg="rod" data-lv="${i}" ${S.money >= cost ? "" : "disabled"}>Beli</button>` : ""}</div>`;
+  }
+  return h + `</div>`;
+}
 function shopHTML() {
   let h = `<p class="muted">Upgrade alat untuk menaklukkan ikan yang lebih besar dan pulau yang lebih jauh.</p>`;
   for (const [k, U2] of Object.entries(UPGRADES)) {
+    if (k === "rod") { h += rodShopHTML(); continue; } // katalog joran: 10 tingkat dengan pratinjau
     const lv = upLvl(k), max = lv >= U2.levels.length - 1, cost = max ? 0 : U2.cost[lv + 1];
     h += `<div class="shop-item"><div class="ic">${(U2.icons && U2.icons[lv]) || U2.icon}</div><div class="grow">
       <div class="nm"><b>${U2.levels[lv]}</b></div>
       <div class="lvl">${U2.levels.map((_, i) => `<i class="${i <= lv ? "on" : ""}"></i>`).join("")}</div>
       <div class="muted">${max ? "Level maksimal 🌟" : "Berikutnya: " + U2.levels[lv + 1] + " · " + U2.info[lv + 1]}</div></div>
-      ${max ? "" : `<button class="btn ${S.money >= cost ? "gold" : ""}" data-act="buy" data-arg="${k}" ${S.money >= cost ? "" : "disabled"}>🪙 ${fmt(cost)}</button>`}</div>`;
+      ${max ? "" : `<button class="btn ${S.money >= cost ? "gold" : ""}" data-act="buy" data-arg="${k}" data-lv="${lv + 1}" ${S.money >= cost ? "" : "disabled"}>🪙 ${fmt(cost)}</button>`}</div>`;
   }
   return h;
 }
-function buy(k) {
+let buyLockT = 0;
+function buy(k, expectLv) {
   const U2 = UPGRADES[k], lv = upLvl(k);
   if (lv >= U2.levels.length - 1) return;
+  // Penjagaan pembelian ganda: tombol membawa level tujuan (data-lv). Klik basi/ganda ditolak, jadi koin tidak terpotong dua kali.
+  if (expectLv !== undefined && expectLv !== lv + 1) return;
+  const now = performance.now(); if (now - buyLockT < 350) return; buyLockT = now;
   const cost = U2.cost[lv + 1]; if (S.money < cost) return;
   S.money -= cost; S.up[k] = lv + 1;
   SFX.coin();
@@ -1307,6 +1331,6 @@ NW.world.resize(W, H, DPR); NW.world.onEnter("start"); updateHint();
 document.addEventListener("visibilitychange", () => { if (document.hidden) save(); });
 window.addEventListener("pagehide", save);
 // akses debug ringan untuk pengujian
-window.__nusa = { get S() { return S; }, G, save, refreshHUD, mode: () => MODE, goWorld, enterFishing, bobberScreen, rodTip };
+window.__nusa = { get S() { return S; }, G, save, refreshHUD, mode: () => MODE, goWorld, enterFishing, bobberScreen, rodTip, startFight, updateFight, endFight };
 requestAnimationFrame(loop);
 })();
