@@ -44,8 +44,11 @@ const DEFAULT = () => ({
   up: { rod: 0, bait: 0, cooler: 0, boat: 0 },
   cooler: [], dex: {}, stats: { casts: 0, caught: 0, earned: 0, legends: 0 },
   muted: false,
+  world: null, // posisi pemain di Muara Kampung (Island Life)
 });
 let S = DEFAULT();
+// Mode: "world" = jalan-jalan di pulau, "fish" = sistem mancing lama
+let MODE = "world", fishFrom = "dock";
 function load() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
@@ -117,6 +120,7 @@ function resize() {
   BY = H - (W < 700 ? 56 : 0); // di HP, perahu naik supaya tidak tertutup tombol
   HZ = H * 0.40;          // garis cakrawala
   K = H - HZ;             // jarak cakrawala → bawah layar
+  if (window.NW && NW.world) NW.world.resize(W, H, DPR);
 }
 window.addEventListener("resize", resize);
 // z = kedalaman (1 = bawah layar, besar = jauh), x = lateral
@@ -225,13 +229,14 @@ function priceOf(item) { const f = FISH_BY_ID[item.id]; return Math.max(1, Math.
 
 // ---------- Input ----------
 function press(px) {
+  if (MODE !== "fish") return;
   G.holding = true;
   if (px !== undefined) G.pointerX = px / W;
   if (!started || !$("panelWrap").classList.contains("hidden") || !$("catchWrap").classList.contains("hidden")) return;
   initAudio();
   switch (G.phase) {
     case "idle":
-      if (S.cooler.length >= coolerCap()) { toast("Coolbox penuh! Jual dulu di Pasar 🏪", "bad"); flashCooler(); return; }
+      if (S.cooler.length >= coolerCap()) { toast(S.loc === 0 ? "Coolbox penuh! Kembali ke darat, jual di Pasar 🏪" : "Coolbox penuh! Pulang ke Muara untuk menjual 🏪", "bad"); flashCooler(); return; }
       G.phase = "charging"; G.power = 0; G.powerDir = 1; showMeter(true);
       break;
     case "waiting":
@@ -244,6 +249,7 @@ function press(px) {
 }
 function release(px) {
   G.holding = false;
+  if (MODE !== "fish") return;
   if (px !== undefined) G.pointerX = px / W;
   if (G.phase === "charging") doCast();
 }
@@ -251,8 +257,8 @@ cv.addEventListener("pointerdown", (e) => { e.preventDefault(); try { cv.setPoin
 cv.addEventListener("pointerup", (e) => { e.preventDefault(); release(e.clientX); });
 cv.addEventListener("pointercancel", () => release());
 cv.addEventListener("pointermove", (e) => { if (G.phase === "charging") G.pointerX = e.clientX / W; });
-window.addEventListener("keydown", (e) => { if (e.code === "Space" && !e.repeat) { e.preventDefault(); press(); } });
-window.addEventListener("keyup", (e) => { if (e.code === "Space") { e.preventDefault(); release(); } });
+window.addEventListener("keydown", (e) => { if (MODE === "fish" && e.code === "Space" && !e.repeat) { e.preventDefault(); press(); } });
+window.addEventListener("keyup", (e) => { if (MODE === "fish" && e.code === "Space") { e.preventDefault(); release(); } });
 window.addEventListener("blur", () => { if (G.holding) release(); });
 
 // ---------- Aksi ----------
@@ -338,12 +344,21 @@ function landFish(fish, w) {
 
 // ---------- Update ----------
 let last = performance.now(), started = false, saveT = 0;
-function update(dt) {
-  // waktu berjalan
+// waktu berjalan (dipakai mode mancing & mode pulau)
+function tickTime(dt) {
   const prevNight = isNight();
   S.hour += dt * HOURS_PER_SEC;
   if (S.hour >= 24) { S.hour -= 24; S.day++; toast(`Hari ${S.day} — harga pasar berubah! 📈`); }
   if (prevNight !== isNight() && started) toast(isNight() ? "Malam tiba 🌙 Ikan malam mulai keluar" : "Pagi tiba ☀️");
+  refreshClock();
+  saveT += dt; if (saveT > 5) { saveT = 0; save(); }
+}
+function goldenHour() {
+  const h = S.hour, bell = (a, b) => (h > a && h < b ? Math.sin(((h - a) / (b - a)) * Math.PI) : 0);
+  return Math.max(bell(5.6, 8), bell(16, 18.6));
+}
+function update(dt) {
+  tickTime(dt);
 
   G.t += dt;
   // ombak bergerak mendekat
@@ -405,8 +420,6 @@ function update(dt) {
   G.rodAngle = lerp(G.rodAngle, targetAngle, dt * (G.phase === "flying" ? 18 : 8));
   G.rodBend = lerp(G.rodBend, targetBend, dt * 8);
 
-  saveT += dt; if (saveT > 5) { saveT = 0; save(); }
-  refreshClock();
 }
 
 function updateFight(dt) {
@@ -644,25 +657,29 @@ function drawBoat(dk) {
   const hull = ["#7a5230", "#2f7a8c", "#c9553b", "#e9e4d8", "#1f3f5a"][boatLv];
   const trim = ["#5a3b22", "#f0d58a", "#f3e7c9", "#d14a3a", "#e0b84c"][boatLv];
   const night = (c) => mix(c, "#0a1426", dk * 0.6);
+  if (fishFrom === "dock" && S.loc === 0) drawDockFore(cx, by, B, night);
+  else {
   // badan perahu (tampak dari belakang, menyempit ke depan)
-  const nearW = 250 * U, farW = 70 * U, farY = B - 210 * U;
-  ctx.fillStyle = night(shade(hull, -0.25));
-  ctx.beginPath();
-  ctx.moveTo(cx - nearW / 2 - 14 * U, by); ctx.lineTo(cx - farW / 2, farY); ctx.quadraticCurveTo(cx, farY - 34 * U, cx + farW / 2, farY);
-  ctx.lineTo(cx + nearW / 2 + 14 * U, by); ctx.fill();
-  ctx.fillStyle = night(hull);
-  ctx.beginPath();
-  ctx.moveTo(cx - nearW / 2, by); ctx.lineTo(cx - farW / 2 + 6 * U, farY + 6 * U); ctx.quadraticCurveTo(cx, farY - 22 * U, cx + farW / 2 - 6 * U, farY + 6 * U);
-  ctx.lineTo(cx + nearW / 2, by); ctx.fill();
-  // lantai papan
-  ctx.strokeStyle = night(shade(hull, -0.35)); ctx.lineWidth = 1.5 * U;
-  for (let i = 1; i < 6; i++) {
-    const t = i / 6, y = lerp(by, farY + 10 * U, t), w = lerp(nearW, farW, t) / 2 - 10 * U;
-    ctx.beginPath(); ctx.moveTo(cx - w, y); ctx.lineTo(cx + w, y); ctx.stroke();
+    const nearW = 250 * U, farW = 70 * U, farY = B - 210 * U;
+    ctx.fillStyle = night(shade(hull, -0.25));
+    ctx.beginPath();
+    ctx.moveTo(cx - nearW / 2 - 14 * U, by); ctx.lineTo(cx - farW / 2, farY); ctx.quadraticCurveTo(cx, farY - 34 * U, cx + farW / 2, farY);
+    ctx.lineTo(cx + nearW / 2 + 14 * U, by); ctx.fill();
+    ctx.fillStyle = night(hull);
+    ctx.beginPath();
+    ctx.moveTo(cx - nearW / 2, by); ctx.lineTo(cx - farW / 2 + 6 * U, farY + 6 * U); ctx.quadraticCurveTo(cx, farY - 22 * U, cx + farW / 2 - 6 * U, farY + 6 * U);
+    ctx.lineTo(cx + nearW / 2, by); ctx.fill();
+    // lantai papan
+    ctx.strokeStyle = night(shade(hull, -0.35)); ctx.lineWidth = 1.5 * U;
+    for (let i = 1; i < 6; i++) {
+      const t = i / 6, y = lerp(by, farY + 10 * U, t), w = lerp(nearW, farW, t) / 2 - 10 * U;
+      ctx.beginPath(); ctx.moveTo(cx - w, y); ctx.lineTo(cx + w, y); ctx.stroke();
+    }
+    // pinggiran
+    ctx.strokeStyle = night(trim); ctx.lineWidth = 7 * U; ctx.lineJoin = "round";
+    ctx.beginPath(); ctx.moveTo(cx - nearW / 2 - 8 * U, by); ctx.lineTo(cx - farW / 2, farY + 2 * U); ctx.quadraticCurveTo(cx, farY - 30 * U, cx + farW / 2, farY + 2 * U); ctx.lineTo(cx + nearW / 2 + 8 * U, by); ctx.stroke();
+
   }
-  // pinggiran
-  ctx.strokeStyle = night(trim); ctx.lineWidth = 7 * U; ctx.lineJoin = "round";
-  ctx.beginPath(); ctx.moveTo(cx - nearW / 2 - 8 * U, by); ctx.lineTo(cx - farW / 2, farY + 2 * U); ctx.quadraticCurveTo(cx, farY - 30 * U, cx + farW / 2, farY + 2 * U); ctx.lineTo(cx + nearW / 2 + 8 * U, by); ctx.stroke();
 
   // lentera malam
   if (dk > 0.3) {
@@ -713,6 +730,36 @@ function drawBoat(dk) {
   ctx.lineWidth = 3.5 * U; ctx.beginPath(); ctx.moveTo(hp.x, hp.y); ctx.quadraticCurveTo(mx, my, tip.x, tip.y); ctx.stroke();
   // reel
   ctx.fillStyle = night("#d8dde0"); ctx.beginPath(); ctx.arc(hp.x + 6 * U, hp.y + 8 * U, 7 * U, 0, 7); ctx.fill();
+}
+
+// Tampilan depan dermaga Muara (saat mancing dari darat)
+function drawDockFore(cx, by, B, night) {
+  const nearW = 360 * U, farW = 170 * U, farY = B - 175 * U;
+  // tiang dermaga di air
+  ctx.fillStyle = night("#5a3b22");
+  for (const sd of [-1, 1]) for (let i = 0; i < 3; i++) {
+    const t = i / 2.6, y = lerp(by, farY, t), w = lerp(nearW, farW, t) / 2, s = 1 - t * 0.5;
+    ctx.fillRect(cx + sd * (w + 4 * U) - 6 * U * s, y - 6 * U, 12 * U * s, 46 * U * s);
+  }
+  // tepi ujung dermaga
+  ctx.fillStyle = night("#6e4628");
+  ctx.fillRect(cx - farW / 2, farY, farW, 12 * U);
+  // lantai papan
+  ctx.fillStyle = night("#b27d48");
+  ctx.beginPath(); ctx.moveTo(cx - nearW / 2, by); ctx.lineTo(cx - farW / 2, farY); ctx.lineTo(cx + farW / 2, farY); ctx.lineTo(cx + nearW / 2, by); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = night("#7d532c"); ctx.lineWidth = 1.6 * U;
+  for (let i = 1; i < 10; i++) {
+    const t = Math.pow(i / 10, 0.8), y = lerp(by, farY, t), w = lerp(nearW, farW, t) / 2;
+    ctx.beginPath(); ctx.moveTo(cx - w, y); ctx.lineTo(cx + w, y); ctx.stroke();
+  }
+  ctx.strokeStyle = night("#c89560"); ctx.lineWidth = 2 * U;
+  ctx.beginPath(); ctx.moveTo(cx - nearW / 2, by); ctx.lineTo(cx - farW / 2, farY); ctx.moveTo(cx + nearW / 2, by); ctx.lineTo(cx + farW / 2, farY); ctx.stroke();
+  // tiang tambat
+  for (const sd of [-1, 1]) {
+    const x = cx + sd * (farW / 2 - 10 * U);
+    ctx.fillStyle = night("#5a3b22"); ctx.fillRect(x - 6 * U, farY - 22 * U, 12 * U, 24 * U);
+    ctx.fillStyle = night("#7d532c"); ctx.beginPath(); ctx.ellipse(x, farY - 22 * U, 6 * U, 3 * U, 0, 0, 7); ctx.fill();
+  }
 }
 
 function bobberScreen() {
@@ -868,7 +915,9 @@ function toast(msg, kind = "") {
 function flashCooler() { const c = $("coolerChip"); c.classList.add("full"); setTimeout(refreshHUD, 1500); }
 function showMeter(on) { $("powerMeter").classList.toggle("hidden", !on); if (!on) $("powerFill").style.height = "0%"; }
 function setNavLocked(on) { document.querySelector(".nav").classList.toggle("locked", on); }
+function setHint(msg) { const hint = $("hint"); hint.textContent = msg; hint.classList.toggle("fade", !msg); }
 function updateHint() {
+  if (MODE === "world") { if (NW.world) NW.world.updateHint(); return; }
   const hint = $("hint"), c = S.stats.casts;
   let msg = "";
   if (G.phase === "idle") msg = c < 3 ? "Tahan layar untuk mengayun, lepas untuk melempar" : "";
@@ -965,10 +1014,16 @@ function shareCard({ fish, w }) {
 
 // ---------- Panel ----------
 let currentPanel = null, dexTab = null;
-document.querySelectorAll(".nav button").forEach((b) => b.addEventListener("click", () => { SFX.click(); openPanel(b.dataset.panel); }));
+document.querySelectorAll(".nav button[data-panel]").forEach((b) => b.addEventListener("click", () => { SFX.click(); openPanel(b.dataset.panel); }));
 $("panelClose").addEventListener("click", closePanel);
 $("panelWrap").addEventListener("click", (e) => { if (e.target.id === "panelWrap") closePanel(); });
 $("muteBtn").addEventListener("click", () => { S.muted = !S.muted; save(); refreshHUD(); initAudio(); });
+$("dexBtn").addEventListener("click", () => { SFX.click(); openPanel("dex"); });
+$("landBtn").addEventListener("click", () => {
+  if (["fight", "bite", "charging", "result"].includes(G.phase)) return;
+  SFX.click();
+  if (S.loc === 0) goWorld("dock"); else openPanel("map");
+});
 
 function openPanel(name) {
   if (["fight", "bite", "charging", "result"].includes(G.phase)) return;
@@ -1087,29 +1142,80 @@ function mapHTML() {
   return h;
 }
 function travel(i) {
+  closePanel();
+  if (i === 0) { // pulang ke Muara Kampung (pulau yang bisa dijelajahi)
+    if (MODE === "world") return;
+    S.hour = (S.hour + 1.5) % 24; goWorld("boat");
+    toast("⛵ Pulang ke Muara Kampung", "good"); return;
+  }
   S.loc = i; S.hour = (S.hour + 1.5) % 24;
-  buildScenery(); save(); refreshHUD(); closePanel();
+  enterFishing("boat");
   toast(`⛵ Tiba di ${LOCATIONS[i].name}`, "good");
+}
+
+// ---------- Pindah mode ----------
+function applyMode() {
+  document.body.classList.toggle("mode-world", MODE === "world");
+  document.body.classList.toggle("mode-fish", MODE === "fish");
+  const lb = $("landBtn");
+  lb.innerHTML = S.loc === 0 ? "<span>🏝️</span>Ke Darat" : "<span>🗺️</span>Peta";
+}
+function resetFishing() {
+  G.phase = "idle"; G.bob.vis = false; G.shadow = null; G.fight = null; G.holding = false;
+  showMeter(false); $("fightUI").classList.add("hidden"); setNavLocked(false);
+}
+function enterFishing(from) {
+  MODE = "fish"; fishFrom = from;
+  if (from === "dock") S.loc = 0;
+  resetFishing(); buildScenery(); applyMode(); refreshHUD(); updateHint(); save();
+}
+function goWorld(at) {
+  MODE = "world"; S.loc = 0;
+  resetFishing(); buildScenery(); applyMode(); refreshHUD();
+  NW.world.onEnter(at); updateHint(); save();
+}
+function marketTip() {
+  const hot = FISH.filter((f) => f.loc === "muara").map((f) => ({ f, m: priceMult(f.id) })).sort((a, b) => b.m - a.m)[0];
+  return hot && hot.m > 1.1 ? `Hari ini ${hot.f.name} lagi mahal, naik ${Math.round((hot.m - 1) * 100)}%!` : "Harga hari ini biasa saja. Besok bisa beda, lho.";
 }
 
 // ---------- Mulai ----------
 $("startBtn").addEventListener("click", () => {
   initAudio(); SFX.click();
   started = true; $("splash").classList.add("hidden"); updateHint();
-  if (S.stats.caught === 0) setTimeout(() => toast("Selamat datang di Nusa Island! 🏝️"), 300);
+  NW.world.onEnter("start"); // tampilkan judul lokasi
 });
 
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  if (started) update(dt); else { G.t += dt; for (const c of clouds) c.x = (c.x + c.v * dt) % 1.2; }
-  draw();
+  if (MODE === "world") {
+    G.t += dt;
+    if (started) NW.world.update(dt);
+    NW.world.draw(ctx, G.t);
+  } else {
+    if (started) update(dt); else { G.t += dt; for (const c of clouds) c.x = (c.x + c.v * dt) % 1.2; }
+    draw();
+  }
   requestAnimationFrame(loop);
 }
 
-load(); resize(); buildScenery(); initAmbient(); refreshHUD(); updateHint();
+// API untuk modul dunia pulau (world/*.js)
+window.Nusa = {
+  get S() { return S; },
+  mode: () => MODE, isStarted: () => started,
+  isPanelOpen: () => !$("panelWrap").classList.contains("hidden") || !$("catchWrap").classList.contains("hidden"),
+  openPanel, enterFishing, goWorld, tickTime, darkness, goldenHour, isNight, marketTip, setHint, save, toast,
+  coolerFull: () => S.cooler.length >= coolerCap(),
+  sfx: (n) => { initAudio(); if (SFX[n]) SFX[n](); },
+};
+
+load();
+S.loc = 0; // permainan selalu dimulai dari Muara Kampung
+resize(); buildScenery(); initAmbient(); refreshHUD(); applyMode();
+NW.world.resize(W, H, DPR); NW.world.onEnter("start"); updateHint();
 document.addEventListener("visibilitychange", () => { if (document.hidden) save(); });
 window.addEventListener("pagehide", save);
 // akses debug ringan untuk pengujian
-window.__nusa = { S, G, save, refreshHUD, get state() { return S; } };
+window.__nusa = { get S() { return S; }, G, save, refreshHUD, mode: () => MODE, goWorld, enterFishing };
 requestAnimationFrame(loop);
 })();

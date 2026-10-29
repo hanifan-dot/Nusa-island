@@ -1,8 +1,24 @@
 # 🏝️ Nusa Island
 
-Game mancing 2.5D keliling Nusantara, dari kreator **Kota Nusa**. Main langsung di browser, di HP maupun laptop.
+Game kehidupan pulau dan mancing 2.5D keliling Nusantara, dari kreator **Kota Nusa**. Main langsung di browser, di HP maupun laptop.
 
-## Cara main
+## Island Life — Muara Kampung (Tahap 1)
+Pemain sekarang mulai di pulau **Muara Kampung** yang bisa dijelajahi dalam tampilan isometrik.
+- **Joystick** di kiri bawah (atau WASD/panah di laptop) untuk berjalan 8 arah. Kamera mengikuti pemain.
+- **Tombol aksi** kuning muncul di kanan bawah saat dekat sesuatu (atau tekan E/Spasi).
+- **Ujung dermaga 🎣**: mulai mancing. Sistem mancing lama berjalan seperti biasa. Tombol *Ke Darat* untuk kembali.
+- **Pasar Ikan Bu Sari 🏪**: jual tangkapan. **Toko Pancing Pak Bono 🛠️**: upgrade alat.
+- **Kapal ⛵** di samping dermaga: buka peta untuk berlayar ke pulau lain (masih berupa lokasi mancing).
+- **NPC**: Pak Darto (nelayan yang bolak-balik ke dermaga), Bu Sari (pedagang di pasar), Dika (anak yang jalan-jalan di kampung). Ajak bicara untuk tips.
+- Siang, sore, dan malam dengan lampu jalan dan jendela yang menyala.
+
+Struktur kode dunia pulau ada di folder `world/`:
+- `world/map.js`: bentuk pulau, jalan, dermaga, bangunan, objek, dan collision.
+- `world/draw.js`: semua gambar isometrik (terrain, air, bangunan, pohon, karakter).
+- `world/world.js`: pemain, joystick, kamera, NPC, dialog, dan interaksi.
+- `game.js`: sistem mancing lama, pasar, toko, koleksi, simpanan, dan perpindahan mode pulau ↔ mancing.
+
+## Cara mancing
 1. **Tahan layar** untuk mengayun joran, **lepas** untuk melempar. Lepas di zona atas meteran untuk *Lemparan Sempurna* (lebih hoki). Ketuk sisi kiri atau kanan layar untuk mengarahkan lemparan.
 2. Tunggu sampai pelampung **tenggelam** dan muncul tanda **!**, lalu ketuk secepatnya.
 3. **Tarik-ulur**: tahan untuk menggulung, lepas supaya senar kendur. Kalau tegangan terlalu tinggi, senar putus. Kalau terlalu lama kendur, ikannya lepas.
