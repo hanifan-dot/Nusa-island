@@ -280,7 +280,7 @@ with sync_playwright() as p:
     ctx, pg, errs3 = page(b, v3)
     S = ev(pg, "JSON.parse(JSON.stringify(window.__nusa.S))")
     ok("M1 simpanan v3 (penyempurnaan 2A): koin, ikan, akuarium, dekorasi utuh", S["money"] == 4242 and S["cooler"][0]["uid"] == "u1" and S["home"]["placedFish"][0]["uid"] == "u2" and S["home"]["decorations"] == ["lampu"])
-    ok("M2 v3 → v4: cerita mulai dari Bab 1, pemain lama tidak dipaksa tutorial", S["v"] == 4 and S["story"]["ch"] == 1 and all(S["onboard"][k] for k in ["walk", "talk", "fish", "sell", "home"]))
+    ok("M2 v3 → v4: cerita mulai dari Bab 1, pemain lama tidak dipaksa tutorial", S["v"] >= 4 and S["story"]["ch"] == 1 and all(S["onboard"][k] for k in ["walk", "talk", "fish", "sell", "home"]))
     ok("M3 cadangan v3 dibuat", ev(pg, "!!localStorage.getItem('nusa-island-v1-backup-v3')"))
     pg.click("#startBtn"); time.sleep(0.4)
     ok("M4 pemain lama tidak melihat petunjuk berjalan", "joystick" not in pg.inner_text("#hint"))
@@ -289,7 +289,7 @@ with sync_playwright() as p:
     t1 = {"money": 999, "day": 3, "hour": 9, "loc": 0, "up": {"rod": 1, "bait": 0, "cooler": 0, "boat": 0}, "cooler": [{"id": "nila", "w": 0.8}], "dex": {"nila": {"n": 2, "best": 0.9}}, "stats": {"casts": 9, "caught": 2, "earned": 30, "legends": 0}, "muted": True}
     ctx, pg, errs4 = page(b, t1)
     S = ev(pg, "JSON.parse(JSON.stringify(window.__nusa.S))")
-    ok("M5 simpanan Tahap 1 → v4 aman (koin, ikan, upgrade, rumah Lv1, cerita Bab 1)", S["money"] == 999 and len(S["cooler"]) == 1 and S["cooler"][0]["uid"] and S["up"]["rod"] == 1 and S["home"]["level"] == 1 and S["story"]["ch"] == 1 and S["v"] == 4)
+    ok("M5 simpanan Tahap 1 → simpanan baru aman (koin, ikan, upgrade, rumah Lv1, cerita Bab 1)", S["money"] == 999 and len(S["cooler"]) == 1 and S["cooler"][0]["uid"] and S["up"]["rod"] == 1 and S["home"]["level"] == 1 and S["story"]["ch"] == 1 and S["v"] >= 4)
     ok("Z4 tanpa error JavaScript (Tahap 1)", not errs4, errs4[:3])
     ctx.close()
     b.close()
