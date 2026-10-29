@@ -798,10 +798,11 @@ function drawBoat(dk) {
   // ember/coolbox
   const fill = S.cooler.length / coolerCap();
   const kx = cx + 78 * U, ky = B - 62 * U;
-  ctx.fillStyle = night(["#7f8a8f", "#3f8fd0", "#3f8fd0", "#e9e4d8", "#e9e4d8"][upLvl("cooler")]);
-  ctx.fillRect(kx - 26 * U, ky - 22 * U, 52 * U, 36 * U);
-  ctx.fillStyle = night("#ffffff"); ctx.fillRect(kx - 28 * U, ky - 26 * U, 56 * U, 8 * U);
-  if (fill > 0) { ctx.fillStyle = night("#c9d8de"); ctx.fillRect(kx - 22 * U, ky - 18 * U + (1 - fill) * 28 * U, 44 * U, fill * 28 * U); }
+  const cl = upLvl("cooler"), cw = (26 + Math.min(cl, 9) * 1.6) * U; // makin besar penyimpanannya, makin lebar kotaknya
+  ctx.fillStyle = night(["#7f8a8f", "#3f8fd0", "#3f8fd0", "#e9e4d8", "#e9e4d8", "#c9a96a", "#8fb3c9", "#b7c3cc", "#e8eef2", "#e0b84c"][cl] || "#e9e4d8");
+  ctx.fillRect(kx - cw, ky - 22 * U, cw * 2, 36 * U);
+  ctx.fillStyle = night("#ffffff"); ctx.fillRect(kx - cw - 2 * U, ky - 26 * U, cw * 2 + 4 * U, 8 * U);
+  if (fill > 0) { ctx.fillStyle = night("#c9d8de"); ctx.fillRect(kx - cw + 4 * U, ky - 18 * U + (1 - fill) * 28 * U, cw * 2 - 8 * U, fill * 28 * U); }
 
   // pemancing (tampak belakang, pakai caping)
   const px = cx - 6 * U, py = B - 96 * U;
@@ -1147,9 +1148,8 @@ function closePanel() { SFX.click(); $("panelWrap").classList.add("hidden"); cur
 function renderPanel() {
   const body = $("panelBody");
   const titles = { market: "🏪 Pasar Ikan", shop: "🛠️ Toko Perlengkapan", dex: "📖 Koleksi Ikan", map: "🗺️ Peta Nusantara" };
-  if (extraPanels[currentPanel]) { $("panelTitle").textContent = extraPanels[currentPanel].title(); body.innerHTML = extraPanels[currentPanel].render(); return; }
+  if (extraPanels[currentPanel]) { const ep = extraPanels[currentPanel]; $("panelTitle").textContent = ep.title(); body.innerHTML = ep.render(); if (ep.after) ep.after(body); return; }
   $("panelTitle").textContent = titles[currentPanel];
-  if (currentPanel === "market") body.innerHTML = marketHTML();
   if (currentPanel === "shop") body.innerHTML = shopHTML();
   if (currentPanel === "dex") body.innerHTML = dexHTML();
   if (currentPanel === "map") body.innerHTML = mapHTML();
@@ -1157,8 +1157,6 @@ function renderPanel() {
 $("panelBody").addEventListener("click", (e) => {
   const el = e.target.closest("[data-act]"); if (!el) return;
   const act = el.dataset.act, arg = el.dataset.arg;
-  if (act === "sellAll") sellAll();
-  if (act === "sell") sellOne(arg);
   if (act === "buy") buy(arg);
   if (act === "tab") { dexTab = arg; SFX.click(); renderPanel(); }
   if (act === "go") travel(+arg);
@@ -1169,43 +1167,11 @@ function trendHTML(id) {
   const m = priceMult(id);
   return m >= 1.12 ? `<span class="trend-up">▲ ${Math.round((m - 1) * 100)}%</span>` : m <= 0.88 ? `<span class="trend-down">▼ ${Math.round((1 - m) * 100)}%</span>` : "";
 }
-function marketHTML() {
-  const total = S.cooler.reduce((s, it) => s + priceOf(it), 0);
-  const L = LOCATIONS[S.loc];
-  const hot = FISH.filter((f) => f.loc === L.id).map((f) => ({ f, m: priceMult(f.id) })).sort((a, b) => b.m - a.m)[0];
-  let h = `<p class="muted">Harga berubah tiap hari. Tahan dulu ikan yang lagi murah, jual saat naik!</p>`;
-  if (hot && hot.m > 1.1) h += `<p>🔥 Lagi mahal di ${L.short}: <b>${hot.f.name}</b> <span class="trend-up">▲ ${Math.round((hot.m - 1) * 100)}%</span></p>`;
-  h += `<div class="market-sum"><div><div class="muted">Isi coolbox ${S.cooler.length}/${coolerCap()}</div><b>🪙 ${fmt(total)}</b></div>
-        <button class="btn gold" data-act="sellAll" ${S.cooler.length ? "" : "disabled"}>Jual Semua</button></div>`;
-  if (!S.cooler.length) return h + `<p class="muted" style="text-align:center;padding:20px 0">Coolbox masih kosong. Ayo mancing dulu! 🎣</p>`;
-  h += `<div class="list">`;
-  S.cooler.map((it, i) => ({ it, i })).sort((a, b) => priceOf(b.it) - priceOf(a.it)).forEach(({ it, i }) => {
-    const f = FISH_BY_ID[it.id];
-    h += `<div class="row" style="border-left-color:${RARITY[f.rarity].color}">
-      ${f.emoji ? `<div class="emo">${f.emoji}</div>` : `<img src="${fishImg(f.id)}" alt="">`}
-      <div class="grow"><div class="nm">${f.name}</div><div class="sub">${fmtW(it.w)} · ${RARITY[f.rarity].label} ${trendHTML(f.id)}</div></div>
-      <div class="price">🪙 ${fmt(priceOf(it))}</div>
-      <button class="btn small" data-act="sell" data-arg="${it.uid}">Jual</button></div>`;
-  });
-  return h + `</div>`;
-}
-function sellAll() {
-  const total = S.cooler.reduce((s, it) => s + priceOf(it), 0);
-  if (!total) return;
-  S.money += total; S.stats.earned += total; S.cooler = []; emit("sell", total);
-  SFX.coin(); toast(`Terjual! +🪙 ${fmt(total)}`, "good"); save(); refreshHUD(); renderPanel();
-}
-function sellOne(uid) {
-  const i = S.cooler.findIndex((x) => x.uid === uid), it = S.cooler[i]; if (!it) return; // hanya ikan di coolbox yang bisa dijual
-  const p = priceOf(it); S.money += p; S.stats.earned += p; S.cooler.splice(i, 1); emit("sell", p);
-  SFX.coin(); save(); refreshHUD(); renderPanel();
-}
-
 function shopHTML() {
   let h = `<p class="muted">Upgrade alat untuk menaklukkan ikan yang lebih besar dan pulau yang lebih jauh.</p>`;
   for (const [k, U2] of Object.entries(UPGRADES)) {
     const lv = upLvl(k), max = lv >= U2.levels.length - 1, cost = max ? 0 : U2.cost[lv + 1];
-    h += `<div class="shop-item"><div class="ic">${U2.icon}</div><div class="grow">
+    h += `<div class="shop-item"><div class="ic">${(U2.icons && U2.icons[lv]) || U2.icon}</div><div class="grow">
       <div class="nm"><b>${U2.levels[lv]}</b></div>
       <div class="lvl">${U2.levels.map((_, i) => `<i class="${i <= lv ? "on" : ""}"></i>`).join("")}</div>
       <div class="muted">${max ? "Level maksimal 🌟" : "Berikutnya: " + U2.levels[lv + 1] + " · " + U2.info[lv + 1]}</div></div>
@@ -1325,7 +1291,7 @@ window.Nusa = {
   coolerFull: () => S.cooler.length >= coolerCap(),
   sfx: (n) => { initAudio(); if (SFX[n]) SFX[n](); },
   tone, on, emit, registerPanel, renderPanel: () => currentPanel && renderPanel(), currentPanel: () => currentPanel, closePanel,
-  sleepUntilMorning, refreshHUD, drawFish, fishImg, priceOf, fmt, fmtW, FISH_BY_ID, coolerCap,
+  sleepUntilMorning, refreshHUD, drawFish, fishImg, priceOf, priceMult, fmt, fmtW, FISH_BY_ID, coolerCap, upLvl, trendHTML,
 };
 
 load();
@@ -1333,6 +1299,7 @@ S.loc = 0; // permainan selalu dimulai dari Muara Kampung
 NW.life.hook(); NW.home.hook(); // Tahap 2A: misi harian & Rumahku
 NW.story.hook(isNewPlayer);     // Bumbu 1: cerita, keahlian, petunjuk pemain baru
 NW.look.hook();                 // Bumbu 1.1: gelar tangkapan & nama pemain lokal
+NW.inv.hook();                  // Bumbu 1.2: inventaris & pasar
 if (loadNote) setTimeout(() => toast(loadNote), 1200);
 save(); // simpan hasil migrasi (data lama sudah dicadangkan)
 resize(); buildScenery(); initAmbient(); refreshHUD(); applyMode();

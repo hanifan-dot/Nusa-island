@@ -209,7 +209,7 @@ function tokoOption(open) {
 }
 function sariOption(open, n, role) {
   if (!at(2, 1) || st().mats.damar) return null;
-  const it = S().cooler.filter((x) => x.id === "nila" || x.id === "mujair").sort((a, b) => a.w - b.w)[0];
+  const it = S().cooler.filter((x) => (x.id === "nila" || x.id === "mujair") && !x.lock).sort((a, b) => a.w - b.w)[0]; // ikan terkunci tidak dipakai
   if (!it) return { label: "🫙 Tanya getah damar", act: () => open({ name: "Bu Sari", avatar: "👩", role, npc: n, lines: ["Getah damar? Ada, Nak. Tapi Ibu lagi butuh lauk untuk makan malam.", "Bawakan seekor nila atau mujair, nanti Ibu tukar dengan damar."] }) };
   const f = N().FISH_BY_ID[it.id];
   return { label: `🫙 Tukar ${f.name} ${N().fmtW(it.w)} dengan damar`, act: () => {
@@ -218,6 +218,8 @@ function sariOption(open, n, role) {
     open({ name: "Bu Sari", avatar: "👩", role, npc: n, lines: ["Terima kasih, Nak! Ini getah damarnya, masih hangat dari pohon di belakang rumah Ibu.", "Salam untuk Pak Darto, ya."] }); matsCheck();
   } };
 }
+// ikan yang sedang dibutuhkan cerita (dipakai pasar untuk memperingatkan sebelum menjual)
+function fishNeeds() { return at(2, 1) && !st().mats.damar ? [{ ids: ["nila", "mujair"], n: 1, why: "Cerita Pak Darto: Bu Sari butuh 1 nila/mujair untuk getah damar" }] : []; }
 function matsCheck() { refreshUI(); if (allMats()) N().toast("📖 Bahan lengkap! Bawa ke Pak Darto ❗", "good"); }
 
 // ---------- Titik interaksi tambahan ----------
@@ -370,7 +372,7 @@ function refreshUI() { const b = $("skillBadge"); if (b) b.classList.toggle("hid
 function challengeFish(perfect, loc) { return at(4, 1) && perfect && loc === "muara" ? { fish: N().FISH_BY_ID.gabus, w: 2.8, wr: 0.6, challenge: true } : null; }
 
 NW.story = {
-  reminder, hook, handleTalk, chatLines, storyLineFor, tokoOption, sariOption, points, interact, layerObjects, markerFor, placeMarkers,
+  fishNeeds, reminder, hook, handleTalk, chatLines, storyLineFor, tokoOption, sariOption, points, interact, layerObjects, markerFor, placeMarkers,
   hint, mark, has, challengeFish, SKILL_INFO, CH, CORNER, awaitsDarto, defaults, get state() { return st(); },
 };
 })();

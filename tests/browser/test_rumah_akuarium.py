@@ -168,9 +168,11 @@ with sync_playwright() as p:
     # ikan dipajang tidak bisa dijual
     ev(pg, "window.Nusa.openPanel('market')"); time.sleep(0.3)
     shown = ev(pg, "window.__nusa.S.home.placedFish.map(x=>x.uid)")
-    sell_uids = ev(pg, "[...document.querySelectorAll('[data-act=sell]')].map(b=>b.dataset.arg)")
-    ok("F9 ikan yang dipajang tidak muncul di pasar", len(sell_uids) == ev(pg, "window.__nusa.S.cooler.length") and not set(shown) & set(sell_uids))
-    pg.click("[data-act=sellAll]"); time.sleep(0.3); pg.click("#panelClose")
+    # daftar pasar sekarang virtual (hanya baris terlihat yang ada di DOM); seluruh isinya ada di NW.inv.vlist.rows
+    sell_uids = ev(pg, "NW.inv.vlist.rows.map(r=>r.it.uid)")
+    dom_uids = ev(pg, "[...document.querySelectorAll('[data-act=sell]')].map(b=>b.dataset.arg)")
+    ok("F9 ikan yang dipajang tidak muncul di pasar", len(sell_uids) == ev(pg, "window.__nusa.S.cooler.length") and not set(shown) & set(sell_uids) and not set(shown) & set(dom_uids))
+    pg.click("[data-act=sellAll]"); time.sleep(0.2); pg.click("[data-act=confirmSell]"); time.sleep(0.3); pg.click("#panelClose")
     ok("F10 Jual Semua tidak menjual ikan akuarium", ev(pg, "window.__nusa.S.home.placedFish.length") == len(shown) and ev(pg, "window.__nusa.S.cooler.length") == 0)
     # bertahan setelah refresh
     snap = ev(pg, "JSON.stringify(window.__nusa.S.home.placedFish.map(x=>[x.uid,x.id,x.w,x.aq]).sort())")

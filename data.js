@@ -113,10 +113,12 @@ const UPGRADES = {
   },
   cooler: {
     name: "Coolbox", icon: "🧊",
-    levels: ["Ember Bekas", "Coolbox Kecil", "Coolbox Besar", "Palka Kapal", "Gudang Es"],
-    cost: [0, 250, 1100, 4200, 13000],
-    info: ["Muat 8 ikan", "Muat 15 ikan", "Muat 25 ikan", "Muat 40 ikan", "Muat 70 ikan"],
-    cap: [8, 15, 25, 40, 70],
+    // Bumbu 1.2: 10 tingkat sampai 200 ikan. Tingkat 1-5 tidak berubah (simpanan lama tetap valid).
+    levels: ["Ember Bekas", "Coolbox Kecil", "Coolbox Besar", "Palka Kapal", "Gudang Es", "Palka Samudra", "Gudang Pendingin", "Pabrik Es Mini", "Gudang Beku Kampung", "Gudang Beku Raya"],
+    cost: [0, 250, 1100, 4200, 13000, 19000, 27000, 37000, 49000, 65000],
+    info: ["Muat 8 ikan", "Muat 15 ikan", "Muat 25 ikan", "Muat 40 ikan", "Muat 70 ikan", "Muat 100 ikan", "Muat 125 ikan", "Muat 150 ikan", "Muat 175 ikan", "Muat 200 ikan"],
+    icons: ["🪣", "🧊", "🧊", "🚢", "🏚️", "⚓", "🏭", "❄️", "🏬", "🏛️"],
+    cap: [8, 15, 25, 40, 70, 100, 125, 150, 175, 200],
   },
   boat: {
     name: "Kapal", icon: "⛵",
