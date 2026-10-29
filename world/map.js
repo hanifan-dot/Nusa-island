@@ -58,10 +58,9 @@ for (let y = DOCK.y0; y <= DOCK.y1; y++) for (let x = DOCK.x0; x <= DOCK.x1; x++
 const buildings = [
   { id: "pasar", kind: "market", x0: E - 10, y0: 17, x1: E - 6, y1: 19, h: 34, name: "Pasar Ikan Bu Sari" },
   { id: "toko", kind: "shop", x0: E - 9, y0: 22, x1: E - 6, y1: 24.5, h: 44, door: "x", name: "Toko Pancing Pak Bono", roof: "#3d6f8f", wall: "#f3e2bd" },
-  { id: "rumah1", kind: "house", x0: 8.5, y0: 12, x1: 11.5, y1: 14.5, h: 34, door: "y", stilts: 14, roof: "#b5562f", wall: "#d9a66b" },
   { id: "rumah2", kind: "house", x0: 13, y0: 24, x1: 15.5, y1: 26.5, h: 36, door: "x", roof: "#c2603b", wall: "#efd9b0", name: "Rumah Pak Darto" },
-  { id: "rumah3", kind: "house", x0: 8, y0: 23.5, x1: 10.5, y1: 25.5, h: 34, door: "x", stilts: 12, roof: "#8f4a2c", wall: "#c99a62" },
-  { id: "rumah4", kind: "house", x0: 13.5, y0: 9, x1: 16.5, y1: 11.5, h: 36, door: "y", roof: "#2f6b58", wall: "#f1e6cf" },
+  { id: "rumah3", kind: "house", x0: 8, y0: 23.5, x1: 10.5, y1: 25.5, h: 34, door: "x", stilts: 12, roof: "#8f4a2c", wall: "#c99a62", name: "Rumah Bu Sari" },
+  { id: "rumah4", kind: "house", x0: 13.5, y0: 9, x1: 16.5, y1: 11.5, h: 36, door: "y", roof: "#2f6b58", wall: "#f1e6cf", name: "Rumah Dika" },
 ];
 
 // ---------- Interaksi tetap ----------
@@ -73,8 +72,30 @@ const points = [
   { id: "boat", x: BOAT.x, y: DOCK.y1 + 0.75, r: 1.15, icon: "⛵", label: "Kapal" },
   { id: "pasar", x: (pasar.x0 + pasar.x1) / 2, y: pasar.y1 + 0.65, r: 1.6, icon: "🏪", label: "Pasar" },
   { id: "toko", x: toko.x1 + 0.6, y: (toko.y0 + toko.y1) / 2, r: 1.1, icon: "🛠️", label: "Toko" },
-  { id: "rumah2", x: 15.5 + 0.6, y: 25.25, r: 0.9, icon: "🚪", label: "Ketuk" },
+  { id: "rumah2", x: 15.5 + 0.6, y: 25.25, r: 0.9, icon: "🚪", label: "Ketuk", owner: "darto" },
+  { id: "rumah3", x: 11.5, y: 24.5, r: 0.8, icon: "🚪", label: "Ketuk", owner: "sari" },
+  { id: "rumah4", x: 14.46, y: 12.15, r: 0.8, icon: "🚪", label: "Ketuk", owner: "dika" },
+  { id: "home", x: 9.8, y: 14.75, r: 0.95, icon: "🏡", label: "Rumahku" },
+  { id: "board", x: 20.3, y: 19.95, r: 0.95, icon: "📋", label: "Misi" },
 ];
+
+// ---------- Jaringan jalan untuk NPC (node + sambungan) ----------
+const NAV = {
+  A: [8.8, 20.5], B: [10.5, 20.5], C: [11.5, 20.5], D: [18.5, 20.5], SF: [E - 8, 20.5], F: [E - 4.5, 20.5], G: [E - 1.5, 20.5],
+  DOCKF: [E + 2.4, 20.4], DOCKE: [E + 5.2, 20.6], J: [18.5, 12.5], K: [18.5, 17.6], L: [18.5, 25.3], M: [18.5, 27.3],
+  N2: [10.5, 17.4], N: [10.5, 15.6], R1: [9.5, 15.5], O: [11.5, 23.5], R3: [11.5, 24.5], R2: [16.2, 25.3], P: [15.5, 12.5], R4: [14.46, 12.2],
+  Q: [E - 4.6, 23.2], PARK: [16.3, 17.65], BENCH: [15.8, 16.45], WELL: [11.75, 17.55], NET: [12.3, 27.65], BEACH: [19.4, 29.1],
+  SE: [E - 5.55, 18.3], STALL: [E - 7.2, 18.3],
+};
+const NAV_EDGES = [["A", "B"], ["B", "C"], ["C", "D"], ["D", "SF"], ["SF", "F"], ["F", "G"], ["G", "DOCKF"], ["DOCKF", "DOCKE"],
+  ["J", "K"], ["K", "D"], ["D", "L"], ["L", "M"], ["B", "N2"], ["N2", "N"], ["N", "R1"], ["C", "O"], ["O", "R3"], ["L", "R2"],
+  ["J", "P"], ["P", "R4"], ["F", "Q"], ["K", "PARK"], ["PARK", "BENCH"], ["N2", "WELL"], ["M", "NET"], ["M", "BEACH"], ["F", "SE"], ["SE", "STALL"]];
+function segDist(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1;
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2));
+  return Math.hypot(px - (ax + dx * t), py - (ay + dy * t));
+}
+const nearNav = (x, y, pad) => NAV_EDGES.some(([a, b]) => segDist(x, y, NAV[a][0], NAV[a][1], NAV[b][0], NAV[b][1]) < pad);
 
 // Papan nama
 const signs = [
@@ -95,7 +116,11 @@ const flowerBeds = [
 const objects = []; // {kind, x, y, ...}
 const solids = [];  // collision: {x,y,r} lingkaran atau {x0,y0,x1,y1} kotak
 
+// Gapura menuju halaman pribadi Rumahku (rumah pemain tidak ditaruh di peta umum)
+const HOME_GATE = { x: 9.8, y: 14.0 };
+const CLEAR = [{ x0: 7.6, y0: 11.0, x1: 12.2, y1: 15.2 }];
 function nearAny(x, y, pad) {
+  for (const r of CLEAR) if (x > r.x0 - pad * 0.3 && x < r.x1 + pad * 0.3 && y > r.y0 - pad * 0.3 && y < r.y1 + pad * 0.3) return true;
   for (const b of buildings) if (x > b.x0 - pad && x < b.x1 + pad && y > b.y0 - pad && y < b.y1 + pad) return true;
   for (const p of points) if (Math.hypot(x - p.x, y - p.y) < pad + 0.6) return true;
   for (const o of objects) if (Math.hypot(x - o.x, y - o.y) < pad + 0.5) return true;
@@ -103,6 +128,7 @@ function nearAny(x, y, pad) {
   return false;
 }
 function nearPath(x, y) {
+  if (nearNav(x, y, 0.75)) return true; // jalur NPC dibiarkan kosong
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const t = tileAt(Math.floor(x + dx * 0.6), Math.floor(y + dy * 0.6)); if (t === T.PATH || t === T.DOCK) return true; }
   return false;
 }
@@ -150,6 +176,9 @@ objects.push({ kind: "net", x: 12.2, y: 26.9 });
 objects.push({ kind: "barrel", x: E - 5.7, y: 19.7 });
 objects.push({ kind: "well", x: 12.6, y: 16.8 });
 signs.forEach((s) => objects.push({ kind: "sign", x: s.x, y: s.y, title: s.title }));
+objects.push({ kind: "board", x: 20.3, y: 19.25 });
+objects.push({ kind: "gate", x: HOME_GATE.x, y: HOME_GATE.y });
+for (const [x, y, s] of [[8.2, 12.2, 1.1], [11.4, 12.0, 1.0], [8.4, 13.4, 0.8], [11.3, 13.3, 0.9], [9.8, 11.6, 1.2]]) objects.push({ kind: "bamboo", x, y, s });
 objects.push({ kind: "boat", x: BOAT.x, y: BOAT.y });
 
 // collision objek
@@ -158,7 +187,10 @@ for (const o of objects) {
   else if (o.kind === "tree") solids.push({ x: o.x, y: o.y, r: 0.38 * o.s });
   else if (o.kind === "bush") solids.push({ x: o.x, y: o.y, r: 0.3 * o.s });
   else if (o.kind === "rock") solids.push({ x: o.x, y: o.y, r: 0.28 * o.s });
-  else if (o.kind === "lamp" || o.kind === "sign") solids.push({ x: o.x, y: o.y, r: 0.16 });
+  else if (o.kind === "lamp" || o.kind === "sign" || o.kind === "mailbox") solids.push({ x: o.x, y: o.y, r: 0.16 });
+  else if (o.kind === "board") solids.push({ x: o.x, y: o.y, r: 0.3 });
+  else if (o.kind === "gate") { solids.push({ x: o.x - 0.6, y: o.y, r: 0.18 }, { x: o.x + 0.6, y: o.y, r: 0.18 }, { x0: o.x - 0.6, y0: o.y - 2.8, x1: o.x + 0.6, y1: o.y - 0.15 }); }
+  else if (o.kind === "bamboo") solids.push({ x: o.x, y: o.y, r: 0.35 * o.s });
   else if (o.kind === "crate" || o.kind === "barrel") solids.push({ x: o.x, y: o.y, r: 0.3 });
   else if (o.kind === "well") solids.push({ x: o.x, y: o.y, r: 0.5 });
   else if (o.kind === "bench") solids.push({ x: o.x, y: o.y, r: 0.35 });
@@ -192,7 +224,7 @@ const START = { x: 19.5, y: 20.6 };
 
 Object.assign(NW, {
   T, MW, MH, TW, TH, tiles, tileAt, isLandT, hash2, rng, islandD, DOCK, SPOT, BOAT, SHORE_E, START,
-  buildings, objects, points, signs, flowerBeds, PARK, lamps, solids, walkable, shoreEdges,
+  buildings, objects, points, signs, NAV, NAV_EDGES, HOME_GATE, flowerBeds, PARK, lamps, solids, walkable, shoreEdges,
   // konversi tile → piksel dunia (sebelum kamera)
   iso: (x, y) => ({ x: (x - y) * TW / 2, y: (x + y) * TH / 2 }),
 });
