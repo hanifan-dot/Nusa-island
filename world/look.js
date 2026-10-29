@@ -208,11 +208,11 @@ function labelCanvas(name, title) {
   return cv;
 }
 // (x, y) = titik kaki karakter di ruang dunia; `scale` mengimbangi zoom kamera agar ukuran di layar tetap terbaca
-function drawLabel(c, info, x, y, scale) {
+function drawLabel(c, info, x, y, scale, lift) {
   const cv = labelCanvas(info.name, info.title), s = scale || 1;
-  c.drawImage(cv, x - (cv._w * s) / 2, y - 58 - cv._h * s, cv._w * s, cv._h * s);
+  c.drawImage(cv, x - (cv._w * s) / 2, y - 58 - (lift || 0) - cv._h * s, cv._w * s, cv._h * s);
 }
-function drawPlayerLabel(c, b, scale) { drawLabel(c, { name: playerName(), title: currentTitle() }, b.x, b.y, scale); }
+function drawPlayerLabel(c, b, scale, lift) { drawLabel(c, { name: playerName(), title: currentTitle() }, b.x, b.y, scale, lift); }
 
 // ---------- Panel (dipasang di menu 🎯) ----------
 const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));

@@ -541,3 +541,21 @@ body.editing .joy, body.editing .act-btn, body.editing .hint { display: none !im
 .rod-tag { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #ece6d3; margin-left: 4px; white-space: nowrap; }
 .rod-tag.on { background: var(--gold); color: #3b2a05; }
 .rod-tag.lock { opacity: .7; }
+
+/* =========================================================
+   Bumbu 1.2 — pamer ikan
+   ========================================================= */
+.hold-stop {
+  position: fixed; z-index: 6; left: 50%; transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+  width: clamp(96px, calc(100vw - 292px), 158px); padding: 8px 10px; border-radius: 16px;
+  border: 3px solid var(--cream); background: rgba(14, 34, 44, .82); color: #fff6dd;
+  font: 800 12.5px/1.15 var(--font); text-align: center; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(10, 35, 45, .35); animation: holdIn .25s cubic-bezier(.2, 1.4, .4, 1);
+}
+.hold-stop span { font-size: 17px; vertical-align: -1px; }
+.hold-stop:active { transform: translateX(-50%) translateY(2px); }
+.hold-stop.hidden { display: none; }
+body.mode-fish .hold-stop, body.editing .hold-stop { display: none !important; }
+@keyframes holdIn { from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(.9); } }
+@media (min-width: 701px) { .hold-stop { font-size: 14px; width: 170px; } }

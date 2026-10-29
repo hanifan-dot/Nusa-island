@@ -1271,6 +1271,7 @@ function resetFishing() {
   showMeter(false); $("fightUI").classList.add("hidden"); setNavLocked(false);
 }
 function enterFishing(from) {
+  if (NW.hold) NW.hold.stop("fishing"); // joran di tangan: berhenti memamerkan ikan
   MODE = "fish"; fishFrom = from;
   if (NW.story) NW.story.mark("fish");
   if (from === "dock") S.loc = 0;
@@ -1324,6 +1325,7 @@ NW.life.hook(); NW.home.hook(); // Tahap 2A: misi harian & Rumahku
 NW.story.hook(isNewPlayer);     // Bumbu 1: cerita, keahlian, petunjuk pemain baru
 NW.look.hook();                 // Bumbu 1.1: gelar tangkapan & nama pemain lokal
 NW.inv.hook();                  // Bumbu 1.2: inventaris & pasar
+NW.hold.hook();                 // Bumbu 1.2: pamer ikan
 if (loadNote) setTimeout(() => toast(loadNote), 1200);
 save(); // simpan hasil migrasi (data lama sudah dicadangkan)
 resize(); buildScenery(); initAmbient(); refreshHUD(); applyMode();

@@ -623,19 +623,27 @@ function drawCharacter(c, ch, t) {
   // bayangan
   c.fillStyle = "rgba(15,35,30,.28)"; c.beginPath(); c.ellipse(1, 0, 10, 4, 0, 0, 7); c.fill();
   const y0 = -bob;
+  // pamer ikan (Bumbu 1.2): lengan, ikan, dan ekspresi digambar modul NW.hold; tidak mengubah data apa pun
+  const hd = ch.hold || null, HG = hd ? NW.hold.geom(hd, fx, fy, y0, t) : null;
   // joran tersandang (Bumbu 1.1): hanya bila tidak sedang memegang joran di tangan → tidak pernah ganda
   const bk = ch.rodSpec && !(ch.rod > 0.02) ? ch.rodSpec : null, bkSway = moving ? Math.sin(ph) : Math.sin(t * 2.2 + (ch.seed || 0)) * 0.25;
   if (bk && !back) NW.look.drawBackRod(c, bk, fx, y0, bkSway, false);
   // kaki
-  const spread = 3.6 * (1 - 0.55 * Math.abs(fx)), swing = moving ? Math.sin(ph) * 3.6 : 0;
+  const spread = 3.6 * (1 - 0.55 * Math.abs(fx)) + (hd ? hd.crouch * 0.7 : 0), swing = moving ? Math.sin(ph) * 3.6 : 0;
   const leg = (x, lift) => { c.fillStyle = st.pants; c.fillRect(x - 2.4, y0 - 10 - lift, 4.8, 9); c.fillStyle = "#3a2a20"; c.fillRect(x - 2.6, y0 - 2 - lift, 5.2, 2.4); };
   const l1 = -spread + fx * swing, l2 = spread - fx * swing;
   const lift1 = moving ? Math.max(0, Math.sin(ph)) * 1.5 : 0, lift2 = moving ? Math.max(0, -Math.sin(ph)) * 1.5 : 0;
   if (fx >= 0) { leg(l1, lift1); leg(l2, lift2); } else { leg(l2, lift2); leg(l1, lift1); }
+  if (hd) { // badan merendah & condong menahan beban (kaki tetap menapak)
+    const lean = hd.p.lean * (Math.abs(fx) > 0.1 ? -Math.sign(fx) : 0) + (hd.p.id === "legenda" ? Math.sin(t * 17) * 0.05 : 0);
+    c.translate(0, hd.crouch); if (lean) c.rotate(lean);
+  }
   // lengan belakang
   const armSwing = moving ? -Math.sin(ph) * 3 : 0;
   const arm = (x, sw) => { c.strokeStyle = st.shirt; c.lineWidth = 4; c.lineCap = "round"; c.beginPath(); c.moveTo(x, y0 - 22); c.lineTo(x + fx * sw * 0.8, y0 - 13 + Math.abs(sw) * 0.2); c.stroke(); c.fillStyle = st.skin; c.beginPath(); c.arc(x + fx * sw * 0.8, y0 - 12.5, 2.1, 0, 7); c.fill(); };
-  if (!side) { arm(-7.5, armSwing); }
+  if (!side && !hd) { arm(-7.5, armSwing); }
+  // ikan didekap di depan badan, dilihat dari belakang: dua ujungnya menyembul di sisi badan
+  if (hd && HG.behind) NW.hold.drawFishBody(c, hd, HG);
   // badan
   c.fillStyle = st.shirt;
   c.beginPath(); c.moveTo(-7, y0 - 9); c.lineTo(-7.5, y0 - 21); c.quadraticCurveTo(0, y0 - 25, 7.5, y0 - 21); c.lineTo(7, y0 - 9); c.closePath(); c.fill();
@@ -643,7 +651,10 @@ function drawCharacter(c, ch, t) {
   if (st.apron) { c.fillStyle = st.apron; c.fillRect(-5, y0 - 18, 10, 9); }
   if (!back && st.collar) { c.fillStyle = st.collar; c.beginPath(); c.moveTo(-3, y0 - 22); c.lineTo(0, y0 - 18); c.lineTo(3, y0 - 22); c.fill(); }
   // lengan depan
-  if (side) arm(fx * -1.5, armSwing); else arm(7.5, -armSwing);
+  if (hd) NW.hold.drawArms(c, hd, HG, st, fx, y0);
+  else if (side) arm(fx * -1.5, armSwing); else arm(7.5, -armSwing);
+  // ikan di depan badan (tidak sedang di atas kepala): sebelum kepala
+  if (hd && !HG.behind && !hd.p.up) NW.hold.drawFishBody(c, hd, HG);
   // properti aktivitas
   if (ch.prop === "net") {
     const w = Math.sin(t * 6) * 1.5;
@@ -671,7 +682,8 @@ function drawCharacter(c, ch, t) {
     if (back) { c.beginPath(); c.arc(0, hy - 0.5, 7.8, 0, 7); c.fill(); }
     else { c.beginPath(); c.arc(0, hy - 2, 7.8, Math.PI * 1.05, Math.PI * 1.95); c.fill(); }
   }
-  if (!back) {
+  if (!back && hd && NW.hold.drawFace(c, hd, fx * 2.8, hy, side, fx, t)) { /* ekspresi pamer ikan */ }
+  else if (!back) {
     const ex = fx * 2.8;
     c.fillStyle = "#2a1d14";
     if (side) { c.beginPath(); c.arc(fx * 4, hy + 0.5, 1.2, 0, 7); c.fill(); }
@@ -700,6 +712,7 @@ function drawCharacter(c, ch, t) {
   }
   if (st.towel && !back) { c.fillStyle = st.towel; c.fillRect(-7.5, y0 - 23, 15, 3.2); }
   if (bk && back) NW.look.drawBackRod(c, bk, fx, y0, bkSway, true); // membelakangi kamera: joran di depan badan
+  if (hd) { if (hd.p.up) NW.hold.drawFishBody(c, hd, HG); NW.hold.drawFx(c, hd, HG, y0, hy, t); } // ikan di atas kepala selalu paling depan
   c.restore();
 }
 

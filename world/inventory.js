@@ -287,5 +287,5 @@ function hook() {
   g.on("catch", () => { if (g.currentPanel() === "inventory") { refreshHeader(); } });
 }
 
-NW.inv = { hook, open, view, selectKind, makeDraft, execSell, warnings, needs, mount, ROW, get vlist() { return vl; }, state: V, draft: () => D.draft, thumb };
+NW.inv = { hook, open, view, selectKind, makeDraft, execSell, warnings, needs, mount, ROW, get vlist() { return vl; }, state: V, draft: () => D.draft, thumb, closeDetail, redrawDetail };
 })();
