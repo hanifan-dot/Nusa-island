@@ -623,6 +623,9 @@ function drawCharacter(c, ch, t) {
   // bayangan
   c.fillStyle = "rgba(15,35,30,.28)"; c.beginPath(); c.ellipse(1, 0, 10, 4, 0, 0, 7); c.fill();
   const y0 = -bob;
+  // joran tersandang (Bumbu 1.1): hanya bila tidak sedang memegang joran di tangan → tidak pernah ganda
+  const bk = ch.rodSpec && !(ch.rod > 0.02) ? ch.rodSpec : null, bkSway = moving ? Math.sin(ph) : Math.sin(t * 2.2 + (ch.seed || 0)) * 0.25;
+  if (bk && !back) NW.look.drawBackRod(c, bk, fx, y0, bkSway, false);
   // kaki
   const spread = 3.6 * (1 - 0.55 * Math.abs(fx)), swing = moving ? Math.sin(ph) * 3.6 : 0;
   const leg = (x, lift) => { c.fillStyle = st.pants; c.fillRect(x - 2.4, y0 - 10 - lift, 4.8, 9); c.fillStyle = "#3a2a20"; c.fillRect(x - 2.6, y0 - 2 - lift, 5.2, 2.4); };
@@ -657,7 +660,7 @@ function drawCharacter(c, ch, t) {
   // joran (saat bersiap mancing)
   if (ch.rod > 0) {
     const k = ch.rod;
-    c.strokeStyle = "#c9a46a"; c.lineWidth = 2; c.beginPath(); c.moveTo(fx * 7, y0 - 14); c.lineTo(fx * (7 + 26 * k), y0 - 14 - 34 * k); c.stroke();
+    c.strokeStyle = ch.rodSpec ? ch.rodSpec.blank : "#c9a46a"; c.lineWidth = 2; c.beginPath(); c.moveTo(fx * 7, y0 - 14); c.lineTo(fx * (7 + 26 * k), y0 - 14 - 34 * k); c.stroke();
     c.strokeStyle = "rgba(255,255,255,.7)"; c.lineWidth = 0.8; c.beginPath(); c.moveTo(fx * (7 + 26 * k), y0 - 14 - 34 * k); c.lineTo(fx * (9 + 30 * k), y0 - 4); c.stroke();
   }
   // kepala
@@ -696,6 +699,7 @@ function drawCharacter(c, ch, t) {
     }
   }
   if (st.towel && !back) { c.fillStyle = st.towel; c.fillRect(-7.5, y0 - 23, 15, 3.2); }
+  if (bk && back) NW.look.drawBackRod(c, bk, fx, y0, bkSway, true); // membelakangi kamera: joran di depan badan
   c.restore();
 }
 

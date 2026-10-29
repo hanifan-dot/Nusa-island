@@ -83,20 +83,22 @@ canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 /* ---------- Tarik-ulur ---------- */
 .fight {
   position: fixed; left: 50%; transform: translateX(-50%); z-index: 4;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
-  width: min(360px, calc(100% - 32px));
-  background: rgba(255, 249, 236, .94); border-radius: var(--radius);
-  padding: 10px 14px 12px; box-shadow: var(--shadow);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
+  width: min(320px, calc(100% - 32px));
+  background: rgba(18, 48, 60, .62); color: #fff; border-radius: 12px;
+  padding: 6px 10px 7px; box-shadow: 0 3px 10px rgba(0, 0, 0, .22);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .45); pointer-events: none;
 }
-.fight-name { font-weight: 800; text-align: center; margin-bottom: 6px; letter-spacing: .3px; }
-.bar-label { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; opacity: .65; margin: 6px 0 3px; }
-.bar { position: relative; height: 14px; border-radius: 8px; background: #dfe3d8; overflow: hidden; }
-.bar-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%; border-radius: 8px; }
-.tension .bar-fill { background: linear-gradient(90deg, var(--teal), var(--gold) 70%, var(--danger)); }
-.tension .zone-danger { position: absolute; right: 0; top: 0; bottom: 0; width: 18%; background: rgba(226, 87, 76, .25); }
+.fight-name { font-weight: 800; font-size: 12.5px; line-height: 1.2; text-align: center; margin-bottom: 4px; letter-spacing: .2px; }
+.fight-row { display: grid; grid-template-columns: 76px 1fr; align-items: center; gap: 6px; margin-top: 3px; }
+.bar-label { font-size: 10.5px; font-weight: 700; letter-spacing: .2px; opacity: .85; white-space: nowrap; }
+.bar { position: relative; height: 9px; border-radius: 6px; background: rgba(255, 255, 255, .22); overflow: hidden; transition: box-shadow .2s, background .25s; }
+.bar-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%; border-radius: 6px; transition: width .09s linear; }
+.tension .bar-fill { background: linear-gradient(90deg, #6bc4ae, #f1cf67 70%, #ee6a5e); }
+.tension .zone-danger { position: absolute; right: 0; top: 0; bottom: 0; width: 18%; background: rgba(238, 106, 94, .32); }
 .tension.shake { animation: shake .12s infinite; }
-.progress .bar-fill { background: linear-gradient(90deg, #4aa3df, var(--teal)); }
-.fight-tip { font-size: 12px; text-align: center; opacity: .7; margin-top: 8px; }
+.progress .bar-fill { background: linear-gradient(90deg, #5fb4ec, #6bc4ae); }
+.fight-tip { font-size: 11.5px; line-height: 1.25; text-align: center; opacity: .9; margin-top: 5px; min-height: 14px; transition: color .2s; }
 @keyframes shake { 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
 
 /* ---------- Nav ---------- */
@@ -454,11 +456,11 @@ body.editing .joy, body.editing .act-btn, body.editing .hint { display: none !im
 .meter-target { position: absolute; left: -6px; right: -6px; height: 3px; background: #ffd65a; box-shadow: 0 0 0 1px #173f50, 0 0 8px #ffd65a; display: none; z-index: 2; border-radius: 2px; }
 .meter.presisi .meter-target { display: block; }
 .bar.tension .zone-ideal { display: none; }
-.bar.tension.ideal { background: linear-gradient(90deg, #dfe3d8 0 45%, rgba(120,220,150,.45) 45% 80%, #dfe3d8 80%); }
+.bar.tension.ideal { background: linear-gradient(90deg, rgba(255,255,255,.22) 0 45%, rgba(120,220,150,.6) 45% 80%, rgba(255,255,255,.22) 80%); }
 .bar.tension.warn { box-shadow: 0 0 0 2px #ffd65a; animation: shake .12s infinite; }
 .bar.tension.tired { box-shadow: 0 0 0 2px #6fdc96; }
-.fight-tip.cue-warn { color: #a06a00; font-weight: 800; opacity: 1; }
-.fight-tip.cue-tired { color: #1f7a45; font-weight: 800; opacity: 1; }
+.fight-tip.cue-warn { color: #ffd65a; font-weight: 800; opacity: 1; }
+.fight-tip.cue-tired { color: #8ff0b4; font-weight: 800; opacity: 1; }
 .badge.story { background: var(--gold); color: #3b2a05; }
 .skill { display: flex; gap: 10px; align-items: flex-start; background: #fff; border-radius: 12px; padding: 10px 12px; border-left: 4px solid var(--teal); }
 .skill.locked { opacity: .6; border-left-color: #d9d2bd; }
@@ -466,3 +468,9 @@ body.editing .joy, body.editing .act-btn, body.editing .hint { display: none !im
 .skill .sub { font-size: 12px; opacity: .8; margin-top: 3px; }
 @media (max-width: 400px) { #muteBtn { display: none; } } /* suara tetap bisa diatur di menu 🎯 */
 @media (max-width: 420px) { body.mode-fish .chip.loc { display: none; } } /* lokasi tampil di tombol Peta */
+
+/* =========================================================
+   Bumbu 1.1 — nama pemain
+   ========================================================= */
+.name-input { flex: 1; min-width: 0; font: inherit; font-size: 15px; padding: 8px 10px; border: 1.5px solid #d8cfae; border-radius: 10px; background: #fffdf4; color: var(--ink); }
+.name-input:focus { outline: 2px solid var(--gold); border-color: var(--gold); }

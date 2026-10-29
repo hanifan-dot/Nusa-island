@@ -315,7 +315,8 @@ const SKILL_INFO = {
 // ---------- Menu Keahlian & Cerita ----------
 function panelHTML() {
   const s = st(), k = sk(), title = s.title || "Pendatang";
-  let h = `<div class="rep-card"><div class="rep-star">🎣</div><div class="grow"><b>${title}</b><div class="muted">Gelar nelayanmu di Muara Kampung</div></div></div>`;
+  let h = NW.look.panelSection();
+  h += `<div class="row"><div class="grow">📖 Penghargaan cerita</div><b>${title}</b></div>`;
   h += `<h3 class="sub-h">Keahlian Nelayan</h3><div class="list">`;
   for (const [id, I] of Object.entries(SKILL_INFO)) {
     const ok = k[id], stat = id === "presisi" ? `Tepat di riak: ${k.stats.hot}×` : id === "membaca" ? `Sentakan terbaca: ${k.stats.reads}×` : `Gulungan saat ikan lelah: ${k.stats.tired}×`;
@@ -340,7 +341,7 @@ function panelHTML() {
     <div class="row"><div class="grow">🔊 Suara</div><button class="btn small" data-act="mute">${S().muted ? "Nyalakan" : "Matikan"}</button></div>`;
   return h;
 }
-function panelAct(a) { if (a === "mute") { S().muted = !S().muted; N().save(); N().refreshHUD(); N().renderPanel(); } }
+function panelAct(a, arg, el) { if (NW.look.act(a, arg, el)) return; if (a === "mute") { S().muted = !S().muted; N().save(); N().refreshHUD(); N().renderPanel(); } }
 
 // ---------- Event dari mancing ----------
 function hook(isNewPlayer) {

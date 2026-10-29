@@ -38,12 +38,10 @@
   <div class="meter-target" id="powerTarget"></div>
 </div>
 
-<div id="fightUI" class="fight hidden">
+<div id="fightUI" class="fight hidden" role="status" aria-live="off">
   <div class="fight-name" id="fightName">???</div>
-  <div class="bar-label">Tegangan senar</div>
-  <div class="bar tension" id="tensionBar"><div class="zone-danger"></div><div class="bar-fill" id="tensionFill"></div></div>
-  <div class="bar-label">Jarak ikan</div>
-  <div class="bar progress"><div class="bar-fill" id="progressFill"></div></div>
+  <div class="fight-row" aria-label="Tegangan senar"><span class="bar-label">🧵 Tegangan</span><div class="bar tension" id="tensionBar"><div class="zone-danger"></div><div class="bar-fill" id="tensionFill"></div></div></div>
+  <div class="fight-row" aria-label="Jarak ikan"><span class="bar-label">🐟 Jarak</span><div class="bar progress"><div class="bar-fill" id="progressFill"></div></div></div>
   <div class="fight-tip" id="fightTip">Tahan = gulung · Lepas = kendurkan</div>
 </div>
 
@@ -158,6 +156,7 @@
 <script src="world/house-draw.js"></script>
 <script src="world/home.js"></script>
 <script src="world/aquarium.js"></script>
+<script src="world/look.js"></script>
 <script src="world/story.js"></script>
 <script src="world/world.js"></script>
 <script src="game.js"></script>
