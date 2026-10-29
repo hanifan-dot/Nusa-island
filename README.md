@@ -41,12 +41,38 @@ Pemain sekarang mulai di pulau **Muara Kampung** yang bisa dijelajahi dalam tamp
 - Ikan **dipindah, bukan disalin**. Setiap tangkapan punya ID unik, jadi ikan yang dipajang tidak bisa dijual, dan saat diambil kembali yang kembali adalah ikan yang sama dengan berat yang sama.
 
 ### Data & kompatibilitas
-- Simpanan tetap di `nusa-island-v1` dengan field versi `v` (1 = Tahap 1, 2 = Tahap 2A, 3 = sekarang). Sebelum migrasi, data lama disalin ke `nusa-island-v1-backup-v1/v2`.
+- Simpanan tetap di `nusa-island-v1` dengan field versi `v` (1 = Tahap 1, 2 = Tahap 2A, 3 = penyempurnaan 2A, 4 = Bumbu 1). Sebelum migrasi, data lama disalin ke `nusa-island-v1-backup-v{versi}`.
 - Rumah Tahap 2A otomatis menjadi Level 4 (Rumah Panggung) agar tidak mengecil, dan semua perabot tetap ada.
 - Data rumah sudah disiapkan untuk kunjungan teman nanti: `version`, `ownerId`, `houseId`, `level`, `furniture`, `decorations`, `placedFish`, dan `permissions`. `ownerId` hanya penanda lokal, bukan bukti kepemilikan. Perubahan oleh pengunjung selalu ditolak sampai ada validasi server.
 - **Aktivitas NPC mengikuti jam**: Pak Darto mancing pagi, istirahat di taman, memperbaiki jaring sore, lalu tidur. Bu Sari berjualan 06–17, menyapu halaman, lalu pulang. Dika mengejar kupu-kupu, main layangan di pantai, dan mengambil air di sumur. Malam hari mereka tidur di rumah masing-masing.
 - **Pertemanan** ❤️ naik saat ngobrol (sekali sehari) dan saat mengantar ikan. Teman dekat punya obrolan khusus.
 - Malam hari pasar tutup, tapi **kotak titipan** tetap bisa dipakai untuk menjual.
+
+## Bumbu 1 — Jiwa Kampung & Keahlian Nelayan
+### Cerita: Pak Darto dan Joran Warisan
+Cerita dimulai dengan bicara ke Pak Darto (tanda ❗ di atas kepalanya). Progres tersimpan otomatis setiap langkah, tidak terikat login harian, dan boleh dilanjutkan kapan saja. Misi harian terpisah, jadi pergantian misi tidak menyentuh cerita.
+| Bab | Isi | Hadiah (sekali saja) |
+|---|---|---|
+| 1 · Nelayan Baru | Kenalan dengan Pak Darto dan sejarah nelayan Muara. Tangkap 2 ikan di Muara, lalu belajar **Lemparan Presisi** dan lempar tepat ke riak ikan. | 150 koin |
+| 2 · Joran Lama | Kumpulkan bahan untuk memperbaiki joran tua: benang dari Toko Pak Bono (120 koin), ruas bambu dari rumpun dekat gapura Rumahku, dan damar dari Bu Sari (ditukar 1 ikan nila/mujair dari coolbox). | 200 koin, ❤️ Pak Darto, sudut dermaga mulai rapi |
+| 3 · Pelajaran Nelayan | Belajar **Membaca Tarikan**, baca 3 sentakan. Belajar **Kendali Senar**, gulung 4 kali saat ikan lelah. | 250 koin, gelar *Nelayan Muda* |
+| 4 · Warisan Muara | Ujian terakhir di Muara: lemparan sempurna memanggil gabus besar. Berhasil kalau ikan tertangkap dengan minimal 2 baca sentakan dan 2 gulungan lelah. | 300 koin, gelar *Penerus Muara*, dekorasi **Joran Warisan** di dinding Rumahku, Papan Kenangan di dermaga |
+
+Bahan cerita tidak pernah mengambil barang secara diam-diam. Benang dan tukar ikan hanya terjadi saat tombolnya ditekan. Tombol tukar menyebut ikan mana yang diberikan (yang paling ringan), dan ikan di akuarium tidak ikut terpakai.
+
+### Keahlian Nelayan (menu 🎯)
+Tiga keahlian, masing-masing dipelajari sekali lewat cerita. Tidak ada level tanpa batas.
+- **Lemparan Presisi**: muncul riak ikan di air dan penanda kekuatan di meteran. Lemparan yang jatuh di riak membuat ikan menggigit lebih cepat dan sedikit lebih hoki (×1,1).
+- **Membaca Tarikan**: pelampung beriak kuning sesaat sebelum ikan menyentak ("lepas!"). Selama sentakan, senar boleh kendur tanpa ikan lepas.
+- **Kendali Senar**: setelah sentakan, ikan lelah sebentar (riak hijau, "gulung!"). Menggulung saat itu lebih cepat dan tegangan naik lebih pelan. Bar tegangan menampilkan zona ideal.
+Tanpa keahlian, mancing berjalan persis seperti dulu.
+
+### Kampung yang berubah, dialog, dan pemain baru
+- **Sudut Nelayan** di dermaga berubah mengikuti progres pribadi: perlengkapan tua → rak jaring rapi → Papan Kenangan dengan lentera dan nama gelarmu. Ini hanya lapisan gambar lokal; tapak collision-nya sama di semua tahap, dan peta umum tidak berubah.
+- Pak Darto, Bu Sari, dan Dika punya kumpulan obrolan yang diingat (tidak diulang sampai semua sudah didengar) dan berubah sesuai bab cerita.
+- Pemain baru mendapat satu petunjuk singkat dalam satu waktu: jalan → bicara dengan Pak Darto → mancing → jual → Rumahku. Petunjuk yang sudah dipahami tidak muncul lagi, dan pemain lama tidak diminta mengulang.
+- Tidak ada hukuman absen, streak wajib, timer yang menekan, atau hadiah acak berbayar.
+- Data baru berversi: `story`, `skills`, `onboard`, dan `npcMem` (masing-masing punya `v: 1`) di dalam `nusa-island-v1`.
 
 Struktur kode dunia pulau ada di folder `world/`:
 - `world/map.js`: bentuk pulau, jalan, jaringan jalur NPC, dermaga, bangunan, objek, dan collision.
@@ -57,6 +83,7 @@ Struktur kode dunia pulau ada di folder `world/`:
 - `world/house-draw.js`: gambar 10 rumah, halaman, interior, dan perabot.
 - `world/home.js`: halaman pribadi & interior, Mode Tata Ruang, renovasi, dan katalog.
 - `world/aquarium.js`: menu akuarium dengan drag-and-drop (Pointer Events).
+- `world/story.js`: cerita 4 bab, keahlian nelayan, obrolan NPC yang diingat, sudut dermaga, dan petunjuk pemain baru.
 - `tests/`: uji logika (Node) dan uji browser (Playwright). Lihat `tests/README.md`.
 - `game.js`: sistem mancing lama, pasar, toko, koleksi, simpanan, event, dan perpindahan mode pulau ↔ mancing.
 

@@ -32,7 +32,7 @@ with sync_playwright() as p:
     S = ev(pg, "JSON.parse(JSON.stringify(window.__nusa.S))")
     ok("A1 simpanan Tahap 1: koin, upgrade, koleksi utuh", S["money"] == 1234 and S["up"]["rod"] == 2 and S["dex"]["nila"]["n"] == 4)
     ok("A1 ikan lama dapat uid unik, jumlah tetap 3 (tidak digandakan)", len(S["cooler"]) == 3 and len({x["uid"] for x in S["cooler"]}) == 3 and S["cooler"][2]["w"] == 3.1)
-    ok("A1 rumah baru Level 1 dibuat", S["home"]["level"] == 1 and S["home"]["version"] == 2 and S["v"] == 3)
+    ok("A1 rumah baru Level 1 dibuat", S["home"]["level"] == 1 and S["home"]["version"] == 2 and S["v"] >= 3)
     ok("A1 cadangan simpanan lama dibuat", ev(pg, "!!localStorage.getItem('nusa-island-v1-backup-v1')"))
     ctx.close()
     t2 = dict(t1, home={"items": ["karpet", "tanaman", "lampu", "lukisan", "radio", "trofi", "kucing", "akuarium"], "cat": None}, rep=9, friends={"darto": 2.3}, talked={},

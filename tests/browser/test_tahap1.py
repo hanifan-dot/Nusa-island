@@ -27,11 +27,14 @@ with sync_playwright() as p:
     pg.goto(ROOT)
     old = {"money": 4321, "day": 3, "hour": 9, "loc": 2, "up": {"rod": 1, "bait": 0, "cooler": 1, "boat": 2},
            "cooler": [{"id": "nila", "w": 0.8}], "dex": {"nila": {"n": 3, "best": 1.1}}, "stats": {"casts": 10, "caught": 3, "earned": 200, "legends": 0}, "muted": True}
-    pg.evaluate(f"localStorage.setItem('nusa-island-v1', JSON.stringify({json.dumps(old)}))")
-    pg.reload(); time.sleep(0.8)
-    S = pg.evaluate("JSON.parse(JSON.stringify(window.__nusa.S))")
+    # simpanan lama ditanam SEBELUM game dimuat (kalau pakai reload, game menyimpan ulang state sekarang saat halaman ditutup)
+    pc = b.new_context(viewport={"width": 1280, "height": 800})
+    pc.add_init_script(f"if(!sessionStorage.getItem('seeded')){{localStorage.setItem('nusa-island-v1', JSON.stringify({json.dumps(old)}));sessionStorage.setItem('seeded','1')}}")
+    pp = pc.new_page(); pp.on("pageerror", lambda e: errs.append(str(e))); pp.goto(ROOT); time.sleep(0.8)
+    S = pp.evaluate("JSON.parse(JSON.stringify(window.__nusa.S))")
+    old_mode = pp.evaluate("window.__nusa.mode()"); pc.close()
     ok("save lama: koin, upgrade, coolbox, koleksi tetap", S["money"] == 4321 and S["up"]["boat"] == 2 and len(S["cooler"]) == 1 and S["dex"]["nila"]["n"] == 3)
-    ok("save lama: mulai di Muara (mode pulau)", S["loc"] == 0 and mode(pg) == "world")
+    ok("save lama: mulai di Muara (mode pulau)", S["loc"] == 0 and old_mode == "world")
     pg.evaluate("localStorage.clear()"); pg.reload(); time.sleep(0.8)
 
     pg.click("#startBtn"); time.sleep(0.5)
@@ -91,8 +94,11 @@ with sync_playwright() as p:
         txt = pg.inner_text("#dlgText")
         ok(f"bicara dengan {nid}", tg == "npc:" + nid and len(txt) > 10, txt[:50])
         if nid == "dika": pg.screenshot(path=OUT + "t_npc.png")
-        for _ in range(4):
-            if pg.is_visible("#dlg"): pg.keyboard.press("e"); time.sleep(0.5)
+        for _ in range(12):  # dialog cerita Bab 1 bisa lebih panjang dari obrolan biasa
+            if not pg.is_visible("#dlg"): break
+            if pg.locator("#dlgOpts .btn").count(): pg.locator("#dlgOpts .btn").last.click()
+            else: pg.keyboard.press("e")
+            time.sleep(0.4)
     # NPC bergerak
     a = pg.evaluate("NW.world.npcs.map(n=>[n.x,n.y])"); time.sleep(3); bb = pg.evaluate("NW.world.npcs.map(n=>[n.x,n.y])")
     ok("NPC bergerak sendiri", sum(abs(a[i][0]-bb[i][0])+abs(a[i][1]-bb[i][1]) for i in range(3)) > 0.5)
