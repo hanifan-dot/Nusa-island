@@ -63,7 +63,7 @@ let S = DEFAULT();
 let MODE = "world", fishFrom = "dock";
 // Versi simpanan: 1 = Tahap 1, 2 = Tahap 2A, 3 = rumah 10 level + ikan ber-uid.
 // Sebelum migrasi, data lama disalin ke kunci cadangan sehingga tidak pernah hilang diam-diam.
-const SAVE_VERSION = 4; // 4 = Bumbu 1: cerita, keahlian, petunjuk pemain baru, ingatan NPC
+const SAVE_VERSION = 5; // 4 = Bumbu 1 (cerita, keahlian, petunjuk, ingatan NPC); 5 = Bumbu 1.1 (gelar tangkapan, nama pemain lokal)
 let loadNote = "", isNewPlayer = true;
 function backup(raw, tag) { try { const k = `${SAVE_KEY}-backup-${tag}`; if (!localStorage.getItem(k)) localStorage.setItem(k, raw); } catch (e) {} }
 function load() {
@@ -1332,6 +1332,7 @@ load();
 S.loc = 0; // permainan selalu dimulai dari Muara Kampung
 NW.life.hook(); NW.home.hook(); // Tahap 2A: misi harian & Rumahku
 NW.story.hook(isNewPlayer);     // Bumbu 1: cerita, keahlian, petunjuk pemain baru
+NW.look.hook();                 // Bumbu 1.1: gelar tangkapan & nama pemain lokal
 if (loadNote) setTimeout(() => toast(loadNote), 1200);
 save(); // simpan hasil migrasi (data lama sudah dicadangkan)
 resize(); buildScenery(); initAmbient(); refreshHUD(); applyMode();
@@ -1339,6 +1340,6 @@ NW.world.resize(W, H, DPR); NW.world.onEnter("start"); updateHint();
 document.addEventListener("visibilitychange", () => { if (document.hidden) save(); });
 window.addEventListener("pagehide", save);
 // akses debug ringan untuk pengujian
-window.__nusa = { get S() { return S; }, G, save, refreshHUD, mode: () => MODE, goWorld, enterFishing };
+window.__nusa = { get S() { return S; }, G, save, refreshHUD, mode: () => MODE, goWorld, enterFishing, bobberScreen, rodTip };
 requestAnimationFrame(loop);
 })();

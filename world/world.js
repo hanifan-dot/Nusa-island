@@ -498,12 +498,19 @@ function draw(ctx, t) {
   }
   for (const n of npcs) { if (n.hidden) continue; const p = NW.P(n.x, n.y); if (inView(view, p.x, p.y)) list.push({ d: n.x + n.y, ch: n }); }
   for (const it of NW.story.layerObjects(t)) list.push({ d: it.d, fn: it.draw }); // sudut nelayan (progres pribadi)
+  player.rodSpec = NW.look.rodSpec(); // joran aktif (dari S.up.rod) → tampil di punggung
   list.push({ d: pDepth, ch: player });
   list.sort((a, b) => a.d - b.d);
   const night = dk / 0.85, claim = L() ? L().claimable() > 0 : false;
   for (const it of list) {
     if (it.fn) it.fn(ctx);
-    else if (it.ch) NW.drawCharacter(ctx, it.ch, t);
+    else if (it.ch) {
+      NW.drawCharacter(ctx, it.ch, t);
+      if (it.ch === player) { // label nama + gelar: ikut urutan kedalaman, jadi tertutup bangunan di depannya
+        const pb = NW.P(player.x, player.y, NW.LIFT + (NW.tileAt(player.x, player.y) === NW.T.DOCK ? 4 : 0));
+        NW.look.drawPlayerLabel(ctx, pb, 1.0 / Z);
+      }
+    }
     else if (it.b) { if (it.b.kind === "shop") NW.drawShop(ctx, it.b, t, night); else NW.drawHouse(ctx, it.b, t, night); }
     else if (it.mback) NW.drawMarketBack(ctx, it.mback);
     else if (it.mfront) NW.drawMarketFront(ctx, it.mfront, t);

@@ -41,7 +41,7 @@ Pemain sekarang mulai di pulau **Muara Kampung** yang bisa dijelajahi dalam tamp
 - Ikan **dipindah, bukan disalin**. Setiap tangkapan punya ID unik, jadi ikan yang dipajang tidak bisa dijual, dan saat diambil kembali yang kembali adalah ikan yang sama dengan berat yang sama.
 
 ### Data & kompatibilitas
-- Simpanan tetap di `nusa-island-v1` dengan field versi `v` (1 = Tahap 1, 2 = Tahap 2A, 3 = penyempurnaan 2A, 4 = Bumbu 1). Sebelum migrasi, data lama disalin ke `nusa-island-v1-backup-v{versi}`.
+- Simpanan tetap di `nusa-island-v1` dengan field versi `v` (1 = Tahap 1, 2 = Tahap 2A, 3 = penyempurnaan 2A, 4 = Bumbu 1, 5 = Bumbu 1.1). Sebelum migrasi, data lama disalin ke `nusa-island-v1-backup-v{versi}`.
 - Rumah Tahap 2A otomatis menjadi Level 4 (Rumah Panggung) agar tidak mengecil, dan semua perabot tetap ada.
 - Data rumah sudah disiapkan untuk kunjungan teman nanti: `version`, `ownerId`, `houseId`, `level`, `furniture`, `decorations`, `placedFish`, dan `permissions`. `ownerId` hanya penanda lokal, bukan bukti kepemilikan. Perubahan oleh pengunjung selalu ditolak sampai ada validasi server.
 - **Aktivitas NPC mengikuti jam**: Pak Darto mancing pagi, istirahat di taman, memperbaiki jaring sore, lalu tidur. Bu Sari berjualan 06–17, menyapu halaman, lalu pulang. Dika mengejar kupu-kupu, main layangan di pantai, dan mengambil air di sumur. Malam hari mereka tidur di rumah masing-masing.
@@ -74,6 +74,13 @@ Tanpa keahlian, mancing berjalan persis seperti dulu.
 - Tidak ada hukuman absen, streak wajib, timer yang menekan, atau hadiah acak berbayar.
 - Data baru berversi: `story`, `skills`, `onboard`, dan `npcMem` (masing-masing punya `v: 1`) di dalam `nusa-island-v1`.
 
+## Bumbu 1.1 — Visual Nelayan
+- **Panel Strike lebih ringkas**: tinggi turun dari ±139px ke ±80px, berlatar semi-transparan di bawah layar. Pelampung dan tali tetap terlihat di HP 390×844. Indikator Tegangan dan Jarak serta petunjuk situasional (senar kendur, menyentak, tegangan tinggi, ikan lelah) tetap ada. Mekanik mancing tidak diubah.
+- **Joran di punggung** karakter di kampung. Bentuk dan warna mengikuti level joran aktif (`S.up.rod`): bambu beruas tanpa reel, fiber dengan reel kecil, karbon gelap, titanium perak-biru, dan emas Legenda Nusa. Posisinya benar di 8 arah (di belakang badan, atau di depan badan saat membelakangi kamera), ikut berayun saat berjalan, dan hilang dari punggung selama joran dipegang. Joran Warisan Pak Darto hanyalah dekorasi, bukan joran aktif. Renderer berbasis data di `NW.look.RODS`, jadi tingkat joran baru cukup menambah baris data.
+- **8 gelar pemancing** dari jumlah ikan sungguhan yang berhasil ditangkap: Pemancing Baru (1), Anak Muara (10), Pencari Tangkapan (30), Nelayan Muda (50), Pemburu Muara (100), Ahli Pancing (150), Juragan Kail (200), Legenda Muara (300+). Sampah tidak dihitung. Menjual, memajang di akuarium, dan memamerkan ikan tidak mengubah hitungan. Naik gelar menampilkan satu notifikasi dan tidak muncul lagi setelah refresh. Gelar ini terpisah dari penghargaan cerita Pak Darto.
+- **Label nama dan gelar** di atas kepala (maksimal dua baris, latar tipis). Dirender sekali lalu di-cache. Ikut urutan kedalaman sehingga tidak menembus bangunan. Nama lokal bisa diganti di menu 🎯 (tersimpan di perangkat, bukan akun online).
+- Data baru berversi: `titles` dan `profile` (`v: 1`). Simpanan lama dimigrasi sekali dari koleksi (ikan sungguhan per spesies); `stats.caught` tidak diubah. Cadangan: `nusa-island-v1-backup-v4`.
+
 Struktur kode dunia pulau ada di folder `world/`:
 - `world/map.js`: bentuk pulau, jalan, jaringan jalur NPC, dermaga, bangunan, objek, dan collision.
 - `world/draw.js`: semua gambar isometrik (terrain, air, bangunan, pohon, karakter, properti NPC).
@@ -83,6 +90,7 @@ Struktur kode dunia pulau ada di folder `world/`:
 - `world/house-draw.js`: gambar 10 rumah, halaman, interior, dan perabot.
 - `world/home.js`: halaman pribadi & interior, Mode Tata Ruang, renovasi, dan katalog.
 - `world/aquarium.js`: menu akuarium dengan drag-and-drop (Pointer Events).
+- `world/look.js`: joran di punggung, gelar tangkapan, label nama, dan nama pemain lokal.
 - `world/story.js`: cerita 4 bab, keahlian nelayan, obrolan NPC yang diingat, sudut dermaga, dan petunjuk pemain baru.
 - `tests/`: uji logika (Node) dan uji browser (Playwright). Lihat `tests/README.md`.
 - `game.js`: sistem mancing lama, pasar, toko, koleksi, simpanan, event, dan perpindahan mode pulau ↔ mancing.
