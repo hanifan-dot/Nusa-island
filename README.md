@@ -34,6 +34,12 @@ Pemain sekarang mulai di pulau **Muara Kampung** yang bisa dijelajahi dalam tamp
 - **Mode Tata Ruang** (tombol 🛠️ di dalam rumah): ketuk lalu geser perabot di grid. Perabot bisa diputar atau disimpan ke gudang. Game menolak posisi yang keluar ruangan, menghalangi pintu, menabrak perabot lain, atau menutup jalan.
 - Setelah upgrade, perabot dipindah otomatis ke tempat valid. Yang tidak muat masuk gudang, tidak pernah dihapus.
 
+### Akuarium interaktif
+- Dekati akuarium lalu tekan Interaksi. **Geser ikan** dari coolbox ke akuarium, atau ketuk ikan lalu tekan **Masukkan**. Ikan juga bisa diambil kembali, atau ditukar saat akuarium penuh.
+- Akuarium kecil muat 3 ikan (maks 2,5 kg per ikan), akuarium besar 6 ikan (maks 12 kg).
+- Satu akuarium hanya untuk satu jenis air (tawar atau laut). Ikan yang dilindungi, perenang samudra (tuna, marlin, layaran, dan lainnya), dan sampah tidak bisa dipelihara.
+- Ikan **dipindah, bukan disalin**. Setiap tangkapan punya ID unik, jadi ikan yang dipajang tidak bisa dijual, dan saat diambil kembali yang kembali adalah ikan yang sama dengan berat yang sama.
+
 ### Data & kompatibilitas
 - Simpanan tetap di `nusa-island-v1` dengan field versi `v` (1 = Tahap 1, 2 = Tahap 2A, 3 = sekarang). Sebelum migrasi, data lama disalin ke `nusa-island-v1-backup-v1/v2`.
 - Rumah Tahap 2A otomatis menjadi Level 4 (Rumah Panggung) agar tidak mengecil, dan semua perabot tetap ada.
@@ -50,6 +56,8 @@ Struktur kode dunia pulau ada di folder `world/`:
 - `world/home-data.js`: logika Rumahku tanpa tampilan (10 level, penempatan perabot, migrasi, inventaris ikan aman). Bisa diuji dengan Node.
 - `world/house-draw.js`: gambar 10 rumah, halaman, interior, dan perabot.
 - `world/home.js`: halaman pribadi & interior, Mode Tata Ruang, renovasi, dan katalog.
+- `world/aquarium.js`: menu akuarium dengan drag-and-drop (Pointer Events).
+- `tests/`: uji logika (Node) dan uji browser (Playwright). Lihat `tests/README.md`.
 - `game.js`: sistem mancing lama, pasar, toko, koleksi, simpanan, event, dan perpindahan mode pulau ↔ mancing.
 
 ## Cara mancing
