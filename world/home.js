@@ -135,6 +135,7 @@ function fadeThen(fn) { const f = $("fade"); f.classList.add("on"); setTimeout((
 function banner(text) { const b = $("banner"); b.textContent = text; b.classList.add("show"); clearTimeout(banner.t); banner.t = setTimeout(() => b.classList.remove("show"), 1800); }
 function goPlot(player, at) {
   state.active = true; state.scene = "plot"; setEditing(false);
+  if (NW.story) NW.story.mark("home");
   const L = HS.plotLayout(lvl());
   if (at === "door") { player.x = L.doorPt.x; player.y = L.doorPt.y + 0.2; player.dir = 2; }
   else { player.x = L.gate.x + 0.2; player.y = L.gate.y - 0.7; player.dir = 7; }

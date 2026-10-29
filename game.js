@@ -63,13 +63,14 @@ let S = DEFAULT();
 let MODE = "world", fishFrom = "dock";
 // Versi simpanan: 1 = Tahap 1, 2 = Tahap 2A, 3 = rumah 10 level + ikan ber-uid.
 // Sebelum migrasi, data lama disalin ke kunci cadangan sehingga tidak pernah hilang diam-diam.
-const SAVE_VERSION = 3;
-let loadNote = "";
+const SAVE_VERSION = 4; // 4 = Bumbu 1: cerita, keahlian, petunjuk pemain baru, ingatan NPC
+let loadNote = "", isNewPlayer = true;
 function backup(raw, tag) { try { const k = `${SAVE_KEY}-backup-${tag}`; if (!localStorage.getItem(k)) localStorage.setItem(k, raw); } catch (e) {} }
 function load() {
   let raw = null;
   try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { loadNote = "Penyimpanan browser tidak tersedia, progres tidak bisa disimpan."; }
   if (raw) {
+    isNewPlayer = false;
     let d = null;
     try { d = JSON.parse(raw); } catch (e) { backup(raw, "rusak-" + Date.now()); loadNote = "Data simpanan tidak terbaca. Salinannya diamankan sebagai cadangan."; }
     if (d && typeof d === "object") {
@@ -233,6 +234,10 @@ const G = {
   pointerX: 0.5, holding: false, tickT: 0,
 };
 const upLvl = (k) => S.up[k];
+const skill = (k) => !!(S.skills && S.skills[k]); // keahlian nelayan dari cerita Pak Darto
+// riak ikan (Lemparan Presisi): titik di air tempat ikan berkumpul
+function newHotspot() { G.hot = { x: rand(-0.75, 0.75), z: rand(3.2, 8.2) }; }
+const hotPower = () => (G.hot ? (G.hot.z - 2) / 7 : 0);
 const coolerCap = () => UPGRADES.cooler.cap[upLvl("cooler")];
 
 // ---------- Pemilihan ikan ----------
@@ -242,6 +247,7 @@ function chooseFish() {
   let luck = UPGRADES.bait.luck[upLvl("bait")];
   if (G.perfect) luck *= 1.25;
   luck *= 1 + 0.35 * clamp((G.target.z - 2) / 7, 0, 1); // lempar jauh = lebih hoki
+  if (G.hotHit) luck *= 1.1; // Lemparan Presisi: bonus kecil
   const mult = { sampah: 1 / luck, biasa: 1, langka: Math.pow(luck, 0.75), epik: Math.pow(luck, 1.05), legenda: Math.pow(luck, 1.35) };
   const avail = RARITY_ORDER.filter((r) => pool.some((f) => f.rarity === r));
   let total = 0;
@@ -270,6 +276,7 @@ function press(px) {
     case "idle":
       if (S.cooler.length >= coolerCap()) { toast(S.loc === 0 ? "Coolbox penuh! Kembali ke darat, jual di Pasar 🏪" : "Coolbox penuh! Pulang ke Muara untuk menjual 🏪", "bad"); flashCooler(); return; }
       G.phase = "charging"; G.power = 0; G.powerDir = 1; showMeter(true);
+      if (skill("presisi")) { if (!G.hot) newHotspot(); $("powerTarget").style.bottom = (hotPower() * 100).toFixed(1) + "%"; }
       break;
     case "waiting":
       startReelBack(); toast("Tarik kosong… coba lagi");
@@ -309,6 +316,9 @@ function doCast() {
 }
 function landBobber() {
   G.bob.x = G.target.x; G.bob.z = G.target.z;
+  // Lemparan Presisi: kena riak → gigitan lebih cepat & sedikit lebih hoki (adil, kecil)
+  G.hotHit = !!(skill("presisi") && G.hot && Math.abs(G.target.z - G.hot.z) < 0.75 && Math.abs(G.target.x - G.hot.x) < 0.5);
+  emit("cast", { perfect: G.perfect, hit: G.hotHit });
   addRipple(G.bob.x, G.bob.z, 3); splashAt(G.bob.x, G.bob.z, 10);
   SFX.splash();
   G.phase = "waiting";
@@ -318,10 +328,12 @@ function landBobber() {
   const n = (Math.random() * 3) | 0;
   for (let i = 0; i < n; i++) G.nibbles.push(rand(0.5, G.biteTimer - 0.4));
   G.shadow = { x: G.bob.x + rand(-0.6, 0.6), z: G.bob.z + rand(0.8, 1.6), a: 0 };
+  if (G.hotHit) { G.biteTimer *= 0.6; G.nibbles = G.nibbles.filter((t) => t < G.biteTimer - 0.2); toast("🎯 Tepat di riak ikan!", "good"); }
+  G.hot = null;
   updateHint();
 }
 function triggerBite() {
-  G.pending = chooseFish();
+  G.pending = (NW.story && NW.story.challengeFish(G.perfect, LOCATIONS[S.loc].id)) || chooseFish();
   G.phase = "bite"; G.biteWindow = 0.95 + upLvl("bait") * 0.05;
   G.bob.sink = 1; addRipple(G.bob.x, G.bob.z, 2); splashAt(G.bob.x, G.bob.z, 6);
   SFX.bite();
@@ -331,9 +343,11 @@ function triggerBite() {
 function startFight() {
   const { fish, w, wr } = G.pending;
   const pe = fish.power * (0.85 + 0.3 * wr);
-  G.fight = { fish, w, pe, T: 0.25, P: 0.18, surge: 0, surgeT: rand(0.8, 2), slack: 0, over: 0, fx: G.bob.x, fxT: G.bob.x, z0: G.bob.z };
+  G.fight = { fish, w, pe, T: 0.25, P: 0.18, surge: 0, surgeT: rand(0.8, 2), slack: 0, over: 0, fx: G.bob.x, fxT: G.bob.x, z0: G.bob.z,
+    challenge: !!G.pending.challenge, perfect: !!G.perfect, reads: 0, tired: 0, readWin: 0, readDone: true, tiredT: 0, tiredHold: 0, tiredDone: true, warn: false };
+  $("tensionBar").classList.toggle("ideal", skill("kendali"));
   G.phase = "fight";
-  $("fightName").textContent = fish.rarity === "legenda" ? "⚠️ Sesuatu yang BESAR…" : fish.rarity === "epik" ? "Tarikannya kuat!" : "Strike! 🎣";
+  $("fightName").textContent = G.pending.challenge ? "🏆 Ikan uji Pak Darto!" : fish.rarity === "legenda" ? "⚠️ Sesuatu yang BESAR…" : fish.rarity === "epik" ? "Tarikannya kuat!" : "Strike! 🎣";
   $("fightUI").classList.remove("hidden");
   setNavLocked(true);
   splashAt(G.bob.x, G.bob.z, 14); SFX.splash();
@@ -341,6 +355,8 @@ function startFight() {
 }
 function endFight(result) {
   const F = G.fight;
+  emit("fight", { result, reads: F.reads, tired: F.tired, challenge: F.challenge, perfect: F.perfect, fish: F.fish, w: F.w });
+  $("tensionBar").classList.remove("warn", "tired");
   $("fightUI").classList.add("hidden");
   $("tensionBar").classList.remove("shake");
   if (result === "caught") {
@@ -407,6 +423,7 @@ function update(dt) {
   tickTime(dt);
 
   G.t += dt;
+  if (skill("presisi") && (G.phase === "idle" || G.phase === "charging") && !G.hot) newHotspot();
   // ombak bergerak mendekat
   for (const w of waves) { w.z -= dt * 0.22 * w.z * 0.18; if (w.z < 1.02) { w.z = rand(12, 16); w.x = rand(-2.4, 2.4); } }
   for (const c of clouds) { c.x += c.v * dt; if (c.x > 1.2) c.x = -0.2; }
@@ -473,26 +490,44 @@ function updateFight(dt) {
   const lv = upLvl("rod"), str = UPGRADES.rod.strength[lv], reel = UPGRADES.rod.reel[lv];
   // ikan menyentak
   F.surgeT -= dt;
-  if (F.surge > 0) F.surge -= dt;
+  const wasSurging = F.surge > 0;
+  F.warn = skill("membaca") && F.surge <= 0 && F.surgeT < 0.65; // aba-aba sebelum menyentak
+  if (F.surge > 0) {
+    F.surge -= dt;
+    if (F.surge <= 0 && wasSurging && skill("kendali")) { F.tiredT = 1.2; F.tiredHold = 0; F.tiredDone = false; F.surgeT = Math.max(F.surgeT, 1.9); } // beri ruang: "lelah" tidak bertabrakan dengan aba-aba berikutnya
+  }
   else if (F.surgeT <= 0) {
+    if (skill("membaca")) { F.readWin = 0.35; F.readDone = false; } // lepas dalam 0,35 dtk = bacaan tepat
     F.surge = rand(0.45, 0.9 + F.pe * 0.08);
     F.surgeT = Math.max(0.7, rand(1.3, 3.2) - F.pe * 0.1);
+    if (F.challenge) F.surgeT = Math.min(F.surgeT, 2.1); // ujian: sentakan teratur supaya bisa dibaca
     F.fxT = clamp(F.fx + rand(-0.9, 0.9), -1.4, 1.4);
     splashAt(G.bob.x, G.bob.z, 8 + F.pe); SFX.surge();
   }
   const surging = F.surge > 0;
+  if (!F.readDone) { if (!G.holding) { F.readDone = true; F.reads++; emit("read"); } else if ((F.readWin -= dt) <= 0) F.readDone = true; }
+  const tired = F.tiredT > 0 && !surging;
+  if (F.tiredT > 0) F.tiredT -= dt;
+  if (tired && G.holding && !F.tiredDone) { F.tiredHold += dt; if (F.tiredHold >= 0.3) { F.tiredDone = true; F.tired++; emit("tired"); } }
   if (G.holding) {
-    const rate = 0.17 * reel / (0.55 + F.pe * 0.12);
+    // Kendali Senar: gulungan lebih cepat & senar lebih awet HANYA saat ikan lelah / di zona ideal
+    const kb = tired ? 1.4 : 1, zb = skill("kendali") && F.T > 0.45 && F.T < 0.8 ? 1.08 : 1;
+    const rate = 0.17 * reel / (0.55 + F.pe * 0.12) * kb * zb;
     F.P += rate * dt * (surging ? 0.25 : 1);
-    F.T += (0.28 + F.pe * 0.055) * (surging ? 2.3 : 1) * dt / str;
+    F.T += (0.28 + F.pe * 0.055) * (surging ? 2.3 : 1) * dt / str * (tired ? 0.75 : 1);
     G.tickT -= dt; if (G.tickT <= 0) { G.tickT = 0.07; SFX.tick(); }
   } else {
     F.T -= 0.65 * dt;
     F.P -= (0.02 + (surging ? 0.05 + F.pe * 0.012 : 0)) * dt;
   }
+  // ikan uji Pak Darto tidak menyerah sebelum pemain menunjukkan keahlian (keberhasilan = tindakan, bukan untung)
+  if (F.challenge && (F.reads < 2 || F.tired < 2)) F.P = Math.min(F.P, 0.9);
   F.T = clamp(F.T, 0, 1.15);
   if (F.T >= 1) { F.over += dt; if (F.over > 0.3) return endFight("snap"); } else F.over = Math.max(0, F.over - dt * 2);
-  if (F.T < 0.06 && !G.holding) { F.slack += dt; if (F.slack > 2.2) return endFight("slack"); } else F.slack = Math.max(0, F.slack - dt * 2);
+  // Membaca Tarikan: melepas saat ikan menyentak itu benar (ikan yang menarik senar), jadi tidak dihitung kendur.
+  // Tanpa keahlian ini aturannya sama persis seperti sebelumnya.
+  const slackOk = skill("membaca") && surging;
+  if (F.T < 0.06 && !G.holding && !slackOk) { F.slack += dt; if (F.slack > 2.2) return endFight("slack"); } else F.slack = Math.max(0, F.slack - dt * 2);
   if (F.P <= 0) return endFight("lost");
   if (F.P >= 1) return endFight("caught");
 
@@ -503,8 +538,11 @@ function updateFight(dt) {
   $("tensionFill").style.width = (Math.min(F.T, 1) * 100).toFixed(1) + "%";
   $("progressFill").style.width = (F.P * 100).toFixed(1) + "%";
   $("tensionBar").classList.toggle("shake", F.T > 0.82);
+  $("tensionBar").classList.toggle("warn", F.warn); $("tensionBar").classList.toggle("tired", tired);
   const tip = $("fightTip");
-  tip.textContent = F.T > 0.82 ? "⚠️ Senar hampir putus, LEPAS!" : F.slack > 0.8 ? "Senar kendur, tahan lagi!" : surging ? "Ikan menyentak! Hati-hati" : "Tahan = gulung · Lepas = kendurkan";
+  tip.textContent = F.T > 0.82 ? "⚠️ Senar hampir putus, LEPAS!" : F.warn ? "⚡ Ikan bersiap menyentak — lepas!" : tired ? "😮‍💨 Ikan lelah — gulung!" : F.slack > 0.8 ? "Senar kendur, tahan lagi!" : surging ? "Ikan menyentak! Hati-hati" : "Tahan = gulung · Lepas = kendurkan";
+  tip.classList.toggle("cue-warn", F.warn); tip.classList.toggle("cue-tired", tired);
+  if (F.challenge) $("fightName").textContent = `🏆 Ujian · baca ${Math.min(2, F.reads)}/2 · gulung ${Math.min(2, F.tired)}/2`;
 }
 
 // ---------- Efek ----------
@@ -605,6 +643,26 @@ function draw() {
     ctx.strokeStyle = `rgba(255,255,255,${(r.life / r.max) * 0.6})`;
     ctx.lineWidth = Math.max(0.8, 2 * s);
     ctx.beginPath(); ctx.ellipse(sx, sy, r.r * s, r.r * s * 0.3, 0, 0, 7); ctx.stroke();
+  }
+
+  // riak ikan (Lemparan Presisi)
+  if (G.hot && skill("presisi") && (G.phase === "idle" || G.phase === "charging")) {
+    const hx = projX(G.hot.x, G.hot.z), hy = projY(G.hot.z), s = projS(G.hot.z) * 2.2 * U;
+    for (let i = 0; i < 3; i++) {
+      const k = (G.t * 0.6 + i / 3) % 1;
+      ctx.strokeStyle = `rgba(255,240,176,${(0.75 * (1 - k)).toFixed(3)})`; ctx.lineWidth = Math.max(1, 2 * s);
+      ctx.beginPath(); ctx.ellipse(hx, hy, (6 + k * 26) * s, (6 + k * 26) * s * 0.32, 0, 0, 7); ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(255,255,255,.85)";
+    for (let i = 0; i < 6; i++) { const a = G.t * 2 + i * 1.7, r = (4 + (i % 3) * 5) * s; ctx.beginPath(); ctx.arc(hx + Math.cos(a) * r, hy + Math.sin(a) * r * 0.3 - Math.abs(Math.sin(G.t * 3 + i)) * 4 * s, Math.max(1, 1.6 * s), 0, 7); ctx.fill(); }
+  }
+  // aba-aba tarikan (Membaca Tarikan / Kendali Senar)
+  if (G.fight && (G.fight.warn || G.fight.tiredT > 0)) {
+    const F = G.fight, bx = projX(G.bob.x, G.bob.z), by = projY(G.bob.z), s = projS(G.bob.z) * 2.2 * U;
+    const col = F.warn ? "255,214,90" : "120,220,150", k = (G.t * 2.5) % 1;
+    ctx.strokeStyle = `rgba(${col},${(0.9 * (1 - k)).toFixed(3)})`; ctx.lineWidth = Math.max(1.5, 3 * s);
+    ctx.beginPath(); ctx.ellipse(bx, by, (10 + k * 40) * s, (10 + k * 40) * s * 0.32, 0, 0, 7); ctx.stroke();
+    if (F.warn) { ctx.font = `900 ${Math.round(22 * U)}px Georgia, serif`; ctx.textAlign = "center"; ctx.fillStyle = "#ffd65a"; ctx.strokeStyle = "#173f50"; ctx.lineWidth = 4; ctx.strokeText("!", bx, by - 26 * U); ctx.fillText("!", bx, by - 26 * U); }
   }
 
   drawBoat(dk);
@@ -963,7 +1021,7 @@ function toast(msg, kind = "") {
   clearTimeout(toastT); toastT = setTimeout(() => (t.className = "toast " + kind), 2200);
 }
 function flashCooler() { const c = $("coolerChip"); c.classList.add("full"); setTimeout(refreshHUD, 1500); }
-function showMeter(on) { $("powerMeter").classList.toggle("hidden", !on); if (!on) $("powerFill").style.height = "0%"; }
+function showMeter(on) { $("powerMeter").classList.toggle("hidden", !on); $("powerMeter").classList.toggle("presisi", on && skill("presisi")); if (!on) $("powerFill").style.height = "0%"; }
 function setNavLocked(on) { document.querySelector(".nav").classList.toggle("locked", on); }
 function setHint(msg) { const hint = $("hint"); hint.textContent = msg; hint.classList.toggle("fade", !msg); }
 function updateHint() {
@@ -1215,14 +1273,16 @@ function applyMode() {
   document.body.classList.toggle("mode-world", MODE === "world");
   document.body.classList.toggle("mode-fish", MODE === "fish");
   const lb = $("landBtn");
-  lb.innerHTML = S.loc === 0 ? "<span>🏝️</span>Ke Darat" : "<span>🗺️</span>Peta";
+  lb.innerHTML = S.loc === 0 ? "<span>🏝️</span>Ke Darat" : `<span>🗺️</span>Peta · ${LOCATIONS[S.loc].short}`;
 }
 function resetFishing() {
+  G.hot = null;
   G.phase = "idle"; G.bob.vis = false; G.shadow = null; G.fight = null; G.holding = false;
   showMeter(false); $("fightUI").classList.add("hidden"); setNavLocked(false);
 }
 function enterFishing(from) {
   MODE = "fish"; fishFrom = from;
+  if (NW.story) NW.story.mark("fish");
   if (from === "dock") S.loc = 0;
   resetFishing(); buildScenery(); applyMode(); refreshHUD(); updateHint(); save();
 }
@@ -1271,6 +1331,7 @@ window.Nusa = {
 load();
 S.loc = 0; // permainan selalu dimulai dari Muara Kampung
 NW.life.hook(); NW.home.hook(); // Tahap 2A: misi harian & Rumahku
+NW.story.hook(isNewPlayer);     // Bumbu 1: cerita, keahlian, petunjuk pemain baru
 if (loadNote) setTimeout(() => toast(loadNote), 1200);
 save(); // simpan hasil migrasi (data lama sudah dicadangkan)
 resize(); buildScenery(); initAmbient(); refreshHUD(); applyMode();

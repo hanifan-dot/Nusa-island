@@ -447,3 +447,22 @@ body.editing .joy, body.editing .act-btn, body.editing .hint { display: none !im
   .aq-body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; overflow: hidden; }
   .aq-tank { aspect-ratio: 16 / 9; }
 }
+
+/* =========================================================
+   Bumbu 1 — keahlian nelayan & cerita
+   ========================================================= */
+.meter-target { position: absolute; left: -6px; right: -6px; height: 3px; background: #ffd65a; box-shadow: 0 0 0 1px #173f50, 0 0 8px #ffd65a; display: none; z-index: 2; border-radius: 2px; }
+.meter.presisi .meter-target { display: block; }
+.bar.tension .zone-ideal { display: none; }
+.bar.tension.ideal { background: linear-gradient(90deg, #dfe3d8 0 45%, rgba(120,220,150,.45) 45% 80%, #dfe3d8 80%); }
+.bar.tension.warn { box-shadow: 0 0 0 2px #ffd65a; animation: shake .12s infinite; }
+.bar.tension.tired { box-shadow: 0 0 0 2px #6fdc96; }
+.fight-tip.cue-warn { color: #a06a00; font-weight: 800; opacity: 1; }
+.fight-tip.cue-tired { color: #1f7a45; font-weight: 800; opacity: 1; }
+.badge.story { background: var(--gold); color: #3b2a05; }
+.skill { display: flex; gap: 10px; align-items: flex-start; background: #fff; border-radius: 12px; padding: 10px 12px; border-left: 4px solid var(--teal); }
+.skill.locked { opacity: .6; border-left-color: #d9d2bd; }
+.skill .nm { font-weight: 700; font-size: 14px; }
+.skill .sub { font-size: 12px; opacity: .8; margin-top: 3px; }
+@media (max-width: 400px) { #muteBtn { display: none; } } /* suara tetap bisa diatur di menu 🎯 */
+@media (max-width: 420px) { body.mode-fish .chip.loc { display: none; } } /* lokasi tampil di tombol Peta */

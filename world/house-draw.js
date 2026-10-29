@@ -458,6 +458,15 @@ function drawRoomShell(c, lv, t, dk, decos) {
     const top = P(x0, 0, 102).y, bot = P(x0, 0, 84).y, g = c.createLinearGradient(0, top, 0, bot); g.addColorStop(0, "#f39a58"); g.addColorStop(0.55, "#f6c96a"); g.addColorStop(0.56, "#2f7fa3"); g.addColorStop(1, "#174c6a");
     c.fillStyle = g; poly(c, quadY(x0 + 0.06, x1 - 0.06, 0, 84, 102)); c.fill();
   }
+  // Joran Warisan Pak Darto (hadiah Bab 4) dipajang tinggi di dinding belakang
+  if (decos.includes("joranWarisan")) {
+    const x0 = w - 2.6, x1 = w - 0.5, z = WH - 7; // tinggi di atas jendela
+    c.fillStyle = "#5a3a20"; poly(c, quadY(x0 + 0.1, x0 + 0.22, 0, z - 6, z + 4)); c.fill(); poly(c, quadY(x1 - 0.22, x1 - 0.1, 0, z - 6, z + 4)); c.fill();
+    c.strokeStyle = "#c9a86a"; c.lineWidth = 3; c.lineCap = "round"; line(c, P(x0, 0.02, z), P(x1, 0.02, z + 6));
+    c.strokeStyle = "#e0b84c"; c.lineWidth = 4; for (const u of [0.15, 0.4, 0.7]) { const a = P(x0 + (x1 - x0) * u, 0.02, z + 6 * u); line(c, { x: a.x - 1.5, y: a.y }, { x: a.x + 1.5, y: a.y }); }
+    c.fillStyle = "#6b4527"; const g = P(x0 + 0.25, 0.02, z + 1); c.fillRect(g.x - 5, g.y - 3, 10, 6);
+    const tg = P(x0 + (x1 - x0) * 0.55, 0.02, z + 3.3); c.fillStyle = "#f0c75a"; c.beginPath(); c.moveTo(tg.x, tg.y); c.lineTo(tg.x + 7, tg.y + 5); c.lineTo(tg.x + 7, tg.y + 10); c.lineTo(tg.x, tg.y + 5); c.closePath(); c.fill(); // label emas kecil
+  }
   // pintu keluar
   c.fillStyle = "#5a3a20"; poly(c, [P(0, door.y0, 0), P(0, door.y1, 0), P(0, door.y1, 62), P(0, door.y0, 62)]); c.fill();
   c.fillStyle = lv >= 6 ? "#6a4326" : "#8a5a32"; poly(c, [P(0, door.y0 + 0.08, 0), P(0, door.y1 - 0.08, 0), P(0, door.y1 - 0.08, 58), P(0, door.y0 + 0.08, 58)]); c.fill();
