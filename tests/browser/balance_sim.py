@@ -18,7 +18,7 @@ SIM = """
  for(let k=0;k<o.trials;k++){
    S.up.rod=o.rod; S.cooler=[]; S.skills.membaca=!!o.skill; S.skills.kendali=!!o.skill; S.skills.presisi=false;
    const wr=o.wr===undefined?Math.min(1,(o.w-fish.wMin)/(fish.wMax-fish.wMin)):o.wr;
-   G.pending={fish,w:o.w,wr}; G.phase='bite'; last=null; G.perfect=false;
+   G.pending={fish,w:o.w,wr,challenge:!!o.challenge}; G.phase='bite'; last=null; G.perfect=false;
    N.startFight(); G.holding=false;
    const react=0.18+Math.random()*0.2; let simT=0, held=false, q=[], dt=1/60, jit=0, jT=0, miss=false, mT=0;
    while(G.fight && simT<120){
@@ -49,20 +49,29 @@ DEFAULT = [
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
-def run(cases, trials=30, tune=None, url=None, seed=None):
-    """Kembalikan daftar (kasus, hasil). seed: Math.random dibuat deterministik (mulberry32)."""
-    out = []
-    with sync_playwright() as p:
-        b = p.chromium.launch(); pg = b.new_page(); pg.goto(url or "file://" + os.path.join(ROOT, "index.html")); time.sleep(0.6)
-        pg.evaluate("localStorage.clear()"); pg.reload(); time.sleep(0.6); pg.click("#startBtn"); time.sleep(0.3)
-        pg.evaluate("window.__nusa.S.muted=true; window.Nusa.toast=()=>{}")
-        if tune: pg.evaluate("t=>Object.assign(NW.FM.TUNE,t)", tune)
-        if seed is not None:
-            pg.evaluate("s=>{let a=s>>>0;Math.random=function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}", seed)
-        for c in cases:
-            out.append((c, pg.evaluate(SIM, dict(dict(hi=.78, lo=.45, sh=.6, missP=.12, trials=trials), **c))))
-        b.close()
+def _run_on(browser, cases, trials, tune, url, seed):
+    pg = browser.new_page(); pg.goto(url or "file://" + os.path.join(ROOT, "index.html")); time.sleep(0.6)
+    pg.evaluate("localStorage.clear()"); pg.reload(); time.sleep(0.6); pg.click("#startBtn"); time.sleep(0.3)
+    pg.evaluate("window.__nusa.S.muted=true; window.Nusa.toast=()=>{}")
+    if tune: pg.evaluate("t=>Object.assign(NW.FM.TUNE,t)", tune)
+    if seed is not None:
+        pg.evaluate("s=>{let a=s>>>0;Math.random=function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}", seed)
+    out = [(c, pg.evaluate(SIM, dict(dict(hi=.78, lo=.45, sh=.6, missP=.12, trials=trials), **c))) for c in cases]
+    pg.close()
     return out
+
+
+def run(cases, trials=30, tune=None, url=None, seed=None, browser=None):
+    """Kembalikan daftar (kasus, hasil). seed: Math.random dibuat deterministik (mulberry32).
+    browser: pakai browser Playwright yang sudah ada (tes), atau None untuk membuat sendiri."""
+    if browser is not None:
+        return _run_on(browser, cases, trials, tune, url, seed)
+    with sync_playwright() as p:
+        b = p.chromium.launch()
+        try:
+            return _run_on(b, cases, trials, tune, url, seed)
+        finally:
+            b.close()
 
 
 if __name__ == "__main__":

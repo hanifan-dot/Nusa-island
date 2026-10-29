@@ -83,7 +83,7 @@ with sync_playwright() as p:
     if has_opt: pg.locator("#dlgOpts .btn.gold").first.click(); time.sleep(0.5)
     close_dialog(pg)
     ok("antar ikan: sandal keluar dari coolbox & misi selesai", ev(pg, "!window.__nusa.S.cooler.some(i=>i.id=='sandal') && window.__nusa.S.missions.list[3].done"))
-    ok("antar ikan menaikkan pertemanan Dika", ev(pg, "window.__nusa.S.friends.dika") >= 1)
+    ok("antar ikan menaikkan pertemanan Dika", (ev(pg, "window.__nusa.S.friends.dika") or 0) >= 1)  # None bila Dika sempat berpindah saat beban tinggi → FAIL, bukan crash
 
     # ---------- jadwal NPC ----------
     sched = {}

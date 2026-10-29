@@ -144,6 +144,11 @@ function openDetail(uid) {
   $("panelWrap").appendChild(d);
 }
 function closeSheet() { const d = $("invDetail"); if (d) d.remove(); }
+// Dipanggil game.js tiap panel diganti/ditutup: kartu detail tidak boleh tertinggal menutupi panel lain
+function panelChanged(name) {
+  if (name !== "inventory") { V.detail = null; closeSheet(); }
+  if (name !== "inventory" && name !== "market") unmount();
+}
 function closeDetail() { V.detail = null; closeSheet(); }
 function redrawDetail() { const it = S().cooler.find((x) => x.uid === V.detail); if (!it) return closeDetail(); const d = $("invDetail"); if (d) d.innerHTML = detailHTML(it); }
 
@@ -287,5 +292,5 @@ function hook() {
   g.on("catch", () => { if (g.currentPanel() === "inventory") { refreshHeader(); } });
 }
 
-NW.inv = { hook, open, view, selectKind, makeDraft, execSell, warnings, needs, mount, ROW, get vlist() { return vl; }, state: V, draft: () => D.draft, thumb, closeDetail, redrawDetail };
+NW.inv = { hook, open, view, selectKind, makeDraft, execSell, warnings, needs, mount, ROW, get vlist() { return vl; }, state: V, draft: () => D.draft, thumb, closeDetail, redrawDetail, panelChanged };
 })();

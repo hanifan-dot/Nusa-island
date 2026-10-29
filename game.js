@@ -63,7 +63,7 @@ let S = DEFAULT();
 let MODE = "world", fishFrom = "dock";
 // Versi simpanan: 1 = Tahap 1, 2 = Tahap 2A, 3 = rumah 10 level + ikan ber-uid.
 // Sebelum migrasi, data lama disalin ke kunci cadangan sehingga tidak pernah hilang diam-diam.
-const SAVE_VERSION = 5; // 4 = Bumbu 1 (cerita, keahlian, petunjuk, ingatan NPC); 5 = Bumbu 1.1 (gelar tangkapan, nama pemain lokal)
+const SAVE_VERSION = 6; // 4 = Bumbu 1 (cerita, keahlian, petunjuk, ingatan NPC); 5 = Bumbu 1.1 (gelar tangkapan, nama pemain lokal); 6 = Bumbu 1.2 (coolbox & joran 10 tingkat, kunci ikan)
 let loadNote = "", isNewPlayer = true;
 function backup(raw, tag) { try { const k = `${SAVE_KEY}-backup-${tag}`; if (!localStorage.getItem(k)) localStorage.setItem(k, raw); } catch (e) {} }
 function load() {
@@ -89,6 +89,12 @@ function load() {
 function migrate() {
   const r = NW.HD.migrateHome(S);           // rumah lama → skema berversi (perabot tetap)
   const fixed = NW.HD.ensureFishUids(S);     // setiap ikan mendapat uid, duplikat dibersihkan
+  // Bumbu 1.2: tingkat coolbox & joran kini 10. Nilai lama (0-4) tetap berlaku; kepemilikan tidak pernah diturunkan.
+  for (const k of ["rod", "cooler"]) {
+    const max = UPGRADES[k].levels.length - 1, v = Math.floor(Number(S.up[k]));
+    S.up[k] = Number.isFinite(v) ? Math.max(0, Math.min(max, v)) : 0;
+  }
+  for (const it of S.cooler) if (it && it.lock !== undefined && it.lock !== true) delete it.lock; // penanda kunci hanya boleh true
   if (r.from === "2A") loadNote = "Rumahku diperbarui ke sistem 10 level. Semua perabot tetap ada.";
   S.v = SAVE_VERSION;
   return { home: r, fixed };
@@ -1146,9 +1152,10 @@ function openPanel(name) {
   if (G.phase === "waiting" || G.phase === "flying") { G.phase = "idle"; G.bob.vis = false; G.shadow = null; showMeter(false); updateHint(); }
   currentPanel = name; renderPanel(); $("panelWrap").classList.remove("hidden"); $("hint").classList.add("fade");
 }
-function closePanel() { SFX.click(); $("panelWrap").classList.add("hidden"); currentPanel = null; updateHint(); }
+function closePanel() { SFX.click(); $("panelWrap").classList.add("hidden"); currentPanel = null; if (NW.inv) NW.inv.panelChanged(null); updateHint(); }
 function renderPanel() {
   const body = $("panelBody");
+  if (NW.inv) NW.inv.panelChanged(currentPanel); // kartu detail inventaris tidak tertinggal di panel lain
   const titles = { market: "🏪 Pasar Ikan", shop: "🛠️ Toko Perlengkapan", dex: "📖 Koleksi Ikan", map: "🗺️ Peta Nusantara" };
   if (extraPanels[currentPanel]) { const ep = extraPanels[currentPanel]; $("panelTitle").textContent = ep.title(); body.innerHTML = ep.render(); if (ep.after) ep.after(body); return; }
   $("panelTitle").textContent = titles[currentPanel];
