@@ -28,6 +28,7 @@ python tests/browser/test_bumbu22.py         # Bumbu 2.2: 87 pemeriksaan (20 ske
 node tests/unit-weather.js                    # model cuaca: deterministik, episode, pengali mancing 0,88–1,08, migrasi (28 pemeriksaan)
 python tests/browser/test_bumbu23.py         # Bumbu 2.3: 18 skenario cuaca (visual, audio, NPC, Rumahku, mancing, pengaturan, migrasi v9, refresh, performa-emulasi)
 python tests/browser/test_bumbu24.py         # Bumbu 2.4: kapal, laut, memancing dari kapal, Selat Sunda, Peta Laut, audio, migrasi v10, performa-emulasi
+python tests/browser/test_bumbu241.py        # Bumbu 2.4.1: 12 ikan laut, Palung Mistis Selat, Lentera Arwah & Pari Bayang, peluang, save lama, performa-emulasi
 python tests/visual_bumbu23.py <folder>       # tangkapan layar bukti visual cuaca
 node tests/unit-variants.js                   # simulasi statistik peluang varian (24 pemeriksaan)
 python tests/visual_bumbu22.py <folder>       # tangkapan layar bukti visual (varian, spot, kartu, inventaris, koleksi)
@@ -73,3 +74,4 @@ Perubahan perilaku yang disengaja dan ikut diperbarui di uji lama: (1) kapal di 
 bukan langsung mode mancing (`test_bumbu2.py` K3). Raja Ampat & Laut Banda tetap lokasi mancing saja.
 Uji kontrol memakai pointer sungguhan pada joystick (mouse = pointer di Chromium) dan ketukan sentuh pada tombol kapal;
 belum diuji dengan jari di HP Android fisik.
+Bumbu 2.4.1 (Rahasia Ikan Mistis): `python tests/browser/test_bumbu241.py` dan bukti visual `python tests/visual_bumbu241.py <folder>`. Peluang ikan mistis diuji sebagai fungsi murni (NW.mystic.chance/pick) dan lewat 60.000 lemparan simulasi.
