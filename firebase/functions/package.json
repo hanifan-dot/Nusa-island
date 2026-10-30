@@ -1,0 +1,12 @@
+{
+  "name": "nusa-island-functions",
+  "private": true,
+  "description": "Cloud Functions Nusa Island Tahap 3 (cloud save + akses Owner). Logika ada di lib/core.js.",
+  "engines": { "node": "20" },
+  "main": "index.js",
+  "scripts": { "test": "node ../../tests/unit-cloud.js" },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^5.0.0"
+  }
+}
