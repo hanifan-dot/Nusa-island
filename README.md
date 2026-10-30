@@ -147,6 +147,13 @@ Setelah Muara Kampung, kini ada **satu daerah baru yang bisa dijelajahi**: **Kam
 - **Arsitektur multilokasi**: `world/areas.js` (registry area + getter kompatibel `NW.tileAt`, `NW.walkable`, `NW.objects`, … yang menunjuk ke area aktif), `world/map.js` & `world/areas/muara.js` (Muara), `world/areas/toba-map.js` / `toba-draw.js` / `toba.js` (Toba), `world/adventure.js` (penemuan, buku, perjalanan), `world/world.js` (mesin umum). Daerah baru cukup menambah satu set file area.
 - Simpanan **versi 7** (`nusa-island-v1` tetap, cadangan otomatis `nusa-island-v1-backup-v6`). Data baru di `S.adv` (area terakhir, posisi per area, penemuan, catatan, penghargaan, cerita Toba) hanya mengisi yang kosong — progres lama tidak pernah ditimpa.
 
+## Bumbu 2.1 — Suara Nusantara
+Musik, ambience, dan efek suara dibuat **prosedural lewat Web Audio** (tanpa file audio, tanpa aset pihak ketiga; komposisi orisinal).
+- `audio/synth.js` (petik Karplus–Strong, seruling/sulim, pad, ogung, drum kecil, dll), `music.js` (tema), `ambient.js` (angin, air, daun, jangkrik, pasar, burung/katak/burung hantu), `sfx.js`, `manager.js` (satu AudioContext, crossfade, volume, mute, tab tersembunyi), `triggers.js` (pengarah: area/waktu/mancing/rumah/kapal/cerita), `panel.js` (UI).
+- Tema: Muara pagi/siang/sore/malam (4/4), Toba pagi/siang/sore/malam (6/8, ogung/drum/hasapi-sulim), Rumahku, Kapal, Cerita, Mancing Muara & Toba.
+- **Pengaturan Suara**: panel Peta → 🔊 Pengaturan Suara, atau menu 🎯 → 🎚️ Atur, atau tahan tombol 🔊 (layar lebar). 4 slider (Utama 70 / Musik 35 / Ambience 50 / Efek 70), "Matikan semua suara", menu "🎧 Dengarkan tema & efek" untuk mendengar tiap tema.
+- Batas jujur: bunyi sintetis (bukan rekaman, bukan alat asli), kualitas prototipe; belum didengar lewat speaker/HP fisik. Tema Muara & Toba berbagi kosakata nada yang berkerabat; bedanya di meter, tempo, drone/ogung/drum, dan timbre.
+
 ## Cara mancing
 1. **Tahan layar** untuk mengayun joran, **lepas** untuk melempar. Lepas di zona atas meteran untuk *Lemparan Sempurna* (lebih hoki). Ketuk sisi kiri atau kanan layar untuk mengarahkan lemparan.
 2. Tunggu sampai pelampung **tenggelam** dan muncul tanda **!**, lalu ketuk secepatnya.

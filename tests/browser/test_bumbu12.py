@@ -4,6 +4,8 @@ Catatan: ini emulasi browser (Chromium headless), bukan HP Android fisik. Angka 
 Simulasi fight memakai startFight/updateFight asli dengan Math.random deterministik (seed tetap), jadi hasilnya stabil.
 """
 import time, json, os, sys, tempfile
+import os as _os
+MUTED = "false" if _os.environ.get("NUSA_AUDIO") else "true"  # NUSA_AUDIO=1: jalankan dengan audio aktif (Bumbu 2.1)
 from playwright.sync_api import sync_playwright
 sys.path.insert(0, os.path.dirname(__file__))
 import balance_sim
@@ -27,7 +29,7 @@ def fresh(b, vp=(1280, 800), touch=False, dpr=1):
     start(pg); return ctx, pg, errs
 def start(pg):
     if pg.is_visible("#startBtn"): pg.click("#startBtn")
-    time.sleep(0.4); ev(pg, "window.__nusa.S.muted = true; document.getElementById('banner').classList.remove('show')")
+    time.sleep(0.4); ev(pg, "window.__nusa.S.muted = " + MUTED + "; document.getElementById('banner').classList.remove('show')")
 def S(pg, path="window.__nusa.S"): return ev(pg, f"JSON.parse(JSON.stringify({path}))")
 def seed(pg, items, cooler_lv=9, money=None):
     """items: [(id, kg, locked?)] → coolbox. Tingkat coolbox diatur supaya muat."""

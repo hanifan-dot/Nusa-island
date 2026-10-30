@@ -208,7 +208,9 @@ cv.addEventListener("pointermove", (e) => {
   if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 6) return;
   d.moved = true;
   const p = NW.world.toTile(e.clientX, e.clientY, 0), f = H().furniture.find((x) => x.uid === state.sel);
-  state.ghost = { ...f, x: snap(p.x - d.ox), y: snap(p.y - d.oy) };
+  const gx = snap(p.x - d.ox), gy = snap(p.y - d.oy);
+  if (!state.ghost || state.ghost.x !== gx || state.ghost.y !== gy) N().sfx("furn_geser"); // geseran lembut (dibatasi di AudioManager)
+  state.ghost = { ...f, x: gx, y: gy };
   state.valid = HD.canPlace(H(), state.ghost).ok;
 });
 function endDrag(e) {
@@ -216,7 +218,7 @@ function endDrag(e) {
   state.drag = null;
   if (!d.moved) return;
   const f = H().furniture.find((x) => x.uid === state.sel), res = HD.canPlace(H(), state.ghost);
-  if (res.ok) { f.x = state.ghost.x; f.y = state.ghost.y; N().sfx("click"); N().save(); bump(); }
+  if (res.ok) { f.x = state.ghost.x; f.y = state.ghost.y; N().sfx("furn_taruh"); N().save(); bump(); }
   else { N().toast(`Tidak bisa di sini: ${res.why}`, "bad"); state.ghost = { ...f }; }
   state.valid = true; renderBar();
 }
@@ -228,19 +230,19 @@ function rotateSel() {
   let res = HD.canPlace(H(), t);
   if (!res.ok) { const s = HD.findSpot(H(), t, f.x, f.y); if (s && s.rot === t.rot) { Object.assign(t, s); res = { ok: true }; N().toast("Digeser sedikit supaya muat"); } }
   if (!res.ok) return N().toast(`Tidak bisa diputar: ${res.why}`, "bad");
-  Object.assign(f, { x: t.x, y: t.y, rot: t.rot }); state.ghost = { ...f }; N().sfx("click"); N().save(); bump(); renderBar();
+  Object.assign(f, { x: t.x, y: t.y, rot: t.rot }); state.ghost = { ...f }; N().sfx("furn_geser"); N().save(); bump(); renderBar();
 }
 function storeSel() {
   const h = H(), i = h.furniture.findIndex((x) => x.uid === state.sel); if (i < 0) return;
   const f = h.furniture[i];
   if (HD.FURN[f.type].cap && HD.fishIn(h, f.uid).length) return N().toast("Ambil dulu ikan di akuarium ini sebelum disimpan ke gudang", "bad");
-  h.furniture.splice(i, 1); h.stored.push(f); state.sel = null; state.ghost = null; N().save(); bump(); renderBar(); N().toast(`${HD.FURN[f.type].name} disimpan di gudang 📦`);
+  h.furniture.splice(i, 1); h.stored.push(f); state.sel = null; state.ghost = null; N().sfx("furn_ambil"); N().save(); bump(); renderBar(); N().toast(`${HD.FURN[f.type].name} disimpan di gudang 📦`);
 }
 function placeStored(uid) {
   const h = H(), i = h.stored.findIndex((x) => x.uid === uid); if (i < 0) return;
   const f = h.stored[i], { w, d } = HD.roomOf(lvl()), s = HD.findSpot(h, f, w / 2, d / 2);
   if (!s) return N().toast("Tidak ada tempat kosong. Geser atau simpan perabot lain dulu.", "bad");
-  h.stored.splice(i, 1); h.furniture.push(s); state.sel = s.uid; state.ghost = { ...s }; N().sfx("click"); N().save(); bump(); renderBar();
+  h.stored.splice(i, 1); h.furniture.push(s); state.sel = s.uid; state.ghost = { ...s }; N().sfx("furn_taruh"); N().save(); bump(); renderBar();
 }
 function renderBar() {
   const bar = $("layoutBar"); if (!state.editing) return;
@@ -424,7 +426,7 @@ function drawGrid(ctx, lv) {
 }
 
 NW.home = {
-  state, get active() { return state.active; }, get scene() { return state.scene; },
+  state, get active() { return state.active; }, get scene() { return state.scene; }, get radioOn() { return radioOn; },
   walkable, candidates, interact, enter, hook, camTarget, drawScene, isEditing: () => state.editing,
   update(dt) {
     updateCat(dt);

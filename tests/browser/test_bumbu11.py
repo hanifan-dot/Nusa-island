@@ -3,6 +3,8 @@ Jalankan: python tests/browser/test_bumbu11.py
 Catatan: ini emulasi browser (Chromium headless), bukan HP Android fisik.
 """
 import time, json, os, tempfile
+import os as _os
+MUTED = "false" if _os.environ.get("NUSA_AUDIO") else "true"  # NUSA_AUDIO=1: jalankan dengan audio aktif (Bumbu 2.1)
 from playwright.sync_api import sync_playwright
 ROOT = "file://" + os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "index.html"))
 OUT = tempfile.mkdtemp(prefix="nusa-b11-") + "/"
@@ -20,7 +22,7 @@ def page(b, save=None, vp=(1280, 800), touch=False, dpr=1):
     return ctx, pg, errs
 def start(pg):
     if pg.is_visible("#startBtn"): pg.click("#startBtn")
-    time.sleep(0.4); ev(pg, "window.__nusa.S.muted = true")
+    time.sleep(0.4); ev(pg, "window.__nusa.S.muted = " + MUTED)
 def S(pg, path="window.__nusa.S"): return ev(pg, f"JSON.parse(JSON.stringify({path}))")
 
 def cast(pg, power, vp_w):

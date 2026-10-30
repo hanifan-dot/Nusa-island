@@ -59,7 +59,7 @@ function onCatch({ fish }) {
   if (!isFish(fish)) return;       // sampah tidak menambah gelar
   const t = S().titles; t.fish++;
   const r = rankOf(t.fish);
-  if (r > t.rank) { t.rank = r; N().toast(`🎣 Gelar baru: ${titleName(r)}!`, "good"); N().sfx("click"); }
+  if (r > t.rank) { t.rank = r; N().toast(`🎣 Gelar baru: ${titleName(r)}!`, "good"); N().sfx("gelar"); }
 }
 
 // ---------- Joran: spesifikasi visual per tingkat (10 tingkat) ----------

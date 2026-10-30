@@ -1,5 +1,7 @@
 import time, json
 import os, tempfile
+import os as _os
+MUTED = "false" if _os.environ.get("NUSA_AUDIO") else "true"  # NUSA_AUDIO=1: jalankan dengan audio aktif (Bumbu 2.1)
 ROOT = "file://" + os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "index.html"))
 OUT = tempfile.mkdtemp(prefix="nusa-test-") + "/"
 from playwright.sync_api import sync_playwright
@@ -38,7 +40,7 @@ with sync_playwright() as p:
     pg.evaluate("localStorage.clear()"); pg.reload(); time.sleep(0.8)
 
     pg.click("#startBtn"); time.sleep(0.5)
-    pg.evaluate("window.__nusa.S.hour = 10; window.__nusa.S.muted = true")
+    pg.evaluate("window.__nusa.S.hour = 10; window.__nusa.S.muted = " + MUTED)
     # ---------- Berjalan ----------
     x0 = pg.evaluate("NW.world.player.x"); y0 = pg.evaluate("NW.world.player.y")
     pg.keyboard.down("d"); time.sleep(0.8); pg.screenshot(path=OUT + "t_walk.png"); pg.keyboard.up("d")
