@@ -73,7 +73,7 @@ function frame() {
   const it = find(H.uid), f = it && fishOf(it);
   if (!it || !f) { stop("gone"); return null; }
   const p = poseFor(it.w), L = fishLen(it.w);
-  return { uid: H.uid, f, w: it.w, p, L, t0: H.t0, crouch: p.crouch };
+  return { uid: H.uid, f, w: it.w, vr: it.vr, p, L, t0: H.t0, crouch: p.crouch };
 }
 
 // ---------- Tombol "Berhenti Memegang" ----------
@@ -130,7 +130,7 @@ function geom(hd, fx, fy, y0, t) {
 function drawFishBody(c, hd, G) {
   const sp = NW.drawFishSprite; if (!sp) return;
   c.save(); c.translate(G.cx, G.cy); c.rotate(G.ang); c.scale(G.m, 1);
-  sp(c, hd.f, 0, 0, G.L);
+  sp(c, hd.f, 0, 0, G.L, hd.vr);
   c.restore();
 }
 function drawArms(c, hd, G, st, fx, y0) {

@@ -22,7 +22,7 @@ def page(b, save=None, vp=(390, 844), touch=True, dpr=2):
     if save is not None:
         ctx.add_init_script("if(!localStorage.getItem('nusa-island-v1')){localStorage.setItem('nusa-island-v1', %s)}" % json.dumps(json.dumps(save)))
     pg = ctx.new_page(); errs = []
-    pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("console", lambda m: errs.append(m.text) if m.type == "error" else None)
+    pg.on("pageerror", lambda e: errs.append(str(e) + " @ " + (getattr(e, "stack", "") or "").replace("\n", " | ")[:400])); pg.on("console", lambda m: errs.append(m.text) if m.type == "error" else None)
     pg.goto(ROOT); time.sleep(0.8)
     return ctx, pg, errs
 def fresh(b, **kw):
@@ -58,9 +58,17 @@ def talk(pg, nid, pick=None):
         if target(pg) == "npc:" + nid: act(pg); return dialog_through(pg, pick)
     return "TIDAK-TERJANGKAU"
 def st(pg): return S(pg, "window.__nusa.S.adv.toba")
+def wait_for(pg, js, tmo=25.0, step=0.15):
+    """Tunggu kondisi (bukan tidur tetap): suite ini pernah gagal acak saat CPU sibuk karena animasi berlayar (dt dibatasi) lebih lambat dari jeda tetap."""
+    t0 = time.time()
+    while time.time() - t0 < tmo:
+        if ev(pg, js): return True
+        time.sleep(step)
+    return False
+IDLE = "!NW.adv.isBusy() && document.getElementById('voyage').classList.contains('hidden')"
 def to_toba(pg, hour=9):
     ev(pg, f"window.__nusa.S.up.boat=Math.max(1,window.__nusa.S.up.boat); window.__nusa.S.hour={hour}")
-    r = ev(pg, "window.__nusa.travel(1)"); time.sleep(3.5); return r
+    r = ev(pg, "window.__nusa.travel(1)"); time.sleep(0.5); wait_for(pg, IDLE); time.sleep(0.2); return r
 def rect(pg, sel):
     return ev(pg, "s=>{const e=document.querySelector(s); if(!e) return null; const r=e.getBoundingClientRect(), cs=getComputedStyle(e); return {x:r.left,y:r.top,w:r.width,h:r.height,vis:cs.display!=='none'&&cs.visibility!=='hidden'&&r.width>0}}", sel)
 def overlap(a, c): return not (a["x"] + a["w"] <= c["x"] or c["x"] + c["w"] <= a["x"] or a["y"] + a["h"] <= c["y"] or c["y"] + c["h"] <= a["y"])
@@ -87,7 +95,7 @@ with sync_playwright() as p:
         ev(pg, "document.querySelector('#panelBody [data-act=go][data-arg=\"1\"]').click()"); time.sleep(0.7)
         pg.screenshot(path=OUT + "01_perjalanan.png")
         ok("A6 layar transisi berlayar tampil (perahu & nama tujuan)", ev(pg, "document.getElementById('voyage').classList.contains('on')") and "Danau Toba" in ev(pg, "document.querySelector('#voyage .vg-title').textContent") and "Kampung Tepian Toba" in ev(pg, "document.querySelector('#voyage .vg-sub').textContent"))
-        time.sleep(3.0)
+        wait_for(pg, IDLE); time.sleep(0.2)
         s = S(pg)
         ok("A7 tiba: area Kampung Tepian Toba, mode dunia, lokasi mancing = Danau Toba (LOCATIONS dipakai ulang)", ev(pg, "NW.areas.cur.id") == "toba" and ev(pg, "window.__nusa.mode()") == "world" and s["loc"] == 1 and ev(pg, "NW.areas.cur.loc") == "toba")
         ok("A8 layar transisi tertutup, kontrol aktif lagi", not ev(pg, "NW.adv.isBusy()") and ev(pg, "document.getElementById('voyage').classList.contains('hidden')"))
@@ -164,7 +172,7 @@ with sync_playwright() as p:
         s = S(pg)
         ok("D6 Bab 1 selesai: +200 koin & catatan perjalanan", s["adv"]["toba"]["bab"] == 2 and s["money"] == m0 + 200 and any(n["id"] == "toba:bab1" for n in s["adv"]["notes"]), (s["money"] - m0))
         # keluar ke Muara di tengah cerita lalu kembali: tidak macet
-        ev(pg, "NW.adv.travelTo('muara')"); time.sleep(3.6)
+        ev(pg, "NW.adv.travelTo('muara')"); time.sleep(0.5); wait_for(pg, IDLE); time.sleep(0.2)
         ok("D7 pulang ke Muara di tengah cerita (Bab 2) → progres tetap", ev(pg, "NW.areas.cur.id") == "muara" and st(pg)["bab"] == 2)
         pg.reload(); time.sleep(0.9); start(pg)
         ok("D8 refresh di Muara: progres Toba & penemuan tidak hilang/terulang", st(pg)["bab"] == 2 and ev(pg, "Object.keys(window.__nusa.S.adv.found).filter(k=>k.startsWith('toba:')).length") >= 2 and ev(pg, "window.__nusa.S.adv.notes.length") == 2)
@@ -223,7 +231,7 @@ with sync_playwright() as p:
         ok("D26 'Ke Darat' dari mancing Toba → kembali ke Kampung Tepian Toba (bukan Muara)", ev(pg, "window.__nusa.mode()") == "world" and ev(pg, "NW.areas.cur.id") == "toba" and ev(pg, "NW.walkable(NW.world.player.x,NW.world.player.y)"))
         m2 = S(pg)["money"]; cool = [c["uid"] for c in S(pg)["cooler"]]
         lab = talk(pg, "raka", "gelar"); time.sleep(2.0)
-        pg.screenshot(path=OUT + "04_penutup_cerita.png"); time.sleep(4.0)
+        pg.screenshot(path=OUT + "04_penutup_cerita.png"); wait_for(pg, "!!document.getElementById('awardWrap')", 30); time.sleep(0.3)
         s = S(pg)
         ok("D27 Bab 3 selesai: +350 koin, gelar 'Penjelajah Tepian Toba' (terpisah dari 8 gelar tangkapan)", s["adv"]["toba"]["bab"] == 4 and s["money"] == m2 + 350 and s["adv"]["awards"].get("toba:gelar", {}).get("kind") == "gelar" and s["titles"]["fish"] == n1["titles"]["fish"])
         ok("D28 penutup: animasi cahaya + kartu penghargaan", ev(pg, "!!document.getElementById('awardWrap')"))
@@ -264,15 +272,15 @@ with sync_playwright() as p:
       S.cooler.push({uid:'aq1',id:'nila',w:0.7,t:1}); const pr=HD.putFish(S,'aq1',aq.uid,window.Nusa.FISH_BY_ID); if(!pr.ok) throw new Error('akuarium: '+pr.why);
       HD.addFurniture(S.home,S,'tanaman'); const fx=S.home.furniture.concat(S.home.stored).slice(-1)[0]; fx.uid='f99';
           S.titles={v:1,fish:321,rank:5}; S.story.ch=5; S.story.title='Penerus Muara'; S.dex.mas={n:50,best:2.9}; S.stats.caught=400; S.day=12;
-          delete S.adv; localStorage.setItem('nusa-island-v1', JSON.stringify(S)); localStorage.removeItem('nusa-island-v1-backup-v6')})()""")
+          const T=JSON.parse(JSON.stringify(S)); delete T.adv; localStorage.setItem('nusa-island-v1', JSON.stringify(T)); localStorage.removeItem('nusa-island-v1-backup-v6')})()""")
         v6 = ev(pg, "localStorage.getItem('nusa-island-v1')")
         ctx.close()
         ctx, pg, errs3 = page(b, json.loads(v6)); start(pg); s = S(pg)
         bk = ev(pg, "localStorage.getItem('nusa-island-v1-backup-v6')")
-        g1 = {"v": s["v"] == 7, "koin": s["money"] == 98765, "up": s["up"] == {"rod": 7, "bait": 3, "cooler": 9, "boat": 2}, "ikan": len(s["cooler"]) == 199, "kunci": sum(1 for c in s["cooler"] if c.get("lock")) == 20,
+        g1 = {"v": s["v"] == 8, "koin": s["money"] == 98765, "up": s["up"] == {"rod": 7, "bait": 3, "cooler": 9, "boat": 2}, "ikan": len(s["cooler"]) == 199, "kunci": sum(1 for c in s["cooler"] if c.get("lock")) == 20,
               "akuarium": bool(s["home"]["placedFish"]) and s["home"]["placedFish"][0]["uid"] == "aq1", "perabot": any(f["uid"] == "f99" for f in s["home"]["furniture"] + s["home"]["stored"]), "gelar": s["titles"]["fish"] == 321,
               "darto": s["story"]["ch"] == 5, "koleksi": s["dex"]["mas"]["n"] == 50, "statistik": s["stats"]["caught"] == 400, "hari": s["day"] == 12, "misi": s.get("missions") is not None}
-        ok("G1 simpanan v6 → v7: koin, joran lv 8, kapal, inventaris 199 + 20 terkunci, akuarium, perabot, gelar, cerita Darto, koleksi, statistik, misi harian aman", all(g1.values()), {k: v for k, v in g1.items() if not v})
+        ok("G1 simpanan v6 → v8 (migrasi berantai): koin, joran lv 8, kapal, inventaris 199 + 20 terkunci, akuarium, perabot, gelar, cerita Darto, koleksi, statistik, misi harian aman", all(g1.values()), {k: v for k, v in g1.items() if not v})
         ok("G2 cadangan v6 dibuat sebelum migrasi", bk is not None and json.loads(bk)["v"] == 6 and json.loads(bk)["money"] == 98765)
         ok("G3 data petualangan baru berisi nilai awal yang aman (area Muara, Toba Bab 1)", s["adv"]["area"] == "muara" and s["adv"]["toba"]["bab"] == 1 and s["adv"]["visited"].get("muara") and not s["adv"]["found"])
         ok("G4 kunci simpanan tetap 'nusa-island-v1'", ev(pg, "!!localStorage.getItem('nusa-island-v1')") and ev(pg, "Object.keys(localStorage).filter(k=>k.startsWith('nusa')&&!k.startsWith('nusa-island-v1')).length") == 0)
@@ -280,6 +288,9 @@ with sync_playwright() as p:
         to_toba(pg)
         ev(pg, "window.__nusa.S.cooler.push({uid:'c199',id:'mas',w:1,t:1}); window.__nusa.refreshHUD()")
         goto(pg, 19.0, 7.2); act(pg)
+        for _ in range(4):  # beban CPU tinggi: ulangi interaksi bila dialog belum sempat terbuka (bukan perilaku game)
+            if dlg_open(pg): break
+            time.sleep(0.5); goto(pg, 19.0, 7.2); act(pg)
         ok("G5 inventaris 200/200 penuh di Toba → tidak bisa mancing, pesan menyarankan Bu Maya / Muara", dlg_open(pg) and "penuh" in (dlg_lines(pg) or "") and ev(pg, "window.__nusa.mode()") == "world")
         dialog_through(pg)
         ok("G6 joran tidak berubah setelah pindah area (batas Bumbu 1.2 tetap)", S(pg)["up"]["rod"] == 7 and ev(pg, "UPGRADES.rod.cap[7]") == 330 and ev(pg, "NW.look.rodSpec().name") == "Joran Titan Nelayan")
@@ -369,7 +380,7 @@ with sync_playwright() as p:
             ok(f"K3 {nm}: tetap lokasi mancing (langsung mode mancing, tanpa area jelajah)", r and ev(pg, "window.__nusa.mode()") == "fish" and S(pg)["loc"] == i and ev(pg, "document.getElementById('landBtn').textContent").startswith("🗺️"))
         ev(pg, "document.getElementById('landBtn').click()"); time.sleep(0.4)
         ok("K4 dari laut lepas, tombol 🗺️ membuka Peta", ev(pg, "window.Nusa.currentPanel()") == "map")
-        ev(pg, "document.querySelector('#panelBody [data-act=go][data-arg=\"1\"]').click()"); time.sleep(3.6)
+        ev(pg, "document.querySelector('#panelBody [data-act=go][data-arg=\"1\"]').click()"); time.sleep(0.5); wait_for(pg, IDLE); time.sleep(0.2)
         ok("K5 dari Laut Banda berlayar ke Danau Toba → turun di Kampung Tepian Toba", ev(pg, "NW.areas.cur.id") == "toba" and ev(pg, "window.__nusa.mode()") == "world" and S(pg)["loc"] == 1)
         # kalimat pembuka bergiliran (tidak mengulang)
         ev(pg, "window.__nusa.S.adv.toba.bab=4; window.__nusa.S.hour=13.3; NW.world.areaNpcs().forEach(NW.world.placeNPC)"); time.sleep(0.3)

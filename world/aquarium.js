@@ -31,11 +31,12 @@ $("aqClose").addEventListener("click", () => { N().sfx("click"); close(); });
 window.addEventListener("keydown", (e) => { if (ui.open && e.key === "Escape") close(); });
 
 // ---------- Render daftar ----------
+const VTAG = (it) => (NW.variants && NW.variants.valid(it.vr) ? ` <em class="vtag v-${it.vr}">${NW.variants.info(it.vr).name}</em>` : "");
 function cardHTML(it) {
   const f = N().FISH_BY_ID[it.id], R = RAR()[f.rarity], e = HD.eligible(it, aqFurn(), H(), N().FISH_BY_ID);
   return `<div class="aq-card ${e.ok ? "" : "no"} ${ui.selCard === it.uid ? "sel" : ""}" data-uid="${it.uid}" style="--rc:${R.color}">
-    <div class="aq-thumb" data-grip="1"><img src="${N().fishImg(f.id)}" alt="" draggable="false"></div>
-    <div class="aq-info"><div class="nm">${f.name}</div><div class="sub"><span class="rar" style="color:${R.color}">${R.label}</span> · ${N().fmtW(it.w)}</div>
+    <div class="aq-thumb" data-grip="1"><img src="${N().fishImg(f.id, it.vr)}" alt="" draggable="false"></div>
+    <div class="aq-info"><div class="nm">${f.name}${VTAG(it)}</div><div class="sub"><span class="rar" style="color:${R.color}">${R.label}</span> · ${N().fmtW(it.w)}</div>
     <div class="sub">${e.ok ? `${LOCN(f.loc)} · ${HD.WATER_NAME[HD.HABITAT[f.loc]]}` : `🚫 ${e.why}`}</div></div></div>`;
 }
 function render() {
@@ -47,7 +48,7 @@ function render() {
   // ikan yang sedang dipajang
   shownEl.innerHTML = now.length ? now.map((it) => {
     const f = N().FISH_BY_ID[it.id], sel = ui.selFish === it.uid;
-    return `<div class="aq-chip ${sel ? "sel" : ""}" data-fuid="${it.uid}"><img src="${N().fishImg(f.id)}" alt=""><span>${f.name}<small>${N().fmtW(it.w)}</small></span>
+    return `<div class="aq-chip ${sel ? "sel" : ""}" data-fuid="${it.uid}"><img src="${N().fishImg(f.id, it.vr)}" alt=""><span>${f.name}${VTAG(it)}<small>${N().fmtW(it.w)}</small></span>
       ${ui.swapIn ? `<button class="btn small gold" data-swap="${it.uid}">Tukar</button>` : `<button class="btn small" data-take="${it.uid}">Ambil</button>`}</div>`;
   }).join("") : `<div class="muted">Akuarium masih kosong.</div>`;
   // ikan di coolbox
@@ -179,7 +180,7 @@ function loop(now) {
       c.fillStyle = gl; c.beginPath(); c.arc(s.x, s.y, L * 0.8, 0, 7); c.fill();
     }
     c.save(); c.translate(s.x, s.y); c.rotate(Math.sin(t * 6 + s.ph) * 0.05); c.scale(s.vx > 0 ? 1 : -1, 1);
-    NW.drawFishSprite(c, f, 0, 0, L); c.restore();
+    NW.drawFishSprite(c, f, 0, 0, L, it.vr); c.restore();
     if (ui.selFish === it.uid || (ui.swapIn && true)) {
       c.strokeStyle = ui.swapIn ? "rgba(255,240,176,.9)" : "#fff0b0"; c.lineWidth = 2; c.setLineDash([5, 4]); c.beginPath(); c.ellipse(s.x, s.y, L * 0.62, L * 0.38, 0, 0, 7); c.stroke(); c.setLineDash([]);
       if (ui.selFish === it.uid) { c.font = "700 12px system-ui"; c.textAlign = "center"; c.fillStyle = "#fff"; c.fillText(`${f.name} · ${N().fmtW(it.w)}`, s.x, s.y - L * 0.45 - 6); }

@@ -559,7 +559,7 @@ function drawAquariumFurn(c, f, r, T, t, ctx) {
   fish.forEach((it, i) => {
     const sp = ctx.speedOf(it), ph = t * sp + i * 2.1, k = (Math.sin(ph) + 1) / 2, right = Math.cos(ph) > 0;
     const x = A.x + (B.x - A.x) * k, y = A.y + (B.y - A.y) * k - ((i % 3) * (h - 14)) / 3 - 4 + Math.sin(t * 2 + i) * 1.5;
-    c.save(); c.translate(x, y); c.scale(right ? -1 : 1, 1); NW.drawFishSprite(c, NW.HD_FISH(it.id), 0, 0, ctx.sizeOf(it, 18)); c.restore();
+    c.save(); c.translate(x, y); c.scale(right ? -1 : 1, 1); NW.drawFishSprite(c, NW.HD_FISH(it.id), 0, 0, ctx.sizeOf(it, 18), it.vr); c.restore();
   });
   c.fillStyle = "rgba(255,255,255,.7)";
   for (let i = 0; i < 3; i++) { const k = (t * 0.4 + i / 3) % 1, p = frontX ? P(r.x1, r.y0 + 0.3 + i * 0.25, z0 + 4 + k * (h - 8)) : P(r.x0 + 0.3 + i * 0.2, r.y1, z0 + 4 + k * (h - 8)); c.beginPath(); c.arc(p.x, p.y, 1.2, 0, 7); c.fill(); }

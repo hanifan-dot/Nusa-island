@@ -63,7 +63,7 @@ let S = DEFAULT();
 let MODE = "world", fishFrom = "dock";
 // Versi simpanan: 1 = Tahap 1, 2 = Tahap 2A, 3 = rumah 10 level + ikan ber-uid.
 // Sebelum migrasi, data lama disalin ke kunci cadangan sehingga tidak pernah hilang diam-diam.
-const SAVE_VERSION = 7; // 4 = Bumbu 1 (cerita, keahlian, petunjuk, ingatan NPC); 5 = Bumbu 1.1 (gelar tangkapan, nama pemain lokal); 6 = Bumbu 1.2 (coolbox & joran 10 tingkat, kunci ikan); 7 = Bumbu 2 (petualangan: area terakhir, penemuan, cerita Toba, penghargaan)
+const SAVE_VERSION = 8; // 4 = Bumbu 1 (cerita, keahlian, petunjuk, ingatan NPC); 5 = Bumbu 1.1 (gelar tangkapan, nama pemain lokal); 6 = Bumbu 1.2 (coolbox & joran 10 tingkat, kunci ikan); 7 = Bumbu 2 (petualangan: area terakhir, penemuan, cerita Toba, penghargaan)
 let loadNote = "", isNewPlayer = true;
 function backup(raw, tag) { try { const k = `${SAVE_KEY}-backup-${tag}`; if (!localStorage.getItem(k)) localStorage.setItem(k, raw); } catch (e) {} }
 function load() {
@@ -97,6 +97,9 @@ function migrate() {
   for (const it of S.cooler) if (it && it.lock !== undefined && it.lock !== true) delete it.lock; // penanda kunci hanya boleh true
   // Bumbu 2: data petualangan (S.adv) — hanya mengisi yang belum ada, tidak pernah menimpa progres lama
   if (NW.adv) NW.adv.migrate(S);
+  // Bumbu 2.2 (v8): varian ikan & koleksi varian (S.vd). Ikan lama tetap Normal — tidak ada varian acak saat migrasi.
+  if (NW.variants) NW.variants.migrate(S);
+  if (NW.secret) NW.secret.migrate(S);
   if (r.from === "2A") loadNote = "Rumahku diperbarui ke sistem 10 level. Semua perabot tetap ada.";
   S.v = SAVE_VERSION;
   return { home: r, fixed };
@@ -139,6 +142,8 @@ function noise(dur, freq = 800, vol = 0.2, q = 0.8) {
   const g = AC.createGain(); g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   src.connect(f).connect(g).connect(audioOut()); src.start(t0); src.stop(t0 + dur);
 }
+// Bumbu 2.2: efek baru hanya lewat NW.audio (mengikuti mute/volume). Tanpa modul audio, varian memakai jingle lama.
+function N_sfx(n, a) { if (NW.audio && NW.audio.sfx(n, a)) return true; if (n.startsWith("varian_")) SFX.catch(a); return false; }
 const SFX = {
   cast: () => noise(0.35, 1800, 0.12, 0.5),
   splash: () => { noise(0.4, 600, 0.25); tone(220, 0.15, "sine", 0.05, 90); },
@@ -243,6 +248,7 @@ function initAmbient() {
 
 // ---------- Status mancing ----------
 const G = {
+  spotId: null, // Bumbu 2.2: id spot rahasia yang sedang dipakai (null = titik mancing biasa)
   phase: "idle", t: 0, power: 0, powerDir: 1, perfect: false,
   bob: { x: 0, z: 2, sink: 0, vis: false },
   fly: null, target: { x: 0, z: 4 },
@@ -335,7 +341,7 @@ function doCast() {
 function landBobber() {
   G.bob.x = G.target.x; G.bob.z = G.target.z;
   // Lemparan Presisi: kena riak → gigitan lebih cepat & sedikit lebih hoki (adil, kecil)
-  G.hotHit = !!(skill("presisi") && G.hot && Math.abs(G.target.z - G.hot.z) < 0.75 && Math.abs(G.target.x - G.hot.x) < 0.5);
+  G.hotHit = !!((skill("presisi") || G.spotId) && G.hot && Math.abs(G.target.z - G.hot.z) < 0.75 && Math.abs(G.target.x - G.hot.x) < 0.5);
   emit("cast", { perfect: G.perfect, hit: G.hotHit });
   addRipple(G.bob.x, G.bob.z, 3); splashAt(G.bob.x, G.bob.z, 10);
   SFX.splash();
@@ -397,6 +403,7 @@ function startReelBack() {
   updateHint();
 }
 function landFish(fish, w) {
+  if (G.phase === "result") return; // satu tangkapan = satu hasil (tidak ada roll varian / jingle ganda)
   G.phase = "result"; G.bob.vis = false; G.shadow = null;
   const rec = S.dex[fish.id] || { n: 0, best: 0 };
   const isNew = rec.n === 0, isRecord = !isNew && w > rec.best;
@@ -405,11 +412,23 @@ function landFish(fish, w) {
   if (fish.rarity === "legenda") S.stats.legends++;
   let reward = 0;
   if (fish.protected) { reward = Math.round(fish.price * PRICE_SCALE * NW.FM.effectiveKg(w) * 1.2); S.money += reward; S.stats.earned += reward; }
-  else S.cooler.push({ uid: NW.HD.newUid(S, "i"), id: fish.id, w, t: Date.now() }); // setiap ikan punya identitas unik
-  emit("catch", { fish, w, night: isNight(), loc: LOCATIONS[S.loc].id });
+  // Bumbu 2.2: varian kosmetik dipilih SEKALI di sini (tidak pernah di-roll ulang), hanya untuk ikan yang benar-benar disimpan
+  const vr = NW.variants && !fish.protected ? NW.variants.roll(fish, { spot: G.spotId, hit: G.hotHit }) : "normal";
+  let item = null;
+  if (fish.protected) { /* dilepas: tidak ada item, tidak ada varian */ }
+  else {
+    item = { uid: NW.HD.newUid(S, "i"), id: fish.id, w, t: Date.now() }; // setiap ikan punya identitas unik
+    if (vr !== "normal") { item.vr = vr; if (vr === "pearl") item.lock = true; } // Mutiara Nusantara otomatis terkunci
+    S.cooler.push(item);
+    if (NW.variants) NW.variants.record(S, fish, vr, w, LOCATIONS[S.loc].id);
+  }
+  emit("catch", { fish, w, night: isNight(), loc: LOCATIONS[S.loc].id, vr, spot: G.spotId || null });
   save(); refreshHUD();
-  SFX.catch(fish.rarity);
-  showCatchCard(fish, w, { isNew, isRecord, reward });
+  const giant = !!(NW.variants && !fish.protected && NW.variants.isGiant(fish, w));
+  // tepat SATU jingle per tangkapan: varian istimewa memakai jingle sendiri, selain itu jingle rarity
+  if (vr !== "normal") N_sfx("varian_" + vr, fish.rarity); else SFX.catch(fish.rarity);
+  if (giant) setTimeout(() => N_sfx("splash_besar", Math.min(1, NW.FM.bigness(w))), 120);
+  showCatchCard(fish, w, { isNew, isRecord, reward, vr, giant, uid: item && item.uid, locked: !!(item && item.lock) });
 }
 
 // ---------- Update ----------
@@ -444,7 +463,7 @@ function update(dt) {
   tickTime(dt);
 
   G.t += dt;
-  if (skill("presisi") && (G.phase === "idle" || G.phase === "charging") && !G.hot) newHotspot();
+  if ((skill("presisi") || G.spotId) && (G.phase === "idle" || G.phase === "charging") && !G.hot) newHotspot();
   // ombak bergerak mendekat
   for (const w of waves) { w.z -= dt * 0.22 * w.z * 0.18; if (w.z < 1.02) { w.z = rand(12, 16); w.x = rand(-2.4, 2.4); } }
   for (const c of clouds) { c.x += c.v * dt; if (c.x > 1.2) c.x = -0.2; }
@@ -671,7 +690,7 @@ function draw() {
   }
 
   // riak ikan (Lemparan Presisi)
-  if (G.hot && skill("presisi") && (G.phase === "idle" || G.phase === "charging")) {
+  if (G.hot && (skill("presisi") || G.spotId) && (G.phase === "idle" || G.phase === "charging")) { // di spot rahasia riak terlihat oleh semua pemain
     const hx = projX(G.hot.x, G.hot.z), hy = projY(G.hot.z), s = projS(G.hot.z) * 2.2 * U;
     for (let i = 0; i < 3; i++) {
       const k = (G.t * 0.6 + i / 3) % 1;
@@ -690,6 +709,7 @@ function draw() {
     if (F.warn) { ctx.font = `900 ${Math.round(22 * U)}px Georgia, serif`; ctx.textAlign = "center"; ctx.fillStyle = "#ffd65a"; ctx.strokeStyle = "#173f50"; ctx.lineWidth = 4; ctx.strokeText("!", bx, by - 26 * U); ctx.fillText("!", bx, by - 26 * U); }
   }
 
+  if (G.spotId && NW.secret && fishFrom === "dock") NW.secret.drawTint(ctx, { W, H, HZ }, G.spotId); // suasana air spot rahasia
   drawBoat(dk);
   drawLineAndBobber();
 
@@ -786,7 +806,8 @@ function drawBoat(dk) {
   const hull = ["#7a5230", "#2f7a8c", "#c9553b", "#e9e4d8", "#1f3f5a"][boatLv];
   const trim = ["#5a3b22", "#f0d58a", "#f3e7c9", "#d14a3a", "#e0b84c"][boatLv];
   const night = (c) => mix(c, "#0a1426", dk * 0.6);
-  if (fishFrom === "dock" && NW.areas.forLoc(S.loc)) drawDockFore(cx, by, B, night); // mancing dari dermaga area yang bisa dijelajahi
+  if (fishFrom === "dock" && G.spotId && NW.secret) NW.secret.drawFore(ctx, { cx, by, B, U, W, H, t: G.t, night }, G.spotId); // spot rahasia: tepi alami, bukan dermaga
+  else if (fishFrom === "dock" && NW.areas.forLoc(S.loc)) drawDockFore(cx, by, B, night); // mancing dari dermaga area yang bisa dijelajahi
   else {
   // badan perahu (tampak dari belakang, menyempit ke depan)
     const nearW = 250 * U, farW = 70 * U, farY = B - 210 * U;
@@ -940,7 +961,7 @@ function drawLineAndBobber() {
 }
 
 // ---------- Gambar ikan (untuk kartu & koleksi) ----------
-function drawFish(c, f, x, y, L) {
+function drawFish(c, f, x, y, L, vr) {
   if (f.emoji) {
     c.font = `${Math.round(L * 0.55)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
     c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(f.emoji, x, y); return;
@@ -948,7 +969,8 @@ function drawFish(c, f, x, y, L) {
   const [sl, sh] = f.shape;
   const bl = L * 0.74, bh = bl * (sh / sl) * 1.15;
   const hx = x + bl / 2 + L * 0.08, tx = hx - bl;
-  const col = f.color, dark = shade(col, -0.3), finCol = f.finColor || shade(col, -0.15);
+  const VV = vr && vr !== "normal" && NW.variants ? NW.variants.look(f, vr) : null; // Bumbu 2.2: varian kosmetik
+  const col = VV ? VV.col : f.color, dark = shade(f.color, -0.3), finCol = VV ? VV.fin : f.finColor || shade(col, -0.15);
   const body = new Path2D();
   body.moveTo(hx, y + bh * 0.02);
   body.bezierCurveTo(hx - bl * 0.12, y - bh * (f.hump ? 0.9 : 0.62), tx + bl * 0.3, y - bh * 0.55, tx, y - bh * 0.12);
@@ -987,7 +1009,7 @@ function drawFish(c, f, x, y, L) {
 
   // badan
   const g = c.createLinearGradient(0, y - bh * 0.6, 0, y + bh * 0.55);
-  g.addColorStop(0, shade(col, -0.12)); g.addColorStop(0.45, col); g.addColorStop(1, f.belly || shade(col, 0.5));
+  g.addColorStop(0, shade(col, -0.12)); g.addColorStop(0.45, col); g.addColorStop(1, VV ? VV.belly : f.belly || shade(col, 0.5));
   c.fillStyle = g; c.fill(body);
   c.save(); c.clip(body);
   if (f.stripes) {
@@ -1007,6 +1029,7 @@ function drawFish(c, f, x, y, L) {
     const s = Math.max(4, bh * 0.16);
     for (let yy = y - bh * 0.5; yy < y + bh * 0.5; yy += s * 0.8) for (let xx = tx + s; xx < hx - bl * 0.2; xx += s) { c.beginPath(); c.arc(xx + ((yy / s) % 2) * s * 0.5, yy, s * 0.55, -1.2, 1.2); c.stroke(); }
   }
+  if (VV) NW.variants.paint(c, vr, { x, y, tx, hx, bl, bh, L }, f);
   // kilau
   c.fillStyle = "rgba(255,255,255,.18)"; c.beginPath(); c.ellipse(x, y - bh * 0.25, bl * 0.35, bh * 0.1, 0, 0, 7); c.fill();
   c.restore();
@@ -1027,13 +1050,15 @@ function drawFish(c, f, x, y, L) {
   if (f.bill) {
     c.fillStyle = dark; c.beginPath(); c.moveTo(hx - 2, y - bh * 0.08); c.lineTo(hx + L * 0.2, y + bh * 0.02); c.lineTo(hx - 2, y + bh * 0.1); c.fill();
   }
+  if (VV) NW.variants.halo(c, vr, { x, y, bl, bh, L });
 }
 const fishImgCache = {};
-function fishImg(id) {
-  if (fishImgCache[id]) return fishImgCache[id];
+function fishImg(id, vr) {
+  const key = vr && vr !== "normal" ? id + "|" + vr : id;
+  if (fishImgCache[key]) return fishImgCache[key];
   const c = document.createElement("canvas"); c.width = 200; c.height = 110;
-  drawFish(c.getContext("2d"), FISH_BY_ID[id], 105, 55, 160);
-  return (fishImgCache[id] = c.toDataURL());
+  drawFish(c.getContext("2d"), FISH_BY_ID[id], 105, 55, 160, vr);
+  return (fishImgCache[key] = c.toDataURL());
 }
 
 // ---------- UI ----------
@@ -1090,9 +1115,21 @@ function showCatchCard(fish, w, info) {
   const g = c.createRadialGradient(160, 90, 10, 160, 90, 160);
   g.addColorStop(0, rgba(R.color, 0.35)); g.addColorStop(1, rgba(R.color, 0));
   c.fillStyle = g; c.fillRect(0, 0, 320, 180);
-  drawFish(c, fish, 160, 92, 230);
+  drawFish(c, fish, 160, 92, 230, info.vr);
+  if (info.giant) { c.fillStyle = "rgba(220,244,255,.8)"; const rr = seeded(hashStr(fish.id + w)); for (let i = 0; i < 14; i++) { c.beginPath(); c.arc(40 + rr() * 240, 150 + rr() * 22 - rr() * rr() * 90, 1.5 + rr() * 3, 0, 7); c.fill(); } } // cipratan (statis, sedikit titik)
+  // Bumbu 2.2: momen tangkapan istimewa (CSS singkat; bisa dilewati)
+  const vi = info.vr && info.vr !== "normal" && NW.variants ? NW.variants.info(info.vr) : null;
+  card.className = "catch-card" + (vi ? " cv-" + info.vr : "") + (info.giant ? " cv-giant" : "");
+  $("catchVar").innerHTML = vi ? `<b>${vi.icon} ${vi.name}</b>${info.vr === "pearl" ? "<small>Varian paling istimewa</small>" : ""}` : info.giant ? `<b>🌊 Ikan Raksasa!</b><small>${fmtW(w)} · ${fish.name}</small>` : "";
+  $("catchVar").classList.toggle("hidden", !vi && !info.giant);
+  const special = !!(vi && info.vr === "pearl") || !!info.giant;
+  $("catchSkip").classList.toggle("hidden", !special);
+  card.classList.toggle("playing", !!(vi || info.giant));
+  clearTimeout(momentT); if (vi || info.giant) momentT = setTimeout(endMoment, info.vr === "pearl" ? 2600 : info.giant ? 2000 : 1500);
+  $("catchHold").classList.toggle("hidden", !(info.giant && info.uid && NW.hold));
   const badges = [];
   if (info.isNew) badges.push("✨ Baru di koleksi");
+  if (info.locked) badges.push("🔒 Otomatis terkunci");
   if (info.isRecord) badges.push("🏆 Rekor baru!");
   if (fish.night) badges.push("🌙 Ikan malam");
   if (info.reward) badges.push(`🐢 Dilepas · hadiah konservasi +${fmt(info.reward)}`);
@@ -1101,8 +1138,16 @@ function showCatchCard(fish, w, info) {
   $("catchWrap").classList.remove("hidden");
   setNavLocked(true);
 }
+let momentT = null;
+function endMoment() { clearTimeout(momentT); const cc = $("catchCard"); if (cc) cc.classList.remove("playing"); $("catchSkip").classList.add("hidden"); }
+$("catchSkip").addEventListener("click", () => { SFX.click(); endMoment(); });
+$("catchHold").addEventListener("click", () => { // pamerkan ikan raksasa di tangan: ke darat dulu (aturan pamer ikan yang sudah ada)
+  const uid = lastCatch && lastCatch.info && lastCatch.info.uid; if (!uid || !NW.hold) return;
+  SFX.click(); endMoment(); $("catchWrap").classList.add("hidden"); setNavLocked(false); G.phase = "idle"; updateHint();
+  NW.hold.start(uid);
+});
 $("catchOk").addEventListener("click", () => {
-  SFX.click(); $("catchWrap").classList.add("hidden"); setNavLocked(false);
+  endMoment(); SFX.click(); $("catchWrap").classList.add("hidden"); setNavLocked(false);
   G.phase = "idle"; updateHint();
   if (S.cooler.length >= coolerCap()) toast("Coolbox penuh! Jual di Pasar 🏪", "bad");
 });
@@ -1239,11 +1284,22 @@ function buy(k, expectLv) {
   save(); refreshHUD(); renderPanel();
 }
 
+// Bumbu 2.2: satu spesies = satu kartu, varian sebagai sub-bagian kecil (✓ pernah / ? belum)
+function variantRow(f) {
+  if (!NW.variants || !NW.variants.eligible(f)) return "";
+  const V = NW.variants, vd = (S.vd && S.vd[f.id]) || {};
+  return `<div class="vcol">${V.IDS.map((k) => {
+    const on = V.seen(S, f.id, k), e = vd[k], tip = on && e && e.n ? `×${e.n} · rekor ${fmtW(e.best)}${e.loc ? " · pertama di " + (LOCATIONS.find((l) => l.id === e.loc) || { short: e.loc }).short : ""}` : on ? "Pernah" : "Belum ditemukan";
+    return `<span class="${on ? "on" : ""}" title="${tip}">${on ? "✓" : "?"} ${V.info(k).short}</span>`;
+  }).join("")}</div>`;
+}
 function dexHTML() {
   const tabs = [...LOCATIONS.map((l) => ({ id: l.id, name: l.short })), { id: "*", name: "Lain-lain" }];
   if (!dexTab) dexTab = LOCATIONS[S.loc].id;
   const totalAll = FISH.length, gotAll = FISH.filter((f) => S.dex[f.id]).length;
+  const vc = NW.variants ? NW.variants.counts(S) : null;
   let h = `<div class="muted">Total koleksi ${gotAll}/${totalAll} · Tangkapan ${S.stats.caught} · Legenda ${S.stats.legends}</div>
+    ${vc ? `<div class="muted">✨ Varian ditemukan: Sisik Perak ${vc.silver} · Corak Senja ${vc.sunset} · Mutiara Nusantara ${vc.pearl} spesies</div>` : ""}
     <div class="progress-line"><div style="width:${(gotAll / totalAll) * 100}%"></div></div>
     <div class="dex-tabs">${tabs.map((t) => `<button data-act="tab" data-arg="${t.id}" class="${t.id === dexTab ? "on" : ""}">${t.name}</button>`).join("")}</div>
     <div class="dex-grid">`;
@@ -1254,7 +1310,7 @@ function dexHTML() {
       ${f.emoji ? `<div class="emo">${f.emoji}</div>` : `<img src="${fishImg(f.id)}" alt="">`}
       <div class="nm">${rec ? f.name : "???"}</div>
       <div class="sub">${R.label}${timeTag ? " · " + timeTag : ""}</div>
-      <div class="sub">${rec ? `×${rec.n} · rekor ${fmtW(rec.best)}` : "Belum tertangkap"}</div></div>`;
+      <div class="sub">${rec ? `×${rec.n} · rekor ${fmtW(rec.best)}` : "Belum tertangkap"}</div>${rec ? variantRow(f) : ""}</div>`;
   }
   return h + `</div>`;
 }
@@ -1308,6 +1364,7 @@ function enterFishing(from) {
   MODE = "fish"; fishFrom = from;
   if (NW.story) NW.story.mark("fish");
   if (from === "dock") S.loc = NW.areas.cur.locIndex; // mancing dari titik mancing area aktif (Muara / Toba)
+  G.spotId = from === "dock" && NW.secret && NW.world && NW.secret.isSecret(NW.world.fishSpot && NW.world.fishSpot()) ? NW.world.fishSpot() : null; // Bumbu 2.2: spot rahasia aktif
   resetFishing(); buildScenery(); applyMode(); refreshHUD(); updateHint(); save();
 }
 function goWorld(at, areaId) {

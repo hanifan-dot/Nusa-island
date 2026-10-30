@@ -15,10 +15,11 @@ const lvl = () => H().level;
 // ---------- Sprite ikan (cache supaya akuarium ramai tetap ringan) ----------
 const spriteCache = {};
 NW.HD_FISH = (id) => N().FISH_BY_ID[id];
-NW.drawFishSprite = (c, fish, x, y, L) => {
+NW.drawFishSprite = (c, fish, x, y, L, vr) => {
   if (!fish) return;
-  let s = spriteCache[fish.id];
-  if (!s) { s = document.createElement("canvas"); s.width = 160; s.height = 96; N().drawFish(s.getContext("2d"), fish, 80, 48, 120); spriteCache[fish.id] = s; }
+  const key = vr && vr !== "normal" ? fish.id + "|" + vr : fish.id; // Bumbu 2.2: satu sprite per spesies+varian (cache)
+  let s = spriteCache[key];
+  if (!s) { s = document.createElement("canvas"); s.width = 160; s.height = 96; N().drawFish(s.getContext("2d"), fish, 80, 48, 120, vr); spriteCache[key] = s; }
   c.drawImage(s, x - L * 0.667, y - L * 0.4, L * 1.333, L * 0.8);
 };
 const speedOf = (it) => { const f = NW.HD_FISH(it.id); return 0.3 + (f ? f.power : 3) * 0.06; };
