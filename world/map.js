@@ -1,21 +1,15 @@
 // =========================================================
 //  NUSA ISLAND — Island Life: peta Muara Kampung (data + collision)
 //  Koordinat dunia dalam satuan tile (x ke kanan-bawah, y ke kiri-bawah)
+//  Bumbu 2: peta ini didaftarkan sebagai AREA "muara" (lihat world/areas.js).
+//  Tata letaknya tidak berubah (RNG ber-seed yang sama).
 // =========================================================
 window.NW = window.NW || {};
 (() => {
 "use strict";
 
-const T = { DEEP: 0, SHALLOW: 1, SAND: 2, GRASS: 3, PATH: 4, DOCK: 5 };
+const { T, TW, TH, isLandT, hash2, rng } = NW;
 const MW = 40, MH = 40, CX = 19, CY = 19;
-const TW = 64, TH = 32; // ukuran tile isometrik (px)
-
-// RNG ber-seed
-function rng(seed) {
-  let s = seed >>> 0 || 7;
-  return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return ((s >>> 0) % 1000000) / 1000000; };
-}
-const hash2 = (x, y) => { let h = (x * 374761393 + y * 668265263) ^ 0x5bd1e995; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967295; };
 
 // ---------- Bentuk pulau ----------
 function islandD(x, y) {
@@ -27,7 +21,6 @@ function islandD(x, y) {
 const tiles = new Uint8Array(MW * MH);
 const tileAt = (x, y) => (x < 0 || y < 0 || x >= MW || y >= MH ? T.DEEP : tiles[(y | 0) * MW + (x | 0)]);
 const setTile = (x, y, t) => { if (x >= 0 && y >= 0 && x < MW && y < MH) tiles[y * MW + x] = t; };
-const isLandT = (t) => t >= T.SAND;
 
 for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
   const d = islandD(x + 0.5, y + 0.5);
@@ -90,11 +83,7 @@ const NAV = {
 const NAV_EDGES = [["A", "B"], ["B", "C"], ["C", "D"], ["D", "SF"], ["SF", "F"], ["F", "G"], ["G", "DOCKF"], ["DOCKF", "DOCKE"],
   ["J", "K"], ["K", "D"], ["D", "L"], ["L", "M"], ["B", "N2"], ["N2", "N"], ["N", "R1"], ["C", "O"], ["O", "R3"], ["L", "R2"],
   ["J", "P"], ["P", "R4"], ["F", "Q"], ["K", "PARK"], ["PARK", "BENCH"], ["N2", "WELL"], ["M", "NET"], ["M", "BEACH"], ["F", "SE"], ["SE", "STALL"]];
-function segDist(px, py, ax, ay, bx, by) {
-  const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1;
-  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2));
-  return Math.hypot(px - (ax + dx * t), py - (ay + dy * t));
-}
+const segDist = NW.areaKit.segDist;
 const nearNav = (x, y, pad) => NAV_EDGES.some(([a, b]) => segDist(x, y, NAV[a][0], NAV[a][1], NAV[b][0], NAV[b][1]) < pad);
 
 // Papan nama
@@ -199,33 +188,27 @@ for (const b of buildings) solids.push({ x0: b.x0 + 0.02, y0: b.y0 + 0.02, x1: b
 for (const f of flowerBeds) solids.push(f);
 
 // ---------- Collision ----------
-function walkable(x, y, r = 0.22) {
-  const probes = [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r], [r * 0.7, r * 0.7], [-r * 0.7, r * 0.7], [r * 0.7, -r * 0.7], [-r * 0.7, -r * 0.7]];
-  for (const [dx, dy] of probes) if (!isLandT(tileAt(Math.floor(x + dx), Math.floor(y + dy)))) return false;
-  for (const s of solids) {
-    if (s.r !== undefined) { if (Math.hypot(x - s.x, y - s.y) < s.r + r * 0.8) return false; }
-    else if (x > s.x0 - r * 0.8 && x < s.x1 + r * 0.8 && y > s.y0 - r * 0.8 && y < s.y1 + r * 0.8) return false;
-  }
-  return true;
-}
+const walkable = NW.areaKit.makeWalkable(tileAt, solids, isLandT);
 
 // Tepi pantai (untuk buih ombak): sisi tile darat yang berbatasan dengan air
-const shoreEdges = [];
-for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
-  const t = tileAt(x, y); if (!isLandT(t) || t === T.DOCK) continue;
-  if (!isLandT(tileAt(x + 1, y))) shoreEdges.push({ ax: x + 1, ay: y, bx: x + 1, by: y + 1, nx: 1, ny: 0 });
-  if (!isLandT(tileAt(x - 1, y))) shoreEdges.push({ ax: x, ay: y, bx: x, by: y + 1, nx: -1, ny: 0 });
-  if (!isLandT(tileAt(x, y + 1))) shoreEdges.push({ ax: x, ay: y + 1, bx: x + 1, by: y + 1, nx: 0, ny: 1 });
-  if (!isLandT(tileAt(x, y - 1))) shoreEdges.push({ ax: x, ay: y, bx: x + 1, by: y, nx: 0, ny: -1 });
-}
+const shoreEdges = NW.areaKit.shoreEdges(tileAt, MW, MH);
 
 // Titik awal pemain
 const START = { x: 19.5, y: 20.6 };
 
-Object.assign(NW, {
-  T, MW, MH, TW, TH, tiles, tileAt, isLandT, hash2, rng, islandD, DOCK, SPOT, BOAT, SHORE_E, START,
+NW.MUARA_MAP = {
+  MW, MH, tiles, tileAt, islandD, DOCK, SPOT, BOAT, SHORE_E, START,
   buildings, objects, points, signs, NAV, NAV_EDGES, HOME_GATE, flowerBeds, PARK, lamps, solids, walkable, shoreEdges,
-  // konversi tile → piksel dunia (sebelum kamera)
-  iso: (x, y) => ({ x: (x - y) * TW / 2, y: (x + y) * TH / 2 }),
+  docks: [{ ...DOCK, axis: "x" }],
+  // titik mancing: marker di ujung dermaga, posisi kembali setelah mancing
+  fishSpots: [{ id: "spot", mx: SPOT.x - 0.35, my: SPOT.y, mz: 4.5, ret: { x: SPOT.x - 1.1, y: SPOT.y, dir: 4 } }],
+  lights: [{ x: BOAT.x, y: BOAT.y, z: 14, r: 40 }],
+};
+// Area pertama yang didaftarkan = area aktif saat game dimuat.
+// NPC, interaksi, dan ambience Muara ditambahkan oleh world/areas/muara.js.
+NW.areas.register({
+  id: "muara", name: "Muara Kampung", loc: "muara", banner: "🏝️ Muara Kampung",
+  map: NW.MUARA_MAP,
+  spawns: { start: START, boat: { x: BOAT.x, y: DOCK.y1 + 0.6, dir: 5 } },
 });
 })();
