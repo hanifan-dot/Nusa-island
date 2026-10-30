@@ -318,7 +318,7 @@ with sync_playwright() as p:
     ctx = b.new_context(viewport={"width": 390, "height": 844}); ctx.add_init_script(init); pg = ctx.new_page(); errs = []
     pg.on("pageerror", lambda e: errs.append(str(e))); pg.goto(ROOT); time.sleep(1.0)
     S = ev(pg, "(()=>{const S=window.__nusa.S;return {v:S.v,money:S.money,rod:S.up.rod,cooler:S.cooler.map(x=>[x.uid,x.id,x.w,x.vr||null,!!x.lock]),dex:S.dex,vd:S.vd,found:S.adv.found}})()")
-    ok("35 simpanan v7 → v8: koin, joran, ikan, berat, kunci, dex, penemuan lama utuh", S["v"] == 8 and S["money"] == 1234 and S["rod"] == 3 and S["cooler"] == [["i1", "nila", 0.8, None, False], ["i2", "patin", 4.5, None, True]] and S["dex"]["nila"]["n"] == 5 and S["found"]["toba:bukit"] == 6, S)
+    ok("35 simpanan v7 → v9: koin, joran, ikan, berat, kunci, dex, penemuan lama utuh", S["v"] == 9 and S["money"] == 1234 and S["rod"] == 3 and S["cooler"] == [["i1", "nila", 0.8, None, False], ["i2", "patin", 4.5, None, True]] and S["dex"]["nila"]["n"] == 5 and S["found"]["toba:bukit"] == 6, S)
     ok("35b ikan lama tetap Normal (tidak ada varian acak saat migrasi) & koleksi varian kosong", all(c[3] is None for c in S["cooler"]) and S["vd"] == {}, S["vd"])
     ok("35c cadangan v7 dibuat sebelum migrasi", ev(pg, "!!localStorage.getItem('nusa-island-v1-backup-v7')"))
     ok("35d kunci simpanan utama tetap nusa-island-v1", ev(pg, "!!localStorage.getItem('nusa-island-v1')") is True)

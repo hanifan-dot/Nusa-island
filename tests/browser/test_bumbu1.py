@@ -14,6 +14,7 @@ def st(pg): return ev(pg, "JSON.parse(JSON.stringify(window.__nusa.S.story))")
 
 def page(b, save=None, vp=(1280, 800)):
     ctx = b.new_context(viewport={"width": vp[0], "height": vp[1]})
+    import wx_init; wx_init.apply(ctx)  # NUSA_WX=hujan → seluruh alur dijalankan saat cuaca dipaksa
     if save is not None:
         ctx.add_init_script("if(!sessionStorage.getItem('seeded')){localStorage.setItem('nusa-island-v1', %s);sessionStorage.setItem('seeded','1')}" % json.dumps(json.dumps(save)))
     pg = ctx.new_page(); errs = []

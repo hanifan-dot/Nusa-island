@@ -19,6 +19,7 @@ def ev(pg, js, arg=None): return pg.evaluate(js) if arg is None else pg.evaluate
 
 def page(b, save=None, vp=(390, 844), touch=True, dpr=2):
     ctx = b.new_context(viewport={"width": vp[0], "height": vp[1]}, has_touch=touch, device_scale_factor=dpr)
+    import wx_init; wx_init.apply(ctx)  # NUSA_WX=hujan → seluruh alur dijalankan saat cuaca dipaksa
     if save is not None:
         ctx.add_init_script("if(!localStorage.getItem('nusa-island-v1')){localStorage.setItem('nusa-island-v1', %s)}" % json.dumps(json.dumps(save)))
     pg = ctx.new_page(); errs = []
@@ -146,7 +147,7 @@ with sync_playwright() as p:
           return {inB, off, maxRunSec:maxRun*dt, acts:Object.keys(acts).length, dirs:Object.fromEntries(Object.entries(dirs).map(([k,v])=>[k,Object.keys(v).length])), frames};})()""")
         ok("C2 satu hari penuh: NPC tidak pernah masuk bangunan / keluar jalan", day["inB"] == 0 and day["off"] == 0, day)
         ok("C3 NPC tidak saling menumpuk terus-menerus (jarak < 0,35 tile maks. 1,5 dtk beruntun)", day["maxRunSec"] <= 1.5, day["maxRunSec"])
-        ok("C4 NPC beraktivitas sesuai jadwal (≥ 10 aktivitas; Pak Raka menunggu tamu di dermaga selama Bab 1 belum dimulai)", day["acts"] >= 10, day["acts"])
+        ok("C4 NPC beraktivitas sesuai jadwal (≥ 10 aktivitas, ≥ 6 bila cuaca dipaksa hujan karena NPC berteduh; Pak Raka menunggu tamu di dermaga selama Bab 1 belum dimulai)", day["acts"] >= (6 if os.environ.get("NUSA_WX") else 10), day["acts"])
         ok("C5 animasi diam: ketiga NPC menoleh ke beberapa arah saat beraktivitas di tempat", len(day["dirs"]) == 3 and all(v >= 2 for v in day["dirs"].values()), day["dirs"])
         near_npc(pg, "raka"); time.sleep(0.2)
         act(pg)
@@ -277,10 +278,10 @@ with sync_playwright() as p:
         ctx.close()
         ctx, pg, errs3 = page(b, json.loads(v6)); start(pg); s = S(pg)
         bk = ev(pg, "localStorage.getItem('nusa-island-v1-backup-v6')")
-        g1 = {"v": s["v"] == 8, "koin": s["money"] == 98765, "up": s["up"] == {"rod": 7, "bait": 3, "cooler": 9, "boat": 2}, "ikan": len(s["cooler"]) == 199, "kunci": sum(1 for c in s["cooler"] if c.get("lock")) == 20,
+        g1 = {"v": s["v"] == 9, "koin": s["money"] == 98765, "up": s["up"] == {"rod": 7, "bait": 3, "cooler": 9, "boat": 2}, "ikan": len(s["cooler"]) == 199, "kunci": sum(1 for c in s["cooler"] if c.get("lock")) == 20,
               "akuarium": bool(s["home"]["placedFish"]) and s["home"]["placedFish"][0]["uid"] == "aq1", "perabot": any(f["uid"] == "f99" for f in s["home"]["furniture"] + s["home"]["stored"]), "gelar": s["titles"]["fish"] == 321,
               "darto": s["story"]["ch"] == 5, "koleksi": s["dex"]["mas"]["n"] == 50, "statistik": s["stats"]["caught"] == 400, "hari": s["day"] == 12, "misi": s.get("missions") is not None}
-        ok("G1 simpanan v6 → v8 (migrasi berantai): koin, joran lv 8, kapal, inventaris 199 + 20 terkunci, akuarium, perabot, gelar, cerita Darto, koleksi, statistik, misi harian aman", all(g1.values()), {k: v for k, v in g1.items() if not v})
+        ok("G1 simpanan v6 → v9 (migrasi berantai): koin, joran lv 8, kapal, inventaris 199 + 20 terkunci, akuarium, perabot, gelar, cerita Darto, koleksi, statistik, misi harian aman", all(g1.values()), {k: v for k, v in g1.items() if not v})
         ok("G2 cadangan v6 dibuat sebelum migrasi", bk is not None and json.loads(bk)["v"] == 6 and json.loads(bk)["money"] == 98765)
         ok("G3 data petualangan baru berisi nilai awal yang aman (area Muara, Toba Bab 1)", s["adv"]["area"] == "muara" and s["adv"]["toba"]["bab"] == 1 and s["adv"]["visited"].get("muara") and not s["adv"]["found"])
         ok("G4 kunci simpanan tetap 'nusa-island-v1'", ev(pg, "!!localStorage.getItem('nusa-island-v1')") and ev(pg, "Object.keys(localStorage).filter(k=>k.startsWith('nusa')&&!k.startsWith('nusa-island-v1')).length") == 0)

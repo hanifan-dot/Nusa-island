@@ -26,7 +26,9 @@ const player = { x: NW.START.x, y: NW.START.y, dir: 2, walk: 0, moving: false, s
 
 // ---------- NPC (umum) ----------
 // Jadwal NPC: n.sched = [{from,to,at,act,...}], n.schedFor(h) = penimpaan opsional (mis. cerita)
-const actNow = (n, h) => (n.schedFor && n.schedFor(h)) || n.sched.find((a) => (a.from < a.to ? h >= a.from && h < a.to : h >= a.from || h < a.to)) || n.sched[0];
+const baseAct = (n, h) => n.sched.find((a) => (a.from < a.to ? h >= a.from && h < a.to : h >= a.from || h < a.to)) || n.sched[0];
+// Bumbu 2.3: cerita (schedFor) tetap didahulukan; hanya jadwal harian biasa yang diganti "berteduh" saat hujan
+const actNow = (n, h) => (n.schedFor && n.schedFor(h)) || (window.NW.weather ? NW.weather.shelter(n, baseAct(n, h)) : baseAct(n, h));
 const areaOf = (n) => NW.areas.get(n.area) || A();
 function placeNPC(n) { // taruh langsung di aktivitas saat ini (saat memuat game / tiba di area)
   const NAV = areaOf(n).map.NAV, a = actNow(n, N() ? N().S.hour : 8), [x, y] = NAV[a.at];
@@ -443,6 +445,7 @@ function draw(ctx, t) {
   NW.drawTerrain(ctx, view);
   NW.drawWater(ctx, view, t);
   for (const j of jumps) NW.drawJump(ctx, j, t);
+  if (NW.weather) NW.weather.drawGround(ctx, t, view, m, dk); // tanah basah, genangan, riak hujan
   if (hk.drawUnder) hk.drawUnder(ctx, t, view, inView, dk);
 
   // penanda titik mancing
@@ -505,6 +508,7 @@ function draw(ctx, t) {
   }
   if (hiddenBehind) { ctx.globalAlpha = 0.5; NW.drawCharacter(ctx, player, t); ctx.globalAlpha = 1; }
   if (hk.drawOver) hk.drawOver(ctx, t, dk, view, inView);
+  if (NW.weather) NW.weather.drawRoofs(ctx, t, view, m, player.x, player.y); // tetes dari atap
   if (NW.adv) NW.adv.drawFx(ctx, t); // kilau penemuan tempat
   birdDraws.forEach((b) => b.draw());
 
@@ -523,6 +527,7 @@ function draw(ctx, t) {
       NW.lightAt(ctx, cx, cy, 10, 48, "#ffa94d", al * 0.8);
     }
     for (const l of m.lights) NW.lightAt(ctx, l.x, l.y, l.z || 14, l.r || 40, l.col || "#ffb347", al * (l.k || 1));
+    if (NW.weather) NW.weather.wetLights(ctx, m, dk, al, view); // cahaya lampu terpantul di tanah basah
     ctx.globalCompositeOperation = "source-over";
   } else if (N().goldenHour() > 0) {
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -530,6 +535,7 @@ function draw(ctx, t) {
     worldXf(ctx);
   }
   if (hk.drawSky) hk.drawSky(ctx, t, dk, view); // mis. kabut pagi di atas danau (setelah cahaya)
+  if (NW.weather) { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); NW.weather.drawScreen(ctx, W, H2, t, dk / 0.85, a.id, "world"); worldXf(ctx); } // warna langit, kabut, hujan
 
   // gelembung aktivitas NPC (dekat pemain)
   for (const n of a.npcs) {
@@ -579,6 +585,7 @@ function drawTargetBubble(ctx, t) {
 }
 function drawHome(ctx, t) {
   NW.home.drawScene(ctx, t, N().darkness(), player, { W, H: H2, DPR, worldXf: () => worldXf(ctx) });
+  if (NW.weather && NW.home.scene === "plot") { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); NW.weather.drawScreen(ctx, W, H2, t, N().darkness() / 0.85, A().id, "plot"); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); }
   if (!NW.home.isEditing()) { worldXf(ctx); drawTargetBubble(ctx, t); }
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
@@ -591,7 +598,7 @@ function toTile(cx, cy, z = 0) {
 NW.objDraw = NW.objDraw || {};
 function drawObj(c, o, t, night, claim) {
   switch (o.kind) {
-    case "palm": return NW.drawPalm(c, o, t, 1);
+    case "palm": return NW.drawPalm(c, o, t, NW.weather ? NW.weather.windK() : 1);
     case "tree": return NW.drawTree(c, o, t);
     case "bush": return NW.drawBush(c, o);
     case "rock": return NW.drawRock(c, o, false, t);

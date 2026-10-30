@@ -74,6 +74,7 @@ function talk(n, api) {
   if (NW.story.handleTalk(n, openDialog, roleOf(n))) { L().talked(n.id); return; }
   // kalimat biasa: bersyarat & tidak mengulang (ingatan disimpan lokal)
   let lines = (NW.story.storyLineFor(n) || NW.story.chatLines(n, (a.lines || []).concat((S.friends[n.id] || 0) >= 2 ? [n.close] : []))).slice();
+  const wl = NW.weather && NW.weather.chatLine(n); if (wl) lines.unshift(wl); // komentar hujan/kabut (sekali per episode; cerita & misi tidak terpengaruh)
   const rem = NW.story.reminder(n); if (rem) lines.push(rem);
   const opts = [];
   const so = n.id === "sari" ? NW.story.sariOption(openDialog, n, roleOf(n)) : null; if (so) opts.push(so);
@@ -96,6 +97,7 @@ function interact(t, api) {
     const n = npcs[1], open = !n.hidden && n.cur.act === "stall" && n.arrived;
     if (open) {
       const lines = S.cooler.length ? [`Wah, kamu bawa ${S.cooler.length} tangkapan! Mau dijual ke Ibu?`] : ["Coolbox-mu masih kosong. Mancing dulu di dermaga, nanti jual ke Ibu ya!"];
+      const wl = NW.weather && NW.weather.chatLine(n); if (wl) lines.unshift(wl);
       const tip = N().marketTip(); if (tip) lines.push(tip);
       const del = L().deliverOption("sari");
       const opts = [{ label: "🏪 Jual ikan", act: () => N().openPanel("market") }];

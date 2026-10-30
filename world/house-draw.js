@@ -439,6 +439,7 @@ function drawRoomShell(c, lv, t, dk, decos) {
     const cx = (w * (i + 1)) / (nb + 1) + (i === 0 && decos.includes("lukisan") && nb === 1 ? 0.8 : 0), w0 = cx - 0.6, w1x = cx + 0.6, z0 = 34, z1 = 76;
     c.fillStyle = "#6e4628"; poly(c, quadY(w0 - 0.08, w1x + 0.08, 0, z0 - 4, z1 + 4)); c.fill();
     c.fillStyle = sky; poly(c, quadY(w0, w1x, 0, z0, z1)); c.fill();
+    if (NW.weather) NW.weather.windowRain(c, quadY(w0, w1x, 0, z0, z1), t, i, NW.areas && NW.areas.cur ? NW.areas.cur.id : "muara"); // kaca keabu-abuan + tetes (hanya di jendela)
     c.fillStyle = sea; poly(c, quadY(w0, w1x, 0, z0, z0 + 12)); c.fill();
     c.fillStyle = "#6e4628"; poly(c, quadY(cx - 0.02, cx + 0.02, 0, z0, z1)); c.fill();
     c.fillStyle = Ld.wall.startsWith("ukir") ? "#a84a2a" : "#579b8b";

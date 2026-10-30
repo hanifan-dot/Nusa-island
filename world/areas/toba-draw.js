@@ -148,9 +148,10 @@ const mists = [[8, 6], [16, 2], [25, 5], [33, 9], [38, 18], [4, 3], [29, -1], [1
 function drawSky(c, t, dk, view) {
   const h = window.Nusa.S.hour;
   const a = h >= 4.8 && h < 9 ? (h < 6 ? (h - 4.8) / 1.2 : h > 7.6 ? (9 - h) / 1.4 : 1) : 0;
-  if (a <= 0.02) return;
+  const wf = NW.weather ? NW.weather.state.fog : 0; const a2 = Math.max(a, wf * 1.05); // kabut cuaca memakai kabut Toba yang sudah ada
+  if (a2 <= 0.02) return;
   const spr = mistSprite();
-  c.globalAlpha = a * 0.55;
+  c.globalAlpha = Math.min(0.8, a2 * 0.55);
   for (const [x, y] of mists) {
     const drift = Math.sin(t * 0.05 + x) * 0.8, p = P(x + drift, y);
     if (p.x < view.x0 - 260 || p.x > view.x1 + 260 || p.y < view.y0 - 120 || p.y > view.y1 + 120) continue;
