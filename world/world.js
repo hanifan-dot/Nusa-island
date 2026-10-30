@@ -397,8 +397,8 @@ function update(dt) {
   const v = blocked() ? { x: 0, y: 0, m: 0 } : inputVec();
   if (v.m > 0.05 && seat.on) standUp(); // geser joystick = berdiri dari bangku
   if (v.m > 0.05) {
-    const SPEED = inHome() ? (NW.home.scene === "room" ? 115 : 140) : 195;
-    const VK = inHome() ? 1 : 1.3; // layar isometrik 2:1: gerak ke atas/bawah tampak ±½ lebih lambat dari ke samping, jadi diimbangi
+    const SPEED = inHome() ? (NW.home.scene === "room" ? 115 : 140) : 180;
+    const VK = inHome() ? 1 : 1.1; // imbangan kecil untuk proyeksi isometrik 2:1 (1.3 terlalu kencang saat ke bawah)
     const d = screenToWorld(v.x * SPEED * dt, v.y * SPEED * VK * dt);
     const nx = player.x + d.x, ny = player.y + d.y;
     if (walkable(nx, ny)) { player.x = nx; player.y = ny; }
