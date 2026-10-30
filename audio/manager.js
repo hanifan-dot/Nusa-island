@@ -181,5 +181,6 @@ NW.audio = {
   get ctx() { return ctx; }, get stage() { return stage; }, get sfxBus() { return stage && stage.sfx; }, get ready() { return ready; }, get failed() { return failed; }, previewInt: 0,
   get running() { return running; }, get previewing() { return previewing; }, get current() { return cur ? cur.id : null; }, get settings() { return Object.assign({}, settings); },
   get ambTarget() { return amb ? Object.assign({}, amb.target) : null; },
+  ambLevel: (k) => (amb && amb.layers && amb.layers[k] ? amb.layers[k].gain.value : 0), // Bumbu 2.4: volume nyata satu lapisan (uji mesin kapal mati)
 };
 })();

@@ -115,6 +115,11 @@ const L = {
   },
 
   // ---------- langkah kaki ----------
+  // ---------- kapal (Bumbu 2.4) ----------
+  boat_naik: (c, o, t) => { tone(c, o, t, 220, 170, 0.12, 0.09); nz(c, o, t + 0.04, "lowpass", 700, 300, 0.6, 0.45, 0.12, 0.06); }, // kayu berderit + air beriak saat menaiki kapal
+  boat_jangkar: (c, o, t) => { for (let i = 0; i < 5; i++) nz(c, o, t + i * 0.07, "bandpass", 2400 - i * 180, 0, 4, 0.05, 0.06); nz(c, o, t + 0.42, "lowpass", 900, 260, 0.7, 0.55, 0.16, 0.02); tone(c, o, t + 0.42, 140, 70, 0.3, 0.12); }, // rantai + jangkar masuk air
+  boat_angkat: (c, o, t) => { for (let i = 0; i < 4; i++) nz(c, o, t + i * 0.09, "bandpass", 1900 + i * 160, 0, 4, 0.05, 0.05); tone(c, o, t + 0.32, 420, 560, 0.14, 0.04, "triangle"); },
+  boat_bentur: (c, o, t) => { tone(c, o, t, 160, 70, 0.22, 0.2); nz(c, o, t, "lowpass", 600, 200, 0.8, 0.3, 0.14, 0.004); }, // lambung kayu membentur (lembut)
   step_kayu: (c, o, t) => { tone(c, o, t, rand(250, 290), 170, 0.06, 0.1); nz(c, o, t, "bandpass", 900, 0, 1.4, 0.05, 0.05); },
   step_rumput: (c, o, t) => nz(c, o, t, "bandpass", rand(1000, 1300), 700, 0.8, 0.09, 0.055, 0.012),
   step_pasir: (c, o, t) => nz(c, o, t, "highpass", rand(1500, 1900), 0, 0.5, 0.11, 0.05, 0.01),
@@ -136,6 +141,7 @@ const RULE = {
   nibble: { gap: 0.12 }, click: { gap: 0.03 }, coin: { gap: 0.05 },
   step_kayu: { gap: 0.2 }, step_rumput: { gap: 0.2 }, step_pasir: { gap: 0.2 }, step_tanah: { gap: 0.2 }, step_lantai: { gap: 0.2 },
   furn_geser: { gap: 0.18 }, gelembung: { gap: 0.8 },
+  boat_naik: { gap: 0.6 }, boat_jangkar: { gap: 0.6 }, boat_angkat: { gap: 0.6 }, boat_bentur: { gap: 0.6, g: 0.8 },
 };
 // jingle/stinger: dipakai pula oleh menu uji dengar
 const STINGERS = ["misi_baru", "bab_selesai", "temuan", "penghargaan", "gelar", "pemandangan", "berlayar", "tiba", "spot_rahasia", "varian_silver", "varian_sunset", "varian_pearl", "splash_besar"];

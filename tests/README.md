@@ -27,6 +27,7 @@ python tests/browser/test_bumbu21.py          # Bumbu 2.1: 17 skenario suara (mu
 python tests/browser/test_bumbu22.py         # Bumbu 2.2: 87 pemeriksaan (20 skenario wajib: varian, peluang, roll sekali, migrasi v8, dua spot rahasia, kartu momen, jingle/mute, jual/kunci, akuarium)
 node tests/unit-weather.js                    # model cuaca: deterministik, episode, pengali mancing 0,88–1,08, migrasi (28 pemeriksaan)
 python tests/browser/test_bumbu23.py         # Bumbu 2.3: 18 skenario cuaca (visual, audio, NPC, Rumahku, mancing, pengaturan, migrasi v9, refresh, performa-emulasi)
+python tests/browser/test_bumbu24.py         # Bumbu 2.4: kapal, laut, memancing dari kapal, Selat Sunda, Peta Laut, audio, migrasi v10, performa-emulasi
 python tests/visual_bumbu23.py <folder>       # tangkapan layar bukti visual cuaca
 node tests/unit-variants.js                   # simulasi statistik peluang varian (24 pemeriksaan)
 python tests/visual_bumbu22.py <folder>       # tangkapan layar bukti visual (varian, spot, kartu, inventaris, koleksi)
@@ -63,3 +64,12 @@ Bila beberapa suite Chromium dijalankan paralel di mesin yang CPU-nya jenuh, lan
 Bumbu 2.3: semua suite lama kini mengharapkan simpanan versi 9. `test_bumbu23.py` memakai `NW.weather.force(kind, {snap})`
 (hanya untuk uji; tidak disimpan) untuk memaksa cuaca. FPS/memori yang dicetak (`PERF`) berasal dari Chromium headless
 (termasuk CPU 4× lebih lambat lewat CDP) — itu emulasi, bukan HP Android fisik.
+
+Bumbu 2.4 (Samudra Nusantara): `python tests/browser/test_bumbu24.py` (18 poin wajib + keseimbangan ikan laut + performa)
+dan bukti visual `python tests/visual_bumbu24.py <folder>`. Semua suite lama kini mengharapkan simpanan versi 10.
+Perubahan perilaku yang disengaja dan ikut diperbarui di uji lama: (1) kapal di dermaga Muara kini dinaiki sendiri
+(⛵ Naik Kapal), perjalanan cepat lama dibuka lewat papan 🧭 Rute Kapal (`test_tahap1.py`, `test_bumbu2.py` A4/A5);
+(2) Selat Sunda kini punya area jelajah, jadi rute lama ke Selat Sunda mendarat di Pelabuhan Selat Sunda (mode dunia),
+bukan langsung mode mancing (`test_bumbu2.py` K3). Raja Ampat & Laut Banda tetap lokasi mancing saja.
+Uji kontrol memakai pointer sungguhan pada joystick (mouse = pointer di Chromium) dan ketukan sentuh pada tombol kapal;
+belum diuji dengan jari di HP Android fisik.

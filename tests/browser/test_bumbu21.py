@@ -333,6 +333,7 @@ with sync_playwright() as p:
     ev(pg, "(()=>{const e=NW.areas.cur;})()"); dock = ev(pg, "NW.areas.cur.map.DOCK");
     sp = ev(pg, "NW.areas.cur.map.SPOT"); goto(pg, sp["x"] - 0.3, sp["y"]); time.sleep(1.0); wd = ev(pg, "NW.audio.ambTarget")
     ok("S2 di dermaga air lebih dominan daripada di tengah kampung", wd["water"] > far["water"] + 0.1, (round(wd["water"], 2), round(far["water"], 2)))
+    ev(pg, "NW.weather.force && NW.weather.force('cerah',{snap:true})")  # cuaca acak (Bumbu 2.3) meredam jangkrik; uji ini mengukur siang/malam saja
     ev(pg, "window.__nusa.S.hour = 22"); time.sleep(1.5); nt = ev(pg, "NW.audio.ambTarget")
     ok("S3 malam: jangkrik hidup, siang: mati", nt["crickets"] > 0.4 and far["crickets"] < 0.05, (round(nt["crickets"], 2), round(far["crickets"], 2)))
     ev(pg, "window.__nusa.S.hour = 14")
@@ -360,7 +361,7 @@ with sync_playwright() as p:
     ctx, pg, errs = fresh(b, hour=10)
     ev(pg, "window.__nusa.S.up.boat=1"); time.sleep(1.0)
     s0 = ev(pg, "(()=>{const S=window.__nusa.S;return {v:S.v, rods:S.up.rod, coins:S.money, cap:window.Nusa.coolerCap(), titles:!!S.titles, adv:!!S.adv, home:!!S.home}})()")
-    ok("R1 simpanan permainan tidak berubah oleh audio (v9, kunci sama, adv/home/titles utuh)", s0["v"] == 9 and s0["adv"] and s0["home"] and s0["titles"] and s0["cap"] == 8, s0)
+    ok("R1 simpanan permainan tidak berubah oleh audio (v10, kunci sama, adv/home/titles utuh)", s0["v"] == 10 and s0["adv"] and s0["home"] and s0["titles"] and s0["cap"] == 8, s0)
     ok("R2 kunci simpanan permainan tidak mengandung data audio", "master" not in (ev(pg, "localStorage.getItem('nusa-island-v1')") or ""))
     ev(pg, "(()=>{for(const n of ['cast','splash','nibble','bite','tick','surge','snap','lose','catch','coin','click']) window.Nusa.sfx(n,'biasa')})()"); time.sleep(0.4)
     names = set(ev(pg, "NW.audio.sfxLog.map(x=>x.name)"))

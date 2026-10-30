@@ -57,9 +57,21 @@ function create(ctx, stage) {
     for (const fr of [9.3, 5.7, 3.1]) { const l = lfo(fr, "triangle"), d = gain(0.16); l.connect(d).connect(g.gain); }
     g.connect(roof); roof.connect(out); }
 
-  const L = { water, wind, leaves, crickets, market, rainSoft, rainHeavy, roof };
-  const target = { water: 0, wind: 0, leaves: 0, crickets: 0, market: 0, rainSoft: 0, rainHeavy: 0, roof: 0 };
-  const AMP = { water: 0.5, wind: 0.3, leaves: 0.16, crickets: 0.07, market: 0.4, rainSoft: 0.2, rainHeavy: 0.26, roof: 0.075 }; // keseimbangan antar-lapisan (hujan selalu di bawah isyarat mancing)
+  // --- laut (Bumbu 2.4): ombak bergulung, mesin tempel, air terbelah. Dibuat SEKALI; volume/nada mengikuti kapal ---
+  const surf = gain(0); // ombak laut lepas: desir panjang yang naik-turun pelan (bukan riak sungai)
+  { const lp = mk("lowpass", 760, 0.4); src(2.6).connect(lp); const g = gain(0.6); lp.connect(g); const l = lfo(0.09), ld = gain(0.42); l.connect(ld).connect(g.gain);
+    const hp = mk("bandpass", 2300, 0.5); src(0.75).connect(hp); const g2 = gain(0.12); hp.connect(g2); const l2 = lfo(0.09), l2d = gain(0.1); l2.connect(l2d).connect(g2.gain);
+    g.connect(surf); g2.connect(surf); surf.connect(out); }
+  const motor = gain(0); let motorO = null; // mesin tempel: dengung rendah berdenyut (nada naik saat melaju)
+  { const o = ctx.createOscillator(); o.type = "sawtooth"; o.frequency.value = 46; o.start(); nodes.push(o); motorO = o;
+    const olp = mk("lowpass", 190, 0.7), am = gain(0.6), l = lfo(7.2), ld = gain(0.35); l.connect(ld).connect(am.gain);
+    o.connect(olp).connect(am).connect(motor); const n2 = src(1.9).connect(mk("lowpass", 320, 0.5)); const gn = gain(0.35); n2.connect(gn).connect(motor); motor.connect(out); }
+  const wake = gain(0); // air terbelah di haluan saat kapal melaju
+  { const bp = mk("bandpass", 1350, 0.7); src(2.35).connect(bp); const g = gain(0.7); bp.connect(g); const l = lfo(0.6), ld = gain(0.2); l.connect(ld).connect(g.gain); g.connect(wake); wake.connect(out); }
+
+  const L = { water, wind, leaves, crickets, market, rainSoft, rainHeavy, roof, surf, motor, wake };
+  const target = { water: 0, wind: 0, leaves: 0, crickets: 0, market: 0, rainSoft: 0, rainHeavy: 0, roof: 0, surf: 0, motor: 0, wake: 0 };
+  const AMP = { water: 0.5, wind: 0.3, leaves: 0.16, crickets: 0.07, market: 0.4, rainSoft: 0.2, rainHeavy: 0.26, roof: 0.075, surf: 0.42, motor: 0.2, wake: 0.17 }; // keseimbangan antar-lapisan (hujan & mesin selalu di bawah isyarat mancing)
 
   // --- suara sesaat ---
   const pan = (p) => { if (!ctx.createStereoPanner) return null; const s = ctx.createStereoPanner(); s.pan.value = p; return s; };
@@ -102,11 +114,18 @@ function create(ctx, stage) {
         g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol * 2.4, t + 0.55); g.gain.exponentialRampToValueAtTime(vol * 1.2, t + 1.4); g.gain.exponentialRampToValueAtTime(0.0001, t + 3.6);
         sN.connect(lp).connect(g).connect(dest); sN.start(t, Math.random() * 2); sN.stop(t + 3.7); K.track(sN, [sN, lp, g]); break; }
       case "derit": { blip(t, dest, 190 + r() * 40, 150, 0.35, vol * 0.8, "sawtooth"); break; }
+      case "camar": { // burung camar: "kyaa" meluncur turun, 1-3 kali
+        const n = 1 + ((r() * 3) | 0), b = 1500 + r() * 500;
+        for (let i = 0; i < n; i++) { blip(t + i * 0.32, dest, b * 1.25, b * 0.8, 0.26, vol * 0.75, "triangle"); blip(t + i * 0.32, dest, b * 2.5, b * 1.6, 0.2, vol * 0.18, "sine"); }
+        break; }
+      case "lonceng": { // lonceng pelampung / kapal di kejauhan: dua dentang lembut
+        const f = 880 + r() * 120; for (const [d, k] of [[0, 1], [0.9, 0.7]]) { blip(t + d, dest, f, f * 0.995, 1.6, vol * k, "sine"); blip(t + d, dest, f * 2.76, f * 2.74, 0.9, vol * k * 0.25, "sine"); }
+        break; }
     }
   }
   const timers = {}; // nama -> waktu jadwal berikutnya
   const RATE = { // [min,max] detik antar kejadian
-    burung: [2.5, 7], tekukur: [14, 30], burungDanau: [5, 12], katak: [1.6, 4.2], hantu: [18, 40], kecipak: [2.5, 6], ketuk: [2.5, 6], derit: [12, 25],
+    burung: [2.5, 7], tekukur: [14, 30], burungDanau: [5, 12], katak: [1.6, 4.2], hantu: [18, 40], kecipak: [2.5, 6], ketuk: [2.5, 6], derit: [12, 25], camar: [5, 12], lonceng: [22, 45],
   };
   function pump(now, env) {
     const sched = (name, cond, vol, kind = name) => {
@@ -125,6 +144,9 @@ function create(ctx, stage) {
     sched("kecipak", env.water > 0.35 && d, 0.03 * env.water, "kecipak");
     sched("ketuk", env.market > 0.35 && day > 0.3 && !env.fishing, 0.03 * env.market, "ketuk");
     sched("derit", toba && env.dock > 0.5 && d, 0.03, "derit");
+    const salt = env.area === "laut" || env.area === "selat" || env.sail; // burung camar & lonceng di laut / pelabuhan
+    sched("camar", salt && day > 0.2 && dry > 0.5 && !env.indoor, 0.035 * day * dry, "camar");
+    sched("lonceng", (env.harbor > 0.3 || env.sail) && d, 0.022, "lonceng");
   }
 
   // env: { area, nightF, dayF, water, trees, market, view, dock, indoor, fishing, hill }
@@ -147,7 +169,14 @@ function create(ctx, stage) {
     target.water = Math.min(1, target.water + rain * 0.12);
     target.crickets *= 1 - rain * 0.85; target.market *= 1 - rain * 0.3;
     if (env.voyage) { target.water = 1; target.wind = 0.85; target.leaves = 0; target.crickets *= 0.3; target.market = 0; } // di atas kapal: air & angin dominan
-    for (const k in L) L[k].gain.setTargetAtTime(target[k] * AMP[k], now, k.startsWith("rain") || k === "roof" ? Math.max(tau, 2.2) : tau); // hujan masuk/keluar bertahap
+    // Bumbu 2.4: berlayar sendiri — ombak laut, mesin tempel (berhenti saat jangkar/turun), air terbelah sesuai kecepatan
+    const sail = env.sail ? 1 : 0, sp = clamp01(env.speed || 0);
+    target.surf = Math.min(1, sail * (0.55 + (env.sea || 0) * 0.35 + wxw * 0.25) + (env.harbor || 0) * 0.25 + (env.area === "selat" && !env.indoor ? 0.18 : 0)) * (1 - ind * 0.6) * (env.fishing ? 0.75 : 1);
+    target.motor = sail ? clamp01(env.engine || 0) : 0;
+    target.wake = sail ? sp * 0.95 : 0;
+    if (sail) { target.water = Math.min(target.water, 0.45); target.wind = Math.min(1, target.wind + 0.18 + sp * 0.25); target.leaves = 0; target.crickets *= 0.25; target.market *= 0.2; }
+    if (motorO) motorO.frequency.setTargetAtTime(44 + 34 * sp, now, 0.4);
+    for (const k in L) L[k].gain.setTargetAtTime(target[k] * AMP[k], now, k.startsWith("rain") || k === "roof" ? Math.max(tau, 2.2) : k === "motor" || k === "wake" ? Math.min(tau, 0.35) : tau); // hujan masuk/keluar bertahap; mesin cepat mati saat turun
   }
   function indoor(on) {
     const now = ctx.currentTime;
@@ -155,7 +184,7 @@ function create(ctx, stage) {
     stage.amb.gain.cancelScheduledValues(now); // faktor redaman luar ruang dikelola manager lewat setVolume
   }
   function dispose() { for (const n of nodes) { try { n.stop(); } catch (_) {} try { n.disconnect(); } catch (_) {} } for (const k in L) try { L[k].disconnect(); } catch (_) {} nodes.length = 0; }
-  return { setEnv, pump, indoor, dispose, oneShot, target, get sources() { return nodes.length; } };
+  return { setEnv, pump, indoor, dispose, oneShot, target, layers: L, get sources() { return nodes.length; } };
 }
 NW.ambient = { create };
 })();

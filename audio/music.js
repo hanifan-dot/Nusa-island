@@ -277,6 +277,78 @@ const HAS = (lo, f5, r, t3, hi, top) => ({ lo, f5, r, t3, hi, top });
   });
 }
 
+// ================= SAMUDRA NUSANTARA (Bumbu 2.4) =================
+// BERLAYAR — "Layar Terkembang": G mayor, ±80 bpm. Petikan bergelombang seperti ombak, seruling lapang.
+{
+  const V = { G: ["G2", "D3", "G3", "B3", "D4"], D: ["D3", "A3", "D4", "F#4", "A4"], Em: ["E2", "B2", "E3", "G3", "B3"], C: ["C3", "G3", "C4", "E4", "G4"] };
+  const CH = [V.G, V.D, V.Em, V.C, V.G, V.D, V.C, V.D];
+  const M = [
+    [[0, "B4", 4], [4, "D5", 4], [8, "G5", 6], [14, "F#5", 2]], [[0, "A5", 6], [8, "F#5", 4], [12, "D5", 4]],
+    [[0, "E5", 4], [4, "G5", 4], [8, "B5", 8]], [[0, "A5", 4], [4, "G5", 4], [8, "E5", 8]],
+    [[0, "D5", 4], [4, "G5", 4], [8, "B5", 6], [14, "A5", 2]], [[0, "F#5", 6], [8, "A5", 4], [12, "F#5", 4]],
+    [[0, "E5", 4], [4, "G5", 4], [8, "C6", 6], [14, "B5", 2]], [[0, "A5", 12]],
+  ];
+  const WAVE = [[0, 1], [2, 2], [4, 3], [6, 4], [8, 3], [10, 2], [12, 3], [14, 4]];
+  def("samudra", {
+    name: "Layar Terkembang", step: 0.1875, send: 0.3, level: 0.42,
+    bar(T, b, cyc) {
+      const v = CH[b];
+      if (b % 2 === 0) T.pd([v[1], v[3], v[4]], 32, 0.09, { att: 1.4 });
+      T.pl(0, v[0], 0.4, "nilon"); T.pl(8, v[0], 0.3, "nilon");
+      for (const [st, i] of WAVE) T.pl(st, v[i], 0.15 + (st === 0 || st === 8 ? 0.05 : 0), "nilon");
+      T.tk(4, 0.12, 660); T.tk(12, 0.12, 600); for (let st = 2; st < 16; st += 4) T.sh(st, 0.03);
+      if (cyc % 3 !== 2) line(T, "seruling", M[b], 0.29); else if (b % 2 === 0) T.pl(0, M[b][0][1], 0.2, "kalimba");
+    },
+  });
+}
+// BERLAYAR MALAM — "Laut Malam": E minor, ±50 bpm. Pad luas, kalimba jarang seperti bintang, ruang hening.
+{
+  const PADS = [["E3", "B3", "G4"], ["C3", "G3", "E4"], ["A2", "E3", "C4"], ["B2", "F#3", "D#4"]];
+  const STAR = [["B5", "E6"], ["G5", "C6"], ["E5", "A5"], ["F#5", "B5"]];
+  def("samudra_malam", {
+    name: "Laut Malam", step: 0.3, send: 0.5, level: 0.24,
+    bar(T, b, cyc) {
+      const q = b >> 1;
+      if (b % 2 === 0) T.pd(PADS[q], 32, 0.17, { att: 3, lp: 1000 });
+      if (b % 2 === 0) T.pl(0, PADS[q][0], 0.22, "bass", { prio: 1 });
+      if (T.r() < 0.6) T.pl(4 + ((T.r() * 8) | 0), STAR[q][(T.r() * 2) | 0], 0.12, "kalimba", { lp: 3400 });
+      if (cyc % 2 === 1 && b === 6) T.fl(0, "B4", 12, 0.15, "seruling");
+    },
+  });
+}
+// PELABUHAN — "Pelabuhan Pagi": C mayor, ±94 bpm. Kalimba riang di atas petikan, kayu ringan.
+{
+  const V = { C: ["C3", "G3", "C4", "E4", "G4"], Am: ["A2", "E3", "A3", "C4", "E4"], F: ["F2", "C3", "F3", "A3", "C4"], G: ["G2", "D3", "G3", "B3", "D4"] };
+  const CH = [V.C, V.Am, V.F, V.G, V.C, V.Am, V.F, V.G];
+  const MEL = [[[0, "E5"], [4, "G5"], [8, "C6"], [12, "G5"]], [[0, "A5"], [6, "E5"], [10, "C5"]], [[0, "F5"], [4, "A5"], [8, "C6"], [12, "A5"]], [[0, "G5"], [6, "D5"], [10, "B4"]],
+    [[0, "E5"], [4, "G5"], [8, "E6"], [12, "D6"]], [[0, "C6"], [6, "A5"], [10, "E5"]], [[0, "F5"], [4, "C6"], [8, "A5"], [12, "F5"]], [[0, "G5"], [8, "D5"]]];
+  def("pelabuhan", {
+    name: "Pelabuhan Pagi", step: 0.16, send: 0.2, level: 0.44,
+    bar(T, b, cyc) {
+      const v = CH[b];
+      T.pd([v[1], v[3], v[4]], 16, 0.07);
+      T.pl(0, v[0], 0.4, "nilon"); T.pl(8, v[0], 0.3, "nilon");
+      strum(T, 2, v.slice(2), 0.18); strum(T, 6, v.slice(1, 4), 0.14); strum(T, 10, v.slice(2), 0.18); strum(T, 14, v.slice(3), 0.12);
+      T.tk(4, 0.13, 720); T.tk(12, 0.13, 640); for (let st = 0; st < 16; st += 2) T.sh(st, st % 4 === 2 ? 0.04 : 0.025);
+      if (cyc % 2 === 0 || b < 4) for (const [st, n] of MEL[b]) T.pl(st, n, 0.2, "kalimba", { lp: 3800 });
+      else if (b % 4 === 3) T.fl(0, "G5", 8, 0.18, "seruling");
+    },
+  });
+}
+// PELABUHAN MALAM — "Lampu Dermaga": A minor, ±56 bpm. Petikan lembut, pad hangat, seruling pendek.
+{
+  const CH = [["A2", "E3", "A3", "C4"], ["F2", "C3", "F3", "A3"], ["C3", "G3", "C4", "E4"], ["E2", "B2", "E3", "G#3"]];
+  def("pelabuhan_malam", {
+    name: "Lampu Dermaga", step: 0.27, send: 0.42, level: 0.26,
+    bar(T, b, cyc) {
+      const c = CH[b >> 1];
+      if (b % 2 === 0) T.pd(c.slice(1), 32, 0.15, { att: 2.5, lp: 1100 });
+      T.pl(0, c[0], 0.3, "nilon"); T.pl(6, c[2], 0.18, "nilon"); T.pl(10, c[3], 0.16, "nilon");
+      if (cyc % 2 === 0 && (b === 1 || b === 5)) T.fl(4, b === 1 ? "E5" : "C5", 8, 0.17, "seruling");
+    },
+  });
+}
+
 // ================= CERITA (adegan, dipakai ulang) =================
 {
   const CH = [["D3", "A3", "F4"], ["Bb2", "F3", "D4"], ["F3", "C4", "A4"], ["C3", "G3", "E4"]];
@@ -320,6 +392,11 @@ fishing("mancing_muara", "Mancing · Muara", {
 fishing("mancing_toba", "Mancing · Toba", {
   step: 0.30, level: 0.40, send: 0.55, kind: "hasapi", low: "bass", tokp: 470, gong: true, pool: ["E4", "G4", "A4", "B4", "E3"],
   ch: [{ pad: ["E3", "B3", "E4"], root: "E2", fifth: "B2" }, { pad: ["G3", "D4", "B4"], root: "G2", fifth: "D3" }, { pad: ["D3", "A3", "E4"], root: "D2", fifth: "A2" }, { pad: ["E3", "B3", "G4"], root: "E2", fifth: "B2" }],
+});
+
+fishing("mancing_laut", "Mancing · Laut", { // Bumbu 2.4: memancing dari kapal
+  step: 0.27, level: 0.42, send: 0.45, kind: "nilon", low: "bass", tokp: 500, pool: ["G4", "B4", "D5", "E4", "D4"],
+  ch: [{ pad: ["G2", "D3", "B3"], root: "G1", fifth: "D2" }, { pad: ["E3", "B3", "G4"], root: "E2", fifth: "B2" }, { pad: ["C3", "G3", "E4"], root: "C2", fifth: "G2" }, { pad: ["D3", "A3", "F#4"], root: "D2", fifth: "A2" }],
 });
 
 // ---------- penjadwal per tema ----------

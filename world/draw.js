@@ -46,7 +46,7 @@ function buildTerrain(scale) {
   const a = A(), m = a.map, th = a.theme || {};
   BOUNDS = boundsOf(a);
   const bw = BOUNDS.x1 - BOUNDS.x0, bh = BOUNDS.y1 - BOUNDS.y0;
-  scale = Math.min(scale, Math.sqrt(MAX_PX / (bw * bh)));
+  scale = Math.min(scale, Math.sqrt((th.maxPx || MAX_PX) / (bw * bh))); // Bumbu 2.4: area laut luas memakai cache lebih kecil (air saja, pulau sedikit)
   const c = terrain && terrainArea !== null ? terrain : document.createElement("canvas"); // pakai ulang kanvas lama (hemat memori)
   c.width = Math.ceil(bw * scale);
   c.height = Math.ceil(bh * scale);

@@ -90,7 +90,7 @@ npcs.forEach((n) => { n.area = "muara"; n.talk = talk; });
 function interact(t, api) {
   const S = N().S, openDialog = api.openDialog;
   if (t.story) return NW.story.interact(t, openDialog);
-  if (t.id === "boat") return N().openPanel("map");
+  if (t.id === "boat" || t.id === "rute") return N().openPanel("map"); // Bumbu 2.4: papan 🧭 Rute Kapal = perjalanan cepat lama (kapal sendiri lewat ⛵ Naik Kapal)
   if (t.id === "board") return N().openPanel("missions");
   if (t.id === "home") return NW.home.enter(api.player);
   if (t.id === "pasar") {

@@ -63,7 +63,7 @@ let S = DEFAULT();
 let MODE = "world", fishFrom = "dock";
 // Versi simpanan: 1 = Tahap 1, 2 = Tahap 2A, 3 = rumah 10 level + ikan ber-uid.
 // Sebelum migrasi, data lama disalin ke kunci cadangan sehingga tidak pernah hilang diam-diam.
-const SAVE_VERSION = 9; // 9 = Bumbu 2.3 (cuaca: S.wx.seed); 4 = Bumbu 1 (cerita, keahlian, petunjuk, ingatan NPC); 5 = Bumbu 1.1 (gelar tangkapan, nama pemain lokal); 6 = Bumbu 1.2 (coolbox & joran 10 tingkat, kunci ikan); 7 = Bumbu 2 (petualangan: area terakhir, penemuan, cerita Toba, penghargaan)
+const SAVE_VERSION = 10; // 10 = Bumbu 2.4 (kapal & laut: S.sea, cerita Selat Sunda di S.adv.selat); 9 = Bumbu 2.3 (cuaca: S.wx.seed); 4 = Bumbu 1 (cerita, keahlian, petunjuk, ingatan NPC); 5 = Bumbu 1.1 (gelar tangkapan, nama pemain lokal); 6 = Bumbu 1.2 (coolbox & joran 10 tingkat, kunci ikan); 7 = Bumbu 2 (petualangan: area terakhir, penemuan, cerita Toba, penghargaan)
 let loadNote = "", isNewPlayer = true;
 function backup(raw, tag) { try { const k = `${SAVE_KEY}-backup-${tag}`; if (!localStorage.getItem(k)) localStorage.setItem(k, raw); } catch (e) {} }
 function load() {
@@ -101,6 +101,7 @@ function migrate() {
   if (NW.variants) NW.variants.migrate(S);
   if (NW.secret) NW.secret.migrate(S);
   if (NW.weather) NW.weather.migrate(S); // Bumbu 2.3 (v9): benih cuaca tersimpan sekali; tidak ada koin/progres yang disentuh
+  if (NW.boat) NW.boat.migrate(S);       // Bumbu 2.4 (v10): kapal (S.sea) — nilai aman bila belum ada; tidak pernah mulai di laut tanpa kapal
   if (r.from === "2A") loadNote = "Rumahku diperbarui ke sistem 10 level. Semua perabot tetap ada.";
   S.v = SAVE_VERSION;
   return { home: r, fixed };
@@ -189,8 +190,10 @@ const projS = (z) => 1 / z; // skala ukuran
 const HOURS_PER_SEC = 24 / 480; // 1 hari = 8 menit
 const isNight = () => S.hour >= 19 || S.hour < 5;
 const NIGHT_SKY = ["#0b1a33", "#23395e"], DAWN_SKY = ["#33497a", "#f0a77e"], DUSK_SKY = ["#3a4c86", "#f39a58"];
+// Bumbu 2.4: tampilan lokasi saat memancing dari kapal (warna air & pantai spot laut); data lokasi tidak berubah
+const viewL = () => (fishFrom === "sea" && G.sea && NW.sea ? NW.sea.viewLoc(LOCATIONS[S.loc], G.sea) : LOCATIONS[S.loc]);
 function skyColors() {
-  const L = LOCATIONS[S.loc], h = S.hour;
+  const L = viewL(), h = S.hour;
   const keys = [[0, NIGHT_SKY], [4.6, NIGHT_SKY], [6, DAWN_SKY], [8, L.sky], [16.4, L.sky], [18.2, DUSK_SKY], [19.6, NIGHT_SKY], [24, NIGHT_SKY]];
   for (let i = 0; i < keys.length - 1; i++) {
     const [h0, c0] = keys[i], [h1, c1] = keys[i + 1];
@@ -209,7 +212,7 @@ function darkness() { // 0 = siang, 1 = malam pekat
 // ---------- Pemandangan ----------
 let scenery = null, waves = [], stars = [], clouds = [];
 function buildScenery() {
-  const L = LOCATIONS[S.loc], r = seeded(hashStr(L.id));
+  const L = viewL(), r = seeded(hashStr(L.id));
   const s = { type: L.shore, items: [] };
   if (L.shore === "palm") {
     s.items.push({ kind: "bank", side: -1, w: 0.42, h: 0.03 + r() * 0.01 });
@@ -250,6 +253,7 @@ function initAmbient() {
 // ---------- Status mancing ----------
 const G = {
   spotId: null, // Bumbu 2.2: id spot rahasia yang sedang dipakai (null = titik mancing biasa)
+  sea: null,    // Bumbu 2.4: spot/perairan laut saat memancing dari kapal (null = darat)
   phase: "idle", t: 0, power: 0, powerDir: 1, perfect: false,
   bob: { x: 0, z: 2, sink: 0, vis: false },
   fly: null, target: { x: 0, z: 4 },
@@ -274,6 +278,9 @@ function chooseFish() {
   luck *= 1 + 0.35 * clamp((G.target.z - 2) / 7, 0, 1); // lempar jauh = lebih hoki
   if (G.hotHit) luck *= 1.1; // Lemparan Presisi: bonus kecil
   const mult = { sampah: 1 / luck, biasa: 1, langka: Math.pow(luck, 0.75), epik: Math.pow(luck, 1.05), legenda: Math.pow(luck, 1.35) };
+  // Bumbu 2.4: memancing dari kapal memakai kelompok ikan spot laut (pengali hoki SAMA; bobot ikan tidak diubah)
+  const seaFish = fishFrom === "sea" && G.sea && NW.sea ? NW.sea.pickFish(G.sea, mult, night) : null;
+  if (seaFish) { const r = NW.FM.rollWeight(seaFish); return { fish: seaFish, w: r.w, wr: r.wr, extreme: r.extreme }; }
   const avail = RARITY_ORDER.filter((r) => pool.some((f) => f.rarity === r));
   let total = 0;
   const ws = avail.map((r) => { const w = RARITY[r].weight * mult[r]; total += w; return w; });
@@ -424,7 +431,7 @@ function landFish(fish, w) {
     S.cooler.push(item);
     if (NW.variants) NW.variants.record(S, fish, vr, w, LOCATIONS[S.loc].id);
   }
-  emit("catch", { fish, w, night: isNight(), loc: LOCATIONS[S.loc].id, vr, spot: G.spotId || null });
+  emit("catch", { fish, w, night: isNight(), loc: LOCATIONS[S.loc].id, vr, spot: G.spotId || null, sea: fishFrom === "sea" && G.sea ? G.sea.id : null });
   save(); refreshHUD();
   const giant = !!(NW.variants && !fish.protected && NW.variants.isGiant(fish, w));
   // tepat SATU jingle per tangkapan: varian istimewa memakai jingle sendiri, selain itu jingle rarity
@@ -600,7 +607,7 @@ function splashAt(x, z, n) {
 
 // ---------- Gambar ----------
 function draw() {
-  const L = LOCATIONS[S.loc], dk = darkness();
+  const L = viewL(), dk = darkness();
   const wxa = NW.weather ? NW.weather.areaId() : "muara";
   let [skyTop, skyBot] = skyColors();
   if (NW.weather) [skyTop, skyBot] = NW.weather.skyMix(skyTop, skyBot, mix, wxa); // langit bergeser ke warna mendung secara halus
@@ -805,14 +812,15 @@ function drawShore(L, dk) {
 }
 
 // posisi tangan & ujung joran
-function handPos() { return { x: W / 2 + 34 * U, y: BY - 120 * U }; }
+const seaRock = () => (fishFrom === "sea" ? Math.sin(G.t * 1.25) * 3 * U + Math.sin(G.t * 0.55) * 1.5 * U : 0); // kapal bergoyang pelan di laut
+function handPos() { return { x: W / 2 + 34 * U, y: BY - 120 * U + seaRock() }; }
 function rodTip() {
   const hp = handPos(), len = 230 * U, a = G.rodAngle;
   return { x: hp.x + Math.cos(a) * len * 0.75, y: hp.y + Math.sin(a) * len + G.rodBend * 40 * U };
 }
 
 function drawBoat(dk) {
-  const cx = W / 2, by = H + 6 * U, B = BY;
+  const rk = seaRock(), cx = W / 2, by = H + 6 * U + rk, B = BY + rk;
   const L = LOCATIONS[S.loc], boatLv = upLvl("boat");
   const hull = ["#7a5230", "#2f7a8c", "#c9553b", "#e9e4d8", "#1f3f5a"][boatLv];
   const trim = ["#5a3b22", "#f0d58a", "#f3e7c9", "#d14a3a", "#e0b84c"][boatLv];
@@ -1139,7 +1147,7 @@ function showCatchCard(fish, w, info) {
   $("catchSkip").classList.toggle("hidden", !special);
   card.classList.toggle("playing", !!(vi || info.giant));
   clearTimeout(momentT); if (vi || info.giant) momentT = setTimeout(endMoment, info.vr === "pearl" ? 2600 : info.giant ? 2000 : 1500);
-  $("catchHold").classList.toggle("hidden", !(info.giant && info.uid && NW.hold));
+  $("catchHold").classList.toggle("hidden", !(info.giant && info.uid && NW.hold) || fishFrom === "sea"); // di atas kapal: pamerkan setelah turun
   const badges = [];
   if (info.isNew) badges.push("✨ Baru di koleksi");
   if (info.locked) badges.push("🔒 Otomatis terkunci");
@@ -1218,6 +1226,8 @@ $("misiBtn").addEventListener("click", () => { SFX.click(); openPanel("missions"
 $("landBtn").addEventListener("click", () => {
   if (["fight", "bite", "charging", "result"].includes(G.phase)) return;
   SFX.click();
+  // Bumbu 2.4: memancing dari kapal → kembali ke kapal di tempat yang sama
+  if (fishFrom === "sea" && NW.boat && NW.boat.on) return goWorld("sea", NW.boat.area);
   // area yang bisa dijelajahi (Muara, Toba) → kembali ke darat; lokasi mancing saja → peta
   if (NW.areas.forLoc(S.loc)) goWorld(fishFrom === "dock" ? "dock" : "boat"); else openPanel("map");
 });
@@ -1348,6 +1358,7 @@ function travel(i) {
   if (area) { // Bumbu 2: lokasi dengan area jelajah (Muara, Toba) → berlayar singkat lalu turun di dermaga
     if (MODE === "world" && NW.areas.cur === area) return false;
     if (NW.hold) NW.hold.stop("travel");
+    if (NW.boat) NW.boat.onVoyage(); // perjalanan cepat (rute lama): kapal ikut dan bersandar di dermaga tujuan
     NW.adv.voyage(area, () => {
       S.hour = (S.hour + 1.5) % 24;
       goWorld("boat", area.id);
@@ -1365,7 +1376,7 @@ function applyMode() {
   document.body.classList.toggle("mode-world", MODE === "world");
   document.body.classList.toggle("mode-fish", MODE === "fish");
   const lb = $("landBtn");
-  lb.innerHTML = NW.areas.forLoc(S.loc) ? "<span>🏝️</span>Ke Darat" : `<span>🗺️</span>Peta · ${LOCATIONS[S.loc].short}`;
+  lb.innerHTML = fishFrom === "sea" && MODE === "fish" ? "<span>⛵</span>Ke Kapal" : NW.areas.forLoc(S.loc) ? "<span>🏝️</span>Ke Darat" : `<span>🗺️</span>Peta · ${LOCATIONS[S.loc].short}`;
 }
 function resetFishing() {
   G.hot = null;
@@ -1377,6 +1388,8 @@ function enterFishing(from) {
   MODE = "fish"; fishFrom = from;
   if (NW.story) NW.story.mark("fish");
   if (from === "dock") S.loc = NW.areas.cur.locIndex; // mancing dari titik mancing area aktif (Muara / Toba)
+  // Bumbu 2.4: dari kapal berjangkar — lokasi = area laut sekarang, kelompok ikan = spot laut di posisi kapal
+  if (from === "sea") { S.loc = NW.areas.cur.locIndex; G.sea = NW.sea && NW.boat ? NW.sea.fishingAt(NW.areas.cur.id, NW.boat.B.x, NW.boat.B.y) : null; } else G.sea = null;
   G.spotId = from === "dock" && NW.secret && NW.world && NW.secret.isSecret(NW.world.fishSpot && NW.world.fishSpot()) ? NW.world.fishSpot() : null; // Bumbu 2.2: spot rahasia aktif
   resetFishing(); buildScenery(); applyMode(); refreshHUD(); updateHint(); save();
 }
@@ -1423,6 +1436,7 @@ window.Nusa = {
   sfx: (n, a) => { initAudio(); if (NW.audio && NW.audio.sfx(n, a)) return; if (SFX[n]) SFX[n](a); },
   // keadaan mancing untuk audio (tanpa rarity/berat ikan, supaya suara tidak membocorkan hasil)
   fishState: () => { const F = G.fight; return { phase: G.phase, T: F ? F.T : 0, surge: !!(F && F.surge > 0), tired: !!(F && F.tiredT > 0 && !(F.surge > 0)), warn: !!(F && F.T > 0.82) }; },
+  seaSpot: () => (fishFrom === "sea" && G.sea ? G.sea.id : null), fishFrom: () => fishFrom,
   tone, on, emit, registerPanel, renderPanel: () => currentPanel && renderPanel(), currentPanel: () => currentPanel, closePanel,
   sleepUntilMorning, refreshHUD, drawFish, fishImg, priceOf, priceMult, fmt, fmtW, FISH_BY_ID, coolerCap, upLvl, trendHTML,
 };
@@ -1439,6 +1453,8 @@ NW.hold.hook();                 // Bumbu 1.2: pamer ikan
 NW.adv.hook(isNewPlayer);       // Bumbu 2: Buku Petualangan, penemuan tempat, perjalanan antardaerah
 if (NW.audioDirector) NW.audioDirector.hook(); // Bumbu 2.1: pengarah musik & suasana
 if (NW.toba) NW.toba.hook();               // Bumbu 2: cerita "Rahasia Tepian Danau" (tantangan ikan jurung)
+if (NW.selat) NW.selat.hook();             // Bumbu 2.4: cerita "Jejak Arus Selat"
+if (NW.boat) NW.boat.hook();               // Bumbu 2.4: tombol kapal & panel Peta Laut
 if (loadNote) setTimeout(() => toast(loadNote), 1200);
 save(); // simpan hasil migrasi (data lama sudah dicadangkan)
 resize(); buildScenery(); initAmbient(); refreshHUD(); applyMode();
@@ -1446,6 +1462,6 @@ NW.world.resize(W, H, DPR); NW.world.onEnter("start", startArea.id); updateHint(
 document.addEventListener("visibilitychange", () => { if (document.hidden) save(); });
 window.addEventListener("pagehide", save);
 // akses debug ringan untuk pengujian
-window.__nusa = { get S() { return S; }, G, save, refreshHUD, mode: () => MODE, goWorld, enterFishing, travel, canSail, chooseFish, bobberScreen, rodTip, startFight, updateFight, endFight, fishFrom: () => fishFrom };
+window.__nusa = { get S() { return S; }, G, save, landFish, viewL, refreshHUD, mode: () => MODE, goWorld, enterFishing, travel, canSail, chooseFish, bobberScreen, rodTip, startFight, updateFight, endFight, fishFrom: () => fishFrom };
 requestAnimationFrame(loop);
 })();

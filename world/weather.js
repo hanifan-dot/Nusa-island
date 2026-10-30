@@ -43,9 +43,20 @@ const CFG = {
     puddleN: 6,
   },
 };
+// Bumbu 2.4: Pelabuhan Selat Sunda & laut lepasnya berbagi iklim yang sama (garam sama → cuaca sama saat berlayar keluar-masuk pelabuhan)
+CFG.selat = {
+  salt: 37, stick: 0.45,
+  w: { cerah: 0.5, mendung: 0.22, hujan: 0.2, kabut: 0.08 },
+  wind: 0.34, mist: 0.12,
+  fogColor: [228, 238, 242], fogK: 0.95,
+  tint: [80, 100, 120], sky: "#8aa0b0", water: "#4f7f99",
+  shelter: { hasan: "HASANH", arif: "GUD", ratna: null },
+  puddleN: 6,
+};
+CFG.laut = Object.assign({}, CFG.selat, { shelter: {}, puddleN: 0 });
 const DEFAULT_CFG = CFG.muara;
 const cfgOf = (a) => CFG[a] || DEFAULT_CFG;
-const KEEP = new Set(["stall", "tstall", "sleep", "chat", "relax", "lunch", "shelter"]); // aktivitas yang tidak berpindah karena hujan
+const KEEP = new Set(["stall", "tstall", "rstall", "fix", "sleep", "chat", "relax", "lunch", "shelter"]); // aktivitas yang tidak berpindah karena hujan
 
 // ---------- model murni ----------
 function hash(a, b, c) { // 0..1 deterministik

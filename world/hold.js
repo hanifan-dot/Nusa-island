@@ -44,6 +44,7 @@ function start(uid) {
   const it = find(uid);
   if (!it) { N().toast("Ikan itu sudah tidak ada di coolbox", "bad"); return false; }
   if (!isShowable(it)) { N().toast("Yang ini tidak bisa dipamerkan", "bad"); return false; }
+  if (NW.boat && NW.boat.on) { N().toast("Turun dari kapal dulu untuk memamerkan ikan 🛬", "bad"); return false; } // Bumbu 2.4: di atas kapal pemain duduk mengemudi
   if (N().mode() !== "world") { // dari mode mancing: ke darat dulu (hanya di area yang bisa dijelajahi: Muara, Toba)
     if (!NW.areas.forLoc(S().loc)) { N().toast("Kembali ke darat (Muara Kampung / Tepian Toba) dulu untuk memamerkan ikan", "bad"); return false; }
     N().goWorld("dock");

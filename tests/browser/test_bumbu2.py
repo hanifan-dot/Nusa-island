@@ -91,7 +91,8 @@ with sync_playwright() as p:
         # dari kapal di dermaga Muara → peta → Danau Toba
         ev(pg, "window.__nusa.S.up.boat=1; window.__nusa.S.hour=9")
         goto(pg, ev(pg, "NW.BOAT.x"), ev(pg, "NW.DOCK.y1+0.6"))
-        ok("A4 di dermaga Muara: berinteraksi dengan ⛵ Kapal", target(pg) == "boat"); act(pg)
+        ok("A4 di dermaga Muara: ⛵ Kapal ada (Bumbu 2.4: Naik Kapal); perjalanan cepat lewat papan 🧭 Rute Kapal", target(pg) == "boat")
+        rp = ev(pg, "NW.points.find(p=>p.id==='rute')"); goto(pg, rp["x"], rp["y"]); act(pg)
         ok("A5 kapal membuka Peta, Danau Toba bisa dipilih (tombol Berlayar)", ev(pg, "!!document.querySelector('#panelBody [data-act=go][data-arg=\"1\"]')"))
         ev(pg, "document.querySelector('#panelBody [data-act=go][data-arg=\"1\"]').click()"); time.sleep(0.7)
         pg.screenshot(path=OUT + "01_perjalanan.png")
@@ -251,7 +252,7 @@ with sync_playwright() as p:
         ev(pg, "window.Nusa.closePanel()"); pg.click("#advBtn"); time.sleep(0.4)
         book = ev(pg, "document.getElementById('panelBody').innerText")
         ok("E1 menu '📖 Buku Petualangan': Muara & Toba, status dikunjungi, jumlah penemuan, cerita, catatan", ev(pg, "document.getElementById('panelTitle').textContent") == "📖 Buku Petualangan" and "Muara Kampung" in book and "Kampung Tepian Toba" in book and "Titik penemuan" in book and "Rahasia Tepian Danau" in book and "Pesan dari Danau" in book and "Dikunjungi" in book)
-        ok("E2 ilustrasi kecil per daerah tampil", ev(pg, "document.querySelectorAll('.adv-area img').length") == 2)
+        ok("E2 ilustrasi kecil per daerah tampil", ev(pg, "document.querySelectorAll('.adv-area img').length") == ev(pg, "NW.areas.list.length"))  # Bumbu 2.4: Selat & Laut ikut tercatat
         pg.screenshot(path=OUT + "06_buku.png")
         pg.click("#panelClose"); time.sleep(0.3)
         ok("E3 panel bisa ditutup normal", ev(pg, "document.getElementById('panelWrap').classList.contains('hidden')"))
@@ -278,10 +279,10 @@ with sync_playwright() as p:
         ctx.close()
         ctx, pg, errs3 = page(b, json.loads(v6)); start(pg); s = S(pg)
         bk = ev(pg, "localStorage.getItem('nusa-island-v1-backup-v6')")
-        g1 = {"v": s["v"] == 9, "koin": s["money"] == 98765, "up": s["up"] == {"rod": 7, "bait": 3, "cooler": 9, "boat": 2}, "ikan": len(s["cooler"]) == 199, "kunci": sum(1 for c in s["cooler"] if c.get("lock")) == 20,
+        g1 = {"v": s["v"] == 10, "koin": s["money"] == 98765, "up": s["up"] == {"rod": 7, "bait": 3, "cooler": 9, "boat": 2}, "ikan": len(s["cooler"]) == 199, "kunci": sum(1 for c in s["cooler"] if c.get("lock")) == 20,
               "akuarium": bool(s["home"]["placedFish"]) and s["home"]["placedFish"][0]["uid"] == "aq1", "perabot": any(f["uid"] == "f99" for f in s["home"]["furniture"] + s["home"]["stored"]), "gelar": s["titles"]["fish"] == 321,
               "darto": s["story"]["ch"] == 5, "koleksi": s["dex"]["mas"]["n"] == 50, "statistik": s["stats"]["caught"] == 400, "hari": s["day"] == 12, "misi": s.get("missions") is not None}
-        ok("G1 simpanan v6 → v9 (migrasi berantai): koin, joran lv 8, kapal, inventaris 199 + 20 terkunci, akuarium, perabot, gelar, cerita Darto, koleksi, statistik, misi harian aman", all(g1.values()), {k: v for k, v in g1.items() if not v})
+        ok("G1 simpanan v6 → v10 (migrasi berantai): koin, joran lv 8, kapal, inventaris 199 + 20 terkunci, akuarium, perabot, gelar, cerita Darto, koleksi, statistik, misi harian aman", all(g1.values()), {k: v for k, v in g1.items() if not v})
         ok("G2 cadangan v6 dibuat sebelum migrasi", bk is not None and json.loads(bk)["v"] == 6 and json.loads(bk)["money"] == 98765)
         ok("G3 data petualangan baru berisi nilai awal yang aman (area Muara, Toba Bab 1)", s["adv"]["area"] == "muara" and s["adv"]["toba"]["bab"] == 1 and s["adv"]["visited"].get("muara") and not s["adv"]["found"])
         ok("G4 kunci simpanan tetap 'nusa-island-v1'", ev(pg, "!!localStorage.getItem('nusa-island-v1')") and ev(pg, "Object.keys(localStorage).filter(k=>k.startsWith('nusa')&&!k.startsWith('nusa-island-v1')).length") == 0)
@@ -376,7 +377,9 @@ with sync_playwright() as p:
         ok("K1 mancing di Muara tetap: titik dermaga → mode mancing Muara", ev(pg, "window.__nusa.mode()") == "fish" and S(pg)["loc"] == 0 and ev(pg, "window.__nusa.fishFrom()") == "dock")
         ev(pg, "document.getElementById('landBtn').click()"); time.sleep(0.8)
         ok("K2 'Ke Darat' dari Muara → kembali di dermaga Muara", ev(pg, "window.__nusa.mode()") == "world" and ev(pg, "NW.areas.cur.id") == "muara" and ev(pg, "Math.hypot(NW.world.player.x-(NW.SPOT.x-1.1), NW.world.player.y-NW.SPOT.y)") < 0.2)
-        for i, nm in [(2, "Selat Sunda"), (3, "Raja Ampat"), (4, "Laut Banda")]:
+        r = ev(pg, "window.__nusa.travel(2)"); time.sleep(0.6); wait_for(pg, IDLE); time.sleep(0.2)
+        ok("K3 Selat Sunda (Bumbu 2.4): kini punya area jelajah → mendarat di Pelabuhan Selat Sunda (lokasi LOCATIONS sama)", r and ev(pg, "window.__nusa.mode()") == "world" and ev(pg, "NW.areas.cur.id") == "selat" and S(pg)["loc"] == 2)
+        for i, nm in [(3, "Raja Ampat"), (4, "Laut Banda")]:
             r = ev(pg, f"window.__nusa.travel({i})"); time.sleep(0.6)
             ok(f"K3 {nm}: tetap lokasi mancing (langsung mode mancing, tanpa area jelajah)", r and ev(pg, "window.__nusa.mode()") == "fish" and S(pg)["loc"] == i and ev(pg, "document.getElementById('landBtn').textContent").startswith("🗺️"))
         ev(pg, "document.getElementById('landBtn').click()"); time.sleep(0.4)
