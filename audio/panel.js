@@ -67,5 +67,6 @@ function hookMuteBtn() {
   b.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 hookMuteBtn();
+{ const mb = $("musicBtn"); if (mb) mb.addEventListener("click", toggle); } // tombol 🎵 selalu terlihat di HUD
 NW.audioPanel = { open, close, toggle, sync, get isOpen() { return openFlag; } };
 })();

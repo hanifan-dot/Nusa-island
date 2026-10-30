@@ -238,6 +238,8 @@ with sync_playwright() as p:
     pg.click("#apStop"); time.sleep(0.6); ok("11k berhenti pratinjau → kembali ke tema permainan", ev(pg, "NW.audio.previewing") is None and wait_theme(pg, "muara_pagi", 5))
     # semua tema pratinjau valid
     ok("11l setiap tema di menu terdaftar", ev(pg, "[...document.querySelectorAll('#audioPop [data-th]')].every(b=>NW.music.THEMES[b.dataset.th.split('|')[0]])"))
+    ok("11p tombol 🎵 di HUD terlihat di HP & membuka/menutup panel suara", ev(pg, "(()=>{const b=document.getElementById('musicBtn');return b.offsetParent!==null})()"))
+    ev(pg, "NW.audioPanel.close()"); ev(pg, "document.getElementById('musicBtn').click()"); ok("11q ketuk 🎵 membuka panel", ev(pg, "NW.audioPanel.isOpen")); ev(pg, "NW.audioPanel.close()")
     ctx.close()
 
     # ---- layar lebar: tombol 🔊 HUD terlihat: ketuk = mute lama, tahan = pengaturan ----
