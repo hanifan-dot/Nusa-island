@@ -403,5 +403,5 @@ function bookArt(g, w, h) {
 }
 
 const waterOk = (x, y) => y > SHORE_FAR; // kilau air hanya di danau, tidak di kaki bukit seberang
-NW.TOBA_DRAW = { C, waterColor, waterOk, landTile, kebun, drawBack, drawSky, bookArt };
+NW.TOBA_DRAW = { C, waterColor, waterOk, landTile, kebun, drawBack, drawSky, bookArt, drawPondok, drawTHouse }; // Bumbu 2.4: pondok dipakai ulang oleh Warung Kopi Pelabuhan
 })();

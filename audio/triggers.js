@@ -21,7 +21,10 @@ function themeFor(s) {
   if (s.scene) return s.scene;
   if (s.voyage) return "kapal";
   if (s.room) return "rumah";
-  if (s.fishing) return s.areaKey === "toba" ? "mancing_toba" : "mancing_muara";
+  if (s.fishing) return s.seaFish ? "mancing_laut" : s.areaKey === "toba" ? "mancing_toba" : "mancing_muara";
+  // Bumbu 2.4: berlayar sendiri → musik eksplorasi laut; Pelabuhan Selat Sunda punya tema sendiri
+  if (s.sail) return s.period === "malam" ? "samudra_malam" : "samudra";
+  if (s.areaKey === "selat" || s.areaKey === "laut") return s.period === "malam" ? "pelabuhan_malam" : "pelabuhan";
   const ak = NW.music.THEMES[(s.areaKey || "muara") + "_" + s.period] ? s.areaKey || "muara" : "muara";
   return ak + "_" + s.period;
 }
@@ -36,12 +39,13 @@ function gather() {
   const area = NW.areas && NW.areas.cur;
   let areaKey = area ? area.id : "muara";
   if (fish) { const a = NW.areas.forLoc(St.loc); areaKey = a ? a.id : "muara"; }
-  return { period: periodOf(h), hour: h, areaKey, fishing: fish, home: !!home, room: !!room, voyage: voy, scene, dialog: !!document.querySelector("#dlg:not(.hidden)") };
+  const seaFish = fish && Nu.fishFrom && Nu.fishFrom() === "sea", sail = !fish && !!(NW.boat && NW.boat.on);
+  return { period: periodOf(h), hour: h, areaKey, fishing: fish, seaFish, sail, home: !!home, room: !!room, voyage: voy, scene, dialog: !!document.querySelector("#dlg:not(.hidden)") };
 }
 
 // ---------- lingkungan ----------
 const ZONE = { // id penemuan di area.discoveries yang menandai titik khusus
-  muara: { market: "muara:pasar" }, toba: { market: "toba:pasar", view: "toba:bukit" },
+  muara: { market: "muara:pasar" }, toba: { market: "toba:pasar", view: "toba:bukit" }, selat: { market: "selat:pasar", harbor: "selat:dermaga" },
 };
 function zonePos(areaId, key) {
   const id = ZONE[areaId] && ZONE[areaId][key]; if (!id) return null;
@@ -49,9 +53,15 @@ function zonePos(areaId, key) {
 }
 function envFor(s) {
   const nightF = nightFactor(s.hour), dayF = 1 - nightF;
-  const e = { area: s.areaKey, nightF, dayF, water: 0, trees: 0, market: 0, view: 0, dock: 0, hill: 0, indoor: s.room, fishing: s.fishing, voyage: s.voyage };
+  const e = { area: s.areaKey, nightF, dayF, water: 0, trees: 0, market: 0, view: 0, dock: 0, hill: 0, indoor: s.room, fishing: s.fishing, voyage: s.voyage, sail: false, speed: 0, engine: 0, sea: 0, harbor: 0 };
   if (s.voyage) { e.water = 1; return e; }
-  if (s.fishing) { e.water = 1; return e; }
+  if (s.fishing) { e.water = 1; if (s.seaFish) { e.sail = true; e.sea = 1; } return e; } // memancing dari kapal: ombak tetap terdengar, mesin mati
+  if (s.sail) { // Bumbu 2.4: di atas kapal — mesin hanya menyala saat jangkar diangkat
+    const B = NW.boat, vmax = B.spec().vmax, sp = clamp(Math.abs(B.speed) / vmax);
+    e.sail = true; e.water = 1; e.speed = sp; e.engine = B.anchor ? 0 : 0.35 + 0.65 * sp; e.sea = s.areaKey === "laut" ? 1 : 0.6;
+    const h2 = zonePos(s.areaKey, "harbor"), p2 = NW.world && NW.world.player; if (h2 && p2) e.harbor = clamp(1 - (Math.hypot(h2.x - p2.x, h2.y - p2.y) - 3) / 10);
+    return e;
+  }
   if (s.home) { e.water = 0.1; e.trees = 0.25; return e; } // halaman Rumahku: lingkungan tenang (interior diredam oleh `indoor`)
   const p = NW.world && NW.world.player; if (!p) return e;
   const px = p.x, py = p.y, x0 = Math.floor(px), y0 = Math.floor(py);
@@ -67,6 +77,7 @@ function envFor(s) {
   e.dock = NW.tileAt(x0, y0) === 5 ? 1 : 0;
   const m = zonePos(s.areaKey, "market"); if (m) e.market = clamp(1 - (Math.hypot(m.x - px, m.y - py) - 1.5) / 6.5);
   const v = zonePos(s.areaKey, "view"); if (v) e.view = clamp(1 - (Math.hypot(v.x - px, v.y - py) - 1.2) / 3.5);
+  const hb = zonePos(s.areaKey, "harbor"); if (hb) e.harbor = clamp(1 - (Math.hypot(hb.x - px, hb.y - py) - 3) / 9); // suasana pelabuhan
   return e;
 }
 

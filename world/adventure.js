@@ -72,6 +72,7 @@ function tick(areaId, p, dt) {
   for (const d of ar.discoveries) {
     if (A().found[d.id]) continue;
     if (d.when && !d.when()) continue;
+    if (d.onlyBoat && !(NW.boat && NW.boat.on)) continue; // Bumbu 2.4: spot laut ditemukan dari atas kapal
     if (Math.hypot(p.x - d.x, p.y - d.y) > d.r) continue;
     discover(d, ar);
   }
@@ -100,7 +101,7 @@ function discover(d, ar) {
   if (A().found[d.id]) return false;
   A().found[d.id] = Date.now();
   N().save();
-  showDiscover(`✨ Lokasi ditemukan: ${d.name}`);
+  if (d.sea) showDiscover(`<b>🎣 Spot Laut Ditemukan!</b><br>${esc(d.name)}`, true); else showDiscover(`✨ Lokasi ditemukan: ${d.name}`);
   if (NW.audio) N().sfx("temuan"); else { N().tone(784, 0.12, "triangle", 0.08); N().tone(1175, 0.22, "triangle", 0.07, null, 0.1); }
   fx.length = 0; for (let i = 0; i < 14; i++) fx.push({ x: d.x, y: d.y, a: Math.random() * 6.28, r: 0.2 + Math.random() * 1.2, z: 10 + Math.random() * 40, t: 0, life: 1.4 + Math.random() * 0.8 });
   if (ar.hooks && ar.hooks.onDiscover) ar.hooks.onDiscover(d);

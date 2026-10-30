@@ -674,3 +674,38 @@ body.mode-fish .hold-stop, body.editing .hold-stop { display: none !important; }
 .ap-wx small { font-weight: 400; opacity: .7; }
 .ap-chk { display: flex; align-items: center; gap: 8px; margin-top: 7px; font-size: 13px; cursor: pointer; }
 .ap-chk input { width: 18px; height: 18px; accent-color: var(--teal); }
+
+/* Bumbu 2.4: tombol kapal (kolom kanan, di atas tombol aksi — jauh dari joystick di kiri) */
+.sea-bar {
+  position: fixed; z-index: 6; right: 18px; bottom: calc(env(safe-area-inset-bottom, 0px) + 150px);
+  display: flex; flex-direction: column; gap: 10px; align-items: flex-end;
+}
+.sea-bar button {
+  min-width: 112px; height: 46px; border-radius: 999px; border: 3px solid var(--cream); cursor: pointer; padding: 0 12px 0 8px;
+  background: rgba(23, 63, 80, .9); color: var(--cream); box-shadow: 0 4px 0 #0e2a36, 0 8px 18px rgba(10, 35, 45, .35);
+  display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 6px; font: 800 12.5px var(--font); line-height: 1.05;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.sea-bar button span { font-size: 21px; line-height: 1; }
+.sea-bar button b { font-weight: 800; text-align: left; }
+.sea-bar button:active { transform: translateY(3px); box-shadow: 0 1px 0 #0e2a36, 0 4px 10px rgba(10, 35, 45, .35); }
+.sea-bar button.on { background: var(--gold); color: #3b2a05; border-color: var(--cream); box-shadow: 0 4px 0 #a8862f, 0 8px 18px rgba(10, 35, 45, .35); }
+.sea-bar button.dim { opacity: .5; filter: saturate(.6); }
+.sea-bar button.pulse { animation: seaPulse .9s ease-out 2; }
+@keyframes seaPulse { 0% { box-shadow: 0 0 0 0 rgba(224, 184, 76, .9), 0 4px 0 #0e2a36; } 100% { box-shadow: 0 0 0 18px rgba(224, 184, 76, 0), 0 4px 0 #0e2a36; } }
+.sea-hud {
+  position: fixed; z-index: 5; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 58px);
+  display: flex; align-items: center; gap: 8px; padding: 5px 12px 5px 8px; border-radius: 999px;
+  background: rgba(255, 249, 236, .92); color: var(--ink); font: 700 12px var(--font); box-shadow: 0 3px 10px rgba(10, 35, 45, .25); white-space: nowrap; pointer-events: none;
+}
+.sea-hud b { font-weight: 800; color: #2f7a8c; }
+.sea-arrow { display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center; border-radius: 50%; background: var(--ink); color: var(--gold); font-size: 12px; transition: transform .25s; }
+body.mode-fish .sea-bar, body.mode-fish .sea-hud, body.editing .sea-bar { display: none !important; }
+body.sailing.mode-world .hint { top: calc(env(safe-area-inset-top, 0px) + 98px); }
+@media (max-width: 380px) { .sea-bar button { min-width: 100px; height: 42px; font-size: 11.5px; } .sea-bar button span { font-size: 18px; } .sea-bar { bottom: calc(env(safe-area-inset-bottom, 0px) + 138px); gap: 8px; } }
+@media (max-height: 560px) and (orientation: landscape) { .sea-bar { flex-direction: row; right: 128px; bottom: calc(env(safe-area-inset-bottom, 0px) + 30px); } }
+/* Peta Laut */
+.sea-chart { width: 100%; overflow: hidden; border-radius: 12px; background: #cfe6ea; border: 2px solid rgba(23, 63, 80, .2); display: flex; justify-content: center; }
+.sea-chart canvas { display: block; max-width: 100%; }
+.sea-legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; margin: 6px 0; opacity: .8; }
+.sea-home { background: #eef7f2; border-radius: 10px; padding: 8px 10px; font-size: 13px; }

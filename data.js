@@ -77,6 +77,10 @@ const FISH = [
   { id: "kakap", name: "Kakap Merah", loc: "selat", rarity: "langka", wMin: 1, wMax: 7, price: 55, power: 4, color: "#cc4b3f", belly: "#f3b3a3", shape: [1.15, .46], fin: "pointed", desc: "Merah merona, favorit restoran seafood." },
   { id: "tenggiri", pelagic: true, name: "Tenggiri", loc: "selat", rarity: "langka", wMin: 2, wMax: 12, price: 50, power: 5, color: "#5d7f9c", belly: "#e8eef2", shape: [1.6, .28], fin: "pointed", spots: "#3c5a73", desc: "Bahan pempek terbaik. Larinya kencang!" },
   { id: "barakuda", pelagic: true, name: "Barakuda", loc: "selat", rarity: "epik", wMin: 3, wMax: 20, price: 70, power: 7, color: "#7b8f99", belly: "#e1e7ea", shape: [1.75, .24], fin: "pointed", stripes: "#4f626b", desc: "Gigi tajam, serangan cepat seperti torpedo." },
+  // Bumbu 2.4 (Samudra Nusantara): tiga spesies laut baru khas Selat Sunda (ID baru, tidak menduplikasi yang lama)
+  { id: "tongkol", pelagic: true, name: "Tongkol", loc: "selat", rarity: "biasa", wMin: .5, wMax: 3, price: 26, power: 3, color: "#35557e", belly: "#e2e8ee", shape: [1.2, .42], fin: "pointed", stripes: "#24405f", desc: "Kerabat tuna yang berenang bergerombol. Lezat dibuat tongkol balado." },
+  { id: "kerapu_macan", name: "Kerapu Macan", loc: "selat", rarity: "langka", wMin: 1, wMax: 8, price: 58, power: 5, color: "#8a7a4e", belly: "#d9cfa6", shape: [1.2, .5], fin: "round", spots: "#4f4428", desc: "Bercorak loreng seperti macan. Suka bersembunyi di celah karang dangkal." },
+  { id: "kuwe_biru", pelagic: true, name: "Kuwe Biru", loc: "selat", rarity: "epik", wMin: 3, wMax: 18, price: 62, power: 7, color: "#4f6f86", belly: "#cfdde6", shape: [1.15, .52], fin: "pointed", finColor: "#3fa2d9", desc: "Kuwe bersirip biru yang berburu di tepi karang saat arus selat berganti." },
   { id: "kerapu_raksasa", name: "Kerapu Raksasa", loc: "selat", rarity: "legenda", wMin: 40, wMax: 150, xMax: 260, xP: .02, price: 60, power: 9, color: "#5a5a3c", belly: "#b8b27d", shape: [1.2, .52], fin: "round", spots: "#3a3a24", night: true, desc: "Monster karang. Bisa menelan ikan lain bulat-bulat." },
 
   // ---------- Raja Ampat ----------
