@@ -26,7 +26,7 @@
   try { if (q.get("cloud") === "demo") lsSet("nusa-cloud-demo", "1"); if (q.get("cloud") === "off") lsDel("nusa-cloud-demo"); } catch (e) {}
   let adapter = window.NUSA_CLOUD_ADAPTER || null;   // celah untuk pengujian (hanya mengubah klien sendiri; server tetap memutuskan)
   if (!adapter && NW.cloudDemo && (window.__NUSA_FORCE_DEMO === true || lsGet("nusa-cloud-demo") === "1") && q.get("cloud") !== "off") adapter = NW.cloudDemo.create();
-  if (!adapter && window.NUSA_FIREBASE && NW.cloudFirebase) adapter = NW.cloudFirebase.create(window.NUSA_FIREBASE);
+  if (!adapter && q.get("cloud") !== "off" && window.NUSA_FIREBASE && NW.cloudFirebase) adapter = NW.cloudFirebase.create(window.NUSA_FIREBASE);
   const enabled = !!adapter && !!Core;
   let sandbox = false; try { sandbox = enabled && sessionStorage.getItem(SBX_FLAG) === "1"; } catch (e) {}
 

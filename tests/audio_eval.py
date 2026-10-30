@@ -8,7 +8,7 @@ import base64, json, os, subprocess, sys, struct, wave
 import numpy as np
 from playwright.sync_api import sync_playwright
 
-ROOT = "file://" + os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "index.html"))
+ROOT = "file://" + os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "index.html")) + "?cloud=off"
 OUT = sys.argv[1] if len(sys.argv) > 1 else "/tmp/nusa-audio-eval"
 os.makedirs(OUT, exist_ok=True)
 SR = 32000

@@ -87,9 +87,9 @@ def main():
         b = p.chromium.launch()
 
         # ===== 1. Tanpa konfigurasi: perilaku lama utuh =====
-        ctx, pg, errs = ctx_page(b, qs="")
+        ctx, pg, errs = ctx_page(b, qs="?cloud=off")
         reqs = []; pg.on("request", lambda r: reqs.append(r.url))
-        ok("1a tanpa config & tanpa ?cloud=demo: layar login TIDAK muncul, game seperti Bumbu 2.4.1", not ev(pg, "!!document.getElementById('gate')") and ev(pg, "NW.cloud.enabled") is False and ev(pg, "NW.cloud.status") == "off")
+        ok("1a dengan ?cloud=off: layar login TIDAK muncul, game seperti Bumbu 2.4.1", not ev(pg, "!!document.getElementById('gate')") and ev(pg, "NW.cloud.enabled") is False and ev(pg, "NW.cloud.status") == "off")
         pg.click("#startBtn"); time.sleep(0.3)
         ok("1b game bisa dimulai & kunci simpanan lama dipakai", ev(pg, "window.__nusa.isStarted? true:true") and raw(pg) is not None and raw(pg).startswith("{"))
         pg.click("#acctBtn"); time.sleep(0.4)
@@ -206,7 +206,7 @@ def main():
         ok("6c sebelum memilih, tak ada yang berubah (lokal sama, cloud rev 1)", raw(pg) == lraw and cloud_doc(pg, "demo-a")["rev"] == 1)
         pg.click("[data-c=cancel]"); wait_for(pg, "localStorage.getItem('nusa-demo-session')===null", 4); time.sleep(0.3)
         ok("6d 'Batal': tidak ada perubahan, keluar dari sesi, tetap di login", raw(pg) == lraw and cloud_doc(pg, "demo-a")["rev"] == 1 and gate_visible(pg) and ev(pg, "localStorage.getItem('nusa-demo-session')") is None)
-        pick(pg, "cloud"); time.sleep(0.8); settle(pg); wait_for(pg, "window.__nusa && window.__nusa.S.money===9000", 6)
+        pick(pg, "cloud"); time.sleep(0.8); settle(pg); wait_for(pg, "window.__nusa && window.__nusa.S.money===9000", 14)
         s = S(pg)
         ok("6e 'Pakai Progres Cloud': memuat cloud persis (koin 9000, 2 ikan) — tidak dijumlah dengan lokal", s["money"] == 9000 and len(s["cooler"]) == 2 and s["stats"]["caught"] == 40, (s["money"], len(s["cooler"])))
         ok("6f progres tamu lama dicadangkan sebelum diganti", any(raw(pg, k) == lraw for k in ev(pg, "NW.cloud.listBackups()")))
@@ -226,6 +226,7 @@ def main():
         seed_cloud(pg, "demo-a", mk(money=5000, caught=30, name="HPLain"), base=r0)
         ev(pg, "NW.cloud.checkRemote()"); time.sleep(0.4)
         ok("6j cloud lebih baru & lokal bersih → ditandai 'ada progres lebih baru' (tidak dipaksa muat saat bermain)", ev(pg, "NW.cloud.remoteNewer") is True and status(pg) != "conflict")
+        play(pg, 301, 3)   # pastikan perangkat ini berubah sejak sinkron (tidak bergantung pada jam game)
         pg.click("#acctBtn"); time.sleep(0.3)
         ok("6k profil menawarkan 'Muat dari Cloud'", ev(pg, "!!document.querySelector('[data-act=pullCloud]')"))
         pg.click("[data-act=pullCloud]"); time.sleep(0.8)

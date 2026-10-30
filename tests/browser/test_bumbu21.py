@@ -7,7 +7,7 @@ dan perilaku, BUKAN kualitas bunyi lewat speaker HP. Telinga manusia tetap perlu
 import time, json, os, sys, tempfile
 from playwright.sync_api import sync_playwright
 
-ROOT = "file://" + os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "index.html"))
+ROOT = "file://" + os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "index.html")) + "?cloud=off"
 OUT = tempfile.mkdtemp(prefix="nusa-b21-") + "/"
 R = []
 def ok(name, cond, extra=""): R.append(("PASS" if cond else "FAIL") + "  " + name + ("  " + str(extra) if extra != "" else "")); print(R[-1], flush=True)

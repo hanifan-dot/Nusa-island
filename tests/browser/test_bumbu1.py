@@ -5,7 +5,7 @@ Jalankan: python tests/browser/test_bumbu1.py
 """
 import time, json, os, tempfile
 from playwright.sync_api import sync_playwright
-ROOT = "file://" + os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "index.html"))
+ROOT = "file://" + os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "index.html")) + "?cloud=off"
 OUT = tempfile.mkdtemp(prefix="nusa-bumbu-") + "/"
 R = []
 def ok(name, cond, extra=""): R.append(("PASS" if cond else "FAIL") + "  " + name + ("  " + str(extra) if extra != "" else ""))

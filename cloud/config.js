@@ -1,13 +1,14 @@
 // NUSA ISLAND — konfigurasi Firebase (dibaca frontend).
-// Nilai di bawah ini BUKAN rahasia (apiKey web Firebase memang publik; keamanan ada di Rules + Cloud Functions),
-// tetapi proyek Firebase untuk Nusa Island BELUM dibuat, jadi dibiarkan kosong. Selama null, Cloud Save non-aktif dan
-// game berjalan seperti sebelumnya (tanpa layar login). Cara mengisinya: docs/TAHAP3.md.
-//
-// Jangan menaruh private key / service account di sini atau di mana pun dalam repo.
-window.NUSA_FIREBASE = null;
-/* Contoh (isi dari Firebase Console → Project settings → Your apps → Web app):
+// Proyek: "Nusa island" (ID nusa-island-d2023), proyek BARU khusus Nusa Island (bukan Kota Nusa).
+// Nilai ini BUKAN rahasia: apiKey web Firebase memang publik. Keamanan ada di Firestore Rules + Cloud Functions + (nanti) App Check
+// dan pembatasan apiKey ke domain game. Jangan pernah menaruh private key / service account di sini atau di repo.
+// Untuk mematikan cloud sementara (mis. pengujian): buka game dengan ?cloud=off
 window.NUSA_FIREBASE = {
-  apiKey: "...", authDomain: "PROYEK.firebaseapp.com", projectId: "PROYEK", appId: "...",
-  functionsRegion: "asia-southeast2"
+  apiKey: "AIzaSyD7IVR0VJJUAAEy3Z0YY9uvhIoOVd89iiw",
+  authDomain: "nusa-island-d2023.firebaseapp.com",
+  projectId: "nusa-island-d2023",
+  storageBucket: "nusa-island-d2023.firebasestorage.app",
+  messagingSenderId: "866857686204",
+  appId: "1:866857686204:web:0bc82d863b5687ddd3acb9",
+  functionsRegion: "asia-southeast2"   // Jakarta; Firestore juga akan dibuat di asia-southeast2
 };
-*/
