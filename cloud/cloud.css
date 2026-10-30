@@ -80,3 +80,4 @@ body:has(.sbx-banner) .hud { top: 22px; }
 
 /* Tombol 👤 menambah satu ikon di HUD: rapatkan sedikit di layar sempit agar tetap muat di 360 px (Bumbu 2 I2). */
 @media (max-width: 400px) { .hud-right .icon-btn { padding: 5px 4px; } .hud-right { gap: 2px; } }
+.cbtns.col .btn { flex: none; width: 100%; }
