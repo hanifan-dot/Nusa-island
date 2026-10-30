@@ -668,3 +668,9 @@ body.mode-fish .hold-stop, body.editing .hold-stop { display: none !important; }
 .vcol { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
 .vcol span { font-size: 10.5px; padding: 1px 6px; border-radius: 999px; background: #efe9d8; color: #8a7e62; }
 .vcol span.on { background: #e1f1e4; color: #2d6a43; font-weight: 700; }
+
+/* Bumbu 2.3: Efek Cuaca di panel pengaturan */
+.ap-wx { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(23,63,80,.12); }
+.ap-wx small { font-weight: 400; opacity: .7; }
+.ap-chk { display: flex; align-items: center; gap: 8px; margin-top: 7px; font-size: 13px; cursor: pointer; }
+.ap-chk input { width: 18px; height: 18px; accent-color: var(--teal); }

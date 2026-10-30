@@ -74,6 +74,7 @@ function envFor(s) {
 function duckFor(s, fs) {
   let d = 1;
   if (s.dialog) d = Math.min(d, 0.62);
+  if (NW.weather && NW.weather.state.rain > 0.02) d = Math.min(d, 1 - 0.2 * NW.weather.state.rain * (s.room ? 0.5 : 1)); // hujan: musik sedikit turun (tema area tetap)
   if (s.fishing) {
     const ph = fs.phase;
     d = Math.min(d, ph === "fight" ? 0.62 : ph === "bite" ? 0.55 : 0.45); // saat menunggu: musik sangat pelan; saat melawan: musik tegang tetapi di bawah efek
@@ -113,7 +114,7 @@ function tick() {
   a.setIntensity(a.previewing ? a.previewInt || 0 : I);
   a.setDuck(a.previewing ? 1 : duckFor(s, fs), 0.35);
   // 3. suasana lingkungan
-  a.setAmbience(envFor(s)); a.setIndoor(s.room);
+  a.setAmbience(NW.weather ? NW.weather.audioEnv(envFor(s)) : envFor(s)); a.setIndoor(s.room);
   // 4. isyarat mancing: tegang & peringatan (efek pendek di atas musik)
   if (s.fishing) {
     if (fs.phase === "fight" && phasePrev !== "fight") a.sfx("strike");

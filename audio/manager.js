@@ -141,6 +141,12 @@ function sfx(name, arg) {
   if (onSfx) onSfx(name, arg);
   return true;
 }
+// suara lingkungan sesaat dari luar (mis. guruh dari mesin cuaca): ikut mute/slider karena lewat bus lingkungan
+const shotLog = [];
+function shot(kind, delay = 0.5) {
+  if (!ready || muted || !running || ctx.state !== "running" || !amb) return false;
+  amb.oneShot(kind, ctx.currentTime + delay, kind === "guruh" ? 0.05 : 0.04); shotLog.push({ kind, t: ctx.currentTime }); if (shotLog.length > 20) shotLog.shift(); return true;
+}
 let onSfx = null; const sfxLog = []; // 40 efek terakhir (untuk pengujian & diagnosis)
 function stinger(name) { return sfx(name); }
 
@@ -168,7 +174,7 @@ function dispose() {
 }
 
 NW.audio = {
-  init, setMuted, suspend, resume, dispose, stats, playTheme, stopMusic, setIntensity, setDuck, setAmbience, setIndoor, sfx, stinger,
+  init, setMuted, shot, get shotLog() { return shotLog; }, suspend, resume, dispose, stats, playTheme, stopMusic, setIntensity, setDuck, setAmbience, setIndoor, sfx, stinger,
   setVolume, getVolume, resetVolumes, preview, stopPreview, DEFAULTS, BASE, CATS,
   sfxLog, busGains() { const o = {}; for (const [k, t] of tracks) o[k] = +t.bus.gain.value.toFixed(3); return o; },
   setTickHandler(f) { onTick = f; }, setSfxHandler(f) { onSfx = f; },

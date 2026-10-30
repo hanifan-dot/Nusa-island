@@ -25,6 +25,9 @@ python tests/browser/test_bumbu12.py          # Bumbu 1.2: kapasitas 8→200, in
 python tests/browser/test_bumbu2.py           # Bumbu 2: Kampung Tepian Toba, perjalanan dua arah, collision, NPC sehari penuh, cerita 3 bab, penemuan, Buku Petualangan, mancing/inventaris, migrasi v6→v7, pamer ikan lintas area, kontrol HP, performa
 python tests/browser/test_bumbu21.py          # Bumbu 2.1: 17 skenario suara (musik per waktu/area, crossfade, kapal, mancing, rumah, slider, mute, simpan, tab tersembunyi, AudioContext ditolak, kebocoran node, ambience spasial, regresi)
 python tests/browser/test_bumbu22.py         # Bumbu 2.2: 87 pemeriksaan (20 skenario wajib: varian, peluang, roll sekali, migrasi v8, dua spot rahasia, kartu momen, jingle/mute, jual/kunci, akuarium)
+node tests/unit-weather.js                    # model cuaca: deterministik, episode, pengali mancing 0,88–1,08, migrasi (28 pemeriksaan)
+python tests/browser/test_bumbu23.py         # Bumbu 2.3: 18 skenario cuaca (visual, audio, NPC, Rumahku, mancing, pengaturan, migrasi v9, refresh, performa-emulasi)
+python tests/visual_bumbu23.py <folder>       # tangkapan layar bukti visual cuaca
 node tests/unit-variants.js                   # simulasi statistik peluang varian (24 pemeriksaan)
 python tests/visual_bumbu22.py <folder>       # tangkapan layar bukti visual (varian, spot, kartu, inventaris, koleksi)
 python tests/audio_eval.py <folder>           # evaluasi OBJEKTIF musik/efek/ambience offline (RMS, puncak, klip, centroid, kemiripan Muara vs Toba) + ekspor WAV/MP3
@@ -56,3 +59,7 @@ membaca `undefined.found` — kini tes menghapusnya pada salinan; (2) jeda tidur
 pelayaran/finale — kini memakai `wait_for` yang menunggu kondisi. Sendirian, suite ini lulus 106/106 berulang kali.
 Bila beberapa suite Chromium dijalankan paralel di mesin yang CPU-nya jenuh, langkah yang bergantung waktu
 (finale Bab 3) masih bisa gagal; jalankan suite secara berurutan.
+
+Bumbu 2.3: semua suite lama kini mengharapkan simpanan versi 9. `test_bumbu23.py` memakai `NW.weather.force(kind, {snap})`
+(hanya untuk uji; tidak disimpan) untuk memaksa cuaca. FPS/memori yang dicetak (`PERF`) berasal dari Chromium headless
+(termasuk CPU 4× lebih lambat lewat CDP) — itu emulasi, bukan HP Android fisik.

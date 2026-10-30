@@ -182,15 +182,16 @@ function drawWater(c, view, t) {
   const tx0 = Math.floor((view.x0 / HW + view.y0 / HH) / 2) - 2, tx1 = Math.ceil((view.x1 / HW + view.y1 / HH) / 2) + 2;
   const ty0 = Math.floor((view.y0 / HH - view.x1 / HW) / 2) - 2, ty1 = Math.ceil((view.y1 / HH - view.x0 / HW) / 2) + 2;
   c.lineCap = "round";
-  const tileAt = A().map.tileAt, spark = (A().theme && A().theme.sparkle) || 0.32, ok = (A().theme && A().theme.waterOk) || null;
+  const wk = NW.weather ? NW.weather.waterK() : 1; // angin & hujan: air lebih berkilau/aktif
+  const tileAt = A().map.tileAt, spark = ((A().theme && A().theme.sparkle) || 0.32) * wk, ok = (A().theme && A().theme.waterOk) || null;
   for (let y = ty0; y <= ty1; y++) for (let x = tx0; x <= tx1; x++) {
     if (isLandT(tileAt(x, y)) || (ok && !ok(x, y))) continue;
     const p = P(x + 0.5, y + 0.5);
     if (p.x < view.x0 - 40 || p.x > view.x1 + 40 || p.y < view.y0 - 30 || p.y > view.y1 + 30) continue;
     const h = hash2(x + 100, y + 100);
     const a = Math.sin(t * 1.4 + h * 6.28 + (x + y) * 0.45);
-    if (a < 0.25) continue;
-    const off = Math.sin(t * 0.7 + h * 9) * 6;
+    if (a < 0.25 - (wk - 1) * 0.12) continue;
+    const off = Math.sin(t * 0.7 * (0.8 + 0.2 * wk) + h * 9) * 6;
     c.strokeStyle = `rgba(255,255,255,${((a - 0.25) * spark).toFixed(3)})`;
     c.lineWidth = 1.6;
     c.beginPath(); c.moveTo(p.x - 9 + off, p.y + h * 6 - 3); c.quadraticCurveTo(p.x + off, p.y + h * 6 - 6, p.x + 9 + off, p.y + h * 6 - 3); c.stroke();

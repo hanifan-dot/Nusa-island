@@ -232,6 +232,7 @@ function talk(n, api) {
   const open = api.openDialog;
   if (awaits(n.id) && storyTalk(n, open) !== false) { NW.adv.pickLine(n.id + ":g", GREET[n.id]); return; }
   let lines = chat(n).slice();
+  const wl = NW.weather && NW.weather.chatLine(n); if (wl) lines.unshift(wl); // komentar hujan/kabut (di bawah cerita & misi)
   const rem = reminder(); if (rem && (n.id === "raka" || (n.id === "nala" && st().bab === 2))) lines.push(rem);
   const opts = [];
   if (n.id === "maya" && at(2, 3)) { // Bab 2: Bu Maya sendiri meminta bantuan menambal jaring

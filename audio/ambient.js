@@ -7,6 +7,7 @@
 (function () {
 const NW = (window.NW = window.NW || {});
 const K = NW.kit;
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
 
 function create(ctx, stage) {
   const nodes = []; // semua sumber berkelanjutan (untuk dispose & statistik)
@@ -44,9 +45,21 @@ function create(ctx, stage) {
     for (const fr of [0.52, 0.27, 0.83]) { const l = lfo(fr), d = gain(0.25); l.connect(d).connect(g.gain); }
     g.connect(market); market.connect(out); }
 
-  const L = { water, wind, leaves, crickets, market };
-  const target = { water: 0, wind: 0, leaves: 0, crickets: 0, market: 0 };
-  const AMP = { water: 0.5, wind: 0.3, leaves: 0.16, crickets: 0.07, market: 0.4 }; // keseimbangan antar-lapisan
+  // --- hujan (Bumbu 2.3): tiga lapisan tetap, dibuat sekali; hanya volumenya yang berubah ---
+  const rainSoft = gain(0); // hujan ringan: desis halus
+  { const hp = mk("highpass", 1700, 0.5), lp = mk("lowpass", 7800, 0.4); src(0.45).connect(hp).connect(lp); const g = gain(0.8); lp.connect(g);
+    const l = lfo(0.23), d = gain(0.12); l.connect(d).connect(g.gain); g.connect(rainSoft); rainSoft.connect(out); }
+  const rainHeavy = gain(0); // hujan deras: badan lebih rendah & penuh
+  { const bp = mk("bandpass", 900, 0.45), lp = mk("lowpass", 4200, 0.5); src(1.35).connect(bp).connect(lp); const g = gain(0.85); lp.connect(g);
+    const l = lfo(0.13), d = gain(0.14); l.connect(d).connect(g.gain); g.connect(rainHeavy); rainHeavy.connect(out); }
+  const roof = gain(0); // tetes di atap: desir berdenyut halus (bukan ketukan keras)
+  { const bp = mk("bandpass", 2600, 1.3); src(2.05).connect(bp); const g = gain(0.5); bp.connect(g);
+    for (const fr of [9.3, 5.7, 3.1]) { const l = lfo(fr, "triangle"), d = gain(0.16); l.connect(d).connect(g.gain); }
+    g.connect(roof); roof.connect(out); }
+
+  const L = { water, wind, leaves, crickets, market, rainSoft, rainHeavy, roof };
+  const target = { water: 0, wind: 0, leaves: 0, crickets: 0, market: 0, rainSoft: 0, rainHeavy: 0, roof: 0 };
+  const AMP = { water: 0.5, wind: 0.3, leaves: 0.16, crickets: 0.07, market: 0.4, rainSoft: 0.2, rainHeavy: 0.26, roof: 0.075 }; // keseimbangan antar-lapisan (hujan selalu di bawah isyarat mancing)
 
   // --- suara sesaat ---
   const pan = (p) => { if (!ctx.createStereoPanner) return null; const s = ctx.createStereoPanner(); s.pan.value = p; return s; };
@@ -83,6 +96,11 @@ function create(ctx, stage) {
         g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol * 2.2, t + 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
         s.connect(lp).connect(g).connect(dest); s.start(t, Math.random() * 2); s.stop(t + 0.85); K.track(s, [s, lp, g]); break; }
       case "ketuk": { const f = 420 + r() * 300; blip(t, dest, f, f * 0.6, 0.07, vol * 1.6); if (r() < 0.5) blip(t + 0.13, dest, f * 1.2, f * 0.7, 0.06, vol * 1.2); break; }
+      case "guruh": { // petir jauh: gemuruh rendah yang naik pelan (tanpa serangan tajam), jarang & lembut
+        const sN = ctx.createBufferSource(), lp = ctx.createBiquadFilter(), g = ctx.createGain(); sN.buffer = K.noiseBuf(ctx);
+        lp.type = "lowpass"; lp.frequency.setValueAtTime(110 + r() * 40, t); lp.frequency.exponentialRampToValueAtTime(55, t + 3.4); lp.Q.value = 0.6;
+        g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol * 2.4, t + 0.55); g.gain.exponentialRampToValueAtTime(vol * 1.2, t + 1.4); g.gain.exponentialRampToValueAtTime(0.0001, t + 3.6);
+        sN.connect(lp).connect(g).connect(dest); sN.start(t, Math.random() * 2); sN.stop(t + 3.7); K.track(sN, [sN, lp, g]); break; }
       case "derit": { blip(t, dest, 190 + r() * 40, 150, 0.35, vol * 0.8, "sawtooth"); break; }
     }
   }
@@ -98,9 +116,10 @@ function create(ctx, stage) {
     };
     const d = env.indoor ? 0 : 1, day = env.dayF * d, night = env.nightF * d;
     const muara = env.area === "muara", toba = env.area === "toba";
-    sched("burung", day > 0.25 && !env.fishing, 0.045 * day, "burung");
-    sched("tekukur", muara && day > 0.3 && !env.fishing, 0.04 * day);
-    sched("burungDanau", (toba || env.fishing) && day > 0.2 && env.water > 0.15, 0.04 * day * (0.5 + env.water), "burungDanau");
+    const dry = 1 - clamp01(env.rain || 0); // hujan: burung jarang berkicau
+    sched("burung", day > 0.25 && !env.fishing && dry > 0.6, 0.045 * day * dry, "burung");
+    sched("tekukur", muara && day > 0.3 && !env.fishing && dry > 0.7, 0.04 * day * dry);
+    sched("burungDanau", (toba || env.fishing) && day > 0.2 && env.water > 0.15 && dry > 0.5, 0.04 * day * (0.5 + env.water) * dry, "burungDanau");
     sched("katak", muara && night > 0.4, 0.04 * night, "katak");
     sched("hantu", toba && night > 0.4, 0.035 * night, "hantu");
     sched("kecipak", env.water > 0.35 && d, 0.03 * env.water, "kecipak");
@@ -117,8 +136,18 @@ function create(ctx, stage) {
     target.leaves = Math.min(1, env.trees * 0.8 + (muara ? 0.12 : 0.1)) * (1 - fish * 0.7);
     target.crickets = env.nightF * (muara ? 1 : toba ? 0.55 : 0.35) * (1 - env.water * 0.4);
     target.market = Math.min(1, env.market) * env.dayF * (muara ? 1 : 0.8) * (1 - fish);
+    // cuaca (Bumbu 2.3): hujan masuk perlahan (tau panjang), angin & daun ikut cuaca, jangkrik/pasar mereda
+    const rain = clamp01(env.rain || 0), heavy = Math.max(0, Math.min(1, (rain - 0.55) / 0.4)), wxw = clamp01(env.wxWind || 0), fishQ = env.fishing ? 0.6 : 1;
+    const outK = ind ? 0.5 : 1; // di dalam rumah: hujan luar teredam
+    target.rainSoft = Math.min(1, rain * 1.25) * (1 - heavy * 0.45) * outK * fishQ;
+    target.rainHeavy = heavy * outK * fishQ;
+    target.roof = Math.min(1, rain * 1.5) * (ind ? 1 : 0.28) * fishQ;
+    target.wind = Math.min(1, target.wind + wxw * 0.45 * (ind ? 0.4 : 1));
+    target.leaves = Math.min(1, target.leaves + wxw * 0.35 * (ind ? 0 : 1)) * (1 - fish * 0.7);
+    target.water = Math.min(1, target.water + rain * 0.12);
+    target.crickets *= 1 - rain * 0.85; target.market *= 1 - rain * 0.3;
     if (env.voyage) { target.water = 1; target.wind = 0.85; target.leaves = 0; target.crickets *= 0.3; target.market = 0; } // di atas kapal: air & angin dominan
-    for (const k in L) L[k].gain.setTargetAtTime(target[k] * AMP[k], now, tau);
+    for (const k in L) L[k].gain.setTargetAtTime(target[k] * AMP[k], now, k.startsWith("rain") || k === "roof" ? Math.max(tau, 2.2) : tau); // hujan masuk/keluar bertahap
   }
   function indoor(on) {
     const now = ctx.currentTime;

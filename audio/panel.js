@@ -26,6 +26,10 @@ function build() {
     ${NW.audio.CATS.map((c) => `<label class="ap-s"><span>${LABEL[c]}</span><input type="range" min="0" max="100" step="1" data-cat="${c}" aria-label="${LABEL[c]}"><output data-out="${c}"></output></label>`).join("")}
     <div class="ap-row"><button class="ap-b big" id="apMute"></button><button class="ap-b" id="apReset">↺ Standar</button></div>
     <p class="ap-note" id="apNote"></p>
+    <div class="ap-g ap-wx"><b>🌦️ Efek Cuaca <small>(tampilan saja)</small></b>
+      <div class="ap-row">${[["tinggi", "Tinggi"], ["sedang", "Sedang"], ["rendah", "Rendah"]].map(([k, t]) => `<button class="ap-b" data-wx="${k}" aria-pressed="false">${t}</button>`).join("")}</div>
+      <label class="ap-chk"><input type="checkbox" id="apCalm"><span>Kurangi kilatan &amp; gerakan</span></label>
+      <p class="ap-note">Cuaca tetap terjadi di semua mode; pengaturan ini hanya mengurangi partikel dan efek. Tidak memengaruhi peluang ikan.</p></div>
     <details class="ap-det"><summary>🎧 Dengarkan tema &amp; efek</summary>
       <div class="ap-sc">${th}
         <div class="ap-g"><b>Jingle &amp; cerita</b><div class="ap-row">${JINGLE.map(([id, t]) => `<button class="ap-b" data-sfx="${id}">${t}</button>`).join("")}</div></div>
@@ -35,8 +39,10 @@ function build() {
       </div></details>`;
   document.body.appendChild(el);
   el.addEventListener("input", (e) => { const c = e.target.dataset && e.target.dataset.cat; if (!c) return; NW.audio.setVolume(c, e.target.value / 100); sync(); });
+  el.addEventListener("change", (e) => { if (e.target.id === "apCalm" && NW.weather) { NW.weather.setFx(null, e.target.checked); sync(); } });
   el.addEventListener("click", (e) => {
     const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.wx && NW.weather) { NW.weather.setFx(b.dataset.wx); sync(); return; }
     if (b.id === "apClose") return close();
     if (b.id === "apMute") { toggleMute(); return; }
     if (b.id === "apReset") { NW.audio.resetVolumes(); sync(); return; }
@@ -52,6 +58,7 @@ function sync() {
   if (!el) return; const Nu = window.Nusa, s = NW.audio.settings;
   for (const c of NW.audio.CATS) { const inp = el.querySelector(`[data-cat="${c}"]`), out = el.querySelector(`[data-out="${c}"]`); if (inp && document.activeElement !== inp) inp.value = Math.round(s[c] * 100); if (out) out.textContent = Math.round(s[c] * 100) + "%"; }
   const m = !!(Nu && Nu.S.muted); const mb = $("apMute"); if (mb) { mb.textContent = m ? "🔊 Hidupkan semua suara" : "🔇 Matikan semua suara"; mb.classList.toggle("on", m); }
+  if (NW.weather) { el.querySelectorAll("[data-wx]").forEach((b) => { const on = b.dataset.wx === NW.weather.fx.level; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); }); const cb = $("apCalm"); if (cb) cb.checked = NW.weather.fx.calm; }
   const note = $("apNote"); if (note) note.textContent = m ? "Semua suara sedang dimatikan (mode senyap)." : NW.audio.ready ? "" : "Suara akan aktif setelah kamu menekan Mulai Bermain.";
 }
 function open() { if (!el) build(); openFlag = true; el.classList.remove("hidden"); sync(); }

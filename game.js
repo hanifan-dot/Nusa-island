@@ -63,7 +63,7 @@ let S = DEFAULT();
 let MODE = "world", fishFrom = "dock";
 // Versi simpanan: 1 = Tahap 1, 2 = Tahap 2A, 3 = rumah 10 level + ikan ber-uid.
 // Sebelum migrasi, data lama disalin ke kunci cadangan sehingga tidak pernah hilang diam-diam.
-const SAVE_VERSION = 8; // 4 = Bumbu 1 (cerita, keahlian, petunjuk, ingatan NPC); 5 = Bumbu 1.1 (gelar tangkapan, nama pemain lokal); 6 = Bumbu 1.2 (coolbox & joran 10 tingkat, kunci ikan); 7 = Bumbu 2 (petualangan: area terakhir, penemuan, cerita Toba, penghargaan)
+const SAVE_VERSION = 9; // 9 = Bumbu 2.3 (cuaca: S.wx.seed); 4 = Bumbu 1 (cerita, keahlian, petunjuk, ingatan NPC); 5 = Bumbu 1.1 (gelar tangkapan, nama pemain lokal); 6 = Bumbu 1.2 (coolbox & joran 10 tingkat, kunci ikan); 7 = Bumbu 2 (petualangan: area terakhir, penemuan, cerita Toba, penghargaan)
 let loadNote = "", isNewPlayer = true;
 function backup(raw, tag) { try { const k = `${SAVE_KEY}-backup-${tag}`; if (!localStorage.getItem(k)) localStorage.setItem(k, raw); } catch (e) {} }
 function load() {
@@ -100,6 +100,7 @@ function migrate() {
   // Bumbu 2.2 (v8): varian ikan & koleksi varian (S.vd). Ikan lama tetap Normal — tidak ada varian acak saat migrasi.
   if (NW.variants) NW.variants.migrate(S);
   if (NW.secret) NW.secret.migrate(S);
+  if (NW.weather) NW.weather.migrate(S); // Bumbu 2.3 (v9): benih cuaca tersimpan sekali; tidak ada koin/progres yang disentuh
   if (r.from === "2A") loadNote = "Rumahku diperbarui ke sistem 10 level. Semua perabot tetap ada.";
   S.v = SAVE_VERSION;
   return { home: r, fixed };
@@ -347,7 +348,8 @@ function landBobber() {
   SFX.splash();
   G.phase = "waiting";
   const sp = UPGRADES.bait.speed[upLvl("bait")];
-  G.biteTimer = rand(2.2, 7) / sp;
+  G.wxBite = NW.weather ? NW.weather.biteFactor() : 1; // cuaca: ±ringan (0,88–1,08) pada waktu tunggu SAJA; tidak menyentuh pemilihan ikan, varian, atau pertarungan
+  G.biteTimer = rand(2.2, 7) / sp * G.wxBite;
   G.nibbles = [];
   const n = (Math.random() * 3) | 0;
   for (let i = 0; i < n; i++) G.nibbles.push(rand(0.5, G.biteTimer - 0.4));
@@ -599,7 +601,9 @@ function splashAt(x, z, n) {
 // ---------- Gambar ----------
 function draw() {
   const L = LOCATIONS[S.loc], dk = darkness();
-  const [skyTop, skyBot] = skyColors();
+  const wxa = NW.weather ? NW.weather.areaId() : "muara";
+  let [skyTop, skyBot] = skyColors();
+  if (NW.weather) [skyTop, skyBot] = NW.weather.skyMix(skyTop, skyBot, mix, wxa); // langit bergeser ke warna mendung secara halus
 
   // langit
   let g = ctx.createLinearGradient(0, 0, 0, HZ);
@@ -621,15 +625,16 @@ function draw() {
   let celX, celY, isMoon = false;
   if (h >= 5 && h <= 19.5) { const t = (h - 5) / 14.5; celX = W * (0.12 + t * 0.76); celY = HZ - Math.sin(t * Math.PI) * HZ * 0.78 + 10; }
   else { isMoon = true; const t = ((h + 24 - 19.5) % 24) / 9.5; celX = W * (0.15 + t * 0.7); celY = HZ - Math.sin(t * Math.PI) * HZ * 0.7 + 10; }
-  const celR = 22 * U;
-  ctx.save();
+  const celR = 22 * U, wxs = NW.weather ? NW.weather.state : null, sunA = wxs ? 1 - 0.85 * wxs.cloud : 1;
+  ctx.save(); ctx.globalAlpha = sunA;
   ctx.shadowColor = isMoon ? "rgba(220,230,255,.8)" : "rgba(255,220,140,.9)"; ctx.shadowBlur = 40 * U;
   ctx.fillStyle = isMoon ? "#eef2ff" : (h < 8 || h > 17 ? "#ffcf86" : "#fff3c4");
   ctx.beginPath(); ctx.arc(celX, celY, celR, 0, 7); ctx.fill();
   ctx.restore();
 
-  // awan
-  ctx.fillStyle = dk > 0.5 ? "rgba(120,140,170,.25)" : "rgba(255,255,255,.75)";
+  // awan (makin kelabu saat mendung/hujan)
+  const cg = wxs ? Math.round(255 - 105 * Math.min(1, wxs.cloud * 0.8 + wxs.rain * 0.3)) : 255;
+  ctx.fillStyle = dk > 0.5 ? "rgba(120,140,170,.25)" : `rgba(${cg},${cg},${Math.min(255, cg + 8)},.75)`;
   for (const c of clouds) {
     const cx = c.x * W, cy = c.y * HZ * 0.7, s = c.s * 40 * U;
     ctx.beginPath();
@@ -637,17 +642,20 @@ function draw() {
     ctx.fill();
   }
 
+  if (NW.weather) NW.weather.fishClouds(ctx, W, HZ, G.t, U, dk); // lapisan awan tambahan saat mendung/hujan
   drawShore(L, dk);
 
   // air
-  const wTop = mix(mix(L.water[0], L.fog, 0.35), "#0a1830", dk * 0.8);
-  const wBot = mix(L.water[1], "#050d1c", dk * 0.75);
+  let wTop = mix(mix(L.water[0], L.fog, 0.35), "#0a1830", dk * 0.8);
+  let wBot = mix(L.water[1], "#050d1c", dk * 0.75);
+  if (wxs) { const ck = Math.min(1, wxs.cloud * 0.5 + wxs.rain * 0.25), ow = NW.weather.CFG[wxa] ? NW.weather.CFG[wxa].water : "#5f8e97"; wTop = mix(wTop, ow, ck * 0.7); wBot = mix(wBot, ow, ck * 0.45); }
   g = ctx.createLinearGradient(0, HZ, 0, H);
   g.addColorStop(0, wTop); g.addColorStop(1, wBot);
   ctx.fillStyle = g; ctx.fillRect(0, HZ, W, H - HZ);
 
   // pantulan matahari/bulan
-  if (celY < HZ) {
+  if (celY < HZ && sunA > 0.05) {
+    ctx.globalAlpha = sunA;
     const refl = ctx.createLinearGradient(0, HZ, 0, H);
     const col = isMoon ? "220,230,255" : "255,226,160";
     refl.addColorStop(0, `rgba(${col},.45)`); refl.addColorStop(1, `rgba(${col},0)`);
@@ -657,15 +665,16 @@ function draw() {
       if (y < HZ + 1) break;
       ctx.fillRect(celX - ww / 2 + Math.sin(G.t * 2 + i * 1.7) * 8, y - (2 / z) * 3, ww, Math.max(1, 6 / z));
     }
+    ctx.globalAlpha = 1;
   }
 
   // ombak
-  const waveCol = dk > 0.5 ? "rgba(160,190,230," : "rgba(255,255,255,";
+  const waveCol = dk > 0.5 ? "rgba(160,190,230," : "rgba(255,255,255,", wk = NW.weather ? NW.weather.waterK() : 1; // angin & hujan: permukaan air lebih aktif
   ctx.lineCap = "round";
   for (const w of waves) {
-    const y = projY(w.z), x = projX(w.x + Math.sin(G.t * 0.8 + w.p) * 0.05, w.z), s = projS(w.z);
-    const len = 36 * s * w.l * U * (W / 800);
-    ctx.strokeStyle = waveCol + (0.12 + 0.35 * s).toFixed(3) + ")";
+    const y = projY(w.z), x = projX(w.x + Math.sin(G.t * (0.8 * (0.8 + 0.2 * wk)) + w.p) * 0.05 * wk, w.z), s = projS(w.z);
+    const len = 36 * s * w.l * U * (W / 800) * (0.9 + 0.1 * wk);
+    ctx.strokeStyle = waveCol + Math.min(0.7, (0.12 + 0.35 * s) * (0.85 + 0.15 * wk)).toFixed(3) + ")";
     ctx.lineWidth = Math.max(0.6, 3 * s * U);
     ctx.beginPath(); ctx.moveTo(x - len, y); ctx.quadraticCurveTo(x, y - 4 * s * U, x + len, y); ctx.stroke();
   }
@@ -673,6 +682,7 @@ function draw() {
   g = ctx.createLinearGradient(0, HZ - 4, 0, HZ + 30 * U);
   g.addColorStop(0, rgba(mix(L.fog, "#0a1830", dk), 0.55)); g.addColorStop(1, rgba(mix(L.fog, "#0a1830", dk), 0));
   ctx.fillStyle = g; ctx.fillRect(0, HZ - 4, W, 34 * U);
+  if (NW.weather) NW.weather.fishFog(ctx, W, H, HZ, wxa, dk); // kabut cuaca: tebal di jauh, tipis di dekat pelampung
 
   // bayangan ikan
   if (G.shadow && G.phase === "waiting") {
@@ -726,6 +736,7 @@ function draw() {
     ctx.fillStyle = "#e0b84c"; ctx.fillText("!", sx, sy - 40 * U - bounce);
   }
 
+  if (NW.weather) NW.weather.fishRain(ctx, W, H, HZ, G.t, U, wxa); // hujan tipis + riak (di belakang UI)
   // gelap malam (vignette)
   if (dk > 0) {
     g = ctx.createRadialGradient(W / 2, H * 0.75, H * 0.2, W / 2, H * 0.6, H);
@@ -927,7 +938,8 @@ function bobberScreen() {
 function drawLineAndBobber() {
   if (!G.bob.vis) return;
   const tip = rodTip(), b = bobberScreen();
-  const bobY = b.y + Math.sin(G.t * 2.2) * 1.5 * b.s * U + G.bob.sink * 10 * b.s * U;
+  const bk = NW.weather ? NW.weather.bobK() : 1; // pelampung bergoyang lebih besar saat berangin/hujan (visual; tidak memengaruhi gigitan atau pertarungan)
+  const bobY = b.y + Math.sin(G.t * 2.2) * 1.5 * b.s * U * bk + G.bob.sink * 10 * b.s * U;
   // senar: kendur saat menunggu, tegang saat tarik-ulur
   const tension = G.fight ? G.fight.T : G.phase === "bite" ? 0.4 : 0;
   const sag = (1 - clamp(tension, 0, 1)) * 60 * U;
@@ -1097,7 +1109,8 @@ function refreshClock() {
   if (s === lastClock) return; lastClock = s;
   $("clock").textContent = s.split("|")[0];
   $("dayLabel").textContent = "Hari " + S.day;
-  $("clockIcon").textContent = isNight() ? "🌙" : (S.hour < 7.5 || S.hour > 17 ? "🌅" : "☀️");
+  const wk = NW.weather ? NW.weather.state.kind : "cerah";
+  $("clockIcon").textContent = wk === "hujan" ? "🌧️" : wk === "kabut" ? "🌫️" : wk === "mendung" ? (isNight() ? "☁️" : "⛅") : isNight() ? "🌙" : (S.hour < 7.5 || S.hour > 17 ? "🌅" : "☀️");
 }
 
 // Kartu tangkapan
@@ -1388,6 +1401,7 @@ $("startBtn").addEventListener("click", () => {
 
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (started && NW.weather) NW.weather.update(dt);
   if (MODE === "world") {
     G.t += dt;
     if (started) { NW.world.update(dt); if (NW.audioDirector) NW.audioDirector.frame(dt); }
