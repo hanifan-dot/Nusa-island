@@ -53,8 +53,10 @@ const cur = () => (CH[st().bab] ? CH[st().bab].steps[st().step] : null);
 const done = () => st().bab > 3;
 const awaits = (who) => { const c = cur(); return !!c && c.kind === "talk" && c.who === who; };
 function advance() {
-  const s = st(); s.step++;
+  const s = st(); s.step++; const b0 = s.bab;
   if (!CH[s.bab] || s.step >= CH[s.bab].steps.length) { s.doneAt[s.bab] = Date.now(); s.bab++; s.step = 0; }
+  // Bumbu 2.1: musik pendek — bab selesai / misi baru / langkah biasa (finale punya jingle sendiri)
+  if (s.bab > b0) { if (s.bab <= 3) N().sfx("bab_selesai"); } else N().sfx(s.bab === 1 && s.step === 1 ? "misi_baru" : "ok");
   N().save(); W().updateHint();
   const c = cur();
   if (c) N().toast(c.kind === "talk" ? `📖 ${c.goal} ❗` : `📖 ${c.goal}`, "good");
@@ -194,7 +196,7 @@ function storyTalk(n, open) {
     if (at(2, 2)) return D(["Ketemu semua? SABAR, TENANG, dan MEMBERI…", "Hmm, itu pasti pesan untuk Pak Raka. Tapi sebelum kita ke sana…", "Bou Maya, eh, Bu Maya (bibiku), jaring kerambanya sobek kena kayu hanyut. Bantu tambal, yuk? Keramba ada di tepi danau di utara pasar."],
       [{ label: "🕸️ Ayo bantu Bu Maya", act: () => advance() }]);
     if (at(2, 4)) return D(["Kata Bu Maya, tambalanmu rapi sekali! Ikan-ikannya tidak ada yang lolos.", "Ini untukmu: lencana penjelajah buatanku sendiri. Aku menjahitnya dari kain sisa.", "Sekarang bawa pesan Ompung ke Pak Raka, ya. Dia pasti tahu artinya."],
-      [{ label: "🧭 Terima lencana", act: () => { claim("bab2", () => { S().money += 250; NW.adv.award({ id: "toba:lencana", icon: "🧭", name: "Sahabat Penjelajah Nala", desc: "Lencana kain jahitan Nala untuk teman yang membantu menemukan tiga tanda Ompung.", kind: "lencana" }); NW.adv.addNote({ id: "toba:bab2", area: "toba", title: "Tiga Tanda Ompung", text: "Bersama Nala, aku menemukan tiga ukiran: SABAR di Bukit Pandang, TENANG di Sudut Tenang Danau, MEMBERI di Pancuran Batu. Aku juga membantu menambal jaring keramba Bu Maya." }); N().toast("📖 Bab 2 selesai! +🪙250 · Lencana Sahabat Penjelajah", "good"); }); advance(); } }]);
+      [{ label: "🧭 Terima lencana", act: () => { claim("bab2", () => { S().money += 250; NW.adv.award({ id: "toba:lencana", icon: "🧭", name: "Sahabat Penjelajah Nala", desc: "Lencana kain jahitan Nala untuk teman yang membantu menemukan tiga tanda Ompung.", kind: "lencana" }); NW.adv.addNote({ id: "toba:bab2", area: "toba", title: "Tiga Tanda Ompung", text: "Bersama Nala, aku menemukan tiga ukiran: SABAR di Bukit Pandang, TENANG di Sudut Tenang Danau, MEMBERI di Pancuran Batu. Aku juga membantu menambal jaring keramba Bu Maya." }); N().toast("📖 Bab 2 selesai! +🪙250 · Lencana Sahabat Penjelajah", "good"); N().sfx("penghargaan"); }); advance(); } }]);
   }
   return false;
 }
@@ -211,7 +213,7 @@ function finale(n) {
   // lentera-lentera cahaya naik dari danau + sorotan kamera, lalu kartu penghargaan
   glow.t = 0; glow.items = []; for (let i = 0; i < 16; i++) glow.items.push({ x: 14 + Math.random() * 12, y: 4 + Math.random() * 7, d: Math.random() * 1.6, sp: 0.7 + Math.random() * 0.6, ph: Math.random() * 6 });
   W().look({ x: 19, y: 8, z: 30, zoom: 0.9, dur: 5.2, caption: "✨ Cahaya kecil naik dari permukaan danau…", done: () => awardCard() });
-  N().tone(523, 0.18, "triangle", 0.09); N().tone(659, 0.18, "triangle", 0.09, null, 0.18); N().tone(784, 0.35, "triangle", 0.09, null, 0.36); N().tone(1047, 0.5, "triangle", 0.08, null, 0.6);
+  N().sfx("penghargaan"); if (NW.audioDirector) NW.audioDirector.setScene("cerita"); // musik cerita sampai kartu penghargaan ditutup
 }
 function awardCard() {
   let w = $("awardWrap");
@@ -220,8 +222,8 @@ function awardCard() {
     w.innerHTML = `<div class="net-card award-card"><div class="award-ic">🏅</div><h3>Penjelajah Tepian Toba</h3><p>Cerita <b>Rahasia Tepian Danau</b> selesai!<br>Gelar petualangan ini tersimpan di 🧭 Buku Petualangan, terpisah dari 8 gelar tangkapan.</p><p class="muted">+🪙350 · catatan "Pesan dari Danau"</p><div class="net-row"><button class="btn ghost" id="awardBook">🧭 Buka Buku</button><button class="btn gold" id="awardOk">Terima kasih!</button></div></div>`;
     document.body.appendChild(w);
     const bye = () => W().openDialog({ name: "Pak Raka", avatar: "🧑🏽‍✈️", role: "Pemandu dermaga", npc: byId("raka").hidden ? null : byId("raka"), lines: ["Horas, Penjelajah Tepian Toba! Datanglah kapan saja. Danau ini selalu menunggumu."] });
-    w.querySelector("#awardOk").addEventListener("click", () => { N().sfx("click"); w.remove(); bye(); });
-    w.querySelector("#awardBook").addEventListener("click", () => { N().sfx("click"); w.remove(); N().openPanel("adventure"); });
+    w.querySelector("#awardOk").addEventListener("click", () => { N().sfx("click"); w.remove(); if (NW.audioDirector) NW.audioDirector.setScene(null); bye(); });
+    w.querySelector("#awardBook").addEventListener("click", () => { N().sfx("click"); w.remove(); if (NW.audioDirector) NW.audioDirector.setScene(null); N().openPanel("adventure"); });
   }
 }
 
@@ -339,7 +341,7 @@ function sit(t, api) {
 function lookout(api) {
   const cap = { pagi: "🔭 Kabut tipis menyelimuti danau. Di kejauhan, bukit-bukit hijau mulai disinari matahari.", siang: "🔭 Air danau biru membentang sampai ke kaki bukit di seberang.", sore: "🔭 Langit jingga memantul di permukaan danau. Perahu-perahu pulang ke dermaga.", malam: "🔭 Lampu-lampu rumah berkelip di tepi danau. Malam di Toba terasa sejuk." }[tod()];
   S().adv.best.views = (S().adv.best.views || 0) + 1; N().save();
-  api.player.dir = 7;
+  api.player.dir = 7; N().sfx("pemandangan");
   api.look({ x: 22, y: -2, z: 40, zoom: 0.78, dur: 5.6, caption: cap });
 }
 const stones = []; // animasi batu memantul (pemain & Nala)

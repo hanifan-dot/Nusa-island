@@ -1,5 +1,7 @@
 import time, json
 import os, tempfile
+import os as _os
+MUTED = "false" if _os.environ.get("NUSA_AUDIO") else "true"  # NUSA_AUDIO=1: jalankan dengan audio aktif (Bumbu 2.1)
 ROOT = "file://" + os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "index.html"))
 OUT = tempfile.mkdtemp(prefix="nusa-test-") + "/"
 from playwright.sync_api import sync_playwright
@@ -39,7 +41,7 @@ with sync_playwright() as p:
     ctx = b.new_context(viewport={"width": 1280, "height": 800}); pg = ctx.new_page()
     pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("console", lambda m: errs.append(m.text) if m.type == "error" else None)
     pg.goto(ROOT); time.sleep(0.6); pg.click("#startBtn"); time.sleep(0.4)
-    ev(pg, "window.__nusa.S.hour = 9; window.__nusa.S.muted = true; NW.world.npcs.forEach(NW.world.placeNPC)"); time.sleep(0.3)
+    ev(pg, "window.__nusa.S.hour = 9; window.__nusa.S.muted = " + MUTED + "; NW.world.npcs.forEach(NW.world.placeNPC)"); time.sleep(0.3)
     types = ev(pg, "window.__nusa.S.missions.list.map(m=>m.type)")
     ok("hari 1: 3 misi perkenalan", types == ["catch_any", "talk", "sell"], types)
 

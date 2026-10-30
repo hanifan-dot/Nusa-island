@@ -5,6 +5,8 @@ Jalankan: python tests/browser/test_bumbu2.py
 Catatan: ini emulasi browser (Chromium headless), BUKAN HP Android fisik. Angka FPS hanya indikasi.
 """
 import time, json, os, sys, tempfile
+import os as _os
+MUTED = "false" if _os.environ.get("NUSA_AUDIO") else "true"  # NUSA_AUDIO=1: jalankan dengan audio aktif (Bumbu 2.1)
 from playwright.sync_api import sync_playwright
 sys.path.insert(0, os.path.dirname(__file__))
 import balance_sim
@@ -27,7 +29,7 @@ def fresh(b, **kw):
     ctx, pg, errs = page(b, None, **kw); ev(pg, "localStorage.clear()"); pg.reload(); time.sleep(0.7); start(pg); return ctx, pg, errs
 def start(pg):
     if pg.is_visible("#startBtn"): pg.click("#startBtn")
-    time.sleep(0.35); ev(pg, "window.__nusa.S.muted = true; document.getElementById('banner').classList.remove('show')")
+    time.sleep(0.35); ev(pg, "window.__nusa.S.muted = " + MUTED + "; document.getElementById('banner').classList.remove('show')")
 def S(pg, path="window.__nusa.S"): return ev(pg, f"JSON.parse(JSON.stringify({path}))")
 def goto(pg, x, y): ev(pg, "(a)=>{const p=NW.world.player;p.x=a[0];p.y=a[1];NW.world.snapCamera()}", [x, y]); time.sleep(0.35)
 def target(pg): return ev(pg, "NW.world.target ? NW.world.target.id : null")

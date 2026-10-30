@@ -103,33 +103,41 @@ function migrate() {
 }
 function save() { try { S.v = SAVE_VERSION; localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
 
-// ---------- Audio (WebAudio sederhana) ----------
+// ---------- Audio ----------
+// Bumbu 2.1: satu AudioContext milik NW.audio (audio/manager.js). Fungsi lama (tone, noise, SFX) tetap ada
+// dengan nama yang sama dan kini keluar lewat bus "Efek Suara". Bila modul audio baru tak tersedia,
+// kode lama di bawah tetap berfungsi dengan context sendiri (cadangan).
 let AC = null, noiseBuf = null;
 function initAudio() {
-  if (AC) return;
+  if (AC) { if (NW.audio) NW.audio.init(); return; }
   try {
+    if (NW.audio && NW.audio.init()) { AC = NW.audio.ctx; noiseBuf = NW.kit.noiseBuf(AC); return; }
+    if (NW.audio && NW.audio.failed) return;
     AC = new (window.AudioContext || window.webkitAudioContext)();
     noiseBuf = AC.createBuffer(1, AC.sampleRate * 0.6, AC.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   } catch (e) { AC = null; }
 }
+const audioOut = () => (NW.audio && NW.audio.sfxBus) || AC.destination;
 function tone(freq, dur, type = "sine", vol = 0.15, slideTo = null, delay = 0) {
   if (!AC || S.muted) return;
+  if (NW.audio && NW.audio.ready && !NW.audio.running) return;
   const t0 = AC.currentTime + delay;
   const o = AC.createOscillator(), g = AC.createGain();
   o.type = type; o.frequency.setValueAtTime(freq, t0);
   if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
   g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g).connect(AC.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+  o.connect(g).connect(audioOut()); o.start(t0); o.stop(t0 + dur + 0.02);
 }
 function noise(dur, freq = 800, vol = 0.2, q = 0.8) {
   if (!AC || S.muted) return;
+  if (NW.audio && NW.audio.ready && !NW.audio.running) return;
   const t0 = AC.currentTime;
   const src = AC.createBufferSource(); src.buffer = noiseBuf;
   const f = AC.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
   const g = AC.createGain(); g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  src.connect(f).connect(g).connect(AC.destination); src.start(t0); src.stop(t0 + dur);
+  src.connect(f).connect(g).connect(audioOut()); src.start(t0); src.stop(t0 + dur);
 }
 const SFX = {
   cast: () => noise(0.35, 1800, 0.12, 0.5),
@@ -148,6 +156,8 @@ const SFX = {
   coin: () => { tone(988, 0.08, "square", 0.07); tone(1319, 0.16, "square", 0.07, null, 0.08); },
   click: () => tone(660, 0.04, "sine", 0.06),
 };
+// Bumbu 2.1: nama yang sama kini dimainkan oleh NW.audio (lebih halus & jelas). Versi lama jadi cadangan.
+for (const k of Object.keys(SFX)) { const legacy = SFX[k]; SFX[k] = (...a) => { if (NW.audio && NW.audio.sfx(k, ...a)) return; legacy(...a); }; }
 
 // ---------- Canvas & proyeksi 2.5D ----------
 const cv = $("game"), ctx = cv.getContext("2d");
@@ -1141,7 +1151,10 @@ function registerPanel(name, def) { extraPanels[name] = def; }
 document.querySelectorAll(".nav button[data-panel]").forEach((b) => b.addEventListener("click", () => { SFX.click(); openPanel(b.dataset.panel); }));
 $("panelClose").addEventListener("click", closePanel);
 $("panelWrap").addEventListener("click", (e) => { if (e.target.id === "panelWrap") closePanel(); });
-$("muteBtn").addEventListener("click", () => { S.muted = !S.muted; save(); refreshHUD(); initAudio(); });
+$("muteBtn").addEventListener("click", () => {
+  S.muted = !S.muted; save(); refreshHUD(); initAudio(); if (NW.audio) NW.audio.setMuted(S.muted);
+  toast(S.muted ? "🔇 Semua suara dimatikan · tahan 🔊 untuk pengaturan" : "🔊 Suara hidup · tahan 🔊 untuk pengaturan");
+});
 $("dexBtn").addEventListener("click", () => { SFX.click(); openPanel("dex"); });
 $("misiBtn").addEventListener("click", () => { SFX.click(); openPanel("missions"); });
 $("landBtn").addEventListener("click", () => {
@@ -1173,6 +1186,7 @@ $("panelBody").addEventListener("click", (e) => {
   if (act === "buy") buy(arg, el.dataset.lv === undefined ? undefined : +el.dataset.lv);
   if (act === "tab") { dexTab = arg; SFX.click(); renderPanel(); }
   if (act === "go") travel(+arg);
+  if (act === "audio" && NW.audioPanel) { closePanel(); NW.audioPanel.open(); }
   if (extraPanels[currentPanel] && extraPanels[currentPanel].act) extraPanels[currentPanel].act(act, arg, el);
 });
 
@@ -1246,7 +1260,7 @@ function dexHTML() {
 }
 
 function mapHTML() {
-  let h = `<p class="muted">Upgrade kapal di Toko untuk membuka pulau baru. Tiap lokasi punya ikan khas.</p>`;
+  let h = `<p class="muted">Upgrade kapal di Toko untuk membuka pulau baru. Tiap lokasi punya ikan khas.</p>${NW.audioPanel ? `<p><button class="btn ghost small" data-act="audio">🔊 Pengaturan Suara</button></p>` : ""}`;
   LOCATIONS.forEach((L, i) => {
     const locked = upLvl("boat") + 1 < L.boat, here = i === S.loc;
     const got = FISH.filter((f) => f.loc === L.id && S.dex[f.id]).length, tot = FISH.filter((f) => f.loc === L.id).length;
@@ -1309,7 +1323,8 @@ function marketTip() {
 
 // ---------- Mulai ----------
 $("startBtn").addEventListener("click", () => {
-  initAudio(); SFX.click();
+  initAudio(); SFX.click(); // gestur pemain yang sah: audio baru boleh aktif di sini
+  if (NW.audio) NW.audio.setMuted(!!S.muted);
   started = true; $("splash").classList.add("hidden"); updateHint();
   NW.world.onEnter("start", NW.areas.cur.id); // tampilkan judul lokasi
 });
@@ -1318,7 +1333,7 @@ function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   if (MODE === "world") {
     G.t += dt;
-    if (started) NW.world.update(dt);
+    if (started) { NW.world.update(dt); if (NW.audioDirector) NW.audioDirector.frame(dt); }
     NW.world.draw(ctx, G.t);
   } else {
     if (started) update(dt); else { G.t += dt; for (const c of clouds) c.x = (c.x + c.v * dt) % 1.2; }
@@ -1334,7 +1349,9 @@ window.Nusa = {
   isPanelOpen: () => !$("panelWrap").classList.contains("hidden") || !$("catchWrap").classList.contains("hidden") || !$("shareWrap").classList.contains("hidden") || !!($("aqWrap") && !$("aqWrap").classList.contains("hidden")),
   openPanel, enterFishing, goWorld, travel, canSail, tickTime, darkness, goldenHour, isNight, marketTip, setHint, save, toast,
   coolerFull: () => S.cooler.length >= coolerCap(),
-  sfx: (n) => { initAudio(); if (SFX[n]) SFX[n](); },
+  sfx: (n, a) => { initAudio(); if (NW.audio && NW.audio.sfx(n, a)) return; if (SFX[n]) SFX[n](a); },
+  // keadaan mancing untuk audio (tanpa rarity/berat ikan, supaya suara tidak membocorkan hasil)
+  fishState: () => { const F = G.fight; return { phase: G.phase, T: F ? F.T : 0, surge: !!(F && F.surge > 0), tired: !!(F && F.tiredT > 0 && !(F.surge > 0)), warn: !!(F && F.T > 0.82) }; },
   tone, on, emit, registerPanel, renderPanel: () => currentPanel && renderPanel(), currentPanel: () => currentPanel, closePanel,
   sleepUntilMorning, refreshHUD, drawFish, fishImg, priceOf, priceMult, fmt, fmtW, FISH_BY_ID, coolerCap, upLvl, trendHTML,
 };
@@ -1349,6 +1366,7 @@ NW.look.hook();                 // Bumbu 1.1: gelar tangkapan & nama pemain loka
 NW.inv.hook();                  // Bumbu 1.2: inventaris & pasar
 NW.hold.hook();                 // Bumbu 1.2: pamer ikan
 NW.adv.hook(isNewPlayer);       // Bumbu 2: Buku Petualangan, penemuan tempat, perjalanan antardaerah
+if (NW.audioDirector) NW.audioDirector.hook(); // Bumbu 2.1: pengarah musik & suasana
 if (NW.toba) NW.toba.hook();               // Bumbu 2: cerita "Rahasia Tepian Danau" (tantangan ikan jurung)
 if (loadNote) setTimeout(() => toast(loadNote), 1200);
 save(); // simpan hasil migrasi (data lama sudah dicadangkan)

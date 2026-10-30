@@ -606,3 +606,24 @@ body.mode-fish .hold-stop, body.editing .hold-stop { display: none !important; }
 .award-card .award-ic { font-size: 46px; line-height: 1; animation: awardPop .6s cubic-bezier(.2, 1.6, .4, 1) both; }
 .award-card h3 { font-size: 22px; }
 @keyframes awardPop { from { transform: scale(.3) rotate(-20deg); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ---------- Bumbu 2.1: Pengaturan Suara (kartu kecil, bukan layar penuh) ---------- */
+.audio-pop {
+  position: fixed; z-index: 40; right: 8px; top: calc(env(safe-area-inset-top, 0px) + 46px);
+  width: min(300px, calc(100vw - 16px)); max-height: min(70vh, 520px); overflow: auto; -webkit-overflow-scrolling: touch;
+  background: rgba(250, 247, 238, .97); color: var(--ink); border-radius: 16px; box-shadow: var(--shadow);
+  padding: 10px 12px 12px; font-size: 13px; touch-action: pan-y;
+}
+.ap-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.ap-x { border: 0; background: rgba(23,63,80,.1); color: var(--ink); width: 28px; height: 28px; border-radius: 50%; font-size: 14px; cursor: pointer; }
+.ap-s { display: grid; grid-template-columns: 1fr 38px; gap: 0 8px; align-items: center; margin: 7px 0; }
+.ap-s span { grid-column: 1 / 3; font-weight: 600; }
+.ap-s input[type=range] { width: 100%; accent-color: var(--teal); height: 26px; touch-action: pan-x; }
+.ap-s output { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.ap-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.ap-b { border: 0; border-radius: 10px; padding: 7px 10px; background: rgba(87,155,139,.18); color: var(--ink); font: inherit; cursor: pointer; }
+.ap-b.big { flex: 1 1 100%; padding: 9px 10px; font-weight: 700; background: var(--gold); color: #3b2a05; }
+.ap-b.on, .ap-b:active { background: var(--teal); color: #fff; }
+.ap-note { margin: 4px 0 0; font-size: 11.5px; color: var(--ink-2); }
+.ap-det summary { cursor: pointer; font-weight: 700; padding: 6px 0; }
+.ap-g b { display: block; margin-top: 8px; color: var(--ink-2); font-size: 12px; }

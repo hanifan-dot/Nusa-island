@@ -81,7 +81,7 @@ function discover(d, ar) {
   A().found[d.id] = Date.now();
   N().save();
   showDiscover(`✨ Lokasi ditemukan: ${d.name}`);
-  N().tone(784, 0.12, "triangle", 0.08); N().tone(1175, 0.22, "triangle", 0.07, null, 0.1);
+  if (NW.audio) N().sfx("temuan"); else { N().tone(784, 0.12, "triangle", 0.08); N().tone(1175, 0.22, "triangle", 0.07, null, 0.1); }
   fx.length = 0; for (let i = 0; i < 14; i++) fx.push({ x: d.x, y: d.y, a: Math.random() * 6.28, r: 0.2 + Math.random() * 1.2, z: 10 + Math.random() * 40, t: 0, life: 1.4 + Math.random() * 0.8 });
   if (ar.hooks && ar.hooks.onDiscover) ar.hooks.onDiscover(d);
   refreshBadge();
@@ -140,7 +140,8 @@ function voyage(area, arrive) {
   el.querySelector(".vg-sub").textContent = `${UPGRADES.boat.levels[N().upLvl("boat")]} · dari ${from.name}${home ? "" : ` · turun di ${area.name}`}`;
   el.classList.remove("hidden"); requestAnimationFrame(() => el.classList.add("on"));
   vg = { t: 0, dur: 2.7, arrived: false, arrive, el, cv, last: performance.now(), area };
-  N().sfx("click"); N().tone(330, 0.5, "sine", 0.05, 392);
+  N().sfx("click"); if (!NW.audio) N().tone(330, 0.5, "sine", 0.05, 392);
+  if (NW.audioDirector) NW.audioDirector.onVoyage(true, area.name); // musik asal turun, bunyi kapal & air naik
   requestAnimationFrame(vgFrame);
   return true;
 }
@@ -152,7 +153,9 @@ function vgFrame(now) {
   if (vg.t >= vg.dur) {
     const el = vg.el; el.classList.remove("on");
     setTimeout(() => el.classList.add("hidden"), 320);
-    vg = null; N().toast(`⛵ Tiba di ${NW.areas.cur.name}`, "good"); return;
+    vg = null; N().toast(`⛵ Tiba di ${NW.areas.cur.name}`, "good");
+    if (NW.audioDirector) NW.audioDirector.onVoyage(false); // bunyi kapal mereda, musik tujuan masuk perlahan
+    return;
   }
   requestAnimationFrame(vgFrame);
 }

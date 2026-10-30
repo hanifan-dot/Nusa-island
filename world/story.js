@@ -70,10 +70,11 @@ const curStep = () => (CH[st().ch] ? CH[st().ch].steps[st().step] : null);
 const awaitsDarto = () => { const s = curStep(); return !!s && (s.kind === "talk" || (s.kind === "mats" && allMats())); };
 const allMats = () => { const m = st().mats; return m.benang && m.bambu && m.damar; };
 function advance() {
-  const s = st(); s.step++;
+  const s = st(); s.step++; const c0 = s.ch;
   if (!CH[s.ch] || s.step >= CH[s.ch].steps.length) { s.doneAt[s.ch] = Date.now(); s.ch++; s.step = 0; }
   N().save(); N().refreshHUD(); refreshUI();
   const c = curStep();
+  N().sfx(s.ch > c0 ? "bab_selesai" : c && c.kind !== "talk" ? "misi_baru" : "ok"); // Bumbu 2.1: motif cerita
   if (c && c.kind !== "talk") N().toast(`📖 ${c.goal}`, "good");
   else if (c) N().toast("📖 Cerita berlanjut: temui Pak Darto ❗");
 }
@@ -340,10 +341,10 @@ function panelHTML() {
   }
   if (s.ch > 4) h += `<p class="muted">Cerita selesai. Joran Warisan terpajang di Rumahku dan papan kenangan berdiri di sudut dermaga.</p>`;
   h += `</div><p class="muted">Cerita bisa dilanjutkan kapan saja, tidak ada batas waktu. Progres tersimpan otomatis.</p>
-    <div class="row"><div class="grow">🔊 Suara</div><button class="btn small" data-act="mute">${S().muted ? "Nyalakan" : "Matikan"}</button></div>`;
+    <div class="row"><div class="grow">🔊 Suara</div>${NW.audioPanel ? `<button class="btn small ghost" data-act="audioSet">🎚️ Atur</button> ` : ""}<button class="btn small" data-act="mute">${S().muted ? "Nyalakan" : "Matikan"}</button></div>`;
   return h;
 }
-function panelAct(a, arg, el) { if (NW.look.act(a, arg, el)) return; if (a === "mute") { S().muted = !S().muted; N().save(); N().refreshHUD(); N().renderPanel(); } }
+function panelAct(a, arg, el) { if (NW.look.act(a, arg, el)) return; if (a === "mute") { S().muted = !S().muted; N().save(); N().refreshHUD(); N().renderPanel(); if (NW.audio) NW.audio.setMuted(S().muted); } if (a === "audioSet" && NW.audioPanel) { N().closePanel(); NW.audioPanel.open(); } }
 
 // ---------- Event dari mancing ----------
 function hook(isNewPlayer) {
