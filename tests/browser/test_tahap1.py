@@ -138,11 +138,12 @@ with sync_playwright() as p:
     pg.evaluate("window.__nusa.S.up.boat = 1")
     pg.keyboard.press("e"); time.sleep(0.4)
     ok("kapal membuka peta", pg.is_visible("#panelWrap") and "Peta" in pg.inner_text("#panelTitle"))
-    pg.click("[data-act=go][data-arg='1']"); time.sleep(0.6)
-    ok("berlayar ke Danau Toba (mode mancing)", mode(pg) == "fish" and pg.evaluate("window.__nusa.S.loc") == 1)
+    pg.click("[data-act=go][data-arg='1']"); time.sleep(3.6)
+    # Bumbu 2: Danau Toba kini punya area jelajah → tiba di Kampung Tepian Toba (mancing lewat titik di dermaga)
+    ok("berlayar ke Danau Toba (tiba di Kampung Tepian Toba)", mode(pg) == "world" and pg.evaluate("window.__nusa.S.loc") == 1 and pg.evaluate("NW.areas.cur.id") == "toba")
     pg.screenshot(path=OUT + "t_toba.png")
-    pg.click("#landBtn"); time.sleep(0.3); pg.click("[data-act=go][data-arg='0']"); time.sleep(0.6)
-    ok("pulang ke Muara lewat peta", mode(pg) == "world" and pg.evaluate("window.__nusa.S.loc") == 0)
+    pg.evaluate("window.Nusa.openPanel('map')"); time.sleep(0.3); pg.click("[data-act=go][data-arg='0']"); time.sleep(3.6)
+    ok("pulang ke Muara lewat peta", mode(pg) == "world" and pg.evaluate("window.__nusa.S.loc") == 0 and pg.evaluate("NW.areas.cur.id") == "muara")
 
     # ---------- Malam ----------
     pg.evaluate("window.__nusa.S.hour = 21"); tp(pg, 22.5, 20.6); time.sleep(0.5)

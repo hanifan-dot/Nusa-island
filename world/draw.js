@@ -4,7 +4,8 @@
 // =========================================================
 (() => {
 "use strict";
-const { T, MW, MH, tileAt, isLandT, hash2, islandD, DOCK } = NW;
+const { T, isLandT, hash2 } = NW;
+const A = () => NW.areas.cur; // Bumbu 2: semua gambar peta mengikuti AREA AKTIF
 const HW = NW.TW / 2, HH = NW.TH / 2;
 const LIFT = 6; // daratan sedikit lebih tinggi dari air
 
@@ -25,24 +26,36 @@ const COL = {
   path: "#dcbd8a", pathEdge: "#c7a370", dock: "#b27d48", dockDark: "#7d532c",
 };
 function waterColor(x, y) {
-  const d = islandD(x + 0.5, y + 0.5);
+  const th = A().theme; if (th && th.waterColor) return th.waterColor(x, y);
+  const d = A().map.islandD(x + 0.5, y + 0.5);
   const k = clamp((d - 0.98) / 0.32, 0, 1);
   return k < 0.5 ? mix(COL.shallow, COL.mid, k * 2) : mix(COL.mid, COL.deep, (k - 0.5) * 2);
 }
 
-// ---------- Cache terrain ----------
+// ---------- Cache terrain (satu kanvas untuk area aktif; dibangun ulang saat pindah area) ----------
 const PAD = 90;
-const BOUNDS = { x0: -MH * HW - PAD, y0: -PAD - LIFT, x1: MW * HW + PAD, y1: (MW + MH) * HH + PAD };
-let terrain = null, terrainScale = 0;
-
+let BOUNDS = null, terrain = null, terrainScale = 0, terrainArea = null, terrainWant = 0;
+function boundsOf(a) {
+  const { MW, MH } = a.map, e = (a.theme && a.theme.extend) || {};
+  return { x0: -MH * HW - PAD - (e.left || 0), y0: -PAD - LIFT - (e.top || 0), x1: MW * HW + PAD + (e.right || 0), y1: (MW + MH) * HH + PAD + (e.bottom || 0) };
+}
+// batas piksel kanvas cache supaya aman di HP (kanvas raksasa bisa gagal dibuat / boros memori)
+const MAX_PX = 12.5e6;
 function buildTerrain(scale) {
-  const c = document.createElement("canvas");
-  c.width = Math.ceil((BOUNDS.x1 - BOUNDS.x0) * scale);
-  c.height = Math.ceil((BOUNDS.y1 - BOUNDS.y0) * scale);
+  terrainWant = scale;
+  const a = A(), m = a.map, th = a.theme || {};
+  BOUNDS = boundsOf(a);
+  const bw = BOUNDS.x1 - BOUNDS.x0, bh = BOUNDS.y1 - BOUNDS.y0;
+  scale = Math.min(scale, Math.sqrt(MAX_PX / (bw * bh)));
+  const c = terrain && terrainArea !== null ? terrain : document.createElement("canvas"); // pakai ulang kanvas lama (hemat memori)
+  c.width = Math.ceil(bw * scale);
+  c.height = Math.ceil(bh * scale);
   const g = c.getContext("2d");
   g.setTransform(scale, 0, 0, scale, -BOUNDS.x0 * scale, -BOUNDS.y0 * scale);
-  g.fillStyle = COL.deep; g.fillRect(BOUNDS.x0, BOUNDS.y0, BOUNDS.x1 - BOUNDS.x0, BOUNDS.y1 - BOUNDS.y0);
-
+  g.clearRect(BOUNDS.x0, BOUNDS.y0, bw, bh);
+  if (!th.clearBg) { g.fillStyle = th.deep || COL.deep; g.fillRect(BOUNDS.x0, BOUNDS.y0, bw, bh); } // clearBg: latar digambar tiap frame (mis. bukit jauh)
+  const { MW, MH, tileAt } = m;
+  if (th.backdrop) th.backdrop(g, terrainKit); // mis. perbukitan jauh di seberang danau
   // 1) air
   for (let s = 0; s < MW + MH; s++) for (let x = 0; x < MW; x++) {
     const y = s - x; if (y < 0 || y >= MH) continue;
@@ -51,21 +64,21 @@ function buildTerrain(scale) {
     poly(g, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); g.fill();
     g.strokeStyle = g.fillStyle; g.lineWidth = 1; g.stroke(); // tutup celah
   }
-  // bayangan dasar laut di sekitar pantai (air dangkal terlihat lebih terang)
   // 2) daratan, berurutan dari belakang ke depan
   for (let s = 0; s < MW + MH; s++) for (let x = 0; x < MW; x++) {
     const y = s - x; if (y < 0 || y >= MH) continue;
     const t = tileAt(x, y); if (!isLandT(t) || t === T.DOCK) continue;
-    drawLandTile(g, x, y, t);
+    if (th.landTile) th.landTile(g, x, y, t, terrainKit); else drawLandTile(g, x, y, t);
   }
   // 3) dermaga
-  drawDock(g);
-  // 4) petak bunga taman
-  for (const f of NW.flowerBeds) drawFlowerBed(g, f);
-  terrain = c; terrainScale = scale;
+  for (const D of m.docks || []) drawDock(g, D);
+  // 4) petak bunga / kebun
+  for (const f of m.flowerBeds || []) (f.kind === "kebun" && th.kebun ? th.kebun(g, f, terrainKit) : drawFlowerBed(g, f));
+  if (th.extras) th.extras(g, terrainKit);
+  terrain = c; terrainScale = scale; terrainArea = a.id;
 }
-
 function drawLandTile(g, x, y, t) {
+  const { tileAt, islandD } = A().map;
   const h = hash2(x, y);
   // sisi tebing kecil bila tetangga depan adalah air
   const sideCol = COL.sandSide;
@@ -116,29 +129,31 @@ function drawLandTile(g, x, y, t) {
   }
 }
 
-function drawDock(g) {
-  const { x0, x1, y0, y1 } = DOCK, Z = LIFT + 4, X1 = x1 + 1, Y1 = y1 + 1;
+// D = { x0, x1, y0, y1 (tile, inklusif), axis: "x" (memanjang ke timur) | "y" (memanjang ke utara/selatan) }
+function drawDock(g, D) {
+  const { x0, x1, y0, y1 } = D, Z = LIFT + 4, X1 = x1 + 1, Y1 = y1 + 1, ax = D.axis || "x";
   // tiang
   g.fillStyle = COL.dockDark;
-  for (let x = x0 + 1; x <= X1; x += 1.5) for (const y of [y0 + 0.05, Y1 - 0.05]) {
-    const a = P(x, y, Z), b = P(x, y, -8);
-    g.fillRect(a.x - 2.5, a.y, 5, b.y - a.y);
-  }
+  if (ax === "x") for (let x = x0 + 1; x <= X1; x += 1.5) for (const y of [y0 + 0.05, Y1 - 0.05]) { const a = P(x, y, Z), b = P(x, y, -8); g.fillRect(a.x - 2.5, a.y, 5, b.y - a.y); }
+  else for (let y = y0; y <= Y1 - 0.5; y += 1.5) for (const x of [x0 + 0.05, X1 - 0.05]) { const a = P(x, y, Z), b = P(x, y, -8); g.fillRect(a.x - 2.5, a.y, 5, b.y - a.y); }
   // sisi depan dermaga
   g.fillStyle = shade(COL.dock, -0.32);
   poly(g, [P(x0, Y1, Z), P(X1, Y1, Z), P(X1, Y1, Z - 5), P(x0, Y1, Z - 5)]); g.fill();
   g.fillStyle = shade(COL.dock, -0.42);
   poly(g, [P(X1, y0, Z), P(X1, Y1, Z), P(X1, Y1, Z - 5), P(X1, y0, Z - 5)]); g.fill();
-  // lantai papan
+  // lantai papan (melintang terhadap arah dermaga)
   g.fillStyle = COL.dock;
   poly(g, [P(x0, y0, Z), P(X1, y0, Z), P(X1, Y1, Z), P(x0, Y1, Z)]); g.fill();
   g.strokeStyle = shade(COL.dock, -0.25); g.lineWidth = 1;
-  for (let x = x0 + 0.33; x < X1; x += 0.33) { const a = P(x, y0, Z), b = P(x, Y1, Z); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
+  if (ax === "x") for (let x = x0 + 0.33; x < X1; x += 0.33) { const a = P(x, y0, Z), b = P(x, Y1, Z); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
+  else for (let y = y0 + 0.33; y < Y1; y += 0.33) { const a = P(x0, y, Z), b = P(X1, y, Z); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
   g.fillStyle = "rgba(255,255,255,.08)";
-  for (let x = x0; x < X1; x += 0.66) { poly(g, [P(x, y0, Z), P(x + 0.16, y0, Z), P(x + 0.16, Y1, Z), P(x, Y1, Z)]); g.fill(); }
+  if (ax === "x") for (let x = x0; x < X1; x += 0.66) { poly(g, [P(x, y0, Z), P(x + 0.16, y0, Z), P(x + 0.16, Y1, Z), P(x, Y1, Z)]); g.fill(); }
+  else for (let y = y0; y < Y1; y += 0.66) { poly(g, [P(x0, y, Z), P(X1, y, Z), P(X1, y + 0.16, Z), P(x0, y + 0.16, Z)]); g.fill(); }
   // tiang tambat di ujung
   g.fillStyle = COL.dockDark;
-  for (const [x, y] of [[X1 - 0.12, y0 + 0.12], [X1 - 0.12, Y1 - 0.12], [x0 + 3.5, Y1 - 0.1]]) {
+  const bitts = ax === "x" ? [[X1 - 0.12, y0 + 0.12], [X1 - 0.12, Y1 - 0.12], [x0 + 3.5, Y1 - 0.1]] : [[x0 + 0.12, y0 + 0.12], [X1 - 0.12, y0 + 0.12], [X1 - 0.1, y0 + 3.2]];
+  for (const [x, y] of bitts) {
     const a = P(x, y, Z); g.fillRect(a.x - 3, a.y - 12, 6, 12); g.fillStyle = shade(COL.dockDark, 0.2); g.beginPath(); g.ellipse(a.x, a.y - 12, 3, 1.5, 0, 0, 7); g.fill(); g.fillStyle = COL.dockDark;
   }
 }
@@ -158,21 +173,25 @@ function drawFlowerBed(g, f) {
   }
 }
 
+// perkakas untuk gambar terrain khusus area (dipakai theme.landTile / backdrop / extras)
+const terrainKit = { P, poly, mix, shade, rgba, clamp, LIFT, hash2, T, COL, drawLandTile, drawFlowerBed, HW, HH };
+
 // ---------- Lapisan animasi air ----------
 function drawWater(c, view, t) {
   // kilau ombak di tile air yang terlihat (termasuk di luar peta)
   const tx0 = Math.floor((view.x0 / HW + view.y0 / HH) / 2) - 2, tx1 = Math.ceil((view.x1 / HW + view.y1 / HH) / 2) + 2;
   const ty0 = Math.floor((view.y0 / HH - view.x1 / HW) / 2) - 2, ty1 = Math.ceil((view.y1 / HH - view.x0 / HW) / 2) + 2;
   c.lineCap = "round";
+  const tileAt = A().map.tileAt, spark = (A().theme && A().theme.sparkle) || 0.32, ok = (A().theme && A().theme.waterOk) || null;
   for (let y = ty0; y <= ty1; y++) for (let x = tx0; x <= tx1; x++) {
-    if (isLandT(tileAt(x, y))) continue;
+    if (isLandT(tileAt(x, y)) || (ok && !ok(x, y))) continue;
     const p = P(x + 0.5, y + 0.5);
     if (p.x < view.x0 - 40 || p.x > view.x1 + 40 || p.y < view.y0 - 30 || p.y > view.y1 + 30) continue;
     const h = hash2(x + 100, y + 100);
     const a = Math.sin(t * 1.4 + h * 6.28 + (x + y) * 0.45);
     if (a < 0.25) continue;
     const off = Math.sin(t * 0.7 + h * 9) * 6;
-    c.strokeStyle = `rgba(255,255,255,${((a - 0.25) * 0.32).toFixed(3)})`;
+    c.strokeStyle = `rgba(255,255,255,${((a - 0.25) * spark).toFixed(3)})`;
     c.lineWidth = 1.6;
     c.beginPath(); c.moveTo(p.x - 9 + off, p.y + h * 6 - 3); c.quadraticCurveTo(p.x + off, p.y + h * 6 - 6, p.x + 9 + off, p.y + h * 6 - 3); c.stroke();
   }
@@ -190,6 +209,7 @@ function drawWater(c, view, t) {
 }
 
 function drawTerrain(c, view) {
+  if (!terrain || terrainArea !== A().id) buildTerrain(terrainWant || 1);
   const s = terrainScale;
   const sx = (view.x0 - BOUNDS.x0) * s, sy = (view.y0 - BOUNDS.y0) * s;
   const sw = (view.x1 - view.x0) * s, sh = (view.y1 - view.y0) * s;
@@ -589,6 +609,7 @@ function drawBoat(c, o, t) {
   const bob = Math.sin(t * 1.5) * 1.5, roll = Math.sin(t * 1.1) * 0.03;
   const p = P(o.x, o.y);
   c.save(); c.translate(p.x, p.y + bob); c.rotate(roll);
+  if (o.flip) c.scale(-1, 1); // sejajar dermaga yang memanjang ke utara
   // riak
   c.strokeStyle = `rgba(255,255,255,${0.3 + 0.2 * Math.sin(t * 2)})`; c.lineWidth = 1.5; c.beginPath(); c.ellipse(0, 6, 60, 18, 0.46, 0, 7); c.stroke();
   // lambung (memanjang searah sumbu x → miring di layar)
@@ -605,15 +626,18 @@ function drawBoat(c, o, t) {
   c.fillStyle = "#e2342c"; c.fillRect(19, -62, 14, 5); c.fillStyle = "#ffffff"; c.fillRect(19, -57, 14, 5);
   c.restore();
   // tali tambat ke dermaga
-  const d = P(NW.DOCK.x0 + 3.5, NW.DOCK.y1 + 0.9, LIFT + 6);
-  c.strokeStyle = "#d8c49a"; c.lineWidth = 1; c.beginPath(); c.moveTo(d.x, d.y - 10); c.quadraticCurveTo((d.x + p.x) / 2, (d.y + p.y) / 2 + 6, p.x - 30, p.y - 14 + bob); c.stroke();
+  const tie = o.tie || { x: NW.DOCK.x0 + 3.5, y: NW.DOCK.y1 + 0.9 }, d = P(tie.x, tie.y, LIFT + 6);
+  const rx = p.x + (o.flip ? 30 : -30);
+  c.strokeStyle = "#d8c49a"; c.lineWidth = 1; c.beginPath(); c.moveTo(d.x, d.y - 10); c.quadraticCurveTo((d.x + rx) / 2, (d.y + p.y) / 2 + 6, rx, p.y - 14 + bob); c.stroke();
 }
 
 // ---------- Karakter ----------
+// tinggi pijakan: daratan + papan dermaga + tinggi bukit (Bumbu 2: Bukit Pandang bisa didaki)
+const groundZ = (x, y) => LIFT + (NW.tileAt(x, y) === NW.T.DOCK ? 4 : 0) + NW.heightAt(x, y);
 // dir: 0 E, 1 SE, 2 S, 3 SW, 4 W, 5 NW, 6 N, 7 NE (arah di layar)
 const DIRV = [[1, 0], [0.7, 0.7], [0, 1], [-0.7, 0.7], [-1, 0], [-0.7, -0.7], [0, -1], [0.7, -0.7]];
 function drawCharacter(c, ch, t) {
-  const b = P(ch.x, ch.y, ch.z !== undefined ? ch.z : LIFT + (NW.tileAt(ch.x, ch.y) === NW.T.DOCK ? 4 : 0));
+  const b = P(ch.x, ch.y, ch.z !== undefined ? ch.z : groundZ(ch.x, ch.y));
   const st = ch.style, [fx, fy] = DIRV[ch.dir];
   const moving = ch.moving, ph = ch.walk;
   const bob = moving ? Math.abs(Math.sin(ph)) * 2.2 : Math.sin(t * 2.2 + (ch.seed || 0)) * 0.6;
@@ -633,7 +657,13 @@ function drawCharacter(c, ch, t) {
   const leg = (x, lift) => { c.fillStyle = st.pants; c.fillRect(x - 2.4, y0 - 10 - lift, 4.8, 9); c.fillStyle = "#3a2a20"; c.fillRect(x - 2.6, y0 - 2 - lift, 5.2, 2.4); };
   const l1 = -spread + fx * swing, l2 = spread - fx * swing;
   const lift1 = moving ? Math.max(0, Math.sin(ph)) * 1.5 : 0, lift2 = moving ? Math.max(0, -Math.sin(ph)) * 1.5 : 0;
-  if (fx >= 0) { leg(l1, lift1); leg(l2, lift2); } else { leg(l2, lift2); leg(l1, lift1); }
+  if (ch.sit && !moving) { // Bumbu 2: duduk di bangku — paha ke depan, betis menjuntai, badan turun
+    for (const lx of fx >= 0 ? [-3, 3] : [3, -3]) {
+      c.fillStyle = st.pants; c.fillRect(lx - 2.4 + fx * 2, y0 - 9, 4.8, 4.2); c.fillRect(lx - 2.2 + fx * 5.5 + fy * 0.5, y0 - 7, 4.4, 5.5);
+      c.fillStyle = "#3a2a20"; c.fillRect(lx - 2.4 + fx * 5.5 + fy * 0.5, y0 - 2, 4.8, 2.2);
+    }
+    c.translate(0, 6);
+  } else if (fx >= 0) { leg(l1, lift1); leg(l2, lift2); } else { leg(l2, lift2); leg(l1, lift1); }
   if (hd) { // badan merendah & condong menahan beban (kaki tetap menapak)
     const lean = hd.p.lean * (Math.abs(fx) > 0.1 ? -Math.sign(fx) : 0) + (hd.p.id === "legenda" ? Math.sin(t * 17) * 0.05 : 0);
     c.translate(0, hd.crouch); if (lean) c.rotate(lean);
@@ -644,12 +674,15 @@ function drawCharacter(c, ch, t) {
   if (!side && !hd) { arm(-7.5, armSwing); }
   // ikan didekap di depan badan, dilihat dari belakang: dua ujungnya menyembul di sisi badan
   if (hd && HG.behind) NW.hold.drawFishBody(c, hd, HG);
+  if (st.pack && !back) { c.fillStyle = st.pack; c.fillRect(-fx * 6 - 5.5, y0 - 21, 11, 11); c.fillStyle = shade(st.pack, -0.25); c.fillRect(-fx * 6 - 5.5, y0 - 13, 11, 2); }
   // badan
   c.fillStyle = st.shirt;
   c.beginPath(); c.moveTo(-7, y0 - 9); c.lineTo(-7.5, y0 - 21); c.quadraticCurveTo(0, y0 - 25, 7.5, y0 - 21); c.lineTo(7, y0 - 9); c.closePath(); c.fill();
   c.fillStyle = shade(st.shirt, -0.15); c.fillRect(-7, y0 - 11, 14, 2.4);
   if (st.apron) { c.fillStyle = st.apron; c.fillRect(-5, y0 - 18, 10, 9); }
   if (!back && st.collar) { c.fillStyle = st.collar; c.beginPath(); c.moveTo(-3, y0 - 22); c.lineTo(0, y0 - 18); c.lineTo(3, y0 - 22); c.fill(); }
+  if (st.sash) { c.strokeStyle = st.sash; c.lineWidth = 3; c.beginPath(); c.moveTo(-6, y0 - 22); c.lineTo(5.5, y0 - 10.5); c.stroke(); if (st.sashLine) { c.strokeStyle = st.sashLine; c.lineWidth = 0.7; c.beginPath(); c.moveTo(-6, y0 - 21); c.lineTo(5.5, y0 - 9.5); c.stroke(); } }
+  if (st.pack && back) { c.fillStyle = st.pack; c.fillRect(-5.5, y0 - 21, 11, 11); c.fillStyle = shade(st.pack, -0.25); c.fillRect(-5.5, y0 - 13, 11, 2); c.fillStyle = shade(st.pack, 0.2); c.fillRect(-3.5, y0 - 19, 7, 3); }
   // lengan depan
   if (hd) NW.hold.drawArms(c, hd, HG, st, fx, y0);
   else if (side) arm(fx * -1.5, armSwing); else arm(7.5, -armSwing);
@@ -664,6 +697,16 @@ function drawCharacter(c, ch, t) {
     c.fillStyle = "#e2574c"; c.beginPath(); c.arc(9, y0 - 6, 1.6, 0, 7); c.fill();
   } else if (ch.prop === "basket") {
     c.fillStyle = "#b8864a"; c.fillRect(fx * 6 - 6, y0 - 15, 12, 7); c.fillStyle = "#8c9a8a"; c.beginPath(); c.ellipse(fx * 6, y0 - 15, 5, 2, 0, 0, 7); c.fill();
+  } else if (ch.prop === "binoc" && !moving) { // teropong (Nala)
+    c.fillStyle = "#2c3a40"; c.fillRect(fx * 3 - 4, y0 - 32, 3.4, 4); c.fillRect(fx * 3 + 0.6, y0 - 32, 3.4, 4);
+    c.fillStyle = "#9fd3e6"; c.fillRect(fx * 3 - 3.6, y0 - 31.5, 2.6, 1.4); c.fillRect(fx * 3 + 1, y0 - 31.5, 2.6, 1.4);
+  } else if (ch.prop === "paddle") { // dayung (Pak Raka)
+    c.strokeStyle = "#8a5a32"; c.lineWidth = 1.8; c.beginPath(); c.moveTo(fx * 7 + 3, y0 - 26); c.lineTo(fx * 7 + 5, y0 + 2); c.stroke();
+    c.fillStyle = "#a8743f"; c.beginPath(); c.ellipse(fx * 7 + 5, y0 - 1, 2.6, 5, 0.1, 0, 7); c.fill();
+  } else if (ch.prop === "bucket") { // ember pakan keramba (Bu Maya)
+    c.fillStyle = "#3f8fd0"; c.fillRect(fx * 7 - 4, y0 - 13, 8, 7); c.fillStyle = "#e6d29a"; c.beginPath(); c.ellipse(fx * 7, y0 - 13, 4, 1.4, 0, 0, 7); c.fill();
+  } else if (ch.prop === "stone") { // batu ceper siap dilempar
+    const k = (Math.sin(t * 2.6 + (ch.seed || 0)) + 1) / 2; c.fillStyle = "#9aa3a8"; c.beginPath(); c.ellipse(fx * (8 + k * 4), y0 - 16 - k * 6, 2.2, 1.3, 0, 0, 7); c.fill();
   } else if (ch.prop === "broom") {
     c.strokeStyle = "#8a5a32"; c.lineWidth = 1.6; const sw = Math.sin(t * 5) * 4; c.beginPath(); c.moveTo(fx * 5, y0 - 18); c.lineTo(fx * 10 + sw, y0 + 1); c.stroke();
     c.fillStyle = "#d9b45e"; c.beginPath(); c.moveTo(fx * 10 + sw - 4, y0 + 1); c.lineTo(fx * 10 + sw + 4, y0 + 1); c.lineTo(fx * 10 + sw, y0 - 5); c.fill();
@@ -676,6 +719,8 @@ function drawCharacter(c, ch, t) {
   }
   // kepala
   const hy = y0 - 30;
+  const pony = () => { const sw = moving ? Math.sin(ph) * 2 : Math.sin(t * 2 + (ch.seed || 0)) * 0.8; c.fillStyle = st.hair; c.beginPath(); c.ellipse((back ? 0 : -fx * 6) + sw, hy + (back ? 3 : 1), 2.6, 6, 0.25 * (fx || 0.4), 0, 7); c.fill(); };
+  if (st.hat === "pony" && !back) pony(); // kuncir di belakang kepala
   c.fillStyle = st.skin; c.beginPath(); c.arc(0, hy, 7.6, 0, 7); c.fill();
   if (st.hat !== "scarf") {
     c.fillStyle = st.hair;
@@ -701,6 +746,16 @@ function drawCharacter(c, ch, t) {
   } else if (st.hat === "cap") {
     c.fillStyle = st.hatCol; c.beginPath(); c.arc(0, hy - 3, 7.8, Math.PI, 0); c.fill();
     c.fillRect(back ? -fx * 2 - 4 : fx * 4 - 4, hy - 3.5, 8 + Math.abs(fx) * 3, 2.4);
+  } else if (st.hat === "fedora") { // topi lebar (Pak Raka, pemandu)
+    c.fillStyle = st.hatCol; c.beginPath(); c.ellipse(0, hy - 5.5, 11.5, 3.6, 0, 0, 7); c.fill();
+    c.beginPath(); c.moveTo(-6.5, hy - 5.5); c.lineTo(-5.5, hy - 12.5); c.quadraticCurveTo(0, hy - 14.5, 5.5, hy - 12.5); c.lineTo(6.5, hy - 5.5); c.closePath(); c.fill();
+    c.fillStyle = st.hatBand || "#5a3a20"; c.fillRect(-6.3, hy - 8.4, 12.6, 2);
+  } else if (st.hat === "bun") { // rambut disanggul (Bu Maya)
+    c.fillStyle = st.hair; c.beginPath(); c.arc(back ? 0 : -fx * 4, hy - 7.5, 3.8, 0, 7); c.fill();
+    if (st.hatCol) { c.fillStyle = st.hatCol; c.fillRect((back ? 0 : -fx * 4) - 3.6, hy - 6.4, 7.2, 1.4); }
+  } else if (st.hat === "pony") { // kuncir & bandana (Nala, penjelajah muda)
+    if (back) pony();
+    c.fillStyle = st.hatCol; c.beginPath(); c.arc(0, hy - 2.5, 7.9, Math.PI * 1.08, Math.PI * 1.92); c.lineTo(5, hy - 4.2); c.lineTo(-5, hy - 4.2); c.closePath(); c.fill();
   } else if (st.hat === "scarf") {
     c.fillStyle = st.hatCol;
     c.beginPath(); c.arc(0, hy - 1, 9, Math.PI * 0.95, Math.PI * 2.05); c.lineTo(8.5, hy + 8); c.quadraticCurveTo(0, hy + 12, -8.5, hy + 8); c.closePath(); c.fill();
@@ -756,8 +811,8 @@ function lightAt(c, x, y, z, r, col, a) {
 }
 
 Object.assign(NW, {
-  P, LIFT, COL, mix, shade, rgba, buildTerrain, drawTerrain, drawWater, getTerrainScale: () => terrainScale,
+  P, LIFT, COL, mix, shade, rgba, poly, buildTerrain, drawTerrain, drawWater, getTerrainScale: () => terrainWant, terrainInfo: () => ({ area: terrainArea, scale: terrainScale, w: terrain ? terrain.width : 0, h: terrain ? terrain.height : 0 }),
   drawHouse, drawShop, drawMarketBack, drawMarketFront, drawPalm, drawTree, drawBush, drawRock, drawLamp, drawSign,
-  drawBench, drawBoard, drawMailbox, drawKite, drawBamboo, drawCrate, drawBarrel, drawNet, drawWell, drawBoat, drawCharacter, drawBird, drawJump, drawButterfly, lightAt, DIRV,
+  groundZ, drawBench, drawBoard, drawMailbox, drawKite, drawBamboo, drawCrate, drawBarrel, drawNet, drawWell, drawBoat, drawCharacter, drawBird, drawJump, drawButterfly, lightAt, DIRV,
 });
 })();

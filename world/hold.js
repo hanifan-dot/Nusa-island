@@ -44,8 +44,8 @@ function start(uid) {
   const it = find(uid);
   if (!it) { N().toast("Ikan itu sudah tidak ada di coolbox", "bad"); return false; }
   if (!isShowable(it)) { N().toast("Yang ini tidak bisa dipamerkan", "bad"); return false; }
-  if (N().mode() !== "world") { // dari mode mancing: ke kampung dulu (hanya bila sedang di dermaga Muara Kampung)
-    if (S().loc !== 0) { N().toast("Pulang ke Muara Kampung dulu untuk memamerkan ikan", "bad"); return false; }
+  if (N().mode() !== "world") { // dari mode mancing: ke darat dulu (hanya di area yang bisa dijelajahi: Muara, Toba)
+    if (!NW.areas.forLoc(S().loc)) { N().toast("Kembali ke darat (Muara Kampung / Tepian Toba) dulu untuk memamerkan ikan", "bad"); return false; }
     N().goWorld("dock");
   }
   Object.assign(H, { uid, id: it.id, w: it.w, t0: performance.now() / 1000, tag: null });
@@ -54,7 +54,7 @@ function start(uid) {
 }
 function stop(reason) {
   if (!H.uid) return false;
-  const f = N().FISH_BY_ID[H.id], msg = { manual: "Ikan dimasukkan kembali ke coolbox", gone: "Ikan yang kamu pamerkan sudah tidak kamu miliki", fishing: null }[reason];
+  const f = N().FISH_BY_ID[H.id], msg = { manual: "Ikan dimasukkan kembali ke coolbox", gone: "Ikan yang kamu pamerkan sudah tidak kamu miliki", fishing: null, travel: "Ikan disimpan dulu di coolbox selama berlayar" }[reason];
   H.uid = null; H.id = null; H.tag = null;
   syncButton();
   if (msg) N().toast(msg + (reason === "manual" && f ? ` · ${f.name}` : ""), reason === "gone" ? "bad" : "");

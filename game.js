@@ -63,7 +63,7 @@ let S = DEFAULT();
 let MODE = "world", fishFrom = "dock";
 // Versi simpanan: 1 = Tahap 1, 2 = Tahap 2A, 3 = rumah 10 level + ikan ber-uid.
 // Sebelum migrasi, data lama disalin ke kunci cadangan sehingga tidak pernah hilang diam-diam.
-const SAVE_VERSION = 6; // 4 = Bumbu 1 (cerita, keahlian, petunjuk, ingatan NPC); 5 = Bumbu 1.1 (gelar tangkapan, nama pemain lokal); 6 = Bumbu 1.2 (coolbox & joran 10 tingkat, kunci ikan)
+const SAVE_VERSION = 7; // 4 = Bumbu 1 (cerita, keahlian, petunjuk, ingatan NPC); 5 = Bumbu 1.1 (gelar tangkapan, nama pemain lokal); 6 = Bumbu 1.2 (coolbox & joran 10 tingkat, kunci ikan); 7 = Bumbu 2 (petualangan: area terakhir, penemuan, cerita Toba, penghargaan)
 let loadNote = "", isNewPlayer = true;
 function backup(raw, tag) { try { const k = `${SAVE_KEY}-backup-${tag}`; if (!localStorage.getItem(k)) localStorage.setItem(k, raw); } catch (e) {} }
 function load() {
@@ -95,6 +95,8 @@ function migrate() {
     S.up[k] = Number.isFinite(v) ? Math.max(0, Math.min(max, v)) : 0;
   }
   for (const it of S.cooler) if (it && it.lock !== undefined && it.lock !== true) delete it.lock; // penanda kunci hanya boleh true
+  // Bumbu 2: data petualangan (S.adv) — hanya mengisi yang belum ada, tidak pernah menimpa progres lama
+  if (NW.adv) NW.adv.migrate(S);
   if (r.from === "2A") loadNote = "Rumahku diperbarui ke sistem 10 level. Semua perabot tetap ada.";
   S.v = SAVE_VERSION;
   return { home: r, fixed };
@@ -339,7 +341,8 @@ function landBobber() {
   updateHint();
 }
 function triggerBite() {
-  G.pending = (NW.story && NW.story.challengeFish(G.perfect, LOCATIONS[S.loc].id)) || chooseFish();
+  const locId = LOCATIONS[S.loc].id;
+  G.pending = (NW.story && NW.story.challengeFish(G.perfect, locId)) || (NW.adv && NW.adv.challengeFish(G.perfect, locId)) || chooseFish();
   G.phase = "bite"; G.biteWindow = 0.95 + upLvl("bait") * 0.05;
   G.bob.sink = 1; addRipple(G.bob.x, G.bob.z, 2); splashAt(G.bob.x, G.bob.z, 6);
   SFX.bite();
@@ -351,10 +354,10 @@ function startFight() {
   const pe = NW.FM.fightPower(fish, w, wr);                     // ikan ≤ 20 kg: sama persis seperti dulu
   const rodCap = UPGRADES.rod.cap[upLvl("rod")], om = NW.FM.overloadMuls(w, rodCap);
   G.fight = { fish, w, pe, big: NW.FM.bigness(w), weak: om.weak, riseMul: om.rise, reelMul: om.reel, T: 0.25, P: 0.18, surge: 0, surgeT: rand(0.8, 2), slack: 0, over: 0, fx: G.bob.x, fxT: G.bob.x, z0: G.bob.z,
-    challenge: !!G.pending.challenge, perfect: !!G.perfect, reads: 0, tired: 0, readWin: 0, readDone: true, tiredT: 0, tiredHold: 0, tiredDone: true, warn: false };
+    challenge: !!G.pending.challenge, quest: G.pending.quest || null, perfect: !!G.perfect, reads: 0, tired: 0, readWin: 0, readDone: true, tiredT: 0, tiredHold: 0, tiredDone: true, warn: false };
   $("tensionBar").classList.toggle("ideal", skill("kendali"));
   G.phase = "fight";
-  $("fightName").textContent = G.pending.challenge ? "🏆 Ikan uji Pak Darto!" : G.fight.weak ? "⚠️ Joran kurang kuat untuk ikan ini!" : fish.rarity === "legenda" ? "⚠️ Sesuatu yang BESAR…" : fish.rarity === "epik" ? "Tarikannya kuat!" : "Strike! 🎣";
+  $("fightName").textContent = G.pending.challenge ? "🏆 Ikan uji Pak Darto!" : G.pending.quest ? G.pending.questName || "🏆 Ikan tantangan!" : G.fight.weak ? "⚠️ Joran kurang kuat untuk ikan ini!" : fish.rarity === "legenda" ? "⚠️ Sesuatu yang BESAR…" : fish.rarity === "epik" ? "Tarikannya kuat!" : "Strike! 🎣";
   if (G.fight.weak) toast(`⚠️ Joran kurang kuat! Ikan ±${fmtW(w)}, batas joran ${UPGRADES.rod.cap[upLvl("rod")]} kg. Senar bisa putus.`, "bad");
   $("fightUI").classList.remove("hidden");
   setNavLocked(true);
@@ -363,7 +366,7 @@ function startFight() {
 }
 function endFight(result) {
   const F = G.fight;
-  emit("fight", { result, reads: F.reads, tired: F.tired, challenge: F.challenge, perfect: F.perfect, fish: F.fish, w: F.w });
+  emit("fight", { result, reads: F.reads, tired: F.tired, challenge: F.challenge, quest: F.quest, perfect: F.perfect, fish: F.fish, w: F.w });
   $("tensionBar").classList.remove("warn", "tired");
   $("fightUI").classList.add("hidden");
   $("tensionBar").classList.remove("shake");
@@ -773,7 +776,7 @@ function drawBoat(dk) {
   const hull = ["#7a5230", "#2f7a8c", "#c9553b", "#e9e4d8", "#1f3f5a"][boatLv];
   const trim = ["#5a3b22", "#f0d58a", "#f3e7c9", "#d14a3a", "#e0b84c"][boatLv];
   const night = (c) => mix(c, "#0a1426", dk * 0.6);
-  if (fishFrom === "dock" && S.loc === 0) drawDockFore(cx, by, B, night);
+  if (fishFrom === "dock" && NW.areas.forLoc(S.loc)) drawDockFore(cx, by, B, night); // mancing dari dermaga area yang bisa dijelajahi
   else {
   // badan perahu (tampak dari belakang, menyempit ke depan)
     const nearW = 250 * U, farW = 70 * U, farY = B - 210 * U;
@@ -1144,7 +1147,8 @@ $("misiBtn").addEventListener("click", () => { SFX.click(); openPanel("missions"
 $("landBtn").addEventListener("click", () => {
   if (["fight", "bite", "charging", "result"].includes(G.phase)) return;
   SFX.click();
-  if (S.loc === 0) goWorld("dock"); else openPanel("map");
+  // area yang bisa dijelajahi (Muara, Toba) → kembali ke darat; lokasi mancing saja → peta
+  if (NW.areas.forLoc(S.loc)) goWorld(fishFrom === "dock" ? "dock" : "boat"); else openPanel("map");
 });
 
 function openPanel(name) {
@@ -1248,21 +1252,29 @@ function mapHTML() {
     const got = FISH.filter((f) => f.loc === L.id && S.dex[f.id]).length, tot = FISH.filter((f) => f.loc === L.id).length;
     h += `<div class="map-item ${here ? "here" : ""} ${locked ? "locked" : ""}">
       <div class="sw" style="background:linear-gradient(180deg,${L.sky[0]} 0 45%,${L.water[0]} 46%,${L.water[1]})"></div>
-      <div class="grow"><b>${L.name}</b><div class="muted">${L.desc}</div><div class="muted">Koleksi ${got}/${tot}</div></div>
+      <div class="grow"><b>${L.name}</b><div class="muted">${L.desc}</div><div class="muted">Koleksi ${got}/${tot}${NW.areas.forLoc(i) ? ` · 🚶 Bisa dijelajahi: ${NW.areas.forLoc(i).name}` : ""}</div></div>
       ${here ? `<span class="muted">📍 Di sini</span>` : locked ? `<span class="muted">🔒 ${UPGRADES.boat.levels[L.boat - 1]}</span>` : `<button class="btn" data-act="go" data-arg="${i}">Berlayar</button>`}</div>`;
   });
   return h;
 }
+function canSail(i) { return !!LOCATIONS[i] && upLvl("boat") + 1 >= LOCATIONS[i].boat; } // syarat level kapal (data lama, tidak diubah)
 function travel(i) {
   closePanel();
-  if (i === 0) { // pulang ke Muara Kampung (pulau yang bisa dijelajahi)
-    if (MODE === "world") return;
-    S.hour = (S.hour + 1.5) % 24; goWorld("boat");
-    toast("⛵ Pulang ke Muara Kampung", "good"); return;
+  if (!canSail(i)) { toast(`🔒 Butuh ${UPGRADES.boat.levels[LOCATIONS[i].boat - 1]} untuk ke ${LOCATIONS[i].name}`, "bad"); return false; }
+  const area = NW.areas.forLoc(i);
+  if (area) { // Bumbu 2: lokasi dengan area jelajah (Muara, Toba) → berlayar singkat lalu turun di dermaga
+    if (MODE === "world" && NW.areas.cur === area) return false;
+    if (NW.hold) NW.hold.stop("travel");
+    NW.adv.voyage(area, () => {
+      S.hour = (S.hour + 1.5) % 24;
+      goWorld("boat", area.id);
+    });
+    return true;
   }
   S.loc = i; S.hour = (S.hour + 1.5) % 24;
   enterFishing("boat");
   toast(`⛵ Tiba di ${LOCATIONS[i].name}`, "good");
+  return true;
 }
 
 // ---------- Pindah mode ----------
@@ -1270,7 +1282,7 @@ function applyMode() {
   document.body.classList.toggle("mode-world", MODE === "world");
   document.body.classList.toggle("mode-fish", MODE === "fish");
   const lb = $("landBtn");
-  lb.innerHTML = S.loc === 0 ? "<span>🏝️</span>Ke Darat" : `<span>🗺️</span>Peta · ${LOCATIONS[S.loc].short}`;
+  lb.innerHTML = NW.areas.forLoc(S.loc) ? "<span>🏝️</span>Ke Darat" : `<span>🗺️</span>Peta · ${LOCATIONS[S.loc].short}`;
 }
 function resetFishing() {
   G.hot = null;
@@ -1281,13 +1293,14 @@ function enterFishing(from) {
   if (NW.hold) NW.hold.stop("fishing"); // joran di tangan: berhenti memamerkan ikan
   MODE = "fish"; fishFrom = from;
   if (NW.story) NW.story.mark("fish");
-  if (from === "dock") S.loc = 0;
+  if (from === "dock") S.loc = NW.areas.cur.locIndex; // mancing dari titik mancing area aktif (Muara / Toba)
   resetFishing(); buildScenery(); applyMode(); refreshHUD(); updateHint(); save();
 }
-function goWorld(at) {
-  MODE = "world"; S.loc = 0;
-  resetFishing(); buildScenery(); applyMode(); refreshHUD();
-  NW.world.onEnter(at); updateHint(); save();
+function goWorld(at, areaId) {
+  const area = (areaId && NW.areas.get(areaId)) || NW.areas.forLoc(S.loc) || NW.areas.cur;
+  MODE = "world"; S.loc = area.locIndex;
+  resetFishing(); buildScenery(); applyMode();
+  NW.world.onEnter(at, area.id); refreshHUD(); updateHint(); save();
 }
 function marketTip() {
   const hot = FISH.filter((f) => f.loc === "muara").map((f) => ({ f, m: priceMult(f.id) })).sort((a, b) => b.m - a.m)[0];
@@ -1298,7 +1311,7 @@ function marketTip() {
 $("startBtn").addEventListener("click", () => {
   initAudio(); SFX.click();
   started = true; $("splash").classList.add("hidden"); updateHint();
-  NW.world.onEnter("start"); // tampilkan judul lokasi
+  NW.world.onEnter("start", NW.areas.cur.id); // tampilkan judul lokasi
 });
 
 function loop(now) {
@@ -1319,7 +1332,7 @@ window.Nusa = {
   get S() { return S; },
   mode: () => MODE, isStarted: () => started,
   isPanelOpen: () => !$("panelWrap").classList.contains("hidden") || !$("catchWrap").classList.contains("hidden") || !$("shareWrap").classList.contains("hidden") || !!($("aqWrap") && !$("aqWrap").classList.contains("hidden")),
-  openPanel, enterFishing, goWorld, tickTime, darkness, goldenHour, isNight, marketTip, setHint, save, toast,
+  openPanel, enterFishing, goWorld, travel, canSail, tickTime, darkness, goldenHour, isNight, marketTip, setHint, save, toast,
   coolerFull: () => S.cooler.length >= coolerCap(),
   sfx: (n) => { initAudio(); if (SFX[n]) SFX[n](); },
   tone, on, emit, registerPanel, renderPanel: () => currentPanel && renderPanel(), currentPanel: () => currentPanel, closePanel,
@@ -1327,19 +1340,23 @@ window.Nusa = {
 };
 
 load();
-S.loc = 0; // permainan selalu dimulai dari Muara Kampung
+// Bumbu 2: mulai di area terakhir yang dijelajahi (Muara bila data kosong / syarat kapal tidak terpenuhi)
+const startArea = NW.adv ? NW.adv.startArea(canSail) : NW.areas.get("muara");
+S.loc = startArea.locIndex;
 NW.life.hook(); NW.home.hook(); // Tahap 2A: misi harian & Rumahku
 NW.story.hook(isNewPlayer);     // Bumbu 1: cerita, keahlian, petunjuk pemain baru
 NW.look.hook();                 // Bumbu 1.1: gelar tangkapan & nama pemain lokal
 NW.inv.hook();                  // Bumbu 1.2: inventaris & pasar
 NW.hold.hook();                 // Bumbu 1.2: pamer ikan
+NW.adv.hook(isNewPlayer);       // Bumbu 2: Buku Petualangan, penemuan tempat, perjalanan antardaerah
+if (NW.toba) NW.toba.hook();               // Bumbu 2: cerita "Rahasia Tepian Danau" (tantangan ikan jurung)
 if (loadNote) setTimeout(() => toast(loadNote), 1200);
 save(); // simpan hasil migrasi (data lama sudah dicadangkan)
 resize(); buildScenery(); initAmbient(); refreshHUD(); applyMode();
-NW.world.resize(W, H, DPR); NW.world.onEnter("start"); updateHint();
+NW.world.resize(W, H, DPR); NW.world.onEnter("start", startArea.id); updateHint();
 document.addEventListener("visibilitychange", () => { if (document.hidden) save(); });
 window.addEventListener("pagehide", save);
 // akses debug ringan untuk pengujian
-window.__nusa = { get S() { return S; }, G, save, refreshHUD, mode: () => MODE, goWorld, enterFishing, bobberScreen, rodTip, startFight, updateFight, endFight };
+window.__nusa = { get S() { return S; }, G, save, refreshHUD, mode: () => MODE, goWorld, enterFishing, travel, canSail, chooseFish, bobberScreen, rodTip, startFight, updateFight, endFight, fishFrom: () => fishFrom };
 requestAnimationFrame(loop);
 })();

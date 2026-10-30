@@ -1,8 +1,10 @@
 // =========================================================
-//  NUSA ISLAND — Island Life: pemain, NPC, kamera, input, dialog
+//  NUSA ISLAND — Island Life: MESIN DUNIA (pemain, NPC, kamera, input, dialog)
 //  Dipanggil oleh game.js saat mode "world". Mode "fish" tetap memakai
 //  sistem mancing lama tanpa perubahan mekanik.
 //  Tahap 2A: jadwal NPC per jam, misi & pertemanan, Rumahku.
+//  Bumbu 2: mesin ini UMUM untuk semua area. Isi tiap area (NPC, interaksi,
+//  ambience, cerita) ada di world/areas/<area>.js dan dipanggil lewat "hooks".
 // =========================================================
 (() => {
 "use strict";
@@ -13,105 +15,49 @@ const rand = (a, b) => a + Math.random() * (b - a);
 const HW = NW.TW / 2, HH = NW.TH / 2;
 const N = () => window.Nusa; // API dari game.js
 const L = () => NW.life;      // misi & pertemanan
+const A = () => NW.areas.cur; // area aktif
+const H = () => A().hooks || {};
 const inHome = () => NW.home && NW.home.active;
-
-// ---------- Gaya karakter ----------
-const STYLE = {
-  player: { shirt: "#579b8b", pants: "#2b3a44", skin: "#c68b5e", hair: "#2a1d14", hat: "caping", collar: "#fff9ec" },
-  darto: { shirt: "#3d6f8f", pants: "#4a3b2c", skin: "#a8714a", hair: "#ddd6c8", hat: "caping", hatCol: "#c9a45c", towel: "#f3e7c9" },
-  sari: { shirt: "#c2603b", pants: "#5b3a5c", skin: "#c99066", hair: "#2a1d14", hat: "scarf", hatCol: "#e0b84c", apron: "#fff6e4" },
-  dika: { shirt: "#e2574c", pants: "#2f5d78", skin: "#c68b5e", hair: "#2a1d14", hat: "cap", hatCol: "#173f50", scale: 0.82 },
-};
+const gz = (x, y) => NW.groundZ(x, y); // tinggi pijakan (dermaga, bukit)
 
 // ---------- Pemain ----------
-const player = { x: NW.START.x, y: NW.START.y, dir: 2, walk: 0, moving: false, style: STYLE.player, rod: 0, seed: 0 };
+const STYLE = { player: { shirt: "#579b8b", pants: "#2b3a44", skin: "#c68b5e", hair: "#2a1d14", hat: "caping", collar: "#fff9ec" } };
+const player = { x: NW.START.x, y: NW.START.y, dir: 2, walk: 0, moving: false, style: STYLE.player, rod: 0, seed: 0, sit: false };
 
-// ---------- Navigasi NPC (Dijkstra di jaringan jalan) ----------
-const NAV = NW.NAV, ADJ = {};
-for (const k of Object.keys(NAV)) ADJ[k] = [];
-for (const [a, b] of NW.NAV_EDGES) { const d = Math.hypot(NAV[a][0] - NAV[b][0], NAV[a][1] - NAV[b][1]); ADJ[a].push([b, d]); ADJ[b].push([a, d]); }
-function nearestNode(x, y) { let best = null, bd = 1e9; for (const [k, [nx, ny]] of Object.entries(NAV)) { const d = Math.hypot(nx - x, ny - y); if (d < bd) { bd = d; best = k; } } return best; }
-function route(x, y, goal) {
-  const start = nearestNode(x, y), dist = { [start]: 0 }, prev = {}, todo = new Set(Object.keys(NAV));
-  while (todo.size) {
-    let u = null; for (const k of todo) if (dist[k] !== undefined && (u === null || dist[k] < dist[u])) u = k;
-    if (u === null || u === goal) break; todo.delete(u);
-    for (const [v, w] of ADJ[u]) { const nd = dist[u] + w; if (dist[v] === undefined || nd < dist[v]) { dist[v] = nd; prev[v] = u; } }
-  }
-  const path = []; let k = goal; while (k && k !== start) { path.unshift(NAV[k]); k = prev[k]; }
-  path.unshift(NAV[start]);
-  return path.map(([px, py]) => ({ x: px, y: py }));
+// ---------- NPC (umum) ----------
+// Jadwal NPC: n.sched = [{from,to,at,act,...}], n.schedFor(h) = penimpaan opsional (mis. cerita)
+const actNow = (n, h) => (n.schedFor && n.schedFor(h)) || n.sched.find((a) => (a.from < a.to ? h >= a.from && h < a.to : h >= a.from || h < a.to)) || n.sched[0];
+const areaOf = (n) => NW.areas.get(n.area) || A();
+function placeNPC(n) { // taruh langsung di aktivitas saat ini (saat memuat game / tiba di area)
+  const NAV = areaOf(n).map.NAV, a = actNow(n, N() ? N().S.hour : 8), [x, y] = NAV[a.at];
+  Object.assign(n, { x, y, cur: a, path: [], hidden: !!a.hide, arrived: true, dir: a.face ?? 2, walk: 0, moving: false, waitT: 0, rod: a.act === "fish" ? 1 : 0, talking: false, li: 0, alt: 0, wander: null, yieldT: 0, look: 0 });
+  n.prop = a.hide ? null : a.prop || null; n.fishing = a.act === "fish";
 }
-
-// ---------- NPC + jadwal harian ----------
-// sched: from–to (jam), at = node tujuan, act = aktivitas, hide = masuk rumah
-const npcs = [
-  {
-    id: "darto", name: "Pak Darto", avatar: "🧓", role: "Nelayan senior", style: STYLE.darto, speed: 1.15, seed: 1.3, home: "R2",
-    sched: [
-      { from: 5, to: 11, at: "DOCKF", act: "fish", face: 0, bubble: "🎣", label: "mancing di dermaga",
-        lines: [["Pagi begini ikan nila lagi lapar-laparnya.", "Ujung dermaga paling bagus, Nak. Coba lempar jauh."], ["Ssst… jangan berisik, pelampungku baru goyang."]] },
-      { from: 11, to: 13.5, at: "BENCH", act: "rest", face: 2, bubble: "☕", label: "istirahat di taman",
-        lines: [["Siang-siang begini enaknya ngopi di taman.", "Kalau senar sudah tegang sekali, lepas dulu. Ikan juga capek."]] },
-      { from: 13.5, to: 17.5, at: "NET", act: "net", face: 6, prop: "net", bubble: "🪢", label: "memperbaiki jaring",
-        lines: [["Jaring ini robek digigit ikan toman kemarin.", "Ikan itu galak sekali. Hati-hati kalau dapat."], ["Malam-malam, kadang ada kilatan merah di muara.", "Orang bilang itu Arwana Super Red."]] },
-      { from: 17.5, to: 21, at: "R2", act: "relax", face: 2, bubble: "🌇", label: "santai di depan rumah",
-        lines: [["Senja di muara memang paling indah.", "Kapal di dermaga bisa bawa kamu ke Danau Toba kalau sudah punya perahu motor."]] },
-      { from: 21, to: 5, at: "R2", act: "sleep", hide: true },
-    ],
-    knock: ["Tok tok tok…", "\"Zzz… besok pagi saja ya, Nak. Pak Darto sudah tidur.\""],
-    close: ["Kamu sudah seperti anakku sendiri. Ini rahasia: lele suka keluar setelah jam tujuh malam."],
-  },
-  {
-    id: "sari", name: "Bu Sari", avatar: "👩", role: "Pedagang ikan", style: STYLE.sari, speed: 0.85, seed: 2.1, home: "R3",
-    sched: [
-      { from: 6, to: 17, at: "STALL", act: "stall", face: 2, prop: "basket", bubble: "🐟", label: "berjualan di pasar", lines: [["Ikan segaaar! Mau jual tangkapanmu ke Ibu?"]] },
-      { from: 17, to: 19, at: "O", act: "sweep", face: 2, prop: "broom", bubble: "🧹", label: "menyapu halaman",
-        lines: [["Pasar sudah tutup, Ibu lagi bersih-bersih.", "Kalau mau jual ikan, pakai kotak titipan di pasar ya. Besok Ibu bayar sama."]] },
-      { from: 19, to: 6, at: "R3", act: "sleep", hide: true },
-    ],
-    knock: ["Tok tok tok…", "\"Sudah malam, Nak. Kotak titipan di pasar tetap buka kok.\""],
-    close: ["Kamu langganan terbaik Ibu! Kalau ada panah hijau di pasar, itu tanda harga lagi bagus."],
-  },
-  {
-    id: "dika", name: "Dika", avatar: "👦", role: "Anak kampung", style: STYLE.dika, speed: 1.6, seed: 3.7, home: "R4",
-    sched: [
-      { from: 7, to: 11.5, at: "PARK", act: "butterfly", bubble: "🦋", label: "mengejar kupu-kupu",
-        lines: [["Kak, lihat! Kupu-kupunya kuning!", "Aku mau tangkap satu, tapi cepat banget terbangnya."], ["Kalau pelampung goyang sedikit, itu belum gigit beneran.", "Tunggu sampai tenggelam, baru tarik!"]] },
-      { from: 11.5, to: 13, at: "R4", act: "lunch", hide: true },
-      { from: 13, to: 17, at: "BEACH", act: "kite", face: 0, bubble: "🪁", label: "main layangan di pantai",
-        lines: [["Anginnya kencang, layanganku tinggi sekali!", "Kemarin aku mancing dapat sandal jepit. Sebelah doang, hahaha."]] },
-      { from: 17, to: 19, at: "WELL", act: "well", face: 1, bubble: "💧", label: "ambil air di sumur",
-        lines: [["Disuruh Ibu ambil air.", "Kata Pak Darto, kapal di dermaga bisa ke Danau Toba!"]] },
-      { from: 19, to: 7, at: "R4", act: "sleep", hide: true },
-    ],
-    knock: ["Tok tok tok…", "\"Dika sudah tidur, besok main lagi ya!\" kata ibunya."],
-    close: ["Kak, aku sudah bisa lemparan sempurna! Lepas pas meterannya di atas, kan?"],
-  },
-];
-const actNow = (n, h) => n.sched.find((a) => (a.from < a.to ? h >= a.from && h < a.to : h >= a.from || h < a.to)) || n.sched[0];
-function placeNPC(n) { // taruh langsung di aktivitas saat ini (saat memuat game)
-  const a = actNow(n, N() ? N().S.hour : 8), [x, y] = NAV[a.at];
-  Object.assign(n, { x, y, cur: a, path: [], hidden: !!a.hide, arrived: true, dir: a.face ?? 2, walk: 0, moving: false, waitT: 0, rod: a.act === "fish" ? 1 : 0, talking: false, li: 0, alt: 0 });
+function initNPCs(area) {
+  const NAV = area.map.NAV;
+  area.npcs.forEach((n) => { if (n._init) return; n._init = true; n.area = n.area || area.id; Object.assign(n, { x: NAV[n.home][0], y: NAV[n.home][1], cur: null, path: [], hidden: true, dir: 2, walk: 0, rod: 0, li: 0, alt: 0 }); });
 }
-npcs.forEach((n) => Object.assign(n, { x: NAV[n.home][0], y: NAV[n.home][1], cur: null, path: [], hidden: true, dir: 2, walk: 0, rod: 0, li: 0 }));
+NW.areas.list.forEach(initNPCs);
 
 // ---------- Kamera & layar ----------
-let W = 0, H = 0, DPR = 1, Z = 1, ZI = 1, ZW = 1; // ZI = zoom di dalam rumah, ZW = zoom di pulau
+let W = 0, H2 = 0, DPR = 1, Z = 1, ZI = 1, ZW = 1; // ZI = zoom di dalam rumah, ZW = zoom di pulau
 const cam = { x: 0, y: 0 };
+let cine = null; // sorotan kamera singkat (mis. memandang danau dari Bukit Pandang)
+const terrainWant = () => Math.min(Z * DPR, 1.75);
 function resize(w, h, dpr) {
-  W = w; H = h; DPR = dpr;
-  ZW = Z = clamp(Math.min(W, H) / 430, 0.9, 1.55);
+  W = w; H2 = h; DPR = dpr;
+  ZW = Z = clamp(Math.min(W, H2) / 430, 0.9, 1.55);
   // ruangan Rumahku (lebar ±450px dunia, tinggi ±380px) harus muat utuh di layar
-  ZI = clamp(Math.min((W - 24) / 470, (H - 220) / 400), 0.6, 1.6);
+  ZI = clamp(Math.min((W - 24) / 470, (H2 - 220) / 400), 0.6, 1.6);
   if (inHome()) Z = ZI;
-  const want = Math.min(Z * DPR, 1.75);
+  const want = Math.min(ZW * DPR, 1.75);
   if (Math.abs(want - NW.getTerrainScale()) > 0.15) NW.buildTerrain(want);
 }
 function camTarget() {
-  if (inHome()) { const ct = NW.home.camTarget(player, W, H, ZW); Z = ct.z; return ct; }
+  if (inHome()) { const ct = NW.home.camTarget(player, W, H2, ZW); Z = ct.z; return ct; }
+  if (cine) { const p = NW.P(cine.x, cine.y, cine.z || 0); Z = lerp(ZW, ZW * (cine.zoom || 1), cine.k); return { x: lerp(cine.fx, p.x, cine.k), y: lerp(cine.fy, p.y, cine.k) }; }
   Z = ZW;
-  const p = NW.P(player.x, player.y, NW.LIFT); return { x: p.x, y: p.y - 22 - (NW.hold ? NW.hold.camLift() : 0) };
+  const p = NW.P(player.x, player.y, gz(player.x, player.y)); return { x: p.x, y: p.y - 22 - (NW.hold ? NW.hold.camLift() : 0) };
 }
 function snapCamera() { const t = camTarget(); cam.x = t.x; cam.y = t.y; }
 
@@ -121,11 +67,12 @@ const keys = new Set();
 let moved = false;
 const joyEl = $("joy"), knobEl = $("joyKnob");
 function joyHome() { const r = joyEl.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
-function blocked() { return dialog.open || busy || N().isPanelOpen() || !N().isStarted() || $("fade").classList.contains("on") || (NW.home && NW.home.isEditing()); }
+function blocked() { return dialog.open || busy || !!cine || N().isPanelOpen() || !N().isStarted() || $("fade").classList.contains("on") || (NW.home && NW.home.isEditing()) || (NW.adv && NW.adv.isBusy()); }
 
 function onDown(e) {
   if (N().mode() !== "world") return;
   if (dialog.open) { advanceDialog(); return; }
+  if (cine && cine.t > 0.6) { cine.t = Math.max(cine.t, cine.dur - 0.5); return; } // ketuk = lewati sorotan
   if (blocked()) return;
   if (e.clientX < W * 0.6 && !joy.active) {
     const home = joyHome();
@@ -180,8 +127,8 @@ const dirOf = (sx, sy) => ((Math.round(Math.atan2(sy, sx) / (Math.PI / 4)) % 8) 
 // ---------- Dialog ----------
 const dialog = { open: false, lines: [], i: 0, shown: 0, opts: [], npc: null };
 const dlgEl = $("dlg");
-function openDialog({ name, avatar, role, lines, options, npc }) {
-  Object.assign(dialog, { open: true, lines, i: 0, shown: 0, opts: options || [], npc: npc || null, name });
+function openDialog({ name, avatar, role, lines, options, npc, noLater }) {
+  Object.assign(dialog, { open: true, lines, i: 0, shown: 0, opts: options || [], npc: npc || null, name, noLater: !!noLater });
   $("dlgName").textContent = name; $("dlgRole").textContent = role || ""; $("dlgAvatar").textContent = avatar || "💬";
   $("dlgOpts").innerHTML = ""; dlgEl.classList.remove("hidden");
   if (npc) { npc.talking = true; npc.moving = false; faceToward(npc, player); faceToward(player, npc); }
@@ -211,21 +158,40 @@ function renderDialog(dt) {
       b.addEventListener("click", (e) => { e.stopPropagation(); closeDialog(); if (o.act) o.act(); });
       optsEl.appendChild(b);
     }
-    if (dialog.opts.length) { const b = document.createElement("button"); b.className = "btn ghost"; b.textContent = "Nanti saja"; b.addEventListener("click", (e) => { e.stopPropagation(); closeDialog(); }); optsEl.appendChild(b); }
+    if (dialog.opts.length && !dialog.noLater) { const b = document.createElement("button"); b.className = "btn ghost"; b.textContent = "Nanti saja"; b.addEventListener("click", (e) => { e.stopPropagation(); closeDialog(); }); optsEl.appendChild(b); }
   }
   $("dlgMore").classList.toggle("hidden", last);
 }
 dlgEl.addEventListener("click", () => { if (dialog.open) advanceDialog(); });
 function faceToward(a, b) { const pa = NW.P(a.x, a.y), pb = NW.P(b.x, b.y); a.dir = dirOf(pb.x - pa.x, pb.y - pa.y); }
 
+// ---------- Duduk (Bumbu 2: bangku tepi danau, dll.) ----------
+// Pemain tetap bisa berdiri kapan saja: geser joystick atau tekan tombol interaksi.
+const seat = { on: false, t: 0, onStand: null };
+function sitAt(p, opts = {}) {
+  if (NW.hold) NW.hold.stop("manual");
+  player.x = p.x; player.y = p.y; player.dir = p.dir ?? player.dir; player.sit = true; player.moving = false;
+  Object.assign(seat, { on: true, t: 0, onStand: opts.onStand || null, tick: opts.tick || null });
+  lastActKey = "?"; onUp();
+}
+function standUp(silent) {
+  if (!seat.on) return;
+  seat.on = false; player.sit = false; lastActKey = "?";
+  if (seat.onStand && !silent) seat.onStand(); seat.onStand = null;
+}
+// Sorotan kamera singkat: kamera berpindah ke titik lalu kembali; pemain tidak bisa berjalan selama itu
+function look(o) { cine = { ...o, t: 0, k: 0, fx: cam.x, fy: cam.y, dur: o.dur || 4 }; onUp(); if (o.caption) caption(o.caption, cine.dur - 0.6); }
+let capT = 0;
+function caption(text, secs) { const b = $("banner"); b.textContent = text; b.classList.add("show", "cap"); clearTimeout(capT); capT = setTimeout(() => b.classList.remove("show", "cap"), secs * 1000); }
+
 // ---------- Interaksi ----------
-let target = null, busy = false, busyT = 0;
-function islandCandidates() {
-  const list = NW.points.slice().concat(NW.story ? NW.story.points() : []);
-  for (const n of npcs) if (!n.hidden && n.cur && n.cur.act !== "stall") list.push({ id: "npc:" + n.id, x: n.x, y: n.y, r: 1.15, icon: "💬", label: "Bicara", npc: n });
+let target = null, busy = false, busyT = 0, fishSpotId = null;
+function areaCandidates() {
+  const a = A(), list = a.map.points.slice().concat(H().points ? H().points() : []);
+  for (const n of a.npcs) if (!n.hidden && n.cur && (!H().npcTalkable || H().npcTalkable(n))) list.push({ id: "npc:" + n.id, x: n.x, y: n.y, r: 1.15, icon: "💬", label: "Bicara", npc: n });
   return list;
 }
-const candidates = () => (inHome() ? NW.home.candidates() : islandCandidates());
+const candidates = () => (inHome() ? NW.home.candidates() : seat.on ? [{ id: "seat:stand", x: player.x, y: player.y, r: 9, icon: "🧍", label: "Berdiri", stand: true }] : areaCandidates());
 const walkable = (x, y) => (inHome() ? NW.home.walkable(x, y) : NW.walkable(x, y));
 function findTarget() {
   let best = null, bestS = 1e9;
@@ -238,72 +204,30 @@ function findTarget() {
 }
 let lastActKey = "";
 function updateActBtn() {
-  const btn = $("actBtn"), key = target ? target.id + target.label : "";
+  const btn = $("actBtn"), key = target ? target.id + target.label + target.icon : "";
   if (key === lastActKey) return; lastActKey = key;
   if (!target) { btn.classList.add("hidden"); return; }
   btn.classList.remove("hidden");
   btn.innerHTML = `<span>${target.icon}</span><b>${target.label}</b>`;
 }
-const roleOf = (n) => `${n.role} · ${L().hearts(n.id)}`;
-function talkTo(n) {
-  const S = N().S, a = n.cur;
-  NW.story.mark("talk");
-  // cerita Pak Darto didahulukan (terpisah dari misi harian)
-  if (NW.story.handleTalk(n, openDialog, roleOf(n))) { L().talked(n.id); return; }
-  // kalimat biasa: bersyarat & tidak mengulang (ingatan disimpan lokal)
-  let lines = (NW.story.storyLineFor(n) || NW.story.chatLines(n, (a.lines || []).concat((S.friends[n.id] || 0) >= 2 ? [n.close] : []))).slice();
-  const rem = NW.story.reminder(n); if (rem) lines.push(rem);
-  const opts = [];
-  const so = n.id === "sari" ? NW.story.sariOption(openDialog, n, roleOf(n)) : null; if (so) opts.push(so);
-  const del = L().deliverOption(n.id);
-  if (del && del.missing) lines = lines.concat([del.text]);
-  else if (del) { lines = lines.concat([`Wah, itu ${del.label.replace("🎁 Berikan ", "")} di coolbox-mu? Boleh buat ${n.id === "dika" ? "aku" : "saya"}?`]); opts.push({ label: del.label, act: () => { del.act(); openDialog({ name: n.name, avatar: n.avatar, role: roleOf(n), npc: n, lines: [n.id === "dika" ? "Asyik! Makasih, Kak!" : "Terima kasih banyak, Nak. Kamu baik sekali."] }); } }); }
-  openDialog({ name: n.name, avatar: n.avatar, role: roleOf(n), lines, npc: n, options: opts });
-  L().talked(n.id);
-}
+const api = { openDialog, closeDialog, player, faceToward, walkTo: (n, x, y, dt) => walkTo(n, x, y, dt), sitAt, standUp, look, caption, startFishing: (id) => startFishing(id), seat };
 function interact() {
   if (blocked() || !target) return;
-  const t = target, S = N().S;
+  const t = target;
   if (inHome()) return NW.home.interact(t, player, openDialog);
-  if (t.npc) return talkTo(t.npc);
-  if (t.story) return NW.story.interact(t, openDialog);
-  if (t.id === "spot") {
-    if (N().coolerFull()) { openDialog({ name: "Coolbox penuh", avatar: "🧊", lines: ["Coolbox-mu sudah penuh. Jual dulu tangkapanmu di Pasar Ikan, di sebelah barat dermaga."] }); return; }
-    startFishing();
-  } else if (t.id === "boat") N().openPanel("map");
-  else if (t.id === "board") N().openPanel("missions");
-  else if (t.id === "home") NW.home.enter(player);
-  else if (t.id === "pasar") {
-    const n = npcs[1], open = !n.hidden && n.cur.act === "stall" && n.arrived;
-    if (open) {
-      const lines = S.cooler.length ? [`Wah, kamu bawa ${S.cooler.length} tangkapan! Mau dijual ke Ibu?`] : ["Coolbox-mu masih kosong. Mancing dulu di dermaga, nanti jual ke Ibu ya!"];
-      const tip = N().marketTip(); if (tip) lines.push(tip);
-      const del = L().deliverOption("sari");
-      const opts = [{ label: "🏪 Jual ikan", act: () => N().openPanel("market") }];
-      const so = NW.story.sariOption(openDialog, n, roleOf(n)); if (so) opts.push(so);
-      NW.story.mark("talk");
-      if (del && !del.missing) opts.unshift({ label: del.label, act: () => { del.act(); openDialog({ name: n.name, avatar: n.avatar, role: roleOf(n), npc: n, lines: ["Terima kasih banyak, Nak. Ini buat lauk makan malam!"] }); } });
-      openDialog({ name: n.name, avatar: n.avatar, role: roleOf(n), npc: n, lines, options: opts });
-      L().talked("sari");
-    } else openDialog({ name: "Kotak Titipan", avatar: "📦", lines: ["Pasar sedang tutup. Bu Sari buka lagi pukul 06:00.", "Ada kotak titipan: ikanmu tetap dibayar dengan harga hari ini."], options: [{ label: "📦 Titip jual", act: () => N().openPanel("market") }] });
-  } else if (t.id === "toko") {
-    const lines = ["Selamat datang di Toko Pancing! Mau upgrade alat?"];
-    if (S.up.boat === 0) lines.push("Perahu motor bisa bawa kamu ke Danau Toba, lho. Ikannya lebih besar di sana.");
-    const to = NW.story.tokoOption(openDialog);
-    openDialog({ name: "Pak Bono", avatar: "👨‍🔧", role: "Pemilik toko", lines, options: [{ label: "🛠️ Lihat barang", act: () => N().openPanel("shop") }].concat(to ? [to] : []) });
-  } else if (t.owner) {
-    const n = npcs.find((x) => x.id === t.owner);
-    const b = NW.buildings.find((x) => x.id === t.id);
-    if (n.hidden && n.id === "darto" && NW.story.awaitsDarto()) { // cerita tidak harus menunggu pagi
-      openDialog({ name: b.name, avatar: "🏠", lines: ["Tok tok tok…", "Pintu berderit. Pak Darto keluar sambil menguap. \"Baru mau tidur… ya sudah, sini sebentar, Nak.\""], options: [{ label: "📖 Lanjut cerita", act: () => NW.story.handleTalk(n, openDialog, roleOf(n)) }] });
-    } else if (n.hidden) openDialog({ name: b.name, avatar: "🏠", lines: n.knock });
-    else openDialog({ name: b.name, avatar: "🏠", lines: ["Tok tok tok…", `Tidak ada yang menjawab. ${n.name} sedang ${n.cur.label || "di luar"}.`] });
-  } else if (t.sign) openDialog({ name: t.sign.title, avatar: "📜", lines: [t.sign.text] });
+  if (t.stand) return standUp();
+  if (t.npc) return t.npc.talk(t.npc, api);
+  if (t.id === "spot" || t.fish) { // titik mancing (semua area): memakai lokasi mancing LOCATIONS milik area
+    if (N().coolerFull()) { openDialog({ name: "Coolbox penuh", avatar: "🧊", lines: [A().hooks.fullMsg || "Coolbox-mu sudah penuh. Jual dulu tangkapanmu di Pasar Ikan, di sebelah barat dermaga."] }); return; }
+    return startFishing(t.spot || "spot");
+  }
+  if (t.sign && !H().ownsSigns) return openDialog({ name: t.sign.title, avatar: "📜", lines: [t.sign.text] });
+  if (H().interact) H().interact(t, api);
 }
 
 // ---------- Masuk mode mancing ----------
 let fadeStarted = false;
-function startFishing() { if (NW.hold) NW.hold.stop("fishing"); busy = true; busyT = 0; onUp(); keys.clear(); player.dir = 0; N().sfx("click"); }
+function startFishing(spotId) { if (NW.hold) NW.hold.stop("fishing"); standUp(true); fishSpotId = spotId || "spot"; busy = true; busyT = 0; onUp(); keys.clear(); player.dir = (A().map.fishSpots.find((s) => s.id === fishSpotId) || {}).face ?? 0; N().sfx("click"); }
 function updateBusy(dt) {
   busyT += dt;
   player.rod = clamp(busyT / 0.55, 0, 1);
@@ -311,33 +235,54 @@ function updateBusy(dt) {
     fadeStarted = true;
     $("fade").classList.add("on");
     setTimeout(() => {
-      N().S.world = { x: +player.x.toFixed(2), y: +player.y.toFixed(2) };
+      savePos();
       N().enterFishing("dock");
       setTimeout(() => $("fade").classList.remove("on"), 60);
       busy = false; fadeStarted = false; player.rod = 0;
     }, 320);
   }
 }
-// Dipanggil game.js saat kembali ke darat
-function onEnter(at) {
-  busy = false; fadeStarted = false; player.rod = 0; closeDialog();
+// posisi pemain per area (Muara tetap di S.world seperti dulu; area lain lewat NW.adv)
+function savePos() { const p = { x: +player.x.toFixed(2), y: +player.y.toFixed(2) }; if (A().id === "muara" || !NW.adv) N().S.world = p; else NW.adv.savePos(A().id, p); }
+function savedPos(id) { return id === "muara" || !NW.adv ? N().S.world : NW.adv.getPos(id); }
+
+// ---------- Pindah area ----------
+// NPC area lama berhenti diproses; peta, collision, dan cache terrain diganti ke area baru.
+function switchArea(id) {
+  const a = NW.areas.get(id); if (!a || a === A()) return false;
+  if (NW.hold) NW.hold.stop("travel");
+  standUp(true); closeDialog(); cine = null; target = null;
+  NW.areas.setCurrent(id);
+  initNPCs(a);
+  NW.buildTerrain(terrainWant());
+  birds.length = 0; jumps.length = 0;
+  N().S.loc = a.locIndex;
+  if (NW.adv) NW.adv.enteredArea(id);
+  return true;
+}
+// Dipanggil game.js saat kembali ke darat / tiba di area. areaId opsional (default: area aktif)
+function onEnter(at, areaId) {
+  busy = false; fadeStarted = false; player.rod = 0; closeDialog(); standUp(true); cine = null;
   if (NW.home) NW.home.reset();
-  const S = N().S;
-  if (at === "dock") { player.x = NW.SPOT.x - 1.1; player.y = NW.SPOT.y; player.dir = 4; }
-  else if (at === "boat") { player.x = NW.BOAT.x; player.y = NW.DOCK.y1 + 0.6; player.dir = 5; }
-  else if (S.world && NW.walkable(S.world.x, S.world.y)) { player.x = S.world.x; player.y = S.world.y; }
-  else { player.x = NW.START.x; player.y = NW.START.y; }
-  if (at === "start") npcs.forEach(placeNPC);
+  const switched = areaId ? switchArea(areaId) : false;
+  const a = A(), S = N().S, sp = a.spawns || {};
+  const place = (p) => { player.x = p.x; player.y = p.y; if (p.dir !== undefined) player.dir = p.dir; };
+  if (at === "dock") { const s = a.map.fishSpots.find((f) => f.id === fishSpotId) || a.map.fishSpots[0]; place(s ? s.ret : sp.start || a.map.START); }
+  else if (at === "boat" && sp.boat) place(sp.boat);
+  else { const pos = savedPos(a.id); if (pos && NW.walkable(pos.x, pos.y)) place(pos); else place(sp.start || a.map.START); }
+  if (!NW.walkable(player.x, player.y)) place(sp.start || a.map.START); // jaminan: tidak pernah muncul di air/bangunan
+  if (at === "start" || switched) a.npcs.forEach(placeNPC);
+  S.loc = a.locIndex;
   snapCamera(); lastActKey = "?"; showBanner();
+  if (H().onEnter) H().onEnter(at, switched);
+  updateHint();
 }
 let bannerT = 0;
-function showBanner() { const b = $("banner"); b.textContent = "🏝️ Muara Kampung"; b.classList.add("show"); clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove("show"), 2200); }
+function showBanner() { const b = $("banner"); b.classList.remove("cap"); b.textContent = A().banner || A().name; b.classList.add("show"); clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove("show"), 2200); }
 
-// ---------- Ambience ----------
-const birds = [], jumps = [], butterflies = [];
-for (let i = 0; i < 5; i++) butterflies.push({ x: 15.5 + Math.random() * 2, y: 15 + Math.random() * 2, ph: Math.random() * 6, col: ["#ffd84d", "#ffffff", "#ff9ec4", "#9fd3ff"][i % 4], tx: 16, ty: 16 });
+// ---------- Ambience umum (burung & ikan melompat) ----------
+const birds = [], jumps = [];
 let birdT = 2, jumpT = 3;
-const sail = { t: Math.random() * 60 };
 function updateAmbient(dt) {
   birdT -= dt;
   if (birdT <= 0 && birds.length < 3) {
@@ -351,21 +296,18 @@ function updateAmbient(dt) {
   jumpT -= dt;
   if (jumpT <= 0) {
     jumpT = rand(1.8, 4.5);
+    const cols = (A().theme && A().theme.jumpCols) || ["#8c9a8a", "#9aa3a8", "#d79a2e", "#5d7f9c"];
     for (let k = 0; k < 12; k++) {
       const x = player.x + rand(-9, 9), y = player.y + rand(-9, 9);
-      if (!NW.isLandT(NW.tileAt(x, y)) && !NW.isLandT(NW.tileAt(x + 1, y)) && !NW.isLandT(NW.tileAt(x, y + 1))) { jumps.push({ x, y, t: 0, dur: 0.9, col: ["#8c9a8a", "#9aa3a8", "#d79a2e", "#5d7f9c"][k % 4] }); break; }
+      if (!NW.isLandT(NW.tileAt(x, y)) && !NW.isLandT(NW.tileAt(x + 1, y)) && !NW.isLandT(NW.tileAt(x, y + 1))) { jumps.push({ x, y, t: 0, dur: 0.9, col: cols[k % cols.length] }); break; }
     }
   }
   for (const j of jumps) j.t += dt;
   for (let i = jumps.length - 1; i >= 0; i--) if (jumps[i].t > jumps[i].dur * 1.6) jumps.splice(i, 1);
-  for (const b of butterflies) {
-    if (Math.hypot(b.tx - b.x, b.ty - b.y) < 0.2) { b.tx = NW.PARK.x0 + Math.random() * 3.6; b.ty = NW.PARK.y0 + Math.random() * 3.6; }
-    b.x = lerp(b.x, b.tx, dt * 0.6); b.y = lerp(b.y, b.ty, dt * 0.6);
-  }
-  sail.t += dt;
+  if (H().update) H().update(dt, api);
 }
 
-// ---------- Update NPC ----------
+// ---------- Update NPC (umum) ----------
 function walkTo(n, tx, ty, dt) {
   const dx = tx - n.x, dy = ty - n.y, d = Math.hypot(dx, dy);
   if (d < 0.05) { n.x = tx; n.y = ty; return true; }
@@ -375,11 +317,41 @@ function walkTo(n, tx, ty, dt) {
   n.moving = true; n.walk += dt * 10 * n.speed / 1.2;
   return false;
 }
+// NPC lain di depan jalur → tunggu sebentar supaya tidak saling tembus/menumpuk (maks. 1,2 dtk lalu lanjut)
+function blockedByNPC(n, p, dt) {
+  for (const o of A().npcs) {
+    if (o === n || o.hidden) continue;
+    const d = Math.hypot(o.x - n.x, o.y - n.y); if (d > 0.6) continue;
+    const ahead = (o.x - n.x) * (p.x - n.x) + (o.y - n.y) * (p.y - n.y) > 0;
+    if (!ahead) continue;
+    if (o.moving && n.area === o.area && A().npcs.indexOf(o) > A().npcs.indexOf(n)) continue; // yang di belakang yang mengalah
+    n.yieldT = (n.yieldT || 0) + dt; if (n.yieldT < 1.2) { faceToward(n, o); return true; }
+  }
+  n.yieldT = 0; return false;
+}
+const ROAM = new Set(["butterfly", "patrol"]);
+// aktivitas umum: berkeliling di beberapa node (a.route), berhenti sebentar di tiap node
+const commonActs = {
+  patrol(n, dt, a, k) {
+    if (!n.path.length) {
+      n.waitT -= dt;
+      if (n.waitT > 0) { if (a.prop) n.prop = a.prop; if (a.faceAt && a.faceAt[n.alt % a.route.length] !== undefined) n.dir = a.faceAt[n.alt % a.route.length]; return; }
+      n.alt = (n.alt || 0) + 1;
+      const goal = a.route[n.alt % a.route.length];
+      n.path = NW.areas.route(areaOf(n), n.x, n.y, goal); n.prop = null;
+      n.waitT = rand(a.wait ? a.wait[0] : 3, a.wait ? a.wait[1] : 6);
+      return;
+    }
+    if (n.path[0] && blockedByNPC(n, n.path[0], dt)) return;
+    n.prop = null;
+    if (walkTo(n, n.path[0].x, n.path[0].y, dt)) n.path.shift();
+  },
+};
 function updateNPC(n, dt) {
-  const a = actNow(n, N().S.hour);
+  const area = areaOf(n), a = actNow(n, N().S.hour);
   if (a !== n.cur) { // ganti aktivitas: keluar rumah (bila perlu) lalu jalan ke tujuan
-    if (n.hidden) { n.x = NAV[n.home][0]; n.y = NAV[n.home][1]; n.hidden = false; }
-    n.cur = a; n.path = route(n.x, n.y, a.at); n.arrived = false; n.fishing = false; n.prop = null; n.waitT = 0;
+    if (n.hidden) { n.x = area.map.NAV[n.home][0]; n.y = area.map.NAV[n.home][1]; n.hidden = false; }
+    n.cur = a; n.path = NW.areas.route(area, n.x, n.y, a.at); n.arrived = false; n.fishing = false; n.prop = null; n.waitT = 0; n.alt = 0; n.wander = null;
   }
   n.rod = lerp(n.rod, n.fishing ? 1 : 0, dt * 4);
   n.moving = false;
@@ -388,35 +360,31 @@ function updateNPC(n, dt) {
     if (!inHome() && Math.hypot(player.x - n.x, player.y - n.y) < 0.5) { faceToward(n, player); return; } // tunggu pemain lewat
     const p = n.path[0];
     if (!p) { n.arrived = true; }
+    else if (area.idleLook && blockedByNPC(n, p, dt)) return;
     else if (walkTo(n, p.x, p.y, dt)) n.path.shift();
     if (n.arrived) {
       if (a.hide) { n.hidden = true; return; }
-      n.dir = a.face ?? n.dir; n.fishing = a.act === "fish"; n.prop = a.prop || null; n.waitT = rand(1, 3);
+      n.dir = a.face ?? n.dir; n.fishing = a.act === "fish"; n.prop = a.prop || null; n.waitT = a.act === "patrol" ? rand(2, 4) : rand(1, 3);
     }
     return;
   }
   // aktivitas di tempat
   n.prop = a.prop || null;
-  if (a.act === "stall") { // mondar-mandir di belakang meja
-    n.waitT -= dt; if (n.waitT > 0) { n.dir = 2; return; }
-    const spots = [[NAV.STALL[0], 18.3], [NAV.STALL[0] - 1.6, 18.35], [NAV.STALL[0] - 0.8, 18.25]];
-    const s = spots[n.alt % 3];
-    if (walkTo(n, s[0], s[1], dt)) { n.alt++; n.waitT = rand(2.5, 5); n.dir = 2; }
-  } else if (a.act === "butterfly") { // kejar kupu-kupu di sekitar taman
-    if (!n.wander || n.waitT > 0) {
-      n.waitT -= dt;
-      if (n.waitT <= 0 || !n.wander) {
-        n.wander = null; n.waitT = 0;
-        for (let i = 0; i < 12 && !n.wander; i++) { // cari titik dekat kupu-kupu yang tidak menginjak bunga/pohon
-          const bf = butterflies[Math.floor(Math.random() * butterflies.length)], x = bf.x + rand(-0.6, 0.6), y = bf.y + rand(0, 0.8);
-          if (x > NW.PARK.x0 - 0.5 && x < NW.PARK.x1 + 1 && y > NW.PARK.y0 && y < NW.PARK.y1 + 1 && NW.walkable(x, y, 0.3)) n.wander = { x, y };
-        }
-        if (!n.wander) n.wander = { x: NAV.PARK[0], y: NAV.PARK[1] };
-      }
-      return;
-    }
-    if (walkTo(n, n.wander.x, n.wander.y, dt)) { n.wander = null; n.waitT = rand(1, 2.5); }
-  } else if (a.act === "sweep") n.dir = Math.sin(N().S.hour * 40) > 0 ? 1 : 3;
+  // aktivitas berkeliling (kejar kupu-kupu, patroli): berhenti & menoleh bila pemain mendekat,
+  // supaya tombol 💬 Bicara tidak hilang karena NPC terus berpindah
+  if (ROAM.has(a.act) && !inHome() && Math.hypot(player.x - n.x, player.y - n.y) < 1.0) { faceToward(n, player); return; }
+  const fn = (area.acts && area.acts[a.act]) || commonActs[a.act];
+  if (fn) fn(n, dt, a, api);
+  else if (area.idleLook) idleLook(n, dt, a);
+}
+// animasi diam: sesekali menoleh (ke pemain bila dekat), lalu kembali ke arah aktivitas
+function idleLook(n, dt, a) {
+  n.look = (n.look || rand(3, 7)) - dt;
+  if (n.look > 0) return;
+  if (n.glance) { n.dir = a.face ?? n.dir; n.glance = false; n.look = rand(4, 8); return; }
+  const near = Math.hypot(player.x - n.x, player.y - n.y) < 3.2;
+  if (near) faceToward(n, player); else n.dir = ((a.face ?? n.dir) + (Math.random() < 0.5 ? 1 : 7)) % 8;
+  n.glance = true; n.look = rand(1.2, 2.2);
 }
 
 // ---------- Update utama ----------
@@ -425,7 +393,9 @@ function update(dt) {
   N().tickTime(dt);
   if (NW.hold) { NW.hold.validate(); player.hold = NW.hold.frame(); } // ikan terjual / pindah ke akuarium → berhenti; pose hanya tampilan
   if (busy) updateBusy(dt);
+  if (cine) { cine.t += dt; cine.k = clamp(Math.min(cine.t / 1.1, (cine.dur - cine.t) / 1.1), 0, 1); const e = cine.k; cine.k = e * e * (3 - 2 * e); if (cine.t >= cine.dur) { const done = cine.done; cine = null; if (done) done(); } }
   const v = blocked() ? { x: 0, y: 0, m: 0 } : inputVec();
+  if (v.m > 0.05 && seat.on) standUp(); // geser joystick = berdiri dari bangku
   if (v.m > 0.05) {
     const SPEED = inHome() ? (NW.home.scene === "room" ? 115 : 140) : 150;
     const d = screenToWorld(v.x * SPEED * dt, v.y * SPEED * dt);
@@ -436,140 +406,149 @@ function update(dt) {
     player.dir = dirOf(v.x, v.y); player.moving = true; player.walk += dt * 11 * (0.5 + v.m * 0.6);
     if (!moved) { moved = true; NW.story.mark("walk"); updateHint(); }
   } else player.moving = false;
+  if (seat.on) { seat.t += dt; if (seat.tick) seat.tick(seat.t, dt); }
   player.z = inHome() ? 0 : undefined;
 
-  for (const n of npcs) updateNPC(n, dt);
+  for (const n of A().npcs) updateNPC(n, dt); // hanya NPC area aktif
   if (inHome()) NW.home.update(dt);
+  else if (NW.adv) NW.adv.tick(A().id, player, dt); // penemuan tempat
   target = blocked() ? null : findTarget();
   updateActBtn();
   renderDialog(dt);
-  const ct = camTarget(), k = Math.min(1, dt * 5);
+  const ct = camTarget(), k = Math.min(1, dt * (cine ? 3 : 5));
   cam.x = lerp(cam.x, ct.x, k); cam.y = lerp(cam.y, ct.y, k);
   if (!inHome()) updateAmbient(dt);
-  saveT += dt; if (saveT > 3 && !inHome()) { saveT = 0; N().S.world = { x: +player.x.toFixed(2), y: +player.y.toFixed(2) }; }
+  saveT += dt; if (saveT > 3 && !inHome()) { saveT = 0; savePos(); }
 }
-// petunjuk pemain baru: satu per satu, berhenti setelah dipahami (lihat story.hint)
+// petunjuk: area aktif menentukan (Muara: petunjuk pemain baru; Toba: langkah cerita)
 function updateHint() {
   if (inHome()) return;
-  N().setHint(NW.story ? NW.story.hint() : "");
+  N().setHint(H().hint ? H().hint() : "");
 }
 
 // ---------- Gambar ----------
-function viewRect() { return { x0: cam.x - W / 2 / Z, y0: cam.y - H / 2 / Z, x1: cam.x + W / 2 / Z, y1: cam.y + H / 2 / Z }; }
+function viewRect() { return { x0: cam.x - W / 2 / Z, y0: cam.y - H2 / 2 / Z, x1: cam.x + W / 2 / Z, y1: cam.y + H2 / 2 / Z }; }
 function inView(view, x, y, m = 120) { return x > view.x0 - m && x < view.x1 + m && y > view.y0 - m && y < view.y1 + m * 1.6; }
-const worldXf = (ctx) => ctx.setTransform(DPR * Z, 0, 0, DPR * Z, DPR * (W / 2 - cam.x * Z), DPR * (H / 2 - cam.y * Z));
+const worldXf = (ctx) => ctx.setTransform(DPR * Z, 0, 0, DPR * Z, DPR * (W / 2 - cam.x * Z), DPR * (H2 / 2 - cam.y * Z));
 const overlap = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
 
 function draw(ctx, t) {
   if (inHome()) return drawHome(ctx, t);
-  const view = viewRect(), dk = N().darkness();
+  const view = viewRect(), dk = N().darkness(), a = A(), m = a.map, hk = H();
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  ctx.fillStyle = NW.COL.deep; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = (a.theme && a.theme.deep) || NW.COL.deep; ctx.fillRect(0, 0, W, H2);
   worldXf(ctx);
+  if (hk.drawBack) hk.drawBack(ctx, t, view, dk); // latar jauh (bukit di seberang danau)
   NW.drawTerrain(ctx, view);
   NW.drawWater(ctx, view, t);
   for (const j of jumps) NW.drawJump(ctx, j, t);
-  drawFarBoat(ctx, t, view);
+  if (hk.drawUnder) hk.drawUnder(ctx, t, view, inView, dk);
 
   // penanda titik mancing
-  const sp = NW.P(NW.SPOT.x - 0.35, NW.SPOT.y, NW.LIFT + 4.5);
   const pulse = 0.5 + 0.5 * Math.sin(t * 3);
-  ctx.strokeStyle = `rgba(255,240,176,${0.5 + pulse * 0.4})`; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.ellipse(sp.x, sp.y, 18 + pulse * 4, (18 + pulse * 4) * 0.5, 0, 0, 7); ctx.stroke();
-  ctx.fillStyle = "rgba(255,240,176,.22)"; ctx.beginPath(); ctx.ellipse(sp.x, sp.y, 14, 7, 0, 0, 7); ctx.fill();
+  for (const s of m.fishSpots) {
+    const sp = NW.P(s.mx, s.my, NW.LIFT + s.mz);
+    ctx.strokeStyle = `rgba(255,240,176,${0.5 + pulse * 0.4})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(sp.x, sp.y, 18 + pulse * 4, (18 + pulse * 4) * 0.5, 0, 0, 7); ctx.stroke();
+    ctx.fillStyle = "rgba(255,240,176,.22)"; ctx.beginPath(); ctx.ellipse(sp.x, sp.y, 14, 7, 0, 0, 7); ctx.fill();
+  }
 
   const birdDraws = birds.map((b) => NW.drawBird(ctx, b, t));
   birdDraws.forEach((b) => b.shadow());
 
   // area layar pemain (untuk efek transparan bila tertutup)
-  const pp = NW.P(player.x, player.y, NW.LIFT), pRect = { x0: pp.x - 14, x1: pp.x + 14, y0: pp.y - 56, y1: pp.y + 2 }, pDepth = player.x + player.y;
+  const pp = NW.P(player.x, player.y, gz(player.x, player.y)), pRect = { x0: pp.x - 14, x1: pp.x + 14, y0: pp.y - 56, y1: pp.y + 2 }, pDepth = player.x + player.y;
   let hiddenBehind = false;
 
   const list = [];
-  for (const o of NW.objects) { const p = NW.P(o.x, o.y); if (inView(view, p.x, p.y)) list.push({ d: o.x + o.y + (o.kind === "boat" ? 0.6 : 0), o }); }
-  for (const b of NW.buildings) {
+  for (const o of m.objects) { const p = NW.P(o.x, o.y, o.z || 0); if (inView(view, p.x, p.y, o.big || 120)) list.push({ d: o.x + o.y + (o.dz || (o.kind === "boat" ? 0.6 : 0)), o }); }
+  for (const b of m.buildings) {
     const p = NW.P((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2); if (!inView(view, p.x, p.y, 200)) continue;
     const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
-    if (b.kind === "market") { list.push({ d: cx + b.y0 + 0.2, mback: b }); list.push({ d: cx + b.y1 + 0.05, mfront: b }); }
+    if (b.kind === "market" || b.drawBack) { list.push({ d: cx + b.y0 + 0.2, mback: b }); list.push({ d: cx + b.y1 + 0.05, mfront: b }); }
     else list.push({ d: cx + cy, b });
     // apakah bangunan ini menutupi pemain?
     const top = NW.P(b.x0, b.y0, NW.LIFT + (b.stilts || 0) + b.h + 40).y, bot = NW.P(b.x1, b.y1, 0).y;
     const bb = { x0: NW.P(b.x0, b.y1).x, x1: NW.P(b.x1, b.y0).x, y0: top, y1: bot };
-    if ((b.kind === "market" ? cx + b.y1 : cx + cy) > pDepth && overlap(pRect, bb) && pp.y < bot - 6) hiddenBehind = true;
+    if ((b.kind === "market" || b.drawBack ? cx + b.y1 : cx + cy) > pDepth && overlap(pRect, bb) && pp.y < bot - 6) hiddenBehind = true;
   }
-  for (const n of npcs) { if (n.hidden) continue; const p = NW.P(n.x, n.y); if (inView(view, p.x, p.y)) list.push({ d: n.x + n.y, ch: n }); }
-  for (const it of NW.story.layerObjects(t)) list.push({ d: it.d, fn: it.draw }); // sudut nelayan (progres pribadi)
+  for (const n of a.npcs) { if (n.hidden) continue; const p = NW.P(n.x, n.y); if (inView(view, p.x, p.y)) list.push({ d: n.x + n.y, ch: n }); }
+  if (hk.layer) for (const it of hk.layer(t)) list.push({ d: it.d, fn: it.draw });
   player.rodSpec = NW.look.rodSpec(); // joran aktif (dari S.up.rod) → tampil di punggung
   list.push({ d: pDepth, ch: player });
-  list.sort((a, b) => a.d - b.d);
+  list.sort((x, y) => x.d - y.d);
   const night = dk / 0.85, claim = L() ? L().claimable() > 0 : false;
   for (const it of list) {
     if (it.fn) it.fn(ctx);
     else if (it.ch) {
       NW.drawCharacter(ctx, it.ch, t);
       if (it.ch === player) { // label nama + gelar: ikut urutan kedalaman, jadi tertutup bangunan di depannya
-        const pb = NW.P(player.x, player.y, NW.LIFT + (NW.tileAt(player.x, player.y) === NW.T.DOCK ? 4 : 0));
+        const pb = NW.P(player.x, player.y, gz(player.x, player.y) - (player.sit ? 6 : 0));
         NW.look.drawPlayerLabel(ctx, pb, 1.0 / Z, NW.hold ? NW.hold.labelLift() : 0);
         if (NW.hold) NW.hold.drawTag(ctx, pb, 1.0 / Z);
       }
     }
-    else if (it.b) { if (it.b.kind === "shop") NW.drawShop(ctx, it.b, t, night); else NW.drawHouse(ctx, it.b, t, night); }
-    else if (it.mback) NW.drawMarketBack(ctx, it.mback);
-    else if (it.mfront) NW.drawMarketFront(ctx, it.mfront, t);
+    else if (it.b) { if (it.b.draw) it.b.draw(ctx, it.b, t, night); else if (it.b.kind === "shop") NW.drawShop(ctx, it.b, t, night); else NW.drawHouse(ctx, it.b, t, night); }
+    else if (it.mback) (it.mback.drawBack || NW.drawMarketBack)(ctx, it.mback, t, night);
+    else if (it.mfront) (it.mfront.drawFront || NW.drawMarketFront)(ctx, it.mfront, t, night);
     else {
       // pohon di depan pemain dibuat transparan supaya pemain tetap terlihat
-      const o = it.o, fade = (o.kind === "palm" || o.kind === "tree") && it.d > pDepth && occludes(o, pRect);
+      const o = it.o, fade = (o.kind === "palm" || o.kind === "tree" || o.fade) && it.d > pDepth && occludes(o, pRect);
       if (fade) ctx.globalAlpha = 0.35;
+      if (o.z) { ctx.save(); ctx.translate(0, -o.z); }
       drawObj(ctx, o, t, night, claim);
+      if (o.z) ctx.restore();
       ctx.globalAlpha = 1;
     }
   }
   if (hiddenBehind) { ctx.globalAlpha = 0.5; NW.drawCharacter(ctx, player, t); ctx.globalAlpha = 1; }
-  const dika = npcs[2]; if (!dika.hidden && dika.arrived && dika.cur.act === "kite") NW.drawKite(ctx, dika, t);
-  for (const bf of butterflies) if (dk < 0.5) NW.drawButterfly(ctx, bf, t);
+  if (hk.drawOver) hk.drawOver(ctx, t, dk, view, inView);
+  if (NW.adv) NW.adv.drawFx(ctx, t); // kilau penemuan tempat
   birdDraws.forEach((b) => b.draw());
 
   // malam: gelapkan lalu nyalakan lampu
   if (dk > 0.02) {
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    ctx.fillStyle = `rgba(14,24,58,${(dk * 0.62).toFixed(3)})`; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = `rgba(14,24,58,${(dk * 0.62).toFixed(3)})`; ctx.fillRect(0, 0, W, H2);
     worldXf(ctx);
     ctx.globalCompositeOperation = "lighter";
-    const a = clamp((dk - 0.15) * 1.3, 0, 0.75) * 0.42;
-    for (const [x, y] of NW.lamps) { NW.lightAt(ctx, x, y, 2, 78, "#ffb347", a); NW.lightAt(ctx, x, y, 40, 16, "#fff1c4", a * 1.6); }
-    for (const b of NW.buildings) {
+    const al = clamp((dk - 0.15) * 1.3, 0, 0.75) * 0.42;
+    for (const [x, y] of m.lamps) { const lz = m.heightAt(x, y); NW.lightAt(ctx, x, y, 2 + lz, 78, "#ffb347", al); NW.lightAt(ctx, x, y, 40 + lz, 16, "#fff1c4", al * 1.6); }
+    for (const b of m.buildings) {
+      if (b.noLight) continue;
       const cx = b.kind === "market" ? (b.x0 + b.x1) / 2 : b.door === "x" ? b.x1 + 0.4 : (b.x0 + b.x1) / 2;
       const cy = b.door === "x" ? (b.y0 + b.y1) / 2 : b.y1 + 0.4;
-      NW.lightAt(ctx, cx, cy, 10, 48, "#ffa94d", a * 0.8);
+      NW.lightAt(ctx, cx, cy, 10, 48, "#ffa94d", al * 0.8);
     }
-    NW.lightAt(ctx, NW.BOAT.x, NW.BOAT.y, 14, 40, "#ffb347", a);
+    for (const l of m.lights) NW.lightAt(ctx, l.x, l.y, l.z || 14, l.r || 40, l.col || "#ffb347", al * (l.k || 1));
     ctx.globalCompositeOperation = "source-over";
   } else if (N().goldenHour() > 0) {
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    ctx.fillStyle = `rgba(255,150,70,${(N().goldenHour() * 0.12).toFixed(3)})`; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = `rgba(255,150,70,${(N().goldenHour() * 0.12).toFixed(3)})`; ctx.fillRect(0, 0, W, H2);
     worldXf(ctx);
   }
+  if (hk.drawSky) hk.drawSky(ctx, t, dk, view); // mis. kabut pagi di atas danau (setelah cahaya)
 
   // gelembung aktivitas NPC (dekat pemain)
-  for (const n of npcs) {
+  for (const n of a.npcs) {
     if (n.hidden || n.talking || !n.arrived || !n.cur.bubble) continue;
     const d = Math.hypot(n.x - player.x, n.y - player.y); if (d > 7 || d < 1.6) continue;
-    const p = NW.P(n.x, n.y, NW.LIFT + (n.style.scale ? 50 : 60)), b = Math.sin(t * 2 + n.seed) * 1.5;
+    const p = NW.P(n.x, n.y, gz(n.x, n.y) + (n.style.scale ? 50 : 60)), b = Math.sin(t * 2 + n.seed) * 1.5;
     ctx.fillStyle = "rgba(255,249,236,.92)"; ctx.beginPath(); ctx.ellipse(p.x + 12, p.y - 4 + b, 11, 9, 0, 0, 7); ctx.fill();
     ctx.beginPath(); ctx.arc(p.x + 3, p.y + 5 + b, 2.2, 0, 7); ctx.fill();
     ctx.font = "11px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(n.cur.bubble, p.x + 12, p.y - 3.5 + b);
   }
   // tanda ❗ cerita di atas NPC & tempat yang ditunggu
-  const mk = (x, y, z) => { const p = NW.P(x, y, NW.LIFT + z), b = Math.abs(Math.sin(t * 3)) * 4; ctx.fillStyle = "#e0b84c"; ctx.strokeStyle = "#173f50"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y - b, 8, 0, 7); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#173f50"; ctx.font = "900 11px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("!", p.x, p.y - b + 0.5); };
-  for (const n of npcs) if (!n.hidden && NW.story.markerFor(n) && !(target && target.npc === n)) mk(n.x, n.y, n.style.scale ? 58 : 68);
-  for (const m of NW.story.placeMarkers()) mk(m.x, m.y, m.z);
+  const mk = (x, y, z) => { const p = NW.P(x, y, gz(x, y) + z), b = Math.abs(Math.sin(t * 3)) * 4; ctx.fillStyle = "#e0b84c"; ctx.strokeStyle = "#173f50"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y - b, 8, 0, 7); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#173f50"; ctx.font = "900 11px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("!", p.x, p.y - b + 0.5); };
+  if (hk.markerFor) for (const n of a.npcs) if (!n.hidden && hk.markerFor(n) && !(target && target.npc === n)) mk(n.x, n.y, n.style.scale ? 58 : 68);
+  if (hk.placeMarkers) for (const pm of hk.placeMarkers()) mk(pm.x, pm.y, pm.z);
   drawTargetBubble(ctx, t);
   // nama NPC di atas kepala saat dekat
   ctx.font = "700 9px system-ui, sans-serif"; ctx.textAlign = "center";
-  for (const n of npcs) {
+  for (const n of a.npcs) {
     if (n.hidden) continue;
     const d = Math.hypot(n.x - player.x, n.y - player.y); if (d > 3) continue;
-    const p = NW.P(n.x, n.y, NW.LIFT + (n.style.scale ? 44 : 52));
+    const p = NW.P(n.x, n.y, gz(n.x, n.y) + (n.style.scale ? 44 : 52));
     ctx.globalAlpha = clamp((3 - d) / 1.2, 0, 1);
     ctx.lineWidth = 3; ctx.strokeStyle = "rgba(23,63,80,.85)"; ctx.strokeText(n.name, p.x, p.y);
     ctx.fillStyle = "#fff9ec"; ctx.fillText(n.name, p.x, p.y);
@@ -578,15 +557,17 @@ function draw(ctx, t) {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
 function occludes(o, pRect) {
-  const b = NW.P(o.x, o.y, NW.LIFT);
+  const b = NW.P(o.x, o.y, NW.LIFT + (o.z || 0)), s = o.s || 1;
   const r = o.kind === "palm" ? { x0: b.x - 40 + Math.min(0, o.lean * o.h * 0.55), x1: b.x + 40 + Math.max(0, o.lean * o.h * 0.55), y0: b.y - o.h - 30, y1: b.y - 8 }
-    : { x0: b.x - 30 * o.s, x1: b.x + 30 * o.s, y0: b.y - 72 * o.s, y1: b.y - 6 };
+    : o.occ ? { x0: b.x - o.occ[0] * s, x1: b.x + o.occ[0] * s, y0: b.y - o.occ[1] * s, y1: b.y - 6 }
+    : { x0: b.x - 30 * s, x1: b.x + 30 * s, y0: b.y - 72 * s, y1: b.y - 6 };
   return overlap(pRect, r);
 }
 function drawTargetBubble(ctx, t) {
-  if (!target || dialog.open) return;
-  const z0 = inHome() ? 0 : NW.LIFT;
-  const tp = target.npc ? NW.P(target.npc.x, target.npc.y, z0 + 58) : NW.P(target.x, target.y, z0 + (target.id === "spot" ? 30 : target.id === "boat" ? 40 : 54));
+  if (!target || dialog.open || target.stand) return;
+  const z0 = inHome() ? 0 : NW.LIFT, tx = target.npc ? target.npc.x : target.x, ty = target.npc ? target.npc.y : target.y;
+  const hz = inHome() ? 0 : NW.heightAt(tx, ty);
+  const tp = target.npc ? NW.P(tx, ty, z0 + hz + 58) : NW.P(tx, ty, z0 + hz + (target.bz ?? (target.id === "spot" || target.fish ? 30 : target.id === "boat" ? 40 : 54)));
   const bob = Math.sin(t * 4) * 2;
   ctx.fillStyle = "rgba(255,249,236,.95)"; ctx.strokeStyle = "#173f50"; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.arc(tp.x, tp.y - bob, 11, 0, 7); ctx.fill(); ctx.stroke();
@@ -595,15 +576,17 @@ function drawTargetBubble(ctx, t) {
   ctx.fillText(target.icon, tp.x, tp.y - bob + 1);
 }
 function drawHome(ctx, t) {
-  NW.home.drawScene(ctx, t, N().darkness(), player, { W, H, DPR, worldXf: () => worldXf(ctx) });
+  NW.home.drawScene(ctx, t, N().darkness(), player, { W, H: H2, DPR, worldXf: () => worldXf(ctx) });
   if (!NW.home.isEditing()) { worldXf(ctx); drawTargetBubble(ctx, t); }
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
 // layar → tile (dipakai Mode Tata Ruang)
 function toTile(cx, cy, z = 0) {
-  const wx = (cx - W / 2) / Z + cam.x, wy = (cy - H / 2) / Z + cam.y + z;
+  const wx = (cx - W / 2) / Z + cam.x, wy = (cy - H2 / 2) / Z + cam.y + z;
   return { x: (wx / HW + wy / HH) / 2, y: (wy / HH - wx / HW) / 2 };
 }
+// objek: gambar bawaan + gambar khusus area (NW.objDraw[kind])
+NW.objDraw = NW.objDraw || {};
 function drawObj(c, o, t, night, claim) {
   switch (o.kind) {
     case "palm": return NW.drawPalm(c, o, t, 1);
@@ -623,17 +606,14 @@ function drawObj(c, o, t, night, claim) {
     case "boat": return NW.drawBoat(c, o, t);
     case "gate": return NW.HOUSE.gateDraw(c, o.x, o.y, t, "RUMAHKU", NW.LIFT);
     case "bamboo": return NW.drawBamboo(c, o, t);
+    default: if (NW.objDraw[o.kind]) return NW.objDraw[o.kind](c, o, t, night);
   }
 }
-function drawFarBoat(c, t, view) {
-  const k = (sail.t * 0.018) % 1, x = 36.5, y = -4 + k * 48;
-  const p = NW.P(x, y); if (!inView(view, p.x, p.y)) return;
-  const bob = Math.sin(t * 1.3) * 1.2;
-  c.strokeStyle = "rgba(255,255,255,.45)"; c.lineWidth = 1.2; c.beginPath(); c.moveTo(p.x + 14, p.y + 4); c.lineTo(p.x + 40, p.y - 8); c.stroke();
-  c.fillStyle = "#7a5230"; c.beginPath(); c.moveTo(p.x - 18, p.y - 6 + bob); c.quadraticCurveTo(p.x, p.y + 8 + bob, p.x + 18, p.y + 2 + bob); c.lineTo(p.x - 18, p.y - 6 + bob); c.fill();
-  c.fillStyle = "#fff6e4"; c.beginPath(); c.moveTo(p.x - 2, p.y - 4 + bob); c.lineTo(p.x - 2, p.y - 36 + bob); c.lineTo(p.x + 14, p.y - 6 + bob); c.fill();
-  c.fillStyle = "#e2574c"; c.beginPath(); c.moveTo(p.x - 4, p.y - 6 + bob); c.lineTo(p.x - 4, p.y - 30 + bob); c.lineTo(p.x - 16, p.y - 8 + bob); c.fill();
-}
 
-NW.world = { toTile, resize, update, draw, onEnter, updateHint, closeDialog, snapCamera, player, npcs, get target() { return target; }, interact, isBusy: () => busy, placeNPC, actNow };
+NW.world = {
+  toTile, resize, update, draw, onEnter, updateHint, closeDialog, openDialog, snapCamera, player, interact, isBusy: () => busy, placeNPC, actNow,
+  get npcs() { return NW.areas.get("muara").npcs; }, // kompatibel: NPC Muara (Darto, Sari, Dika)
+  areaNpcs: () => A().npcs, get target() { return target; }, get dialogOpen() { return dialog.open; },
+  switchArea, faceToward, walkTo, sitAt, standUp, look, caption, api, seat, savePos, get cine() { return cine; },
+};
 })();

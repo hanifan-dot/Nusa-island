@@ -559,3 +559,50 @@ body.editing .joy, body.editing .act-btn, body.editing .hint { display: none !im
 body.mode-fish .hold-stop, body.editing .hold-stop { display: none !important; }
 @keyframes holdIn { from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(.9); } }
 @media (min-width: 701px) { .hold-stop { font-size: 14px; width: 170px; } }
+
+/* =========================================================
+   Bumbu 2 — Petualangan Nusantara: penemuan, perjalanan, Buku Petualangan
+   ========================================================= */
+.banner.cap { font: 600 16px var(--font); white-space: normal; width: min(86vw, 420px); text-align: center; line-height: 1.35; text-shadow: 0 2px 0 var(--ink), 0 4px 14px rgba(0, 0, 0, .45); }
+.discover {
+  position: fixed; z-index: 8; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 58px); transform: translate(-50%, -10px);
+  background: linear-gradient(180deg, #fff6d6, #f3dc93); color: #3b2a05; border: 2px solid #c79a3a; border-radius: 999px;
+  padding: 7px 16px; font: 700 14px var(--font); box-shadow: var(--shadow); opacity: 0; pointer-events: none;
+  transition: opacity .35s, transform .35s; white-space: nowrap; max-width: 92vw; overflow: hidden; text-overflow: ellipsis;
+}
+.discover.show { opacity: 1; transform: translate(-50%, 0); }
+.voyage { position: fixed; inset: 0; z-index: 40; background: #0b2430; opacity: 0; transition: opacity .3s; touch-action: none; }
+.voyage.on { opacity: 1; }
+.voyage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.vg-text { position: absolute; left: 0; right: 0; top: 16%; text-align: center; color: var(--cream); padding: 0 16px; }
+.vg-title { font: 700 clamp(20px, 6vw, 30px) var(--display); text-shadow: 0 3px 0 var(--ink), 0 6px 18px rgba(0, 0, 0, .4); }
+.vg-sub { font: 600 14px var(--font); opacity: .9; margin-top: 6px; text-shadow: 0 1px 6px rgba(0, 0, 0, .5); }
+.vg-skip { font: 12px var(--font); opacity: .6; margin-top: 10px; }
+.adv-sum { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; margin-bottom: 10px; }
+.adv-area { background: #fff; border: 1px solid rgba(23, 63, 80, .12); border-radius: 12px; padding: 10px; margin-bottom: 10px; }
+.adv-area.unvisited { opacity: .72; }
+.adv-area.unvisited img { filter: grayscale(.85); }
+.adv-top { display: flex; gap: 10px; align-items: center; }
+.adv-top img { border-radius: 8px; flex: none; box-shadow: 0 2px 6px rgba(10, 35, 45, .2); }
+.adv-top .nm { font-weight: 800; font-size: 15px; }
+.adv-top .sub, .adv-story, .adv-note div { font-size: 12.5px; }
+.adv-disc { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.adv-disc span { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #eef1ee; color: #6a7a78; }
+.adv-disc span.on { background: #fff0b0; color: #3b2a05; }
+.adv-story { margin-top: 8px; }
+.adv-ch { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; color: #6a7a78; }
+.adv-ch .on { color: var(--ink-2); } .adv-ch .cur { color: #a8862f; font-weight: 700; }
+.adv-notes { margin-top: 8px; display: grid; gap: 6px; }
+.adv-note { background: #faf7ee; border-left: 3px solid var(--gold); border-radius: 6px; padding: 6px 8px; font-size: 13px; }
+.adv-empty { font-size: 12px; margin-top: 6px; }
+/* Jala keramba (Bab 2 Toba) */
+.net-wrap { position: fixed; inset: 0; z-index: 30; background: rgba(8, 26, 34, .72); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.net-card { background: var(--paper); border-radius: 18px; width: min(420px, 100%); padding: 14px; box-shadow: var(--shadow); text-align: center; }
+.net-card h3 { margin: 2px 0 4px; font: 700 19px var(--display); color: var(--ink); }
+.net-card p { margin: 0 0 8px; font-size: 13.5px; color: #3c5560; }
+.net-card canvas { width: 100%; aspect-ratio: 1 / 0.86; border-radius: 12px; touch-action: none; display: block; background: #2a6b7c; }
+.net-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; }
+.net-row b { font-size: 14px; color: var(--ink); }
+.award-card .award-ic { font-size: 46px; line-height: 1; animation: awardPop .6s cubic-bezier(.2, 1.6, .4, 1) both; }
+.award-card h3 { font-size: 22px; }
+@keyframes awardPop { from { transform: scale(.3) rotate(-20deg); opacity: 0; } to { transform: none; opacity: 1; } }
