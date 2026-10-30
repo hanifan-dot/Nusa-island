@@ -134,6 +134,19 @@ Struktur kode dunia pulau ada di folder `world/`:
 - **Perlawanan menurut ukuran** (`fishmath.js`, fungsi murni): makin berat ikan, makin kuat dan sering menyentak, makin lama sentakannya, dan gulungan saat sentakan malah menyeret (harus membaca aba-aba). Ikan ≤20 kg tidak terpengaruh ukuran (Pak Darto tetap bisa diselesaikan). Ikan lelah seiring waktu agar fight tidak berlarut. Joran di luar toleransi 2× kapasitas memberi peringatan dan risiko senar putus; senar putus hanya kehilangan ikan, tanpa kerusakan permanen. Joran terbaik menaikkan peluang tetapi tidak menjamin raksasa. Penyetelan dilakukan dengan `tests/browser/balance_sim.py`.
 - Simpanan versi 6 (`nusa-island-v1` tetap). Cadangan otomatis: `nusa-island-v1-backup-v5` (dan v4 untuk simpanan yang lebih lama). Tingkat joran/coolbox lama tidak pernah diturunkan.
 
+## Bumbu 2 — Petualangan Nusantara: Kampung Tepian Toba
+Setelah Muara Kampung, kini ada **satu daerah baru yang bisa dijelajahi**: **Kampung Tepian Toba**, kampung kecil di tepi Danau Toba.
+
+- **Perjalanan**: di dermaga Muara, dekati ⛵ **Kapal** → Peta → **Danau Toba** (syarat lama tetap: **Perahu Motor**; harga kapal tidak berubah, tanpa mata uang/tiket baru). Layar berlayar singkat (±2,7 dtk, ketuk untuk mempercepat), lalu pemain turun di papan **Dermaga Tepian Toba**. Untuk pulang, dekati kapal di sisi timur dermaga Toba → **⛵ Pulang ke Muara Kampung** (atau buka Peta). Pemain muncul lagi di dekat dermaga Muara. Selat Sunda, Raja Ampat, dan Laut Banda tetap lokasi mancing seperti dulu.
+- **Mancing di Toba** memakai **lokasi mancing Danau Toba yang sudah ada** (data `LOCATIONS`, ikan, rarity, pemandangan) — tidak diduplikasi. Titik 🎣 ada di ujung dermaga Toba; **🏝️ Ke Darat** mengembalikan pemain ke kampung Toba.
+- **Isi kampung**: danau luas dengan kabut pagi, perbukitan pinus di barat dan bukit di seberang danau, dermaga kayu, kapal & solu (perahu kayu ramping), keramba jaring apung, jalan setapak, 5 rumah tepi danau beratap pelana melengkung (terinspirasi rumah di sekitar Danau Toba, **tanpa ornamen/simbol adat** supaya tidak asal tempel), Pasar Kecil, Pondok Kumpul dengan pohon besar & bangku, kebun warga, Bukit Pandang yang bisa didaki, Sudut Tenang Danau, dan Pancuran Batu. Cahaya pagi/siang/sore/malam mengikuti jam game (lampu jalan, jendela, lentera pondok; kabut pagi 05:00–09:00).
+- **NPC Toba** (hanya aktif di Toba): **Pak Raka** (pemandu dermaga), **Bu Maya** (pedagang tepian danau — info ikan danau & titip jual ke Pasar Bu Sari, *satu pasar & satu harga*, bukan pasar baru), **Nala** (penjelajah muda). Masing-masing berpenampilan beda, punya jadwal harian, animasi diam (menoleh), menghadap pemain saat diajak bicara, tidak menembus bangunan/menumpuk, dan kalimat pembuka yang bergiliran (tidak mengulang).
+- **Cerita "Rahasia Tepian Danau"** (3 bab, tanpa batas waktu): Bab 1 *Tamu dari Muara* (Pak Raka, dermaga, pasar, Bu Maya, titik mancing → +200 koin & catatan perjalanan), Bab 2 *Jejak di Tepi Danau* (tiga tanda Ompung Nala di Bukit Pandang, Sudut Tenang, Pancuran Batu + **menambal jaring keramba**: aktivitas sentuh & amati, tanpa gagal/tenggat → +250 koin, catatan penemuan, lencana non-ekonomi), Bab 3 *Pesan dari Danau* (tantangan **Ikan Jurung** dengan mekanik mancing asli → +350 koin, gelar petualangan **Penjelajah Tepian Toba** yang terpisah dari 8 gelar tangkapan, animasi cahaya & kartu penghargaan). Hadiah sekali per bab; cerita tidak butuh ikan legenda atau joran 10; bisa ditinggal ke Muara dan dilanjutkan kapan saja; malam hari NPC bisa didatangi lewat pintu rumah.
+- **📖 Buku Petualangan** (tombol 🧭 di atas): daftar daerah dengan ilustrasi kecil, status dikunjungi, titik penemuan (Muara 4, Toba 5), cerita daerah, catatan perjalanan, dan penghargaan petualangan. Penemuan tempat memunculkan "✨ Lokasi ditemukan: …" **sekali saja**.
+- **Interaksi santai**: duduk di bangku (berdiri dengan joystick/tombol), membaca papan informasi, memandang danau lewat teropong Bukit Pandang, memeriksa solu, membasuh tangan di pancuran, melempar batu ceper. Tidak ada stamina/lapar/energi atau login harian.
+- **Arsitektur multilokasi**: `world/areas.js` (registry area + getter kompatibel `NW.tileAt`, `NW.walkable`, `NW.objects`, … yang menunjuk ke area aktif), `world/map.js` & `world/areas/muara.js` (Muara), `world/areas/toba-map.js` / `toba-draw.js` / `toba.js` (Toba), `world/adventure.js` (penemuan, buku, perjalanan), `world/world.js` (mesin umum). Daerah baru cukup menambah satu set file area.
+- Simpanan **versi 7** (`nusa-island-v1` tetap, cadangan otomatis `nusa-island-v1-backup-v6`). Data baru di `S.adv` (area terakhir, posisi per area, penemuan, catatan, penghargaan, cerita Toba) hanya mengisi yang kosong — progres lama tidak pernah ditimpa.
+
 ## Cara mancing
 1. **Tahan layar** untuk mengayun joran, **lepas** untuk melempar. Lepas di zona atas meteran untuk *Lemparan Sempurna* (lebih hoki). Ketuk sisi kiri atau kanan layar untuk mengarahkan lemparan.
 2. Tunggu sampai pelampung **tenggelam** dan muncul tanda **!**, lalu ketuk secepatnya.
@@ -147,7 +160,7 @@ Struktur kode dunia pulau ada di folder `world/`:
 | Lokasi | Kapal | Ikan legenda |
 |---|---|---|
 | Muara Kampung | Sampan Kayu | Arwana Super Red 🌙 |
-| Danau Toba | Perahu Motor | Ikan Dewa ☀️ |
+| Danau Toba (+ Kampung Tepian Toba) | Perahu Motor | Ikan Dewa ☀️ |
 | Selat Sunda | Kapal Nelayan | Kerapu Raksasa 🌙 |
 | Raja Ampat | Speedboat | Napoleon (dilindungi) |
 | Laut Banda | Kapal Ekspedisi | Marlin Biru, Hiu Paus 🌙 |
@@ -157,7 +170,7 @@ Ikan yang dilindungi otomatis dilepas lagi, dan pemain mendapat hadiah konservas
 ## Teknis
 - HTML, CSS, dan JavaScript murni dengan Canvas 2D. Tanpa library dan tanpa build.
 - Progres disimpan di `localStorage` browser.
-- File: `index.html`, `style.css`, `data.js` (ikan, lokasi, upgrade), `game.js` (mesin game).
+- File: `index.html`, `style.css`, `data.js` (ikan, lokasi, upgrade), `game.js` (mesin game & mancing), `world/` (dunia jelajah: area, gambar, NPC, cerita, rumah).
 - Menambah ikan cukup lewat `data.js`.
 
 ## Online-kan dengan GitHub Pages

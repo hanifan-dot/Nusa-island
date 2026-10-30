@@ -22,12 +22,20 @@ python tests/browser/test_tahap1.py           # regresi Tahap 1: berjalan, colli
 python tests/browser/test_bumbu1.py           # Bumbu 1: cerita 4 bab, 3 keahlian, dialog NPC, sudut dermaga, petunjuk, migrasi v3→v4
 python tests/browser/test_bumbu11.py          # Bumbu 1.1: panel Strike (HP & desktop), joran di punggung 8 arah, 8 gelar, label nama, migrasi v4→v5
 python tests/browser/test_bumbu12.py          # Bumbu 1.2: kapasitas 8→200, inventaris 200 ikan, pasar, pamer ikan, 10 joran, fight ikan besar, ekonomi, migrasi v5→v6
+python tests/browser/test_bumbu2.py           # Bumbu 2: Kampung Tepian Toba, perjalanan dua arah, collision, NPC sehari penuh, cerita 3 bab, penemuan, Buku Petualangan, mancing/inventaris, migrasi v6→v7, pamer ikan lintas area, kontrol HP, performa
 python tests/browser/balance_sim.py           # alat penyetelan (bukan tes): peluang menangkap per joran/berat dengan pemain berreaksi acak
 ```
 Simulasi fight di `test_bumbu12.py` memakai `startFight/updateFight` asli dengan `Math.random` deterministik (seed tetap) sehingga hasilnya stabil.
 
 Simpanan lama ditanam lewat `add_init_script` sebelum game dimuat. Kalau ditulis lalu
 `reload()`, game akan menimpanya dengan state yang sedang berjalan saat `pagehide`.
+
+`test_bumbu11.py` & `test_bumbu12.py` kini mengharapkan simpanan versi 7 (Bumbu 2) pada uji migrasinya.
+
+Catatan uji NPC Dika (`test_tahap2a.py`): dulu kadang gagal bila dijalankan paralel. Penyebabnya Dika terus
+mengejar kupu-kupu; bila ada jeda >0,5 dtk antara mendekat dan menekan tombol (beban CPU), Dika sudah
+pindah dan tombol 💬 hilang. Sejak Bumbu 2, NPC yang sedang berkeliling berhenti & menoleh saat pemain
+mendekat (≤1 tile), jadi masalah ini teratasi di game (bukan dengan mengulang tes).
 
 Semua uji berjalan di Chromium headless di server, termasuk "HP-emulasi" (viewport
 kecil, DPR 2, sentuh). Angka FPS di sana **bukan** bukti performa di HP Android asli.
