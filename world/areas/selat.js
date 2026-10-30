@@ -271,7 +271,7 @@ function talk(n, api) {
 }
 function fishInfo() {
   const R = (r) => RARITY[r].label;
-  return FISH.filter((f) => f.loc === "selat").map((f) => `${dex(f.id) ? "✔" : "·"} ${f.name} — ${R(f.rarity)}, ${N().fmtW(f.wMin)}–${N().fmtW(f.wMax)}${f.night === true ? ", malam" : ""}. ${f.desc}`);
+  return FISH.filter((f) => f.loc === "selat" && (!f.mistik || dex(f.id))).map((f) => `${dex(f.id) ? "✔" : "·"} ${f.name} — ${R(f.rarity)}, ${N().fmtW(f.wMin)}–${N().fmtW(f.wMax)}${f.night === true ? ", malam" : ""}. ${f.desc}`);
 }
 function tips() {
   const L = [], F = (k) => NW.adv.isFound(k);
@@ -279,6 +279,7 @@ function tips() {
   if (!F("sea:karang")) L.push("Di tengah perairan selat ada air berwarna toska. Itu karang dangkal, rumah kerapu dan kakap.");
   if (!F("sea:arus")) L.push("Dekat pelabuhan ini, sebelah barat laut, airnya bergaris-garis putih. Itu arus selat.");
   if (!F("sea:dalam")) L.push("Di bagian selatan laut lepas, airnya biru gelap sekali. Itu laut dalam. Kadang bayangan ikan raksasa lewat di sana.");
+  if (!F("sea:palung")) L.push("Orang-orang tua bilang, jauh di tenggara laut lepas ada satu tempat yang airnya tiba-tiba menggelap dan berkabut tipis, bahkan saat langit cerah. Aku sendiri tak pernah berani mendekat sendirian.");
   if (!L.length) L.push("Kau sudah menemukan semua tanda yang kutahu. Sekarang kau yang harus mengajariku, hahaha!");
   L.push("Kalau tersesat, ikuti panah kompas di layar. Dia selalu menunjuk dermaga terdekat.");
   return L;

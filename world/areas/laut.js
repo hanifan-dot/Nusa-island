@@ -21,7 +21,8 @@ const ISLANDS = [
 ];
 const REEF = { x: 40, y: 34, r: 5.2 };       // gosong karang: dangkal & berwarna toska
 const DEEPZ = { x: 22, y: 42, r: 8.5 };      // laut dalam: biru gelap
-const CURRENT = { x: 62, y: 29, r: 6 };      // arus selat: riak bergaris
+const CURRENT = { x: 62, y: 29, r: 6 };
+const PALUNG = { x: 66, y: 44.5, r: 7 };    // Bumbu 2.4.1: palung gelap (spot rahasia; hanya warna air, tanpa rintangan)      // arus selat: riak bergaris
 function islandD(x, y) { // jarak ternormalisasi ke pulau terdekat (<1 = daratan)
   let best = 9;
   for (const I of ISLANDS) {
@@ -53,6 +54,8 @@ function waterColor(x, y) {
   const cx = x + 0.5, cy = y + 0.5, d = depth(cx, cy), reef = clamp(1 - Math.hypot(cx - REEF.x, cy - REEF.y) / REEF.r, 0, 1);
   let col = d < 0.3 ? mix(WC.shallow, WC.mid, d / 0.3) : d < 0.65 ? mix(WC.mid, WC.deep, (d - 0.3) / 0.35) : mix(WC.deep, WC.abyss, (d - 0.65) / 0.35);
   if (reef > 0.1) col = mix(col, WC.reef, reef * 0.7 * (0.75 + 0.25 * hash2(x * 3, y * 5)));
+  const pal = clamp(1 - Math.hypot(cx - PALUNG.x, cy - PALUNG.y) / PALUNG.r, 0, 1);
+  if (pal > 0) col = mix(col, "#06223a", Math.min(0.88, pal * 1.25));
   return col;
 }
 

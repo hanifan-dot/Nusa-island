@@ -30,7 +30,7 @@ const sumTable = (t) => IDS.reduce((s, k) => s + t[k], 0);
 const tableOk = () => Math.abs(sumTable(VARIANT_TABLE) - 100) < 1e-9 && IDS.every((k) => VARIANT_TABLE[k] >= 0);
 
 // ikan yang boleh punya varian: bukan sampah (emoji), bukan yang dilepas (dilindungi)
-const eligible = (fish) => !!fish && !fish.emoji && fish.rarity !== "sampah" && !fish.protected;
+const eligible = (fish) => !!fish && !fish.emoji && fish.rarity !== "sampah" && !fish.protected && !fish.mistik; // ikan mistis punya tampilan sendiri, tanpa varian
 
 // peluang akhir untuk satu tangkapan: { normal, silver, sunset, pearl } (jumlah tepat 100)
 function weights(opt = {}) {

@@ -17,7 +17,7 @@ const RAR_RANK = { sampah: 0, biasa: 1, langka: 2, epik: 3, legenda: 4 };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fish = (it) => N().FISH_BY_ID[it.id];
 const PILL = { sampah: "#5c615e", biasa: "#2f7a62", langka: "#2a79b0", epik: "#8a3fc0", legenda: "#9a6a08" }; // teks lencana kelangkaan, cukup gelap agar terbaca
-const pill = (f) => { const R = RARITY[f.rarity]; return `<span class="pill" style="background:${R.color}2e;color:${PILL[f.rarity]}">${R.label}</span>`; };
+const pill = (f) => { const R = RARITY[f.rarity]; return `<span class="pill" style="background:${R.color}2e;color:${PILL[f.rarity]}">${f.mistik ? "✨ Mistis" : R.label}</span>`; };
 
 // ---------- Gambar kecil (satu per spesies, di-cache) ----------
 const thumbCache = {};
@@ -248,7 +248,7 @@ function marketHTML() {
     D.draft = keep.length ? makeDraft(D.draft.kind, keep) : null;
   }
   const cooler = S().cooler, L = LOCATIONS[S().loc];
-  const hot = FISH.filter((f) => f.loc === L.id).map((f) => ({ f, m: N().priceMult(f.id) })).sort((a, b) => b.m - a.m)[0];
+  const hot = FISH.filter((f) => f.loc === L.id && (!f.mistik || S().dex[f.id])).map((f) => ({ f, m: N().priceMult(f.id) })).sort((a, b) => b.m - a.m)[0];
   let h = `<p class="muted">Harga berubah tiap hari. Tahan dulu ikan yang lagi murah, jual saat naik!</p>`;
   if (hot && hot.m > 1.1) h += `<p>🔥 Lagi mahal di ${L.short}: <b>${hot.f.name}</b> <span class="trend-up">▲ ${Math.round((hot.m - 1) * 100)}%</span></p>`;
   const all = cooler.reduce((s, it) => s + (fish(it) ? N().priceOf(it) : 0), 0), lockN = cooler.filter((it) => it.lock).length;

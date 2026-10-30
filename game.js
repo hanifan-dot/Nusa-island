@@ -145,7 +145,7 @@ function noise(dur, freq = 800, vol = 0.2, q = 0.8) {
   src.connect(f).connect(g).connect(audioOut()); src.start(t0); src.stop(t0 + dur);
 }
 // Bumbu 2.2: efek baru hanya lewat NW.audio (mengikuti mute/volume). Tanpa modul audio, varian memakai jingle lama.
-function N_sfx(n, a) { if (NW.audio && NW.audio.sfx(n, a)) return true; if (n.startsWith("varian_")) SFX.catch(a); return false; }
+function N_sfx(n, a) { if (NW.audio && NW.audio.sfx(n, a)) return true; if (n.startsWith("varian_")) SFX.catch(a); else if (n === "mistis_tangkap") SFX.catch("legenda"); return false; }
 const SFX = {
   cast: () => noise(0.35, 1800, 0.12, 0.5),
   splash: () => { noise(0.4, 600, 0.25); tone(220, 0.15, "sine", 0.05, 90); },
@@ -270,16 +270,21 @@ const hotPower = () => (G.hot ? (G.hot.z - 2) / 7 : 0);
 const coolerCap = () => UPGRADES.cooler.cap[upLvl("cooler")];
 
 // ---------- Pemilihan ikan ----------
-function chooseFish() {
-  const L = LOCATIONS[S.loc], night = isNight();
-  const pool = FISH.filter((f) => (f.loc === L.id || f.loc === "*") && (f.night === undefined || f.night === night));
+function luckNow() { // pengali hoki dari umpan & lemparan (dipakai pemilihan ikan dan lemparan ikan mistis)
   let luck = UPGRADES.bait.luck[upLvl("bait")];
   if (G.perfect) luck *= 1.25;
   luck *= 1 + 0.35 * clamp((G.target.z - 2) / 7, 0, 1); // lempar jauh = lebih hoki
   if (G.hotHit) luck *= 1.1; // Lemparan Presisi: bonus kecil
+  return luck;
+}
+function chooseFish() {
+  const L = LOCATIONS[S.loc], night = isNight();
+  const pool = FISH.filter((f) => !f.seaOnly && (f.loc === L.id || f.loc === "*") && (f.night === undefined || f.night === night)); // seaOnly (Bumbu 2.4.1): hanya dari spot laut
+  const luck = luckNow();
   const mult = { sampah: 1 / luck, biasa: 1, langka: Math.pow(luck, 0.75), epik: Math.pow(luck, 1.05), legenda: Math.pow(luck, 1.35) };
   // Bumbu 2.4: memancing dari kapal memakai kelompok ikan spot laut (pengali hoki SAMA; bobot ikan tidak diubah)
-  const seaFish = fishFrom === "sea" && G.sea && NW.sea ? NW.sea.pickFish(G.sea, mult, night) : null;
+  const mystFish = fishFrom === "sea" && G.sea && G.sea.mystic && G.myst && G.myst.fish ? FISH_BY_ID[G.myst.fish] : null; // Bumbu 2.4.1: ikan mistis yang sudah dilempar saat umpan mendarat
+  const seaFish = mystFish || (fishFrom === "sea" && G.sea && NW.sea ? NW.sea.pickFish(G.sea, mult, night) : null);
   if (seaFish) { const r = NW.FM.rollWeight(seaFish); return { fish: seaFish, w: r.w, wr: r.wr, extreme: r.extreme }; }
   const avail = RARITY_ORDER.filter((r) => pool.some((f) => f.rarity === r));
   let total = 0;
@@ -362,6 +367,8 @@ function landBobber() {
   for (let i = 0; i < n; i++) G.nibbles.push(rand(0.5, G.biteTimer - 0.4));
   G.shadow = { x: G.bob.x + rand(-0.6, 0.6), z: G.bob.z + rand(0.8, 1.6), a: 0 };
   if (G.hotHit) { G.biteTimer *= 0.6; G.nibbles = G.nibbles.filter((t) => t < G.biteTimer - 0.2); toast("🎯 Tepat di riak ikan!", "good"); }
+  G.myst = fishFrom === "sea" && G.sea && G.sea.mystic && NW.mystic ? NW.mystic.rollCast(G.sea, luckNow()) : null; // Palung Mistis Selat: lempar ikan mistis per lemparan (petunjuk menyusul)
+  if (G.myst) NW.mystic.setHintTime(G.myst, G.biteTimer);
   G.hot = null;
   updateHint();
 }
@@ -382,7 +389,8 @@ function startFight() {
     challenge: !!G.pending.challenge, quest: G.pending.quest || null, perfect: !!G.perfect, reads: 0, tired: 0, readWin: 0, readDone: true, tiredT: 0, tiredHold: 0, tiredDone: true, warn: false };
   $("tensionBar").classList.toggle("ideal", skill("kendali"));
   G.phase = "fight";
-  $("fightName").textContent = G.pending.challenge ? "🏆 Ikan uji Pak Darto!" : G.pending.quest ? G.pending.questName || "🏆 Ikan tantangan!" : G.fight.weak ? "⚠️ Joran kurang kuat untuk ikan ini!" : fish.rarity === "legenda" ? "⚠️ Sesuatu yang BESAR…" : fish.rarity === "epik" ? "Tarikannya kuat!" : "Strike! 🎣";
+  if (fish.tough) { G.fight.surgeT *= 0.75; G.fight.tough = true; } // Pari Bayang Samudra: sentakan lebih sering & lebih lama (joran/tegangan tali tetap sama)
+  $("fightName").textContent = fish.mistik ? (fish.tough ? "🌌 Sesuatu yang besar dan sunyi menarik dari kedalaman!" : "🌌 Cahaya aneh menarik senarmu!") : G.pending.challenge ? "🏆 Ikan uji Pak Darto!" : G.pending.quest ? G.pending.questName || "🏆 Ikan tantangan!" : G.fight.weak ? "⚠️ Joran kurang kuat untuk ikan ini!" : fish.rarity === "legenda" ? "⚠️ Sesuatu yang BESAR…" : fish.rarity === "epik" ? "Tarikannya kuat!" : "Strike! 🎣";
   if (G.fight.weak) toast(`⚠️ Joran kurang kuat! Ikan ±${fmtW(w)}, batas joran ${UPGRADES.rod.cap[upLvl("rod")]} kg. Senar bisa putus.`, "bad");
   $("fightUI").classList.remove("hidden");
   setNavLocked(true);
@@ -428,14 +436,16 @@ function landFish(fish, w) {
   else {
     item = { uid: NW.HD.newUid(S, "i"), id: fish.id, w, t: Date.now() }; // setiap ikan punya identitas unik
     if (vr !== "normal") { item.vr = vr; if (vr === "pearl") item.lock = true; } // Mutiara Nusantara otomatis terkunci
+    if (fish.mistik) item.lock = true; // ikan mistis otomatis terkunci (tidak ikut "jual semua" tanpa sengaja; bisa dibuka kuncinya di Inventaris)
     S.cooler.push(item);
     if (NW.variants) NW.variants.record(S, fish, vr, w, LOCATIONS[S.loc].id);
   }
   emit("catch", { fish, w, night: isNight(), loc: LOCATIONS[S.loc].id, vr, spot: G.spotId || null, sea: fishFrom === "sea" && G.sea ? G.sea.id : null });
+  if (fish.mistik && NW.mystic) NW.mystic.onCaught(fish); // catatan Buku Petualangan (sekali) + reset perlindungan sial
   save(); refreshHUD();
   const giant = !!(NW.variants && !fish.protected && NW.variants.isGiant(fish, w));
   // tepat SATU jingle per tangkapan: varian istimewa memakai jingle sendiri, selain itu jingle rarity
-  if (vr !== "normal") N_sfx("varian_" + vr, fish.rarity); else SFX.catch(fish.rarity);
+  if (fish.mistik) N_sfx("mistis_tangkap"); else if (vr !== "normal") N_sfx("varian_" + vr, fish.rarity); else SFX.catch(fish.rarity);
   if (giant) setTimeout(() => N_sfx("splash_besar", Math.min(1, NW.FM.bigness(w))), 120);
   showCatchCard(fish, w, { isNew, isRecord, reward, vr, giant, uid: item && item.uid, locked: !!(item && item.lock) });
 }
@@ -513,6 +523,7 @@ function update(dt) {
         s.x = lerp(s.x, G.bob.x + Math.sin(G.t * 1.3) * 0.25 * (1 - k), dt * 1.2);
         s.z = lerp(s.z, G.bob.z + 0.15 + 0.9 * (1 - k), dt * 1.2);
       }
+      if (G.myst && G.myst.fish && !G.myst.shown && G.biteTimer <= G.myst.hintAt) NW.mystic.hint(G); // petunjuk: kilau + pesan + suara pendek (jenis ikan tidak disebut)
       if (G.biteTimer <= 0) triggerBite();
       break;
     }
@@ -550,8 +561,9 @@ function updateFight(dt) {
   }
   else if (F.surgeT <= 0) {
     if (skill("membaca")) { F.readWin = 0.35; F.readDone = false; } // lepas dalam 0,35 dtk = bacaan tepat
-    F.surge = rand(0.45, 0.9 + pe * 0.08) + NW.FM.TUNE.surgeLen * big;               // ikan besar menyentak lebih lama
+    F.surge = (rand(0.45, 0.9 + pe * 0.08) + NW.FM.TUNE.surgeLen * big) * (F.tough ? 1.2 : 1);               // ikan besar menyentak lebih lama (ikan tangguh: +20%)
     F.surgeT = Math.max(0.7, rand(1.3, 3.2) * (1 - NW.FM.TUNE.surgeFreq * big) - pe * 0.1); // dan lebih sering
+    if (F.tough) F.surgeT = Math.max(0.6, F.surgeT * 0.8);
     if (F.challenge) F.surgeT = Math.min(F.surgeT, 2.1); // ujian: sentakan teratur supaya bisa dibaca
     F.fxT = clamp(F.fx + rand(-0.9, 0.9) * (1 + 0.5 * big), -1.4, 1.4); // arah tarikan berubah lebih lebar
     splashAt(G.bob.x, G.bob.z, 8 + pe); SFX.surge();
@@ -727,6 +739,7 @@ function draw() {
   }
 
   if (G.spotId && NW.secret && fishFrom === "dock") NW.secret.drawTint(ctx, { W, H, HZ }, G.spotId); // suasana air spot rahasia
+  if (fishFrom === "sea" && G.sea && NW.mystic) NW.mystic.drawFishScene(ctx, G, { W, H, HZ, U, dk, projX, projY, projS }); // suasana Palung Mistis Selat + kilau petunjuk
   drawBoat(dk);
   drawLineAndBobber();
 
@@ -986,6 +999,7 @@ function drawFish(c, f, x, y, L, vr) {
     c.font = `${Math.round(L * 0.55)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
     c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(f.emoji, x, y); return;
   }
+  if (f.mistik && NW.mystic) { NW.mystic.drawFish(c, f, x, y, L); return; } // Bumbu 2.4.1: ikan mistis punya gambar sendiri (transparan berpendar / pari bersirip bercahaya)
   const [sl, sh] = f.shape;
   const bl = L * 0.74, bh = bl * (sh / sl) * 1.15;
   const hx = x + bl / 2 + L * 0.08, tx = hx - bl;
@@ -1126,8 +1140,8 @@ let lastCatch = null;
 function showCatchCard(fish, w, info) {
   lastCatch = { fish, w, info };
   const R = RARITY[fish.rarity], card = $("catchCard");
-  card.style.setProperty("--rc", R.color); card.style.setProperty("--glow", R.glow);
-  $("catchRarity").textContent = R.label;
+  card.style.setProperty("--rc", fish.mistik ? "#3fc7b6" : R.color); card.style.setProperty("--glow", fish.mistik ? "rgba(95,230,210,.7)" : R.glow);
+  $("catchRarity").textContent = fish.mistik ? "✨ Mistis" : R.label;
   $("catchName").textContent = fish.name;
   $("catchWeight").textContent = fmtW(w);
   $("catchDesc").textContent = fish.desc;
@@ -1140,19 +1154,23 @@ function showCatchCard(fish, w, info) {
   if (info.giant) { c.fillStyle = "rgba(220,244,255,.8)"; const rr = seeded(hashStr(fish.id + w)); for (let i = 0; i < 14; i++) { c.beginPath(); c.arc(40 + rr() * 240, 150 + rr() * 22 - rr() * rr() * 90, 1.5 + rr() * 3, 0, 7); c.fill(); } } // cipratan (statis, sedikit titik)
   // Bumbu 2.2: momen tangkapan istimewa (CSS singkat; bisa dilewati)
   const vi = info.vr && info.vr !== "normal" && NW.variants ? NW.variants.info(info.vr) : null;
-  card.className = "catch-card" + (vi ? " cv-" + info.vr : "") + (info.giant ? " cv-giant" : "");
-  $("catchVar").innerHTML = vi ? `<b>${vi.icon} ${vi.name}</b>${info.vr === "pearl" ? "<small>Varian paling istimewa</small>" : ""}` : info.giant ? `<b>🌊 Ikan Raksasa!</b><small>${fmtW(w)} · ${fish.name}</small>` : "";
-  $("catchVar").classList.toggle("hidden", !vi && !info.giant);
-  const special = !!(vi && info.vr === "pearl") || !!info.giant;
+  const myst = !!fish.mistik, mfx = myst && NW.mystic ? NW.mystic.fxMode() : "";
+  card.className = "catch-card" + (vi ? " cv-" + info.vr : "") + (info.giant ? " cv-giant" : "") + (myst ? " cv-mistik cv-" + fish.id + (mfx === "calm" || mfx === "rendah" ? " mfx-low" : "") : "");
+  card.querySelectorAll(".mist-spark").forEach((e) => e.remove());
+  if (myst && mfx !== "calm") { const n = mfx === "rendah" ? 4 : mfx === "sedang" ? 9 : 14; for (let i = 0; i < n; i++) { const s = document.createElement("i"); s.className = "mist-spark"; s.style.cssText = `left:${(8 + ((i * 53) % 84)).toFixed(0)}%;animation-delay:${((i * 0.19) % 1.6).toFixed(2)}s;--dx:${(((i * 37) % 40) - 20).toFixed(0)}px`; card.appendChild(s); } }
+  $("catchVar").innerHTML = myst ? `<span>🌌</span><b>Ikan Mistis!</b><small>${fish.id === "pari_bayang" ? "Bayangan dari samudra memilihmu" : "Cahaya dari kedalaman menyapamu"}</small>` : vi ? `<b>${vi.icon} ${vi.name}</b>${info.vr === "pearl" ? "<small>Varian paling istimewa</small>" : ""}` : info.giant ? `<b>🌊 Ikan Raksasa!</b><small>${fmtW(w)} · ${fish.name}</small>` : "";
+  $("catchVar").classList.toggle("hidden", !vi && !info.giant && !myst);
+  const special = !!(vi && info.vr === "pearl") || !!info.giant || myst;
   $("catchSkip").classList.toggle("hidden", !special);
-  card.classList.toggle("playing", !!(vi || info.giant));
-  clearTimeout(momentT); if (vi || info.giant) momentT = setTimeout(endMoment, info.vr === "pearl" ? 2600 : info.giant ? 2000 : 1500);
+  card.classList.toggle("playing", !!(vi || info.giant || myst));
+  clearTimeout(momentT); if (vi || info.giant || myst) momentT = setTimeout(endMoment, myst ? (mfx === "calm" || mfx === "rendah" ? 1800 : 3000) : info.vr === "pearl" ? 2600 : info.giant ? 2000 : 1500);
   $("catchHold").classList.toggle("hidden", !(info.giant && info.uid && NW.hold) || fishFrom === "sea"); // di atas kapal: pamerkan setelah turun
   const badges = [];
   if (info.isNew) badges.push("✨ Baru di koleksi");
   if (info.locked) badges.push("🔒 Otomatis terkunci");
   if (info.isRecord) badges.push("🏆 Rekor baru!");
   if (fish.night) badges.push("🌙 Ikan malam");
+  if (fish.mistik) badges.push("🌌 Penghuni Palung Mistis Selat");
   if (info.reward) badges.push(`🐢 Dilepas · hadiah konservasi +${fmt(info.reward)}`);
   else if (!fish.emoji) badges.push(`≈ 🪙 ${fmt(priceOf({ id: fish.id, w }))} hari ini`);
   $("catchBadges").innerHTML = badges.map((b) => `<span>${b}</span>`).join("");
@@ -1329,10 +1347,11 @@ function dexHTML() {
   for (const f of FISH.filter((f) => f.loc === dexTab)) {
     const rec = S.dex[f.id], R = RARITY[f.rarity];
     const timeTag = f.night === true ? "🌙 malam" : f.night === false ? "☀️ siang" : "";
-    h += `<div class="dex-cell ${rec ? "" : "unknown"}" style="border-top-color:${R.color}">
-      ${f.emoji ? `<div class="emo">${f.emoji}</div>` : `<img src="${fishImg(f.id)}" alt="">`}
+    const veil = f.mistik && !rec; // ikan mistis: wujud & kelangkaan disembunyikan sampai tertangkap
+    h += `<div class="dex-cell ${rec ? "" : "unknown"}" style="border-top-color:${veil ? "#5a6b72" : R.color}">
+      ${f.emoji ? `<div class="emo">${f.emoji}</div>` : veil ? `<div class="emo">❔</div>` : `<img src="${fishImg(f.id)}" alt="">`}
       <div class="nm">${rec ? f.name : "???"}</div>
-      <div class="sub">${R.label}${timeTag ? " · " + timeTag : ""}</div>
+      <div class="sub">${veil ? "???" : R.label + (f.mistik ? " · ✨ Mistis" : "")}${timeTag ? " · " + timeTag : ""}</div>
       <div class="sub">${rec ? `×${rec.n} · rekor ${fmtW(rec.best)}` : "Belum tertangkap"}</div>${rec ? variantRow(f) : ""}</div>`;
   }
   return h + `</div>`;

@@ -68,6 +68,7 @@ function migrate(s) {
   const adv = s.adv, cur = adv && NW.areas.get(adv.area);
   if (cur && cur.seaOnly && !(q.on && q.area === cur.id && Number.isFinite(q.x))) { adv.area = (Number.isFinite(q.x) && q.x > 40) ? "selat" : "muara"; q.on = false; q.area = adv.area; q.moor = "dermaga"; }
   if (q.on && adv && q.area !== adv.area) q.on = false;
+  if (NW.mystic) NW.mystic.migrate(s); // Bumbu 2.4.1: perlindungan sial ikan mistis (nilai awal 0; data rusak dibersihkan)
   q.v = SEA_V;
   return q;
 }
@@ -503,7 +504,7 @@ function chartHTML() {
   const ar = A(), here = NW.sea.toChart(B.on ? B.area : ar.id, B.on ? B.x : NW.world.player.x, B.on ? B.y : NW.world.player.y);
   const t = rescueTarget(), dock = t.moor ? NW.sea.toChart(t.area.id, t.moor.x, t.moor.y) : null;
   const dist = dock && here ? Math.round(Math.hypot(dock.x - here.x, dock.y - here.y) * 5) : 0;
-  const sp = NW.sea.SPOT_LIST.filter((s) => NW.sea.found(s)), unk = NW.sea.SPOT_LIST.length - sp.length;
+  const sp = NW.sea.SPOT_LIST.filter((s) => NW.sea.found(s)), unk = NW.sea.SPOT_LIST.filter((s) => !s.hidden && !NW.sea.found(s)).length; // spot rahasia tidak dihitung sebelum ditemukan
   return `<p class="muted">Peta buatan pelaut dari koordinat dunia game (bukan GPS). Daerah yang belum dilayari tampak berkabut.</p>
     <div class="sea-chart"><canvas id="seaChart"></canvas></div>
     <div class="sea-legend"><span>⛵ Kapalmu</span><span>⚓ Dermaga</span><span>✨ Spot ditemukan</span></div>
@@ -533,7 +534,7 @@ function drawChart(body) {
   for (const id of NW.sea.CHART_AREAS) { const ar2 = NW.areas.get(id); for (const m of ar2.sea.moors) { const c2 = NW.sea.toChart(id, m.x, m.y); label(c2.x, c2.y, "⚓", "#173f50", 12); } }
   label(19, 19, "Muara Kampung", "#173f50", 10); label(139.5 + 25, 22, "Pelabuhan Selat Sunda", "#173f50", 9.5);
   for (const d of NW.areas.get("laut").discoveries) if (!d.sea && NW.adv.isFound(d.id)) { const c2 = NW.sea.toChart("laut", d.x, d.y); label(c2.x - 3, c2.y - 3, d.name, "#3a5a40", 7.5); }
-  for (const sp of NW.sea.SPOT_LIST) if (NW.sea.found(sp)) { const c2 = NW.sea.toChart(sp.area, sp.x, sp.y); g.fillStyle = "rgba(224,184,76,.35)"; g.beginPath(); g.ellipse(tx(c2.x, c2.y), ty(c2.x, c2.y), sp.r * 1.4 * s, sp.r * 0.7 * s, 0, 0, 7); g.fill(); label(c2.x + 2, c2.y + 2, `${sp.icon} ${sp.name}`, "#7a4f0e", 8.5); }
+  for (const sp of NW.sea.SPOT_LIST) if (NW.sea.found(sp)) { const c2 = NW.sea.toChart(sp.area, sp.x, sp.y); g.fillStyle = sp.mark || "rgba(224,184,76,.35)"; g.beginPath(); g.ellipse(tx(c2.x, c2.y), ty(c2.x, c2.y), sp.r * 1.4 * s, sp.r * 0.7 * s, 0, 0, 7); g.fill(); label(c2.x + 2, c2.y + 2, `${sp.icon} ${sp.name}`, "#7a4f0e", 8.5); }
   // posisi kapal & garis pulang
   const ar = A(), here = B.on ? NW.sea.toChart(B.area, B.x, B.y) : NW.sea.toChart(ar.id, NW.world.player.x, NW.world.player.y);
   if (here) {

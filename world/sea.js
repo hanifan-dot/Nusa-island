@@ -23,29 +23,37 @@ const SPOTS = {
     id: "pesisir", key: "sea:pesisir", area: "muara", name: "Perairan Pesisir", icon: "🐦", x: 45, y: 31, r: 4.6, hint: "birds",
     desc: "Perairan dangkal di selatan jalur kapal Muara. Burung laut berputar di atasnya mengikuti gerombolan ikan kecil.",
     perk: "Kembung, baronang, tongkol, dan sesekali kakap merah.",
-    fish: { kembung: 1, baronang: 1, tongkol: 1, nila: 0.4, kakap: 1, patin: 0.4 }, mul: { sampah: 0.8, langka: 1, epik: 0.35, legenda: 0 },
+    fish: { kembung: 1, baronang: 1, tongkol: 1, nila: 0.4, kakap: 1, patin: 0.4, selar_kuning: 1, peperek: 1, julung: 0.8, kerong: 0.8, bawal_putih: 0.5, kakap_putih: 0.5 }, mul: { sampah: 0.8, langka: 1, epik: 0.35, legenda: 0 },
     view: { water: ["#4f9aa3", "#245e6d"], fog: "#c4dad6", shore: "palm", shoreColor: "#3f6b45", sky: ["#9fd3e6", "#f6e7c1"] },
   },
   karang: {
     id: "karang", key: "sea:karang", area: "laut", name: "Karang Dangkal", icon: "🪸", x: 40, y: 34, r: 4.8, hint: "reef",
     desc: "Gosong karang berair toska di tengah selat. Bintik karang warna-warni terlihat dari permukaan.",
     perk: "Ikan karang: kerapu macan, kakap merah, baronang, kadang kuwe biru.",
-    fish: { kerapu_macan: 1.2, kakap: 1, baronang: 1, kembung: 0.5, kuwe_biru: 0.8, kerapu_raksasa: 0.6 }, mul: { sampah: 0.6, langka: 1.15, epik: 1, legenda: 0.6 },
+    fish: { kerapu_macan: 1.2, kakap: 1, baronang: 1, kembung: 0.5, kuwe_biru: 0.8, kerapu_raksasa: 0.6, ekor_kuning: 1.1, kerong: 0.6, selar_kuning: 0.6 }, mul: { sampah: 0.6, langka: 1.15, epik: 1, legenda: 0.6 },
     view: { water: ["#3fb8b8", "#17708a"], fog: "#bfe3e2", shore: "far", shoreColor: "#3e7d5a", sky: ["#6fbde4", "#e4f0ea"] },
   },
   arus: {
     id: "arus", key: "sea:arus", area: "laut", name: "Arus Selat", icon: "🌊", x: 62, y: 29, r: 5, hint: "current",
     desc: "Riak putih bergaris tanda arus kuat antara dua pulau. Ikan pelagis berburu di sini.",
     perk: "Tongkol, tenggiri, kuwe biru, dan barakuda.",
-    fish: { tongkol: 1.2, tenggiri: 1.1, kembung: 0.8, barakuda: 1, kuwe_biru: 1 }, mul: { sampah: 0.7, langka: 1.1, epik: 1.2, legenda: 0 },
+    fish: { tongkol: 1.2, tenggiri: 1.1, kembung: 0.8, barakuda: 1, kuwe_biru: 1, layang: 1, julung: 0.8, lemadang: 0.8, tuna_gigi_anjing: 0.7 }, mul: { sampah: 0.7, langka: 1.1, epik: 1.2, legenda: 0 },
     view: { water: ["#2f86a8", "#14506e"], fog: "#a9c8d8", shore: "volcano", shoreColor: "#55645c", sky: ["#79b8de", "#f3dcc0"] },
   },
   dalam: {
     id: "dalam", key: "sea:dalam", area: "laut", name: "Laut Dalam", icon: "🐋", x: 22, y: 42, r: 5.6, hint: "deep",
     desc: "Air biru gelap di selatan laut lepas. Sesekali bayangan ikan raksasa melintas jauh di bawah kapal.",
     perk: "Tenggiri, barakuda, kerapu raksasa (malam). Marlin biru sangat, sangat jarang.",
-    fish: { tongkol: 1, tenggiri: 1, barakuda: 1, kerapu_raksasa: 1, marlin: 0.3 }, mul: { sampah: 0.5, biasa: 1, langka: 0.9, epik: 0.95, legenda: 0.6 },
+    fish: { tongkol: 1, tenggiri: 1, barakuda: 1, kerapu_raksasa: 1, marlin: 0.3, layang: 0.6, lemadang: 0.6, tuna_gigi_anjing: 0.8 }, mul: { sampah: 0.5, biasa: 1, langka: 0.9, epik: 0.95, legenda: 0.6 },
     view: { water: ["#1a5c9c", "#0a2a55"], fog: "#90b3d6", shore: "far", shoreColor: "#4c6a7a", sky: ["#5f9fd6", "#e9e3d2"] },
+  },
+  // Bumbu 2.4.1: spot rahasia — tidak ada petunjuk burung/arus; hanya air gelap, kabut tipis, dan cahaya samar. Ikan mistis dilempar terpisah (NW.mystic).
+  palung: {
+    id: "palung", key: "sea:palung", area: "laut", name: "Palung Mistis Selat", icon: "🌌", x: 66, y: 44.5, r: 4.2, hint: "palung", hidden: true, mystic: true, mark: "rgba(110,240,215,.32)",
+    desc: "Palung gelap di tenggara laut lepas. Airnya lebih hitam daripada perairan lain, berkabut tipis, dan sesekali ada cahaya samar yang tak jelas asalnya. Nelayan menyebutnya tempat yang menyimpan rahasia samudra.",
+    perk: "Ikan laut dalam: bawal putih, tenggiri, barakuda, lemadang, tuna gigi anjing. Sesekali muncul makhluk lain, lebih sering saat malam, kabut, senja, atau hujan.",
+    fish: { bawal_putih: 1, kakap_putih: 0.8, tenggiri: 0.9, barakuda: 0.9, lemadang: 0.8, tuna_gigi_anjing: 0.9, layang: 0.6, tongkol: 0.6, kakap: 0.6 }, mul: { sampah: 0.5, biasa: 0.7, langka: 1.1, epik: 1, legenda: 0 },
+    view: { water: ["#0d3a57", "#031321"], fog: "#6d8ea1", shore: "far", shoreColor: "#243642", sky: ["#3a5570", "#a3b6c2"] },
   },
 };
 // perairan biasa (di luar spot)
@@ -141,7 +149,7 @@ for (const o of MM.objects) if (o.kind === "boat") o.vessel = true; // kapal sta
 for (const s of SPOT_LIST) {
   const ar = NW.areas.get(s.area); if (!ar) continue;
   ar.discoveries = ar.discoveries || [];
-  if (!ar.discoveries.some((d) => d.id === s.key)) ar.discoveries.push({ id: s.key, name: s.name, x: s.x, y: s.y, r: s.r * 0.75, desc: s.desc, sea: s.id, onlyBoat: true });
+  if (!ar.discoveries.some((d) => d.id === s.key)) ar.discoveries.push({ id: s.key, name: s.name, x: s.x, y: s.y, r: s.r * 0.75, desc: s.desc, sea: s.id, onlyBoat: true, hidden: !!s.hidden });
 }
 
 // cerita Selat Sunda: spot laut yang ditemukan di area mana pun langsung dihitung
@@ -183,6 +191,7 @@ function drawUnder(c, t, view, areaId) {
       const cyc = (t % 22) / 22;
       if (cyc < 0.45) { const u = cyc / 0.45, q = P(s.x - 4 + u * 8, s.y + 2 - u * 4, -3); c.fillStyle = `rgba(5,20,40,${(0.32 * Math.sin(u * Math.PI)).toFixed(3)})`; c.beginPath(); c.ellipse(q.x, q.y, 34, 9, -0.25, 0, 7); c.fill(); c.beginPath(); c.moveTo(q.x - 30, q.y + 2); c.lineTo(q.x - 44, q.y - 6); c.lineTo(q.x - 42, q.y + 8); c.fill(); }
     }
+    if (s.hint === "palung" && NW.mystic) NW.mystic.palungUnder(c, t, view, s);
     if (found(s)) { // pelampung penanda spot yang sudah ditemukan
       const p = P(s.x, s.y, 0), bob = Math.sin(t * 1.8 + s.x) * 1.5;
       c.fillStyle = "#e0b84c"; c.beginPath(); c.moveTo(p.x - 5, p.y + bob); c.lineTo(p.x - 3, p.y - 12 + bob); c.lineTo(p.x + 3, p.y - 12 + bob); c.lineTo(p.x + 5, p.y + bob); c.closePath(); c.fill();
@@ -193,6 +202,7 @@ function drawUnder(c, t, view, areaId) {
 }
 function drawOver(c, t, view, areaId, px, py) {
   for (const s of SPOT_LIST) {
+    if (s.hint === "palung" && s.area === areaId && NW.mystic) NW.mystic.palungOver(c, t, view, s);
     if (s.area !== areaId || s.hint !== "birds" && s.hint !== "reef" || !inView(view, s.x, s.y, 260)) continue;
     const n = s.hint === "birds" ? 5 : 2;
     for (let i = 0; i < n; i++) { const a = t * (0.5 + i * 0.07) + i * (6.283 / n), r = 1.2 + (i % 2) * 0.9; drawGull(c, s.x + Math.cos(a) * r, s.y + Math.sin(a) * r * 0.85, 60 + (i % 3) * 14 + Math.sin(t + i) * 4, t + i, 1, Math.sin(a) > 0); }

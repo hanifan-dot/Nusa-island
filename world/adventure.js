@@ -101,8 +101,11 @@ function discover(d, ar) {
   if (A().found[d.id]) return false;
   A().found[d.id] = Date.now();
   N().save();
-  if (d.sea) showDiscover(`<b>🎣 Spot Laut Ditemukan!</b><br>${esc(d.name)}`, true); else showDiscover(`✨ Lokasi ditemukan: ${d.name}`);
-  if (NW.audio) N().sfx("temuan"); else { N().tone(784, 0.12, "triangle", 0.08); N().tone(1175, 0.22, "triangle", 0.07, null, 0.1); }
+  if (d.sea && d.hidden) { // Bumbu 2.4.1: spot rahasia di laut (Palung Mistis Selat) — dicatat di Buku Petualangan, tanpa membocorkan isinya
+    showDiscover(`<b>🌌 Spot Rahasia Ditemukan!</b><br>${esc(d.name)}`, true); addNote({ id: d.id, area: ar.id, title: d.name, text: d.desc });
+  } else if (d.sea) showDiscover(`<b>🎣 Spot Laut Ditemukan!</b><br>${esc(d.name)}`, true); else showDiscover(`✨ Lokasi ditemukan: ${d.name}`);
+  if (d.hidden) N().sfx("spot_rahasia");
+  else if (NW.audio) N().sfx("temuan"); else { N().tone(784, 0.12, "triangle", 0.08); N().tone(1175, 0.22, "triangle", 0.07, null, 0.1); }
   fx.length = 0; for (let i = 0; i < 14; i++) fx.push({ x: d.x, y: d.y, a: Math.random() * 6.28, r: 0.2 + Math.random() * 1.2, z: 10 + Math.random() * 40, t: 0, life: 1.4 + Math.random() * 0.8 });
   if (ar.hooks && ar.hooks.onDiscover) ar.hooks.onDiscover(d);
   refreshBadge();
@@ -244,12 +247,12 @@ function art(ar) { // ilustrasi kecil per daerah (digambar sekali, disimpan seba
 const esc = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
 const fmtDate = (ts) => new Date(ts).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 function bookHTML() {
-  const a = A(), areas = NW.areas.list, ds = allDisc();
+  const a = A(), areas = NW.areas.list, ds = allDisc().filter((d) => !d.hidden || a.found[d.id]);
   const visited = areas.filter((ar) => a.visited[ar.id]).length, found = ds.filter((d) => a.found[d.id]).length;
   let h = `<div class="adv-sum"><span>🗺️ Daerah <b>${visited}/${areas.length}</b></span><span>✨ Penemuan <b>${found}/${ds.length}</b></span><span>🏅 Penghargaan <b>${Object.keys(a.awards).length}</b></span></div>`;
   for (const ar of areas) {
     const vis = !!a.visited[ar.id], L = LOCATIONS[ar.locIndex], locked = L && !N().canSail(ar.locIndex);
-    const dl = (ar.discoveries || []), fd = dl.filter((d) => a.found[d.id]).length;
+    const dl = (ar.discoveries || []).filter((d) => !d.hidden || a.found[d.id]), fd = dl.filter((d) => a.found[d.id]).length; // spot tersembunyi baru tampil setelah ditemukan
     const sp = storyProviders[ar.id], st = sp && sp.status ? sp.status() : null;
     const notes = a.notes.filter((n) => n.area === ar.id);
     h += `<div class="adv-area ${vis ? "" : "unvisited"}"><div class="adv-top"><img src="${art(ar)}" alt="" width="88" height="53">

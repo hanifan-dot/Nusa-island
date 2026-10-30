@@ -92,6 +92,17 @@ const L = {
     ["F#5", "A5", "D6", "F#6"].forEach((n, i) => pl(c, o, t + 0.12 + i * 0.1, n, 0.26, "kalimba"));
     K.flute(c, o, t + 0.3, "A5", 1.3, 0.17, "sulim", { prio: 1 }); K.pad(c, o, t + 0.1, ["D4", "A4", "F#5"], 1.5, 0.1, { att: 0.3, rel: 0.7, lp: 2200 });
   },
+  // ---------- Bumbu 2.4.1: ikan mistis (nada dari motif lama: air + kalimba/sulim; lembut, tanpa suara tajam) ----------
+  mistis_petunjuk: (c, o, t) => { // pendek (~0,9 dtk): tetesan air bergema + dua nada kaca turun pelan; tidak menyebut apa pun
+    tone(c, o, t, 880, 1320, 0.07, 0.03); pl(c, o, t + 0.08, "E6", 0.22, "kalimba"); pl(c, o, t + 0.3, "B5", 0.18, "kalimba");
+    K.pad(c, o, t + 0.05, ["E4", "B4"], 0.9, 0.05, { att: 0.2, rel: 0.5, lp: 1800 });
+  },
+  mistis_tangkap: (c, o, t) => { // perayaan khusus: lonceng kaca naik, pad dalam, sulim panjang, ogung rendah
+    ["E5", "G#5", "B5", "E6", "G#6", "B6"].forEach((n, i) => pl(c, o, t + i * 0.1, n, 0.26, "kalimba"));
+    K.pad(c, o, t + 0.1, ["E3", "B3", "G#4", "E5"], 2.6, 0.12, { att: 0.5, rel: 1.2, lp: 2200 });
+    K.flute(c, o, t + 0.55, "B5", 1.8, 0.16, "sulim", { prio: 1 }); K.ogung(c, o, t, "E2", 0.09);
+    for (let i = 0; i < 3; i++) tone(c, o, t + 0.9 + i * 0.12, 1568 + i * 330, 2093 + i * 330, 0.1, 0.018);
+  },
   varian_silver: (c, o, t, rarity) => { // kilau perak: kalimba tinggi berurutan cepat, ringan
     ["A5", "D6", "F#6", "A6", "D7"].forEach((n, i) => pl(c, o, t + i * 0.075, n, 0.26, "kalimba"));
     K.pad(c, o, t + 0.1, ["D5", "A5", "F#6"], 1.3, 0.07, { att: 0.15, rel: 0.7, lp: 3600 }); if (rarity === "legenda" || rarity === "epik") K.ogung(c, o, t, "D2", 0.07);
@@ -137,14 +148,14 @@ const L = {
 const RULE = {
   tick: { gap: 0.1 }, warn: { gap: 0.55, crit: 1, g: 1.8 }, surge: { gap: 0.25, crit: 1 }, snap: { gap: 0.3, crit: 1 }, strike: { crit: 1 },
   catch: { g: 1, crit: 1 }, bab_selesai: { g: 0.5 }, temuan: { g: 0.6 }, penghargaan: { g: 0.33 }, gelar: { g: 0.6 }, pemandangan: { g: 0.38 }, misi_baru: { g: 0.85 },
-  spot_rahasia: { g: 0.55, gap: 1.2, crit: 1 }, varian_silver: { g: 0.7, gap: 1.2, crit: 1 }, varian_sunset: { g: 0.5, gap: 1.2, crit: 1 }, varian_pearl: { g: 0.42, gap: 1.5, crit: 1 }, splash_besar: { g: 0.8, gap: 0.8, crit: 1 }, // jingle tangkapan tidak boleh hilang diam-diam saat suara ramai
+  spot_rahasia: { g: 0.55, gap: 1.2, crit: 1 }, varian_silver: { g: 0.7, gap: 1.2, crit: 1 }, varian_sunset: { g: 0.5, gap: 1.2, crit: 1 }, varian_pearl: { g: 0.42, gap: 1.5, crit: 1 }, splash_besar: { g: 0.8, gap: 0.8, crit: 1 }, mistis_petunjuk: { g: 0.7, gap: 2.5 }, mistis_tangkap: { g: 0.5, gap: 1.5, crit: 1 }, // jingle tangkapan tidak boleh hilang diam-diam saat suara ramai
   nibble: { gap: 0.12 }, click: { gap: 0.03 }, coin: { gap: 0.05 },
   step_kayu: { gap: 0.2 }, step_rumput: { gap: 0.2 }, step_pasir: { gap: 0.2 }, step_tanah: { gap: 0.2 }, step_lantai: { gap: 0.2 },
   furn_geser: { gap: 0.18 }, gelembung: { gap: 0.8 },
   boat_naik: { gap: 0.6 }, boat_jangkar: { gap: 0.6 }, boat_angkat: { gap: 0.6 }, boat_bentur: { gap: 0.6, g: 0.8 },
 };
 // jingle/stinger: dipakai pula oleh menu uji dengar
-const STINGERS = ["misi_baru", "bab_selesai", "temuan", "penghargaan", "gelar", "pemandangan", "berlayar", "tiba", "spot_rahasia", "varian_silver", "varian_sunset", "varian_pearl", "splash_besar"];
+const STINGERS = ["misi_baru", "bab_selesai", "temuan", "penghargaan", "gelar", "pemandangan", "berlayar", "tiba", "spot_rahasia", "varian_silver", "varian_sunset", "varian_pearl", "splash_besar", "mistis_petunjuk", "mistis_tangkap"];
 // putar satu efek dengan penyesuaian level (RULE.g). Dipakai AudioManager dan alat evaluasi offline.
 function play(ctx, out, t, name, arg) {
   const fn = L[name]; if (!fn) return false;
