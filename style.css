@@ -466,7 +466,7 @@ body.editing .joy, body.editing .act-btn, body.editing .hint { display: none !im
 .skill.locked { opacity: .6; border-left-color: #d9d2bd; }
 .skill .nm { font-weight: 700; font-size: 14px; }
 .skill .sub { font-size: 12px; opacity: .8; margin-top: 3px; }
-@media (max-width: 400px) { #muteBtn { display: none; } } /* suara tetap bisa diatur di menu 🎯 */
+@media (max-width: 400px) { #muteBtn { display: none; } .hud-right .icon-btn { padding: 5px 5px; } .hud-right { gap: 3px; } } /* suara tetap bisa diatur di menu 🎯 */
 @media (max-width: 420px) { body.mode-fish .chip.loc { display: none; } } /* lokasi tampil di tombol Peta */
 
 /* =========================================================
