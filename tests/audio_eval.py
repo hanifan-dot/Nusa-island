@@ -16,6 +16,7 @@ THEMES = ["muara_pagi", "muara_siang", "muara_sore", "muara_malam", "toba_pagi",
 SFX = [("cast", None), ("splash", None), ("nibble", None), ("bite", None), ("strike", None), ("tick", None), ("surge", None), ("warn", None), ("snap", None), ("lose", None), ("lelah", None),
        ("catch", "sampah"), ("catch", "biasa"), ("catch", "langka"), ("catch", "epik"), ("catch", "legenda"),
        ("misi_baru", None), ("bab_selesai", None), ("temuan", None), ("penghargaan", None), ("gelar", None), ("pemandangan", None), ("berlayar", None), ("tiba", None),
+       ("spot_rahasia", None), ("varian_silver", None), ("varian_sunset", None), ("varian_pearl", None), ("splash_besar", 0.3), ("splash_besar", 1.0),
        ("step_kayu", None), ("step_rumput", None), ("step_pasir", None), ("step_tanah", None), ("step_lantai", None), ("furn_geser", None), ("furn_taruh", None), ("click", None), ("coin", None)]
 JS_MUSIC = """async ([id, secs, sr, intensity]) => {
   NW.kit.resetPoly(); const oc = new OfflineAudioContext(1, Math.ceil(secs*sr), sr); const st = NW.kit.makeStage(oc);
@@ -75,7 +76,7 @@ if __name__ == "__main__":
         print("\n== EFEK (puncak/RMS pada slider standar, tanpa pengurangan musik) ==")
         print(f"{'efek':18s} {'puncak':>8s} {'RMS':>7s} {'durasi':>7s} {'clip':>5s}")
         for name, arg in SFX:
-            x = dec(pg.evaluate(JS_SFX, [name, arg, 4, SR])) * gs; key = name + ("_" + arg if arg else "")
+            x = dec(pg.evaluate(JS_SFX, [name, arg, 4, SR])) * gs; key = name + ("_" + str(arg) if arg is not None else "")
             nz = np.where(np.abs(x) > 0.002)[0]; dur = (nz[-1]-nz[0])/SR if len(nz) else 0
             R["sfx"][key] = dict(peak=db(np.abs(x).max()), rms=db(rms(x[nz[0]:nz[-1]+1]) if len(nz) else 0), dur=dur, clip=int((np.abs(x) >= 0.999).sum()))
             wav(f"{OUT}/efek_{key}.wav", x); m = R["sfx"][key]; print(f"{key:18s} {m['peak']:8.1f} {m['rms']:7.1f} {dur:6.2f}s {m['clip']:5d}")

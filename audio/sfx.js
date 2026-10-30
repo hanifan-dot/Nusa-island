@@ -86,6 +86,34 @@ const L = {
   berlayar: (c, o, t) => { tone(c, o, t, 196, 220, 0.5, 0.07, "sine", 0.05); tone(c, o, t + 0.04, 294, 330, 0.45, 0.04, "sine", 0.05); }, // sirene kapal kecil yang lembut
   tiba: (c, o, t) => { tone(c, o, t, 294, 262, 0.55, 0.06, "sine", 0.05); pl(c, o, t + 0.2, "A4", 0.2); pl(c, o, t + 0.34, "D5", 0.2); },
 
+  // ---------- Bumbu 2.2: rahasia tangkapan (motif lama dipakai ulang, tetap lembut) ----------
+  spot_rahasia: (c, o, t) => { // spot rahasia ditemukan: air + kalimba naik + sulim
+    for (let i = 0; i < 3; i++) tone(c, o, t + i * 0.09, 520 + i * 160, 900 + i * 200, 0.06, 0.022);
+    ["F#5", "A5", "D6", "F#6"].forEach((n, i) => pl(c, o, t + 0.12 + i * 0.1, n, 0.26, "kalimba"));
+    K.flute(c, o, t + 0.3, "A5", 1.3, 0.17, "sulim", { prio: 1 }); K.pad(c, o, t + 0.1, ["D4", "A4", "F#5"], 1.5, 0.1, { att: 0.3, rel: 0.7, lp: 2200 });
+  },
+  varian_silver: (c, o, t, rarity) => { // kilau perak: kalimba tinggi berurutan cepat, ringan
+    ["A5", "D6", "F#6", "A6", "D7"].forEach((n, i) => pl(c, o, t + i * 0.075, n, 0.26, "kalimba"));
+    K.pad(c, o, t + 0.1, ["D5", "A5", "F#6"], 1.3, 0.07, { att: 0.15, rel: 0.7, lp: 3600 }); if (rarity === "legenda" || rarity === "epik") K.ogung(c, o, t, "D2", 0.07);
+  },
+  varian_sunset: (c, o, t, rarity) => { // hangat: sulim melengkung turun-naik + petikan lembut
+    K.flute(c, o, t, "A4", 0.9, 0.17, "sulim", { prio: 1 }); K.flute(c, o, t + 0.3, "D5", 1.1, 0.17, "sulim", { prio: 1 });
+    ["D5", "F#5", "A5", "B5"].forEach((n, i) => pl(c, o, t + 0.1 + i * 0.12, n, 0.28)); K.pad(c, o, t + 0.1, ["D3", "A3", "D4", "F#4"], 1.8, 0.13, { att: 0.25, rel: 0.8, lp: 2000 });
+    if (rarity === "legenda" || rarity === "epik") K.ogung(c, o, t + 0.2, "A2", 0.08);
+  },
+  varian_pearl: (c, o, t) => { // paling istimewa tapi tetap singkat (±2,8 dtk) dan tidak tajam
+    K.ogung(c, o, t, "D2", 0.15);
+    ["D5", "F#5", "A5", "D6", "F#6", "A6"].forEach((n, i) => pl(c, o, t + 0.06 + i * 0.09, n, 0.3, "kalimba"));
+    K.pad(c, o, t + 0.1, ["D3", "A3", "D4", "F#4", "A4"], 2.6, 0.17, { att: 0.25, rel: 1.0, lp: 2600 });
+    K.flute(c, o, t + 0.6, "A5", 1.6, 0.2, "sulim", { prio: 1 }); K.flute(c, o, t + 1.0, "D6", 1.5, 0.17, "sulim", { prio: 1 });
+    ["F#6", "A6", "D7", "A6", "F#6"].forEach((n, i) => pl(c, o, t + 1.45 + i * 0.07, n, 0.17, "kalimba"));
+  },
+  splash_besar: (c, o, t, size) => { // ikan raksasa terangkat: cipratan yang sebanding ukuran (0..1), dibatasi agar tidak mengagetkan
+    const s = Math.max(0, Math.min(1, size == null ? 0.5 : size)), v = 0.55 + s * 0.45;
+    nz(c, o, t, "lowpass", 1400, 400, 0.6, 0.5 + s * 0.3, 0.2 * v, 0.02); nz(c, o, t + 0.04, "bandpass", 900, 500, 0.8, 0.3 + s * 0.25, 0.14 * v, 0.02);
+    tone(c, o, t, 150, 70, 0.3 + s * 0.2, 0.2 * v); for (let i = 0; i < 3 + Math.round(s * 3); i++) nz(c, o, t + 0.18 + i * 0.07, "bandpass", 1200 + i * 150, 700, 1, 0.12, 0.05 * v, 0.01);
+  },
+
   // ---------- langkah kaki ----------
   step_kayu: (c, o, t) => { tone(c, o, t, rand(250, 290), 170, 0.06, 0.1); nz(c, o, t, "bandpass", 900, 0, 1.4, 0.05, 0.05); },
   step_rumput: (c, o, t) => nz(c, o, t, "bandpass", rand(1000, 1300), 700, 0.8, 0.09, 0.055, 0.012),
@@ -103,13 +131,14 @@ const L = {
 // g = penyesuaian level (hasil kalibrasi tests/audio_eval.py: puncak jingle ≈ −7…−9 dBFS, efek kritis paling jelas)
 const RULE = {
   tick: { gap: 0.1 }, warn: { gap: 0.55, crit: 1, g: 1.8 }, surge: { gap: 0.25, crit: 1 }, snap: { gap: 0.3, crit: 1 }, strike: { crit: 1 },
-  catch: { g: 1 }, bab_selesai: { g: 0.5 }, temuan: { g: 0.6 }, penghargaan: { g: 0.33 }, gelar: { g: 0.6 }, pemandangan: { g: 0.38 }, misi_baru: { g: 0.85 },
+  catch: { g: 1, crit: 1 }, bab_selesai: { g: 0.5 }, temuan: { g: 0.6 }, penghargaan: { g: 0.33 }, gelar: { g: 0.6 }, pemandangan: { g: 0.38 }, misi_baru: { g: 0.85 },
+  spot_rahasia: { g: 0.55, gap: 1.2, crit: 1 }, varian_silver: { g: 0.7, gap: 1.2, crit: 1 }, varian_sunset: { g: 0.5, gap: 1.2, crit: 1 }, varian_pearl: { g: 0.42, gap: 1.5, crit: 1 }, splash_besar: { g: 0.8, gap: 0.8, crit: 1 }, // jingle tangkapan tidak boleh hilang diam-diam saat suara ramai
   nibble: { gap: 0.12 }, click: { gap: 0.03 }, coin: { gap: 0.05 },
   step_kayu: { gap: 0.2 }, step_rumput: { gap: 0.2 }, step_pasir: { gap: 0.2 }, step_tanah: { gap: 0.2 }, step_lantai: { gap: 0.2 },
   furn_geser: { gap: 0.18 }, gelembung: { gap: 0.8 },
 };
 // jingle/stinger: dipakai pula oleh menu uji dengar
-const STINGERS = ["misi_baru", "bab_selesai", "temuan", "penghargaan", "gelar", "pemandangan", "berlayar", "tiba"];
+const STINGERS = ["misi_baru", "bab_selesai", "temuan", "penghargaan", "gelar", "pemandangan", "berlayar", "tiba", "spot_rahasia", "varian_silver", "varian_sunset", "varian_pearl", "splash_besar"];
 // putar satu efek dengan penyesuaian level (RULE.g). Dipakai AudioManager dan alat evaluasi offline.
 function play(ctx, out, t, name, arg) {
   const fn = L[name]; if (!fn) return false;

@@ -21,13 +21,16 @@ const pill = (f) => { const R = RARITY[f.rarity]; return `<span class="pill" sty
 
 // ---------- Gambar kecil (satu per spesies, di-cache) ----------
 const thumbCache = {};
-function thumb(id) {
-  if (thumbCache[id]) return thumbCache[id];
+function thumb(id, vr) {
+  const key = vr && vr !== "normal" ? id + "|" + vr : id; // satu gambar per spesies+varian
+  if (thumbCache[key]) return thumbCache[key];
   const c = document.createElement("canvas"); c.width = 112; c.height = 62;
-  N().drawFish(c.getContext("2d"), N().FISH_BY_ID[id], 56, 31, 92);
-  return (thumbCache[id] = c.toDataURL());
+  N().drawFish(c.getContext("2d"), N().FISH_BY_ID[id], 56, 31, 92, vr);
+  return (thumbCache[key] = c.toDataURL());
 }
-const art = (f, cls = "") => (f.emoji ? `<div class="emo ${cls}">${f.emoji}</div>` : `<img class="${cls}" src="${thumb(f.id)}" alt="" decoding="async">`);
+const art = (f, cls = "", vr) => (f.emoji ? `<div class="emo ${cls}">${f.emoji}</div>` : `<img class="${cls}" src="${thumb(f.id, vr)}" alt="" decoding="async">`);
+// Bumbu 2.2: label varian (kosong untuk Normal)
+const vlab = (it) => (NW.variants && NW.variants.valid(it.vr) ? `<span class="vtag v-${it.vr}">${NW.variants.info(it.vr).name}</span>` : "");
 
 // ---------- Daftar virtual ----------
 // host = elemen kosong; rows = array; draw(row) → HTML satu baris (tinggi ROW). Hanya ±jendela yang dirender.
@@ -79,8 +82,8 @@ function view() { // daftar yang ditampilkan: filter + cari + urut
 function invRow(r) {
   const { it, f } = r, R = RARITY[f.rarity];
   return `<div class="inv-row ${it.lock ? "locked" : ""}" data-act="invOpen" data-arg="${it.uid}" style="border-left-color:${R.color}">
-    ${art(f)}
-    <div class="grow"><div class="nm">${esc(f.name)}${it.lock ? " 🔒" : ""}</div>
+    ${art(f, "", it.vr)}
+    <div class="grow"><div class="nm">${esc(f.name)}${it.lock ? " 🔒" : ""} ${vlab(it)}</div>
       <div class="sub">${N().fmtW(it.w)} · ${pill(f)}</div></div>
     <div class="price">🪙 ${N().fmt(r.p)}</div></div>`;
 }
@@ -122,8 +125,8 @@ function detailHTML(it) {
   const f = fish(it), R = RARITY[f.rarity], p = N().priceOf(it), here = NW.look && NW.look.holding && NW.look.holding() === it.uid;
   return `<div class="inv-sheet" role="dialog" aria-label="Detail ikan">
     <button class="close inv-x" data-act="invClose" aria-label="Tutup">✕</button>
-    <div class="inv-art" style="background:radial-gradient(circle at 50% 60%, ${R.glow}, transparent 70%)">${f.emoji ? `<div class="emo big">${f.emoji}</div>` : `<img src="${N().fishImg(f.id)}" alt="${esc(f.name)}">`}</div>
-    <h3>${esc(f.name)}${it.lock ? " 🔒" : ""}</h3>
+    <div class="inv-art" style="background:radial-gradient(circle at 50% 60%, ${R.glow}, transparent 70%)">${f.emoji ? `<div class="emo big">${f.emoji}</div>` : `<img src="${N().fishImg(f.id, it.vr)}" alt="${esc(f.name)}">`}</div>
+    <h3>${esc(f.name)}${it.lock ? " 🔒" : ""} ${vlab(it)}</h3>
     <div class="inv-facts"><span class="pill" style="background:${R.color}2e;color:${PILL[f.rarity]}">${R.label} · ${RAR_EN[f.rarity]}</span>
       <span>⚖️ ${N().fmtW(it.w)}</span><span>🪙 ${N().fmt(p)} ${N().trendHTML(f.id)}</span></div>
     ${f.desc ? `<p class="muted">${esc(f.desc)}</p>` : ""}
@@ -188,6 +191,12 @@ function warnings(uids) {
     const have = cooler.filter((it) => nd.ids.includes(it.id)).length, sold = cooler.filter((it) => set.has(it.uid) && nd.ids.includes(it.id)).length;
     if (sold > 0 && have >= nd.n && have - sold < nd.n) w.push(nd.why);
   }
+  // Bumbu 2.2: ikan varian istimewa selalu disebut jelas di konfirmasi (tidak terjual tanpa disadari)
+  if (NW.variants) {
+    const cnt = {}; for (const it of cooler) if (set.has(it.uid) && NW.variants.valid(it.vr)) cnt[it.vr] = (cnt[it.vr] || 0) + 1;
+    const parts = Object.keys(cnt).map((k) => `${cnt[k]}× ${NW.variants.info(k).name}`);
+    if (parts.length) w.push(`✨ Termasuk ikan varian istimewa: ${parts.join(", ")}. Ikan yang sudah dijual tidak bisa dibeli kembali.`);
+  }
   return w;
 }
 function labelOf(kind) {
@@ -221,15 +230,15 @@ function confirmSell() {
 function sellOne(uid) {
   const it = S().cooler.find((x) => x.uid === uid); if (!it) return;
   if (it.lock) { N().toast("Ikan ini terkunci 🔒. Buka kunci di Inventaris dulu.", "bad"); return; }
-  const w = warnings([uid]);
+  const w = warnings([uid]); // ikan varian istimewa ikut memicu konfirmasi (peringatan di atas)
   if (w.length) { D.draft = makeDraft("one", [uid]); N().renderPanel(); return; } // ikan dibutuhkan misi → minta konfirmasi
   execSell([uid]); N().renderPanel(); // perilaku jual satuan lama: langsung
 }
 function marketRow(r) {
   const { it, f } = r, R = RARITY[f.rarity];
   return `<div class="inv-row ${it.lock ? "locked" : ""}" style="border-left-color:${R.color}">
-    ${art(f)}
-    <div class="grow"><div class="nm">${esc(f.name)}${it.lock ? " 🔒" : ""}</div><div class="sub">${N().fmtW(it.w)} · ${R.label} ${N().trendHTML(f.id)}</div></div>
+    ${art(f, "", it.vr)}
+    <div class="grow"><div class="nm">${esc(f.name)}${it.lock ? " 🔒" : ""} ${vlab(it)}</div><div class="sub">${N().fmtW(it.w)} · ${R.label} ${N().trendHTML(f.id)}</div></div>
     <div class="price">🪙 ${N().fmt(r.p)}</div>
     <button class="btn small" data-act="sell" data-arg="${it.uid}" ${it.lock ? "disabled" : ""}>${it.lock ? "🔒" : "Jual"}</button></div>`;
 }
@@ -251,7 +260,7 @@ function marketHTML() {
     h += `<div class="sell-confirm"><h3>Jual ${labelOf(d.kind)}?</h3>
       <div class="sell-total"><div><span class="muted">Jumlah</span><b>${d.n} ikan</b></div><div><span class="muted">Perkiraan koin</span><b>🪙 ${N().fmt(d.total)}</b></div></div>
       <div class="sell-list">${d.groups.slice(0, 8).map((g) => `<div><span>${g.f.emoji || "🐟"} ${esc(g.f.name)} ×${g.n}</span><span class="muted">${N().fmtW(g.w)}</span><b>🪙 ${N().fmt(g.p)}</b></div>`).join("")}${d.groups.length > 8 ? `<div class="muted">+ ${d.groups.length - 8} jenis lainnya</div>` : ""}</div>
-      ${d.warn.length ? `<div class="sell-warn">⚠️ ${d.warn.map(esc).join("<br>⚠️ ")}<br><b>Kalau dijual, ikan itu tidak bisa dipakai lagi untuk tugas tersebut.</b></div>` : ""}
+      ${d.warn.length ? `<div class="sell-warn">⚠️ ${d.warn.map(esc).join("<br>⚠️ ")}${d.warn.some((x) => !x.startsWith("✨")) ? "<br><b>Kalau dijual, ikan itu tidak bisa dipakai lagi untuk tugas tersebut.</b>" : ""}</div>` : ""}
       <div class="sell-btns"><button class="btn ghost" data-act="cancelSell">Batal</button><button class="btn gold" data-act="confirmSell">${d.warn.length ? "Tetap jual" : "Konfirmasi"}</button></div></div>`;
     return h;
   }

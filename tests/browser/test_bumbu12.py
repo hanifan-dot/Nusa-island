@@ -319,7 +319,7 @@ with sync_playwright() as p:
           "onboard": {"v": 1, "walk": True, "talk": True, "fish": True, "sell": True, "home": True},
           "titles": {"v": 1, "fish": 16, "rank": 2}, "profile": {"v": 1, "name": "Budi"}}
     ctx, pg, errs = page(b, v5); s = S(pg)
-    ok("G1 simpanan v5 → v7 (Bumbu 2): koin, joran (level 4), coolbox, ikan, cerita, keahlian, statistik, gelar, nama utuh", s["v"] == 7 and s["money"] == 4321 and s["up"] == {"rod": 3, "bait": 2, "cooler": 4, "boat": 1} and len(s["cooler"]) == 3 and s["story"]["ch"] == 3 and s["skills"]["membaca"] and s["stats"]["caught"] == 16 and s["titles"]["fish"] == 16 and s["profile"]["name"] == "Budi", s["up"])
+    ok("G1 simpanan v5 → v8 (Bumbu 2.2): koin, joran (level 4), coolbox, ikan, cerita, keahlian, statistik, gelar, nama utuh", s["v"] == 8 and s["money"] == 4321 and s["up"] == {"rod": 3, "bait": 2, "cooler": 4, "boat": 1} and len(s["cooler"]) == 3 and s["story"]["ch"] == 3 and s["skills"]["membaca"] and s["stats"]["caught"] == 16 and s["titles"]["fish"] == 16 and s["profile"]["name"] == "Budi", s["up"])
     bk = ev(pg, "localStorage.getItem('nusa-island-v1-backup-v5')")
     ok("G2 cadangan v5 dibuat sebelum migrasi dan sama dengan simpanan asli", bk is not None and json.loads(bk)["money"] == 4321 and json.loads(bk)["v"] == 5 and json.loads(bk)["cooler"][0]["lock"] == "ya")
     ok("G3 penanda kunci dirapikan (hanya true yang tersisa); ikan tidak hilang", [x.get("lock") for x in s["cooler"]] == [None, True, None])
@@ -327,14 +327,14 @@ with sync_playwright() as p:
     ok("G5 rumah dan akuarium aman (rumah level, perabot, akuarium awal)", s["home"]["level"] >= 1 and any("akuarium" in f["type"] for f in s["home"]["furniture"]))
     ok("G6 misi harian tersedia dan koleksi (dex) tidak berubah", len(s["missions"]["list"]) >= 1 and s["dex"]["nila"]["n"] == 12 and s["dex"]["patin"]["n"] == 4)
     ev(pg, "window.__nusa.save()"); pg.reload(); time.sleep(0.8); s2 = S(pg)
-    ok("G7 muat ulang idempoten (tanpa duplikat, cadangan tidak tertimpa)", s2["v"] == 7 and len(s2["cooler"]) == 3 and s2["money"] == 4321 and json.loads(ev(pg, "localStorage.getItem('nusa-island-v1-backup-v5')"))["v"] == 5)
+    ok("G7 muat ulang idempoten (tanpa duplikat, cadangan tidak tertimpa)", s2["v"] == 8 and len(s2["cooler"]) == 3 and s2["money"] == 4321 and json.loads(ev(pg, "localStorage.getItem('nusa-island-v1-backup-v5')"))["v"] == 5)
     ok("G8 tanpa error JavaScript (migrasi v5)", not errs, errs[:3]); ctx.close()
     bad = dict(v5, up={"rod": 99, "bait": 0, "cooler": -3, "boat": 0})
     ctx, pg, errs = page(b, bad); s = S(pg)
     ok("G9 nilai joran/coolbox di luar rentang dirapikan (tidak crash)", s["up"]["rod"] == 9 and s["up"]["cooler"] == 0 and not errs, (s["up"], errs[:2])); ctx.close()
     v4 = dict(v5, v=4); v4.pop("titles"); v4.pop("profile")
     ctx, pg, errs = page(b, v4); s = S(pg)
-    ok("G10 simpanan v4 → v7 juga aman dan dicadangkan (v4)", s["v"] == 7 and s["money"] == 4321 and s["up"]["rod"] == 3 and ev(pg, "localStorage.getItem('nusa-island-v1-backup-v4')") is not None and not errs, errs[:2]); ctx.close()
+    ok("G10 simpanan v4 → v8 juga aman dan dicadangkan (v4)", s["v"] == 8 and s["money"] == 4321 and s["up"]["rod"] == 3 and ev(pg, "localStorage.getItem('nusa-island-v1-backup-v4')") is not None and not errs, errs[:2]); ctx.close()
     b.close()
 
 print("\n".join(R))

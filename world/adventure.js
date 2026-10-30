@@ -75,6 +75,26 @@ function tick(areaId, p, dt) {
     if (Math.hypot(p.x - d.x, p.y - d.y) > d.r) continue;
     discover(d, ar);
   }
+  // Bumbu 2.2: spot rahasia (hanya bila petunjuknya sudah terbuka)
+  if (NW.secret) for (const d of NW.secret.list(areaId)) {
+    if (NW.secret.found(d.id) || !NW.secret.unlocked(d.id)) continue;
+    if (Math.hypot(p.x - d.disc.x, p.y - d.disc.y) > d.disc.r) continue;
+    discoverSecret(d, ar);
+  }
+}
+let secretLock = 0;
+function discoverSecret(d, ar) {
+  if (NW.secret.found(d.id) || performance.now() - secretLock < 800) return false; // sekali saja, tak ganda
+  secretLock = performance.now();
+  A().found[d.key] = Date.now();
+  NW.secret.sync();
+  addNote({ id: d.key, area: d.area, title: d.name, text: d.desc });
+  N().save();
+  showDiscover(`<b>✨ Spot Rahasia Ditemukan!</b><br>${esc(d.name)}`, true);
+  N().sfx("spot_rahasia");
+  fx.length = 0; for (let i = 0; i < 12; i++) fx.push({ x: d.mark.mx, y: d.mark.my, a: Math.random() * 6.28, r: 0.2 + Math.random() * 1.0, z: 8 + Math.random() * 30, t: 0, life: 1.4 + Math.random() * 0.8 });
+  refreshBadge();
+  return true;
 }
 function discover(d, ar) {
   if (A().found[d.id]) return false;
@@ -97,9 +117,10 @@ function drawFx(c, t) {
   c.globalAlpha = 1;
 }
 let discT = 0;
-function showDiscover(text) {
+function showDiscover(text, html) {
   const el = $("discover"); if (!el) return;
-  el.textContent = text; el.classList.add("show");
+  if (html) el.innerHTML = text; else el.textContent = text;
+  el.classList.add("show");
   clearTimeout(discT); discT = setTimeout(() => el.classList.remove("show"), 2600);
 }
 
@@ -235,6 +256,10 @@ function bookHTML() {
       <div class="sub">${vis ? `✔ Dikunjungi sejak ${fmtDate(a.visited[ar.id])}` : locked ? `🔒 Butuh ${UPGRADES.boat.levels[L.boat - 1]}` : "Belum dikunjungi · naik kapal dari dermaga"}</div>
       <div class="sub">✨ Titik penemuan ${fd}/${dl.length}</div></div></div>`;
     if (dl.length) h += `<div class="adv-disc">${dl.map((d) => a.found[d.id] ? `<span class="on" title="${esc(d.desc || "")}">📍 ${esc(d.name)}</span>` : `<span>❔ ???</span>`).join("")}</div>`;
+    if (NW.secret && NW.secret.list(ar.id).length) h += `<div class="adv-secret"><b>🤫 Spot Rahasia</b>${NW.secret.list(ar.id).map((d) => NW.secret.found(d.id)
+      ? `<div class="sec on"><b>${d.icon} ${esc(d.name)}</b> <span class="vtag v-silver">Ditemukan</span><div class="sub">${esc(d.desc)}</div><div class="sub">🎣 ${esc(d.perk)}</div></div>`
+      : NW.secret.unlocked(d.id) ? `<div class="sec"><b>❔ Spot rahasia belum ditemukan</b><div class="sub">🔍 Petunjuk: ${esc(d.hint)}</div></div>`
+      : `<div class="sec"><b>❔ ???</b><div class="sub">🔍 Jelajahi dan temukan Bukit Pandang dulu untuk petunjuk berikutnya.</div></div>`).join("")}</div>`;
     if (st) h += `<div class="adv-story"><b>📖 ${esc(st.title)}</b> · ${st.done ? "✔ Selesai" : esc(st.now)}${st.chapters ? `<div class="adv-ch">${st.chapters.map((c) => `<span class="${c.done ? "on" : c.cur ? "cur" : ""}">${c.done ? "✔" : c.cur ? "▶" : "·"} ${esc(c.name)}</span>`).join("")}</div>` : ""}</div>`;
     if (notes.length) h += `<div class="adv-notes">${notes.map((n) => `<div class="adv-note"><b>📝 ${esc(n.title)}</b><span class="muted"> · ${fmtDate(n.at)}</span><div>${esc(n.text)}</div></div>`).join("")}</div>`;
     else if (vis) h += `<div class="muted adv-empty">Belum ada catatan perjalanan di sini.</div>`;
@@ -276,7 +301,7 @@ function hook() {
 }
 
 NW.adv = {
-  V: ADV_V, migrate, defaults, startArea, savePos, getPos, enteredArea, tick, discover, isFound, allDisc, drawFx,
+  V: ADV_V, migrate, defaults, startArea, savePos, getPos, enteredArea, tick, discover, discoverSecret, isFound, allDisc, drawFx,
   addNote, award, hasAward, pickLine, talkCount, voyage, isBusy, travelTo, challengeFish, registerStory, hook, refreshBadge,
   showDiscover, bookHTML, get state() { return A(); },
 };

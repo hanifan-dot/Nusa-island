@@ -154,6 +154,15 @@ Musik, ambience, dan efek suara dibuat **prosedural lewat Web Audio** (tanpa fil
 - **Pengaturan Suara**: panel Peta → 🔊 Pengaturan Suara, atau menu 🎯 → 🎚️ Atur, atau tahan tombol 🔊 (layar lebar). 4 slider (Utama 70 / Musik 35 / Ambience 50 / Efek 70), "Matikan semua suara", menu "🎧 Dengarkan tema & efek" untuk mendengar tiap tema.
 - Batas jujur: bunyi sintetis (bukan rekaman, bukan alat asli), kualitas prototipe; belum didengar lewat speaker/HP fisik. Tema Muara & Toba berbagi kosakata nada yang berkerabat; bedanya di meter, tempo, drone/ogung/drum, dan timbre.
 
+## Bumbu 2.2 — Rahasia Tangkapan: varian ikan, spot tersembunyi & momen legendaris
+- **Varian ikan** (atribut terpisah dari kelangkaan, tersimpan di item sebagai `vr`; tidak ada = Normal): Normal, **Sisik Perak**, **Corak Senja**, **Mutiara Nusantara**. Tidak berlaku untuk Sampah/ikan terlindungi. Tampilan memakai renderer ikan yang sama (warna digeser, spesies tetap dikenali), tanpa gambar besar.
+- **Peluang** (satu tabel di `world/variants.js`, diundi **sekali** per tangkapan sukses): Normal 91,5% · Perak 6% · Senja 2% · Mutiara 0,5% (total 100). Peluang ikan legenda/raksasa tidak diubah. Di spot rahasia: Perak/Senja sedikit lebih besar (×1,25–1,5), +20% bila lemparan tepat di riak; **Mutiara tidak pernah dinaikkan**. Bonus harga varian: 0 (hanya tampilan & koleksi). Tanpa gacha, tanpa streak/FOMO.
+- **Spot rahasia** (ditemukan dengan berjalan, tersimpan, muncul di Buku Petualangan dengan petunjuk samar): **Lubuk Bambu Muara** (pantai barat laut, dekat rumpun bambu) dan **Teluk Sunyi Toba** (teluk kecil di balik jalan setapak; baru bisa ditemukan setelah mengunjungi Bukit Pandang). Memakai mekanik mancing yang sama (joran, Strike, tegangan tali); titik dermaga biasa tetap ada.
+- **Momen istimewa**: kilau perak, transisi hangat senja, cahaya + nama untuk Mutiara, percikan untuk ikan raksasa (+ "Pamerkan di tangan"). Semua bisa dilewati (tombol Lewati). Jingle lewat AudioManager yang sama (ikut slider/mute; satu jingle per tangkapan).
+- **Koleksi**: setiap spesies di Koleksi Ikan menampilkan ✓/? per varian, rekor berat & lokasi pertama. Mutiara otomatis terkunci (tidak ikut jual massal). Akuarium & pamer di tangan menampilkan varian yang sama (UID tetap, tidak ada duplikasi).
+- **Data**: kunci tetap `nusa-island-v1`, SAVE_VERSION 8; migrasi aman (koin, joran, ikan, akuarium, progres tetap; ikan lama = Normal).
+- Batas jujur: diuji hanya di Chromium headless (emulasi HP), bukan HP Android fisik; jingle sintetis hanya dievaluasi objektif (level/klip), belum didengar lewat speaker HP.
+
 ## Cara mancing
 1. **Tahan layar** untuk mengayun joran, **lepas** untuk melempar. Lepas di zona atas meteran untuk *Lemparan Sempurna* (lebih hoki). Ketuk sisi kiri atau kanan layar untuk mengarahkan lemparan.
 2. Tunggu sampai pelampung **tenggelam** dan muncul tanda **!**, lalu ketuk secepatnya.

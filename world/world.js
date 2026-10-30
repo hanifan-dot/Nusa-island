@@ -210,7 +210,7 @@ function updateActBtn() {
   btn.classList.remove("hidden");
   btn.innerHTML = `<span>${target.icon}</span><b>${target.label}</b>`;
 }
-const api = { openDialog, closeDialog, player, faceToward, walkTo: (n, x, y, dt) => walkTo(n, x, y, dt), sitAt, standUp, look, caption, startFishing: (id) => startFishing(id), seat };
+const api = { fishSpot: () => fishSpotId, openDialog, closeDialog, player, faceToward, walkTo: (n, x, y, dt) => walkTo(n, x, y, dt), sitAt, standUp, look, caption, startFishing: (id) => startFishing(id), seat };
 function interact() {
   if (blocked() || !target) return;
   const t = target;
@@ -454,6 +454,7 @@ function draw(ctx, t) {
     ctx.fillStyle = "rgba(255,240,176,.22)"; ctx.beginPath(); ctx.ellipse(sp.x, sp.y, 14, 7, 0, 0, 7); ctx.fill();
   }
 
+  if (NW.secret) NW.secret.drawWorld(ctx, t, view, a.id); // riak & gelembung petunjuk spot rahasia
   const birdDraws = birds.map((b) => NW.drawBird(ctx, b, t));
   birdDraws.forEach((b) => b.shadow());
 
@@ -615,6 +616,6 @@ NW.world = {
   toTile, resize, update, draw, onEnter, updateHint, closeDialog, openDialog, snapCamera, player, interact, isBusy: () => busy, placeNPC, actNow,
   get npcs() { return NW.areas.get("muara").npcs; }, // kompatibel: NPC Muara (Darto, Sari, Dika)
   areaNpcs: () => A().npcs, get target() { return target; }, get dialogOpen() { return dialog.open; },
-  switchArea, faceToward, walkTo, sitAt, standUp, look, caption, api, seat, savePos, get cine() { return cine; },
+  switchArea, faceToward, walkTo, sitAt, standUp, look, caption, api, seat, savePos, fishSpot: () => fishSpotId, get cine() { return cine; },
 };
 })();

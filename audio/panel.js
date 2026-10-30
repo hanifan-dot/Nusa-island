@@ -15,7 +15,7 @@ const THEME_GROUPS = [
   ["Kampung Tepian Toba", [["toba_pagi", "🌅 Pagi"], ["toba_siang", "☀️ Siang"], ["toba_sore", "🌇 Sore"], ["toba_malam", "🌙 Malam"]]],
   ["Lainnya", [["rumah", "🏠 Rumahku"], ["kapal", "⛵ Berlayar"], ["cerita", "📖 Cerita"], ["mancing_muara", "🎣 Mancing Muara"], ["mancing_toba", "🎣 Mancing Toba"], ["mancing_muara|0.9", "⚡ Mancing tegang (Muara)"], ["mancing_toba|0.9", "⚡ Mancing tegang (Toba)"]]],
 ];
-const JINGLE = [["catch|biasa", "Ikan biasa"], ["catch|langka", "Langka"], ["catch|epik", "Epik"], ["catch|legenda", "Legenda"], ["misi_baru", "Misi baru"], ["bab_selesai", "Bab selesai"], ["temuan", "Temuan"], ["penghargaan", "Penghargaan"], ["gelar", "Gelar baru"], ["pemandangan", "Pemandangan"]];
+const JINGLE = [["catch|biasa", "Ikan biasa"], ["catch|langka", "Langka"], ["catch|epik", "Epik"], ["catch|legenda", "Legenda"], ["misi_baru", "Misi baru"], ["bab_selesai", "Bab selesai"], ["temuan", "Temuan"], ["penghargaan", "Penghargaan"], ["gelar", "Gelar baru"], ["pemandangan", "Pemandangan"], ["spot_rahasia", "Spot rahasia"], ["varian_silver|legenda", "Sisik Perak"], ["varian_sunset|legenda", "Corak Senja"], ["varian_pearl", "Mutiara Nusantara"], ["splash_besar|1", "Percikan raksasa"]];
 const EFFECT = [["cast", "Lempar"], ["splash", "Percik"], ["nibble", "Ikan mendekat"], ["bite", "Strike!"], ["strike", "Mulai melawan"], ["surge", "Ikan menyentak"], ["warn", "Senar tegang"], ["snap", "Senar putus"], ["lose", "Ikan lepas"], ["step_kayu", "Langkah kayu"], ["step_rumput", "Langkah rumput"], ["furn_taruh", "Taruh perabot"]];
 
 function build() {
