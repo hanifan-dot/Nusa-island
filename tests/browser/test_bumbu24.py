@@ -45,6 +45,7 @@ def hold(pg, key, secs): pg.keyboard.down(key); time.sleep(secs); pg.keyboard.up
 def sail_to(pg, area):
     """Pindah area dengan BERLAYAR lewat tepi laut (bukan teleport area)."""
     cur = ev(pg, "NW.areas.cur.id")
+    if ev(pg, "NW.boat.B.on && NW.boat.B.anchor"): ev(pg, "NW.boat.toggleAnchor()"); time.sleep(0.5)  # kapal berjangkar (mis. setelah ditarik ke dermaga) tidak bisa berlayar
     if cur == "muara" and area in ("laut", "selat"): pose(pg, 51.2, 24, ang(1, 0)); hold(pg, "w", 1.2); wait_for(pg, "NW.areas.cur.id==='laut' && !NW.boat.busy"); cur = "laut"
     if cur == "laut" and area == "selat": pose(pg, 79.6, 24, ang(1, 0)); hold(pg, "w", 1.2); wait_for(pg, "NW.areas.cur.id==='selat' && !NW.boat.busy"); cur = "selat"
     if cur == "selat" and area in ("laut", "muara"): pose(pg, -9.8, 20, ang(-1, 0)); hold(pg, "w", 1.2); wait_for(pg, "NW.areas.cur.id==='laut' && !NW.boat.busy"); cur = "laut"

@@ -333,6 +333,7 @@ with sync_playwright() as p:
     ev(pg, "(()=>{const e=NW.areas.cur;})()"); dock = ev(pg, "NW.areas.cur.map.DOCK");
     sp = ev(pg, "NW.areas.cur.map.SPOT"); goto(pg, sp["x"] - 0.3, sp["y"]); time.sleep(1.0); wd = ev(pg, "NW.audio.ambTarget")
     ok("S2 di dermaga air lebih dominan daripada di tengah kampung", wd["water"] > far["water"] + 0.1, (round(wd["water"], 2), round(far["water"], 2)))
+    ev(pg, "NW.weather.force && NW.weather.force('cerah',{snap:true})")  # cuaca acak (Bumbu 2.3) meredam jangkrik; uji ini mengukur siang/malam saja
     ev(pg, "window.__nusa.S.hour = 22"); time.sleep(1.5); nt = ev(pg, "NW.audio.ambTarget")
     ok("S3 malam: jangkrik hidup, siang: mati", nt["crickets"] > 0.4 and far["crickets"] < 0.05, (round(nt["crickets"], 2), round(far["crickets"], 2)))
     ev(pg, "window.__nusa.S.hour = 14")

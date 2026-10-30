@@ -252,7 +252,7 @@ with sync_playwright() as p:
         ev(pg, "window.Nusa.closePanel()"); pg.click("#advBtn"); time.sleep(0.4)
         book = ev(pg, "document.getElementById('panelBody').innerText")
         ok("E1 menu '📖 Buku Petualangan': Muara & Toba, status dikunjungi, jumlah penemuan, cerita, catatan", ev(pg, "document.getElementById('panelTitle').textContent") == "📖 Buku Petualangan" and "Muara Kampung" in book and "Kampung Tepian Toba" in book and "Titik penemuan" in book and "Rahasia Tepian Danau" in book and "Pesan dari Danau" in book and "Dikunjungi" in book)
-        ok("E2 ilustrasi kecil per daerah tampil", ev(pg, "document.querySelectorAll('.adv-area img').length") == 2)
+        ok("E2 ilustrasi kecil per daerah tampil", ev(pg, "document.querySelectorAll('.adv-area img').length") == ev(pg, "NW.areas.list.length"))  # Bumbu 2.4: Selat & Laut ikut tercatat
         pg.screenshot(path=OUT + "06_buku.png")
         pg.click("#panelClose"); time.sleep(0.3)
         ok("E3 panel bisa ditutup normal", ev(pg, "document.getElementById('panelWrap').classList.contains('hidden')"))
