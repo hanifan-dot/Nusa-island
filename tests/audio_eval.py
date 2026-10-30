@@ -16,7 +16,7 @@ THEMES = ["muara_pagi", "muara_siang", "muara_sore", "muara_malam", "toba_pagi",
 SFX = [("cast", None), ("splash", None), ("nibble", None), ("bite", None), ("strike", None), ("tick", None), ("surge", None), ("warn", None), ("snap", None), ("lose", None), ("lelah", None),
        ("catch", "sampah"), ("catch", "biasa"), ("catch", "langka"), ("catch", "epik"), ("catch", "legenda"),
        ("misi_baru", None), ("bab_selesai", None), ("temuan", None), ("penghargaan", None), ("gelar", None), ("pemandangan", None), ("berlayar", None), ("tiba", None),
-       ("spot_rahasia", None), ("varian_silver", None), ("varian_sunset", None), ("varian_pearl", None), ("splash_besar", 0.3), ("splash_besar", 1.0),
+       ("spot_rahasia", None), ("varian_silver", None), ("varian_sunset", None), ("varian_pearl", None), ("splash_besar", 0.3), ("splash_besar", 1.0), ("mistis_petunjuk", None), ("mistis_tangkap", None),
        ("step_kayu", None), ("step_rumput", None), ("step_pasir", None), ("step_tanah", None), ("step_lantai", None), ("furn_geser", None), ("furn_taruh", None), ("click", None), ("coin", None)]
 JS_MUSIC = """async ([id, secs, sr, intensity]) => {
   NW.kit.resetPoly(); const oc = new OfflineAudioContext(1, Math.ceil(secs*sr), sr); const st = NW.kit.makeStage(oc);
