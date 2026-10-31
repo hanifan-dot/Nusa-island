@@ -13,7 +13,8 @@ let top = 0, busy = false, retry = null, seeded = false;
 const A = () => NW.shopApi;
 const live = () => { const a = A(); return !!(a && a.live && !a.sim && !a.isGuest()); };
 const local = () => { const S = N().S; return Math.max(0, Math.floor(Number(S.money) || 0)); };
-const bal = () => local() + top;
+const eco = () => !!(NW.eco && NW.eco.active());
+const bal = () => (eco() ? NW.eco.balance() : local() + top);
 
 function setFrom(e) {
   const v = e && e.env === "NYATA" && e.wallet ? Math.max(0, Math.floor(Number(e.wallet.NYATA) || 0)) : 0;
@@ -29,6 +30,7 @@ const rid = () => "S" + Date.now().toString(36) + Math.floor(Math.random() * 1e9
 // Bayar `cost` koin. grant() dipanggil SETELAH pembayaran sah (sinkron bila tidak memakai saldo Top Up). Mengembalikan true bila permintaan diterima.
 function charge(cost, reason, grant, fail) {
   cost = Math.floor(Number(cost)); if (!(cost > 0) || busy || bal() < cost) return false;
+  if (eco()) return NW.eco.buy(reason, grant, fail);   // ekonomi server: harga & saldo diputuskan server; grant() hanya setelah server menyetujui
   const S = N().S, useTop = live() ? Math.min(top, cost) : 0, useLocal = cost - useTop;
   if (useLocal > local()) return false;
   if (useTop <= 0) { S.money = local() - useLocal; grant(); return true; }

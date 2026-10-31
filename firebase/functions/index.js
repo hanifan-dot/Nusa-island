@@ -23,7 +23,11 @@ const db = {
     set: async (path, obj) => { t.set(docRef(path), obj); },
   })),
 };
-const server = core.makeServer(db);
+let ecoApi = null;   // diisi di bagian ekonomi (di bawah); overlay dipanggil saat runtime, jadi urutan definisi aman
+const server = core.makeServer(db, {
+  overlay: (uid) => (ecoApi ? ecoApi.authoritative(uid) : null),
+  enforce: (save, au) => require("./lib/economy-core").enforce(save, au),
+});
 
 const authOf = (req) => (req.auth ? { uid: req.auth.uid, token: req.auth.token } : null);
 const wrap = (name) => onCall({ enforceAppCheck: false /* aktifkan App Check setelah dikonfigurasi pemilik proyek */ }, async (req) => {
@@ -93,3 +97,23 @@ for (const n of ["createOrder", "cancelOrder", "claimPaid", "listOrders", "getEn
 // SENGAJA tidak ada fungsi Owner (setujui/tolak/mode/pilot) di sini: satu-satunya jalur persetujuan = server dashboard (Cloud Run) yang memeriksa
 // token + claim role=owner + owners/{uid}.active dan memeriksa integritas pesanan. Mengurangi permukaan serangan pada fungsi yang bisa dipanggil publik.
 // NB: simulatePayment sengaja TIDAK diekspor — pada produksi tidak ada jalur "anggap dibayar".
+
+// =====================================================================================================
+//  Ekonomi server-otoritatif (lib/economy-core.js): SATU dompet koin; tangkapan/jual/hadiah/belanja dihitung & dicatat server.
+//  writeSave/loadSave menimpa money/up/home.level dengan nilai server (lihat overlay di atas). Koleksi Firestore: shop_economy (hanya Admin SDK).
+// =====================================================================================================
+const ecoCore = require("./lib/economy-core");
+ecoApi = ecoCore.makeEconomyServer(shopDb, {
+  tables: require("./lib/economy-tables"), fishmath: require("./lib/fishmath"),
+  initCap: process.env.NUSA_ECO_INIT_CAP !== undefined ? Number(process.env.NUSA_ECO_INIT_CAP) : 20000,   // saat rilis resmi: NUSA_ECO_INIT_CAP=0
+});
+const ecoWrap = (name) => onCall({ enforceAppCheck: false }, async (req) => {
+  try {
+    const a = authOf(req); if (!a) throw new ecoCore.EcoError("unauthenticated", "Masuk dulu.");
+    return JSON.parse(JSON.stringify(await ecoApi[name](a, req.data || {})));
+  } catch (e) {
+    if (e instanceof ecoCore.EcoError) throw new HttpsError(e.code, e.message);
+    console.error("eco:" + name, e.message); throw new HttpsError("internal", "Terjadi kesalahan server.");
+  }
+});
+for (const n of ["ecoState", "ecoInit", "ecoCatch", "ecoSell", "ecoDrop", "ecoReward", "ecoMission", "ecoBuy"]) exports[n] = ecoWrap(n);

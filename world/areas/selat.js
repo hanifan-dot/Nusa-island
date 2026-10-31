@@ -215,7 +215,7 @@ function storyTalk(n, open) {
     if (at(1, 0)) return D(["Assalamualaikum, selamat datang di Pelabuhan Selat Sunda!", "Aku Hasan. Sudah empat puluh tahun aku melaut dari dermaga ini.", "Pelabuhan kami kecil, tapi ramai. Pasar Ikan Bu Ratna di dekat jalan, Gudang Peralatan di selatan.", "Lihat-lihatlah dulu. Nanti kembali ke sini, ada yang ingin kuceritakan."],
       [{ label: "👋 Siap, Pak Hasan!", act: () => advance() }]);
     if (at(1, 4)) return D(["Sudah bertemu Bu Ratna dan Arif? Bagus.", "Mulai hari ini kau bagian dari pelabuhan ini. Kapalmu boleh bersandar di sini kapan saja.", "Ini sedikit bekal untuk bensin. Jangan ditolak, ya."],
-      [{ label: "🙏 Terima kasih, Pak", act: () => { claim("bab1", () => { S().money += 200; NW.adv.addNote({ id: "selat:bab1", area: "selat", title: "Pelabuhan Baru", text: "Pak Hasan menyambutku di dermaga. Bu Ratna berjualan ikan segar, dan Arif mengurus gudang peralatan. Bau laut, es, dan kopi bercampur di pelabuhan ini." }); N().toast("📖 Bagian 1 selesai! +🪙200 · Catatan baru di 🧭 Buku Petualangan", "good"); }); advance(); } }]);
+      [{ label: "🙏 Terima kasih, Pak", act: () => { claim("bab1", () => { N().earn("selat:bab1", 200); NW.adv.addNote({ id: "selat:bab1", area: "selat", title: "Pelabuhan Baru", text: "Pak Hasan menyambutku di dermaga. Bu Ratna berjualan ikan segar, dan Arif mengurus gudang peralatan. Bau laut, es, dan kopi bercampur di pelabuhan ini." }); N().toast("📖 Bagian 1 selesai! +🪙200 · Catatan baru di 🧭 Buku Petualangan", "good"); }); advance(); } }]);
     if (at(2, 0)) return D(["Nak, laut itu bicara. Hanya saja, kita harus belajar membaca bahasanya.", "Burung laut yang berputar di satu tempat artinya ada gerombolan ikan kecil di bawahnya.", "Air hijau toska berarti dangkal dan berkarang. Air biru gelap berarti laut dalam. Riak bergaris berarti ada arus.", "Berlayarlah. Temukan dua tempat seperti itu, lalu ceritakan pada Arif. Dia sedang belajar hal yang sama."],
       [{ label: "⛵ Aku akan berlayar", act: () => advance() }]);
     if (at(3, 0)) return D(["Arif bilang kau sudah bisa membaca laut. Hebat!", "Sekarang ujian terakhir: Arus Selat. Arus di sana kuat, ikannya pun menarik lebih keras.", "Pasang jangkar di tengah riak bergaris itu, lalu pancinglah seekor ikan. Gagal pun tidak apa, coba lagi."],
@@ -229,7 +229,7 @@ function storyTalk(n, open) {
     if (at(1, 3)) return D(["Kak! Aku Arif. Aku yang mengurus gudang ini: jaring, pelampung, mesin tempel.", "Kalau kapalmu sudah di sini, coba berlayar ke laut lepas. Di peta laut ada tempat-tempat yang belum ditandai.", "Pakai tombol 🗺️ Peta Laut kalau bingung arah. Kompas di layar selalu menunjuk dermaga terdekat."],
       [{ label: "🧭 Siap, Arif!", act: () => advance() }]);
     if (at(2, 2)) return D(["Kakak menemukan dua tempat sendiri? Wah, aku saja baru satu!", "Ini untuk Kakak: pelampung kecil yang kuukir sendiri. Lencana pelaut, katanya Pak Hasan.", "Pak Hasan pasti mau bertemu Kakak lagi. Dia sedang menyiapkan sesuatu."],
-      [{ label: "🛟 Terima pelampung", act: () => { claim("bab2", () => { S().money += 250; NW.adv.award({ id: "selat:lencana", icon: "🛟", name: "Mata Laut", desc: "Pelampung ukiran Arif untuk pelaut yang bisa membaca tanda-tanda laut sendiri.", kind: "lencana" }); NW.adv.addNote({ id: "selat:bab2", area: "selat", title: "Tanda dari Laut", text: `Aku berlayar dan menemukan ${spotsFound()} spot laut dengan membaca tanda alam: burung yang berputar, warna air, dan riak bergaris. Arif memberiku pelampung ukiran.` }); N().toast("📖 Bagian 2 selesai! +🪙250 · Lencana Mata Laut", "good"); N().sfx("penghargaan"); }); advance(); } }]);
+      [{ label: "🛟 Terima pelampung", act: () => { claim("bab2", () => { N().earn("selat:bab2", 250); NW.adv.award({ id: "selat:lencana", icon: "🛟", name: "Mata Laut", desc: "Pelampung ukiran Arif untuk pelaut yang bisa membaca tanda-tanda laut sendiri.", kind: "lencana" }); NW.adv.addNote({ id: "selat:bab2", area: "selat", title: "Tanda dari Laut", text: `Aku berlayar dan menemukan ${spotsFound()} spot laut dengan membaca tanda alam: burung yang berputar, warna air, dan riak bergaris. Arif memberiku pelampung ukiran.` }); N().toast("📖 Bagian 2 selesai! +🪙250 · Lencana Mata Laut", "good"); N().sfx("penghargaan"); }); advance(); } }]);
   }
   return false;
 }
@@ -237,7 +237,7 @@ function storyTalk(n, open) {
 function finale() {
   if (!at(3, 2)) return;
   claim("bab3", () => {
-    S().money += 350;
+    N().earn("selat:bab3", 350);
     NW.adv.award({ id: "selat:gelar", icon: "⚓", name: "Pelaut Selat Sunda", desc: "Gelar petualangan dari Pak Hasan setelah menyelesaikan cerita Jejak Arus Selat. Terpisah dari 8 gelar jumlah tangkapan.", kind: "gelar" });
     const c = st().prog.arus;
     NW.adv.addNote({ id: "selat:bab3", area: "selat", title: "Arus Selat", text: `Aku memasang jangkar di Arus Selat dan menaikkan ${c ? N().FISH_BY_ID[c.id].name + " " + N().fmtW(c.w) : "seekor ikan"}. Pak Hasan memberiku gelar Pelaut Selat Sunda.` });

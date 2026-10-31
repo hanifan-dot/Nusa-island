@@ -18,10 +18,11 @@ function fns() {
   fnP.catch(() => { fnP = null; });
   return fnP;
 }
-const call = (name) => async (data) => {
-  try { const f = await fns(); const r = await f.httpsCallable("shop_" + name)(data || {}); return r.data; }
+const callFn = (full) => async (data) => {
+  try { const f = await fns(); const r = await f.httpsCallable(full)(data || {}); return r.data; }
   catch (e) { const m = String((e && e.code) || ""); throw Object.assign(new Error(e && e.message ? e.message : "Gagal menghubungi server toko."), { code: m.replace("functions/", "") || "internal" }); }
 };
+const call = (name) => callFn("shop_" + name);
 const signedIn = () => !!(NW.cloud && NW.cloud.user && NW.cloud.user.uid);
 const needLogin = () => { throw Object.assign(new Error("Masuk dengan akun Google dulu untuk membeli."), { code: "unauthenticated" }); };
 const authed = (name) => (d) => (signedIn() ? call(name)(d) : needLogin());
@@ -31,5 +32,7 @@ NW.shopApi = {
   createOrder: authed("createOrder"), cancelOrder: authed("cancelOrder"), claimPaid: authed("claimPaid"),
   listOrders: (d) => (signedIn() ? call("listOrders")(d) : { orders: [] }), getEntitlements: (d) => (signedIn() ? call("getEntitlements")(d) : { products: {}, owned: {}, wallet: { SIMULASI: 0, NYATA: 0 }, pending: null, env: "SIMULASI" }),
   listLedger: authed("listLedger"), spendCoins: authed("spendCoins"),
+  // Ekonomi server (economy/client.js): fungsi eco* (bukan shop_*)
+  eco: (name, d) => (signedIn() ? callFn(name)(d) : needLogin()),
 };
 })();

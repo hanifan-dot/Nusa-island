@@ -216,6 +216,18 @@ function askSell(kind) {
 }
 // Jual: hanya uid yang masih di coolbox, tidak terkunci. Koin dan statistik ditambah SATU kali.
 function execSell(uids) {
+  if (NW.eco && NW.eco.active()) {    // Ekonomi server: harga & pembayaran dihitung server dari kotak ikan server; coolbox baru dikosongkan setelah server menjawab
+    const want = new Set(uids), ids = S().cooler.filter((it) => want.has(it.uid) && !it.lock && fish(it)).map((it) => it.uid);
+    if (!ids.length) return 0;
+    NW.eco.sell(ids, (err, r) => {
+      if (err) { N().toast("Penjualan gagal / jaringan bermasalah. Ikanmu aman, coba lagi.", "bad"); return; }
+      const sold = new Set(r.sold); S().cooler = S().cooler.filter((it) => !sold.has(it.uid));
+      if (r.sold.length) { S().stats.earned += r.total; N().emit("sell", r.total); N().sfx("coin"); N().toast(`Terjual ${r.sold.length} ikan! +🪙 ${N().fmt(r.total)}`, "good"); }
+      if (r.unknown && r.unknown.length) N().toast(`${r.unknown.length} ikan belum tercatat server — coba jual lagi sebentar lagi.`, "bad");
+      N().save(); N().refreshHUD(); N().renderPanel();
+    });
+    return 0;
+  }
   const set = new Set(uids), keep = []; let total = 0, n = 0;
   for (const it of S().cooler) { if (set.has(it.uid) && !it.lock && fish(it)) { total += N().priceOf(it); n++; } else keep.push(it); }
   if (!n) return 0;

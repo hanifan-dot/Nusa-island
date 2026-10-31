@@ -182,7 +182,7 @@ function storyTalk(n, open) {
     if (at(1, 0)) return D(["Horas! Selamat datang di Kampung Tepian Toba.", "Aku Raka. Tiap kapal yang bersandar di dermaga ini, aku yang menyambut.", "Danau Toba itu luas dan dalam. Di tepinya, kampung kami kecil saja, tapi setiap sudutnya punya cerita.", "Lihat-lihatlah dulu. Pasar Kecil ada di barat jalan. Bu Maya pasti senang bertemu tamu dari Muara."],
       [{ label: "👋 Horas, Pak Raka!", act: () => { advance(); } }]);
     if (at(1, 4)) return D(["Bagaimana? Sudah ketemu Bu Maya dan titik mancing di ujung dermaga?", "Bagus. Mulai hari ini kau bukan tamu lagi, tapi kawan kampung.", "Ini sedikit bekal, dan catatan kecil supaya kau ingat hari pertamamu di sini."],
-      [{ label: "🙏 Terima kasih, Pak", act: () => { claim("bab1", () => { S().money += 200; NW.adv.addNote({ id: "toba:bab1", area: "toba", title: "Tamu dari Muara", text: "Pak Raka menyambutku di dermaga. Bu Maya menunjukkan ikan-ikan danau, dan titik mancingnya ada di ujung dermaga. Airnya dingin dan jernih." }); N().toast("📖 Bab 1 selesai! +🪙200 · Catatan perjalanan baru di 🧭 Buku Petualangan", "good"); }); advance(); } }]);
+      [{ label: "🙏 Terima kasih, Pak", act: () => { claim("bab1", () => { N().earn("toba:bab1", 200); NW.adv.addNote({ id: "toba:bab1", area: "toba", title: "Tamu dari Muara", text: "Pak Raka menyambutku di dermaga. Bu Maya menunjukkan ikan-ikan danau, dan titik mancingnya ada di ujung dermaga. Airnya dingin dan jernih." }); N().toast("📖 Bab 1 selesai! +🪙200 · Catatan perjalanan baru di 🧭 Buku Petualangan", "good"); }); advance(); } }]);
     if (at(3, 0)) return D(["Nala sudah cerita padaku. Kalian menemukan tanda-tanda Ompung?", "SABAR… TENANG… MEMBERI. \"Danau yang tenang memberi kepada yang sabar.\"", "Ompung Nala dulu nelayan paling sabar di kampung ini. Katanya, ikan jurung naik dari sungai ke danau, tapi hanya mau mendekat ke yang tidak terburu-buru.", "Cobalah dari ujung dermaga. Jangan paksa ikannya: kendurkan saat ia menyentak, gulung saat ia lelah. Gagal pun tidak apa, coba lagi."],
       [{ label: "🎣 Akan kucoba, Pak", act: () => advance() }]);
     if (at(3, 2)) { const c = s.prog.jurung; return D([`Ikan jurung ${c ? N().fmtW(c.w) : ""}! Kau tidak memaksanya. Kau menunggu saat yang tepat.`, "Itulah pesan dari danau. Ompung Nala pasti tersenyum melihatnya.", "Mulai hari ini, kampung ini mengenalmu sebagai Penjelajah Tepian Toba."],
@@ -196,7 +196,7 @@ function storyTalk(n, open) {
     if (at(2, 2)) return D(["Ketemu semua? SABAR, TENANG, dan MEMBERI…", "Hmm, itu pasti pesan untuk Pak Raka. Tapi sebelum kita ke sana…", "Bou Maya, eh, Bu Maya (bibiku), jaring kerambanya sobek kena kayu hanyut. Bantu tambal, yuk? Keramba ada di tepi danau di utara pasar."],
       [{ label: "🕸️ Ayo bantu Bu Maya", act: () => advance() }]);
     if (at(2, 4)) return D(["Kata Bu Maya, tambalanmu rapi sekali! Ikan-ikannya tidak ada yang lolos.", "Ini untukmu: lencana penjelajah buatanku sendiri. Aku menjahitnya dari kain sisa.", "Sekarang bawa pesan Ompung ke Pak Raka, ya. Dia pasti tahu artinya."],
-      [{ label: "🧭 Terima lencana", act: () => { claim("bab2", () => { S().money += 250; NW.adv.award({ id: "toba:lencana", icon: "🧭", name: "Sahabat Penjelajah Nala", desc: "Lencana kain jahitan Nala untuk teman yang membantu menemukan tiga tanda Ompung.", kind: "lencana" }); NW.adv.addNote({ id: "toba:bab2", area: "toba", title: "Tiga Tanda Ompung", text: "Bersama Nala, aku menemukan tiga ukiran: SABAR di Bukit Pandang, TENANG di Sudut Tenang Danau, MEMBERI di Pancuran Batu. Aku juga membantu menambal jaring keramba Bu Maya." }); N().toast("📖 Bab 2 selesai! +🪙250 · Lencana Sahabat Penjelajah", "good"); N().sfx("penghargaan"); }); advance(); } }]);
+      [{ label: "🧭 Terima lencana", act: () => { claim("bab2", () => { N().earn("toba:bab2", 250); NW.adv.award({ id: "toba:lencana", icon: "🧭", name: "Sahabat Penjelajah Nala", desc: "Lencana kain jahitan Nala untuk teman yang membantu menemukan tiga tanda Ompung.", kind: "lencana" }); NW.adv.addNote({ id: "toba:bab2", area: "toba", title: "Tiga Tanda Ompung", text: "Bersama Nala, aku menemukan tiga ukiran: SABAR di Bukit Pandang, TENANG di Sudut Tenang Danau, MEMBERI di Pancuran Batu. Aku juga membantu menambal jaring keramba Bu Maya." }); N().toast("📖 Bab 2 selesai! +🪙250 · Lencana Sahabat Penjelajah", "good"); N().sfx("penghargaan"); }); advance(); } }]);
   }
   return false;
 }
@@ -205,7 +205,7 @@ const glow = { t: -1, items: [] };
 function finale(n) {
   if (!at(3, 2)) return; // hanya sekali, tepat di akhir Bab 3
   claim("bab3", () => {
-    S().money += 350;
+    N().earn("toba:bab3", 350);
     NW.adv.award({ id: "toba:gelar", icon: "🏅", name: "Penjelajah Tepian Toba", desc: "Gelar petualangan dari Pak Raka setelah menyelesaikan cerita Rahasia Tepian Danau. Terpisah dari 8 gelar jumlah tangkapan.", kind: "gelar" });
     NW.adv.addNote({ id: "toba:bab3", area: "toba", title: "Pesan dari Danau", text: `Aku menangkap ikan jurung${st().prog.jurung ? " " + N().fmtW(st().prog.jurung.w) : ""} dari ujung dermaga tanpa terburu-buru. "Danau yang tenang memberi kepada yang sabar." Pak Raka memberiku gelar Penjelajah Tepian Toba.` });
   });

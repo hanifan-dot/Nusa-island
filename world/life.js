@@ -144,7 +144,7 @@ function deliverOption(npcId) {
   return {
     label: `🎁 Berikan ${fishName(m.fish)}`,
     act: () => {
-      S.cooler.splice(idx, 1); addFriend(npcId, 1);
+      { const gone = S.cooler.splice(idx, 1)[0]; if (NW.eco && gone) NW.eco.drop([gone.uid]); } addFriend(npcId, 1);
       advance((x) => x === m); N().refreshHUD();
     },
   };
@@ -181,6 +181,11 @@ function act(a, arg) {
   if (a !== "claim") return;
   const S = N().S, m = ensure()[+arg];
   if (!m || !m.done || isClaimed(m)) return; // hadiah hanya sekali
+  if (NW.eco && NW.eco.active()) {   // Ekonomi server: koin misi dibayar server (batas wajar, sekali per misi)
+    if (m.pending) return; m.pending = true;
+    NW.eco.mission(m, () => { delete m.pending; m.claimed = true; logClaim(m); S.rep += m.stars; N().sfx("coin"); N().toast(`+🪙 ${N().fmt(m.coins)} · +${m.stars} ⭐`, "good"); N().save(); N().refreshHUD(); N().renderPanel(); }, () => { delete m.pending; });
+    return;
+  }
   m.claimed = true; logClaim(m); S.money += m.coins; S.rep += m.stars;
   N().sfx("coin"); N().toast(`+🪙 ${N().fmt(m.coins)} · +${m.stars} ⭐`, "good");
   N().save(); N().refreshHUD(); N().renderPanel();

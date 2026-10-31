@@ -439,7 +439,7 @@ function landFish(fish, w) {
   S.stats.caught++;
   if (fish.rarity === "legenda") S.stats.legends++;
   let reward = 0;
-  if (fish.protected) { reward = Math.round(fish.price * PRICE_SCALE * NW.FM.effectiveKg(w) * 1.2); S.money += reward; S.stats.earned += reward; }
+  if (fish.protected) { reward = Math.round(fish.price * PRICE_SCALE * NW.FM.effectiveKg(w) * 1.2); S.stats.earned += reward; if (!(NW.eco && NW.eco.release(fish, w))) S.money += reward; }   // ekonomi server: hadiah dihitung & dibayar server
   // Bumbu 2.2: varian kosmetik dipilih SEKALI di sini (tidak pernah di-roll ulang), hanya untuk ikan yang benar-benar disimpan
   const vr = NW.variants && !fish.protected ? NW.variants.roll(fish, { spot: G.spotId, hit: G.hotHit }) : "normal";
   let item = null;
@@ -449,6 +449,7 @@ function landFish(fish, w) {
     if (vr !== "normal") { item.vr = vr; if (vr === "pearl") item.lock = true; } // Mutiara Nusantara otomatis terkunci
     if (fish.mistik) item.lock = true; // ikan mistis otomatis terkunci (tidak ikut "jual semua" tanpa sengaja; bisa dibuka kuncinya di Inventaris)
     S.cooler.push(item);
+    if (NW.eco) NW.eco.onCatch(item);   // lapor ke server (kotak ikan server) bila ekonomi server aktif
     if (NW.variants) NW.variants.record(S, fish, vr, w, LOCATIONS[S.loc].id);
   }
   emit("catch", { fish, w, night: isNight(), loc: LOCATIONS[S.loc].id, vr, spot: G.spotId || null, sea: fishFrom === "sea" && G.sea ? G.sea.id : null });
@@ -1268,6 +1269,7 @@ function openPanel(name) {
 }
 function closePanel() { SFX.click(); $("panelWrap").classList.add("hidden"); currentPanel = null; if (NW.inv) NW.inv.panelChanged(null); updateHint(); }
 const balance = () => (NW.wallet ? NW.wallet.bal() : S.money);
+const earn = (key, amount) => { if (NW.eco) NW.eco.reward(key, () => { S.money += amount; }); else S.money += amount; };   // hadiah tetap: server bila ekonomi server aktif
 const charge = (cost, why, ok, no) => (NW.wallet ? NW.wallet.charge(cost, why, ok, no) : (S.money >= cost ? ((S.money -= cost), ok(), true) : false));
 function renderPanel() {
   const body = $("panelBody");
@@ -1464,7 +1466,7 @@ function loop(now) {
 // API untuk modul dunia pulau (world/*.js)
 window.Nusa = {
   get S() { return S; },
-  balance, charge,
+  balance, charge, earn,
   mode: () => MODE, isStarted: () => started,
   isPanelOpen: () => !$("panelWrap").classList.contains("hidden") || !$("catchWrap").classList.contains("hidden") || !$("shareWrap").classList.contains("hidden") || !!($("aqWrap") && !$("aqWrap").classList.contains("hidden")) || !!(NW.kedai && NW.kedai.isOpen()) || !!(NW.shopUI && NW.shopUI.isOpen()),
   openPanel, enterFishing, goWorld, travel, canSail, tickTime, darkness, goldenHour, isNight, marketTip, setHint, save, toast,
