@@ -9,7 +9,8 @@
 window.NW = window.NW || {};
 const N = () => window.Nusa;
 const A = () => NW.shopApi;
-let st = null, busy = false, booting = false, q = [], rq = [], lastErr = "";
+let st = null, busy = false, booting = false, q = [], rq = [], lastErr = "", inflight = null, timer = null;
+const schedule = (ms) => { if (timer) return; timer = setTimeout(() => { timer = null; flush(); }, ms); };
 const rid = () => "E" + Date.now().toString(36) + Math.floor(Math.random() * 1e9).toString(36) + Math.floor(Math.random() * 1e9).toString(36);
 const live = () => { const a = A(); return !!(a && a.live && !a.sim && !a.isGuest() && !(NW.cloud && NW.cloud.sandbox)); };
 const active = () => !!(st && st.init && live());
@@ -36,7 +37,7 @@ async function ensure() {
     apply(v); await flush();
     // ikan di coolbox yang belum tercatat server (mis. tangkapan saat offline) dilaporkan ulang — tetap kena batas laju server
     const have = new Set(st.box || []);
-    for (const it of N().S.cooler || []) if (it && it.uid && !have.has(it.uid) && !q.some((x) => x.uid === it.uid)) q.push({ opId: rid(), id: it.id, w: it.w, uid: it.uid });
+    for (const it of N().S.cooler || []) if (it && it.uid && !have.has(it.uid) && !q.some((x) => x.uid === it.uid)) q.push({ id: it.id, w: it.w, uid: it.uid });
     await flush();
   } catch (e) { lastErr = (e && e.message) || "gagal"; }
   finally { booting = false; }
@@ -46,12 +47,22 @@ async function flush() {
   if (busy || !live()) return; busy = true;
   try {
     while (rq.length) { const r = rq[0]; try { apply(await call("ecoReward", r)); rq.shift(); } catch (e) { if (e && (e.code === "invalid-argument" || e.code === "failed-precondition")) rq.shift(); else throw e; } }
-    while (q.length) { const c = q[0]; try { apply(await call("ecoCatch", c)); q.shift(); } catch (e) { if (e && e.code && !/unavailable|internal|deadline|network/.test(e.code) && e.code !== "unauthenticated") q.shift(); else throw e; } }
+    while (q.length || inflight) {
+      if (!inflight) { const items = q.slice(0, 10); inflight = { opId: rid(), items, tries: 0 }; }       // paket ≤10 tangkapan: hemat tulis Firestore; opId tetap saat diulang
+      try { apply(await call("ecoCatch", { opId: inflight.opId, items: inflight.items.map((x) => ({ id: x.id, w: x.w, uid: x.uid })) })); q.splice(0, inflight.items.length); inflight = null; }
+      catch (e) {
+        const code = e && e.code;
+        if (code === "resource-exhausted" && ++inflight.tries < 6) { schedule(8000); break; }          // terlalu cepat/batas jam: coba lagi nanti (tidak dibuang langsung)
+        if (code && !/unavailable|internal|deadline|network|resource-exhausted/.test(code) && code !== "unauthenticated") { q.splice(0, inflight.items.length); inflight = null; }   // ditolak permanen (mis. data tak valid)
+        else if (code === "resource-exhausted") { q.splice(0, inflight.items.length); inflight = null; }
+        else throw e;
+      }
+    }
   } catch (e) { lastErr = (e && e.message) || "gagal"; }
   finally { busy = false; }
 }
 // ---- tangkapan ----
-function onCatch(item) { if (!active() || !item || !item.uid) return; q.push({ opId: rid(), id: item.id, w: item.w, uid: item.uid }); flush(); }
+function onCatch(item) { if (!active() || !item || !item.uid) return; q.push({ id: item.id, w: item.w, uid: item.uid }); if (q.length >= 8) flush(); else schedule(window.NusaApi && window.NusaApi.enabled() ? 45000 : 20000); }   // dikirim berkelompok (≤10) tiap ±20 dtk, atau sebelum jual/beli
 // ikan dilindungi: hadiah dari server (tidak ada item)
 function release(fish, w, done) {
   if (!active()) return false;
@@ -98,7 +109,7 @@ function buy(reason, grant, failCb) {
   })();
   return true;
 }
-NW.eco = { active, ensure, flush, onCatch, release, sell, drop, reward, mission, buy, balance: () => (st ? st.balance : 0), state: () => st, lastError: () => lastErr, _reset: () => { st = null; q = []; rq = []; } };
+NW.eco = { active, ensure, flush, onCatch, release, sell, drop, reward, mission, buy, balance: () => (st ? st.balance : 0), state: () => st, lastError: () => lastErr, _reset: () => { st = null; q = []; rq = []; inflight = null; } };
 setInterval(() => { if (!document.hidden && live()) ensure().then(() => flush()); }, 45000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden && live()) ensure(); });
 setInterval(() => { if (!st && live() && !booting) ensure(); }, 2500);   // begitu login terdeteksi → aktifkan ekonomi server

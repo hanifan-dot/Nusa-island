@@ -10,5 +10,6 @@ window.NUSA_FIREBASE = {
   storageBucket: "nusa-island-d2023.firebasestorage.app",
   messagingSenderId: "866857686204",
   appId: "1:866857686204:web:0bc82d863b5687ddd3acb9",
-  functionsRegion: "asia-southeast2"   // Jakarta; Firestore juga akan dibuat di asia-southeast2
+  functionsRegion: "asia-southeast2",  // Jakarta; Firestore juga akan dibuat di asia-southeast2
+  apiBase: ""                          // alamat Cloudflare Worker (tanpa Blaze), mis. "https://nusa-api.<akun>.workers.dev". Kosong = mode lama.
 };

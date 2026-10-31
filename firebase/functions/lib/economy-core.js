@@ -24,7 +24,7 @@
   const PRICE_SCALE = 3;                       // sama dengan game.js
   const OP_RE = /^[A-Za-z0-9_-]{8,60}$/, UID_RE = /^[A-Za-z0-9_-]{4,40}$/, ID_RE = /^[a-z0-9_]{1,40}$/;
   const HOUR = 3600000, DAY = 86400000;
-  const LIM = { boxMax: 400, catchGapMs: 1500, catchPerHour: 400, missionPerClaim: 260, missionPerDay: 1800, missionsPerDay: 8, sellBatch: 200, ops: 120, start: 50 };
+  const LIM = { boxMax: 400, catchGapMs: 1500, catchPerHour: 400, catchBatch: 10, missionPerClaim: 260, missionPerDay: 1800, missionsPerDay: 8, sellBatch: 200, ops: 120, start: 50 };
   // Hadiah tetap: kunci → koin. Sekali per kunci per pemain. (Sumber: world/story.js, world/areas/selat.js, world/areas/toba.js)
   const REWARDS = { "story:ch1": 150, "story:ch2": 200, "selat:bab1": 200, "selat:bab2": 250, "selat:bab3": 350, "toba:bab1": 200, "toba:bab2": 250, "toba:bab3": 350 };
 
@@ -95,25 +95,34 @@
       // Lapor tangkapan. Server memvalidasi spesies & berat, membatasi laju, lalu menaruh ikan di kotak server.
       // Ikan dilindungi (protected) langsung dilepas → hadiah dihitung server.
       async ecoCatch(auth, p) {
-        const uid = uidOf(auth), opId = needOp(p), f = FISH[p.id];
-        if (!f || f.rarity === undefined) throw E("invalid-argument", "Ikan tidak dikenal.");
-        const w = Number(p.w);
-        if (!(w >= f.wMin * 0.5) || !(w <= maxKg(f))) throw E("invalid-argument", "Berat ikan tidak masuk akal.");
-        if (!f.protected && (typeof p.uid !== "string" || !UID_RE.test(p.uid))) throw E("invalid-argument", "UID ikan tidak valid.");
+        const uid = uidOf(auth), opId = needOp(p);
+        // Satu tangkapan {id,w,uid} ATAU paket {items:[...]} (≤10) — paket menghemat tulis Firestore (kuota gratis 20.000 tulis/hari).
+        const items = Array.isArray(p.items) ? p.items : [p];
+        if (!items.length || items.length > LIM.catchBatch) throw E("invalid-argument", "Paket tangkapan tidak valid.");
+        const seenUid = new Set();
+        for (const it of items) {
+          const f = it && FISH[it.id];
+          if (!f) throw E("invalid-argument", "Ikan tidak dikenal.");
+          const w = Number(it.w);
+          if (!(w >= f.wMin * 0.5) || !(w <= maxKg(f))) throw E("invalid-argument", "Berat ikan tidak masuk akal.");
+          if (!f.protected) { if (typeof it.uid !== "string" || !UID_RE.test(it.uid) || seenUid.has(it.uid)) throw E("invalid-argument", "UID ikan tidak valid."); seenUid.add(it.uid); }
+        }
         return db.tx(async (t) => {
           const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco);
           const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, view(eco, ent));
-          const now = clock();
-          if (now - eco.lastCatchAt < LIM.catchGapMs) throw E("resource-exhausted", "Tangkapan terlalu cepat.");
+          const now = clock(), n = items.length;
+          // jeda rata-rata ≥ catchGapMs antar tangkapan: paket n ikan harus terpisah ≥ (n-1)×jeda dari kiriman sebelumnya
+          if (now - eco.lastCatchAt < (n - 1) * LIM.catchGapMs || (n === 1 && now - eco.lastCatchAt < LIM.catchGapMs)) throw E("resource-exhausted", "Tangkapan terlalu cepat.");
           eco.catches = eco.catches.filter((x) => now - x < HOUR);
-          if (eco.catches.length >= LIM.catchPerHour) throw E("resource-exhausted", "Batas tangkapan per jam tercapai.");
-          eco.catches.push(now); eco.lastCatchAt = now;
+          if (eco.catches.length + n > LIM.catchPerHour) throw E("resource-exhausted", "Batas tangkapan per jam tercapai.");
+          for (let i = 0; i < n; i++) eco.catches.push(now); eco.lastCatchAt = now;
           let reward = 0;
-          if (f.protected) { reward = Math.round(f.price * PRICE_SCALE * FM.effectiveKg(w) * 1.2); credit(eco, reward); }
-          else {
-            if (eco.box.some((b) => b.u === p.uid)) throw E("already-exists", "UID ikan sudah ada.");
+          for (const it of items) {
+            const f = FISH[it.id], w = Number(it.w);
+            if (f.protected) { const r = Math.round(f.price * PRICE_SCALE * FM.effectiveKg(w) * 1.2); reward += r; credit(eco, r); continue; }
+            if (eco.box.some((b) => b.u === it.uid)) throw E("already-exists", "UID ikan sudah ada.");
             if (eco.box.length >= LIM.boxMax) throw E("resource-exhausted", "Kotak ikan penuh.");
-            eco.box.push({ u: p.uid, id: f.id, w: Math.round(w * 100) / 100 });
+            eco.box.push({ u: it.uid, id: f.id, w: Math.round(w * 100) / 100 });
           }
           await t.set(ECO(uid), remember(eco, opId, { reward }) && eco);
           return Object.assign({ ok: true, reward }, view(eco, ent));

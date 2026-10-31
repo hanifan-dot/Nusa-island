@@ -200,14 +200,16 @@
         if (cur && t - cur.savedAtMs < LIMITS.WRITE_GAP_MS) fail("resource-exhausted", "Terlalu sering menyimpan. Coba lagi sebentar.");
         if (cur && baseRev !== cur.rev && !confirm) return { conflict: true, rev: cur.rev, savedAt: cur.savedAt, deviceId: cur.deviceId, summary: cur.summary, hash: cur.hash };
         if (!cur && baseRev > 0 && !confirm) return { conflict: true, rev: 0, missing: true };
-        let flags = [];
+        let flags = [], backedUp = false;
         if (cur) {
           try { flags = plausibility(JSON.parse(cur.data), save); } catch (e) {}
-          await tx.set(`${backupDir}/s${cur.rev % slots}`, cur);   // cadangan bergilir sebelum menimpa
+          // cadangan bergilir sebelum menimpa; opts.backupEveryMs (mode Worker) membatasi frekuensi agar hemat kuota tulis (bawaan: setiap tulis)
+          if (!(opts && opts.backupEveryMs) || !cur.lastBackupMs || t - cur.lastBackupMs >= opts.backupEveryMs) { await tx.set(`${backupDir}/s${cur.rev % slots}`, cur); backedUp = true; }
         }
         const rev = (cur ? cur.rev : 0) + 1;
         if (ecoChanged.length) flags = flags.concat(ecoChanged.map((c) => "eco-timpa:" + c));
         const doc = { rev, savedAt: new Date(t).toISOString(), savedAtMs: t, deviceId, opId, hash: hashText(text), summary: summarize(save), flags, data: text };
+        if (opts && opts.backupEveryMs) doc.lastBackupMs = backedUp || !cur ? t : (cur.lastBackupMs || t);
         await tx.set(path, doc);
         return { ok: true, rev, savedAt: doc.savedAt, hash: doc.hash, flags };
       });
