@@ -33,3 +33,10 @@ Status: **kode selesai & lulus tes lokal; BELUM diuji di Firebase sungguhan** (b
 1. Deploy Functions (Blaze) dengan `NUSA_SHOP_LIVE=1` dan `NUSA_ECO_INIT_CAP=0`.
 2. Terapkan `firebase/firestore.rules.blaze-functions` (semua `shop_*` tertutup untuk klien).
 3. Jalankan uji Cloud Shell (lihat `docs/UJI-FIREBASE-CLOUD-SHELL.md`), lalu satu transaksi uji Rp2.000 pilot.
+
+
+## Keamanan migrasi ecoInit (diperbarui)
+`ecoInit` TIDAK lagi memakai `money/up/homeLv/cooler` dari browser (dulu: dibatasi `initCap`, tetapi tetap bisa diklaim). Sekarang server hanya mengakui **snapshot beku**
+`shop_legacy/{uid}` yang dibuat Owner SEKALI dengan `node firebase/scripts/toko.js bekukan` (membaca simpanan lama di server; tidak menimpa snapshot yang sudah ada; menandai
+`shop_config/main.legacyFrozen`). Tanpa tanda itu `ecoInit` ditolak (gagal-tertutup). Akun tanpa snapshot = akun baru (koin awal 50). `initCap` tetap memotong saldo snapshot.
+Batas jujur: simpanan lama dulu ada di sisi klien, jadi nilai yang SUDAH tersimpan sebelum pembekuan tidak bisa dibuktikan asli — hanya dibatasi cap; `toko.js audit` menampilkan akun yang melewati batas.

@@ -21,7 +21,7 @@ def wait_for(pg, js, t=10):
 WRAP = "(function(){var module={exports:{}};%s;window.%s=module.exports})();"
 SERVER = """async()=>{ const m=new Map(); let q=Promise.resolve(); const rd=p=>m.has(p)?JSON.parse(m.get(p)):null;
  const db={get:async p=>rd(p),tx:f=>{const run=q.then(async()=>{const buf=new Map();const r=await f({get:async p=>buf.has(p)?JSON.parse(buf.get(p)):rd(p),set:async(p,v)=>{buf.set(p,JSON.stringify(v))}});for(const[p,v]of buf)m.set(p,v);return r});q=run.catch(()=>{});return run}};
- window.__db=m; const e=NusaEconomyCore.makeEconomyServer(db,{tables:__T,fishmath:NW.FM,initCap:20000}); const A={uid:'u-eco'}; window.__srv=e; window.__calls=[];
+ window.__db=m; const e=NusaEconomyCore.makeEconomyServer(db,{tables:__T,fishmath:NW.FM,initCap:20000,trustClientInit:true}); const A={uid:'u-eco'}; window.__srv=e; window.__calls=[];
  NW.shopApi={sim:false,live:true,isGuest:()=>false,uid:()=>'u-eco',getEntitlements:async()=>({env:'NYATA',wallet:{NYATA:(rd('shop/entitlements/u-eco')||{wallet:{NYATA:0}}).wallet.NYATA}}),
    eco:async(name,d)=>{window.__calls.push(name);try{return JSON.parse(JSON.stringify(await e[name](A,d)))}catch(x){throw Object.assign(new Error(x.message),{code:x.code})}}};
  NW.wallet.hook&&NW.wallet.hook(); return true}"""

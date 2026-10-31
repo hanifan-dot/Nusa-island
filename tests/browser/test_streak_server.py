@@ -23,7 +23,7 @@ DAY = 86400000
 T0 = 1793502000000  # 1 Nov 2026 10:00 WIB
 SERVER = """async(t0)=>{ const m=new Map(); let q=Promise.resolve(); const rd=p=>m.has(p)?JSON.parse(m.get(p)):null;
  const db={get:async p=>rd(p),tx:f=>{const run=q.then(async()=>{const buf=new Map();const r=await f({get:async p=>buf.has(p)?JSON.parse(buf.get(p)):rd(p),set:async(p,v)=>{buf.set(p,JSON.stringify(v))}});for(const[p,v]of buf)m.set(p,v);return r});q=run.catch(()=>{});return run}};
- window.__srvNow=t0; const e=NusaEconomyCore.makeEconomyServer(db,{clock:()=>window.__srvNow,tables:__T,fishmath:NW.FM,streak:NW.StreakCore,initCap:20000}); const A={uid:'u-st'}; window.__calls=[];
+ window.__srvNow=t0; const e=NusaEconomyCore.makeEconomyServer(db,{clock:()=>window.__srvNow,tables:__T,fishmath:NW.FM,streak:NW.StreakCore,initCap:20000,trustClientInit:true}); const A={uid:'u-st'}; window.__calls=[];
  NW.shopApi={sim:false,live:true,isGuest:()=>false,uid:()=>'u-st',getEntitlements:async()=>({env:'NYATA',wallet:{NYATA:0}}),
    eco:async(name,d)=>{window.__calls.push(name);try{return JSON.parse(JSON.stringify(await e[name](A,d)))}catch(x){throw Object.assign(new Error(x.message),{code:x.code})}}};
  NW.wallet.hook&&NW.wallet.hook(); NW.cloud.enabled=true; NW.cloud.demo=false; NW.cloud.user={uid:'u-st',name:'Uji'}; return true}"""

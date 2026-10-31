@@ -41,6 +41,9 @@
     const initCap = Number.isFinite(opts.initCap) ? opts.initCap : 20000;     // batas koin lama yang diakui SEKALI saat migrasi; 0 saat rilis
     const SK = opts.streak || null;                                           // StreakCore (streak/core.js), opsional
     const rng = opts.rng || (() => { try { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] / 4294967296; } catch (e) { return Math.random(); } });
+    // KEAMANAN MIGRASI: secara BAWAAN ecoInit TIDAK memakai angka dari browser sama sekali. Saldo/level/ikan lama diambil dari SNAPSHOT yang dibekukan
+    // Owner di server (shop/legacy/{uid}, dibuat sekali oleh toko.js bekukan) — bukan dari permintaan klien. Hanya pengujian yang boleh opts.trustClientInit=true.
+    const trustClient = opts.trustClientInit === true;
     const FISH = Object.fromEntries(T.FISH.map((f) => [f.id, f]));
     const ECO = (uid) => `shop/economy/${uid}`, ENT = (uid) => `shop/entitlements/${uid}`;
     const uidOf = (a) => { if (!a || typeof a.uid !== "string" || !a.uid) throw E("unauthenticated", "Masuk dulu."); return a.uid; };
@@ -79,6 +82,12 @@
         return db.tx(async (t) => {
           const eco = await getEco(t, uid), ent = await entOf(t, uid);
           if (eco.init) return Object.assign({ ok: true, already: true }, view(eco, ent));
+          if (!trustClient) {
+            const cfg = (await t.get("shop/config")) || {};
+            if (!cfg.legacyFrozen) throw E("failed-precondition", "Migrasi simpanan lama belum siap. Coba lagi nanti.");   // gagal-tertutup: tidak ada migrasi tanpa snapshot server
+            const lg = (await t.get(`shop/legacy/${uid}`)) || {};                     // tanpa snapshot = akun baru (koin awal saja)
+            p = { money: lg.money, up: lg.up, homeLv: lg.homeLv, cooler: lg.cooler };
+          }
           const m = Number.isFinite(p.money) ? Math.floor(p.money) : 0;
           eco.bal = Math.max(LIM.start, Math.min(initCap, Math.max(0, m)));
           for (const k of Object.keys(eco.up)) { const lv = p.up && Number.isInteger(p.up[k]) ? p.up[k] : 0; eco.up[k] = Math.max(0, Math.min(T.UP[k].max, lv)); }

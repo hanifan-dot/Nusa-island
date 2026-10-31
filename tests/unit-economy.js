@@ -6,7 +6,7 @@ let pass = 0, fail = 0; const t = async (n, f) => { try { await f(); pass++; } c
 function mkdb() { const m = new Map(); const rd = (p) => (m.has(p) ? JSON.parse(m.get(p)) : null); let q = Promise.resolve();
   return { m, get: async (p) => rd(p), tx: (fn) => { const run = q.then(async () => { const buf = new Map(); const out = await fn({ get: async (p) => (buf.has(p) ? JSON.parse(buf.get(p)) : rd(p)), set: async (p, o) => { buf.set(p, JSON.stringify(o)); } }); for (const [p, v] of buf) m.set(p, v); return out; }); q = run.catch(() => {}); return run; } }; }
 let now = 1e12;
-const mk = (o) => { const db = mkdb(); return { db, e: EC.makeEconomyServer(db, Object.assign({ clock: () => now, tables: T, fishmath: FM }, o || {})) }; };
+const mk = (o) => { const db = mkdb(); return { db, e: EC.makeEconomyServer(db, Object.assign({ clock: () => now, tables: T, fishmath: FM, trustClientInit: true }, o || {})) }; };
 const U = { uid: "user1" }, V = { uid: "user2" };
 const cat = (id, w, uid) => ({ opId: "c" + Math.random().toString(36).slice(2, 12), id, w, uid: uid || "f" + Math.random().toString(36).slice(2, 10) });
 let n = 0; const op = () => "op" + (++n) + "xxxxxxxx";
@@ -73,6 +73,17 @@ let n = 0; const op = () => "op" + (++n) + "xxxxxxxx";
     const w = await cs.writeSave(auth, { data: JSON.stringify(save), baseRev: 0, opId: "w00000001", deviceId: "d" }); assert.ok(w.ok, JSON.stringify(w)); assert.ok(w.flags.some((f) => /eco-timpa:money/.test(f)));
     const l = await cs.loadSave(auth, {}); const d = JSON.parse(l.data); assert.equal(d.money, 700); assert.equal(d.up.rod, 0); assert.equal(l.eco, true); });
   await t("pembeli salah/ganda: dua akun tidak saling menyentuh", async () => { const { e } = mk(); await e.ecoInit(U, { money: 5000 }); await e.ecoInit(V, { money: 5000 }); await e.ecoBuy(U, { opId: op(), kind: "up", k: "rod", lv: 1 }); assert.equal((await e.ecoState(V)).own, 5000); });
+  // ---- KEAMANAN ecoInit: angka migrasi dari browser TIDAK dipercaya; hanya snapshot server (shop/legacy/{uid}) ----
+  const mkSec = (frozen, snap) => { const db = mkdb(), e = EC.makeEconomyServer(db, { clock: () => now, tables: T, fishmath: FM, initCap: 5000 });
+    if (frozen) db.m.set("shop/config", JSON.stringify({ legacyFrozen: true })); for (const [u, v] of Object.entries(snap || {})) db.m.set(`shop/legacy/${u}`, JSON.stringify(v)); return { db, e }; };
+  await t("ecoInit aman: belum ada snapshot beku → ditolak (gagal-tertutup), tidak ada koin dari klaim klien", async () => { const { e } = mkSec(false); await assert.rejects(() => e.ecoInit(U, { money: 9e9, up: { rod: 9 } }), /belum siap/); assert.equal((await e.ecoState(U)).init, false); });
+  await t("ecoInit aman: akun BARU mengaku 9 miliar koin/level maks/ikan palsu → hanya koin awal", async () => { const { e } = mkSec(true);
+    const r = await e.ecoInit(U, { money: 9e9, up: { rod: 9, bait: 9, cooler: 9, boat: 9 }, homeLv: 9, cooler: [{ id: "nila", w: 1, uid: "palsu12345" }] });
+    assert.equal(r.own, EC.LIM.start); assert.deepEqual(r.up, { rod: 0, bait: 0, cooler: 0, boat: 0 }); assert.equal(r.homeLv, 1); assert.equal(r.box.length, 0); });
+  await t("ecoInit aman: pemain lama dengan snapshot sah → saldo/upgrade/rumah/ikan dipertahankan (dibatasi cap), klaim klien diabaikan", async () => { const f = T.FISH.find((x) => x.id === "nila");
+    const { e } = mkSec(true, { user1: { money: 3210, up: { rod: 2, bait: 1, cooler: 0, boat: 0 }, homeLv: 2, cooler: [{ uid: "ikanlama01", id: "nila", w: f.wMin }] }, user2: { money: 999999 } });
+    const r = await e.ecoInit(U, { money: 9e9, up: { rod: 9 } }); assert.equal(r.own, 3210); assert.equal(r.up.rod, 2); assert.equal(r.homeLv, 2); assert.deepEqual(r.box, ["ikanlama01"]);
+    assert.equal((await e.ecoInit(U, { money: 9e9 })).own, 3210, "sekali saja"); assert.equal((await e.ecoInit(V, {})).own, 5000, "snapshot melebihi cap dipotong ke cap"); });
   // ---- Login Streak 7 Hari lewat server (ekonomi): hari = jam server WIB, koin ke dompet utama sekali ----
   const SKC = require("../streak/core.js"), DAYMS = 86400000, mkS = () => mk({ streak: SKC, rng: () => 0.5 });
   const jkt = (d, h) => d * DAYMS - 7 * 3600000 + (h || 0) * 3600000 + 1000;     // ms tepat setelah 00:00 WIB hari ke-d (+h jam)
