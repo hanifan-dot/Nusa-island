@@ -72,13 +72,14 @@ const keys = new Set();
 let moved = false;
 const joyEl = $("joy"), knobEl = $("joyKnob");
 function joyHome() { const r = joyEl.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
-function blocked() { return dialog.open || busy || !!cine || N().isPanelOpen() || !N().isStarted() || $("fade").classList.contains("on") || (NW.home && NW.home.isEditing()) || (NW.adv && NW.adv.isBusy()); }
+function blocked() { return dialog.open || busy || !!cine || N().isPanelOpen() || !N().isStarted() || $("fade").classList.contains("on") || (NW.home && NW.home.isEditing()) || (NW.adv && NW.adv.isBusy()) || (NW.mp && NW.mp.typing); }
 
 function onDown(e) {
   if (N().mode() !== "world") return;
   if (dialog.open) { advanceDialog(); return; }
   if (cine && cine.t > 0.6) { cine.t = Math.max(cine.t, cine.dur - 0.5); return; } // ketuk = lewati sorotan
   if (blocked()) return;
+  if (e.target && e.target.closest && e.target.closest(".mp-dock, .mp-bar, .mp-ask")) return; // ketuk tombol Dunia Bersama ≠ menggeser joystick
   if (e.clientX < W * 0.6 && !joy.active) {
     const home = joyHome();
     joy.active = true; joy.id = e.pointerId;
@@ -109,6 +110,7 @@ window.addEventListener("pointerup", onUp);
 window.addEventListener("pointercancel", onUp);
 window.addEventListener("keydown", (e) => {
   if (N().mode() !== "world") return;
+  if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable)) return; // mengetik chat: huruf w/a/s/d/e/spasi/Enter jangan dibajak
   const k = e.key.toLowerCase();
   if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k)) { keys.add(k); e.preventDefault(); }
   if ((k === "e" || k === "enter" || k === " ") && !e.repeat) { e.preventDefault(); if (dialog.open) advanceDialog(); else interact(); }
@@ -411,6 +413,7 @@ function idleLook(n, dt, a) {
 let saveT = 0;
 function update(dt) {
   N().tickTime(dt);
+  if (NW.mp) NW.mp.update(dt); // Dunia Bersama: gerak halus pemain lain
   if (NW.hold) { NW.hold.validate(); player.hold = NW.hold.frame(); } // ikan terjual / pindah ke akuarium → berhenti; pose hanya tampilan
   if (busy) updateBusy(dt);
   if (cine) { cine.t += dt; cine.k = clamp(Math.min(cine.t / 1.1, (cine.dur - cine.t) / 1.1), 0, 1); const e = cine.k; cine.k = e * e * (3 - 2 * e); if (cine.t >= cine.dur) { const done = cine.done; cine = null; if (done) done(); } }
@@ -510,6 +513,7 @@ function draw(ctx, t) {
   const onBoat = sailing();
   if (NW.boat) for (const it of NW.boat.layer(t, (dz) => drawSeated(ctx, t, dz))) list.push({ d: it.d, fn: it.draw }); // kapal (pemain duduk di dalamnya)
   if (!onBoat) list.push({ d: pDepth, ch: player });
+  if (NW.mp && !inHome()) for (const it of NW.mp.layer(view, inView)) list.push(it); // pemain lain (nyata) di Muara Kampung
   list.sort((x, y) => x.d - y.d);
   const night = dk / 0.85, claim = L() ? L().claimable() > 0 : false;
   for (const it of list) {
@@ -520,7 +524,7 @@ function draw(ctx, t) {
         const pb = NW.P(player.x, player.y, gz(player.x, player.y) - (player.sit ? 6 : 0));
         NW.look.drawPlayerLabel(ctx, pb, 1.0 / Z, NW.hold ? NW.hold.labelLift() : 0);
         if (NW.hold) NW.hold.drawTag(ctx, pb, 1.0 / Z);
-      }
+      } else if (it.remote) NW.mp.drawTag(ctx, it.remote, 1.0 / Z); // nama + gelar pemain lain
     }
     else if (it.b) { if (it.b.draw) it.b.draw(ctx, it.b, t, night); else if (it.b.kind === "shop") NW.drawShop(ctx, it.b, t, night); else NW.drawHouse(ctx, it.b, t, night); }
     else if (it.mback) (it.mback.drawBack || NW.drawMarketBack)(ctx, it.mback, t, night);
@@ -537,6 +541,7 @@ function draw(ctx, t) {
   }
   if (hiddenBehind && !onBoat) { ctx.globalAlpha = 0.5; NW.drawCharacter(ctx, player, t); ctx.globalAlpha = 1; }
   if (hk.drawOver) hk.drawOver(ctx, t, dk, view, inView);
+  if (NW.mp && !inHome() && !onBoat) NW.mp.drawBubbles(ctx, 1.0 / Z); // bubble chat & emoji
   if (NW.weather) NW.weather.drawRoofs(ctx, t, view, m, player.x, player.y); // tetes dari atap
   if (NW.adv) NW.adv.drawFx(ctx, t); // kilau penemuan tempat
   if (NW.sea) NW.sea.drawOver(ctx, t, view, a.id, player.x, player.y); // burung laut berkumpul di atas spot

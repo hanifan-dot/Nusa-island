@@ -237,6 +237,9 @@ Tombol 🎁 di HUD membuka **Kalender Hadiah 7 Hari**. Klaim hanya lewat akun Go
 Siklus 1 berakhir dengan Kapal Perintis Eksklusif, siklus 2 dengan Joran Pelaut Eksklusif, siklus 3+ dengan satu perabot acak untuk Rumahku.
 Detail, batasan keamanan, dan cara mengaktifkan: `docs/LOGIN-STREAK.md`. Kode di folder `streak/`.
 
+## Dunia Bersama (multiplayer)
+Tombol 👥 membuka **Dunia Bersama**: pemain Google yang menyetujui bertemu di Muara Kampung (nama, chat, memancing & nongkrong bersama). Server: Cloudflare Workers gratis (`cf-multiplayer/`). Detail & cara aktifkan: `docs/MULTIPLAYER.md`.
+
 ## Online-kan dengan GitHub Pages
 Settings → Pages → Source: **Deploy from a branch** → Branch: `main` / root → Save.
 Game akan tersedia di `https://hanifan-dot.github.io/Nusa-island/`.
