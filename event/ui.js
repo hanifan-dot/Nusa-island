@@ -37,22 +37,31 @@ function ensureBtn(on) {
 }
 
 // ---------- penanda hitung mundur ----------
+// Banner #evPill: tampil HANYA 5 detik sejak PERTAMA kali muncul untuk tiap jenis kabar (kunci), lalu memudar halus. Pembaruan hitung mundur / data server tidak
+// mengulang atau mereset waktunya. Jadwal, hitung mundur, hadiah, tombol ikut event tetap ada di menu ☰ → 🦈 Event Monster Legenda (panel selalu mutakhir).
+const PILL_MS = 5000, FADE_MS = 600, pillSeen = {}; let pillTimer = 0;
 function pill() {
   const el = $("evPill"); if (!el) return;
   const ev = E(), info = ev.info(), s = ev.status(), on = !!(info && info.on && s);
   const btn = ensureBtn(on);
-  if (btn) { const bd = $("evBadge"); if (bd) bd.classList.toggle("hidden", !(on && s.phase === "live")); }
-  let txt = "", cls = "";
+  if (btn) { const bd = $("evBadge"); if (bd) bd.classList.toggle("hidden", !(on && (s.phase === "live" || ((s.phase === "upcoming" || s.phase === "ended") && s.msToStart <= 600000)))); }   // lencana ☰: live / sebentar lagi
+  let txt = "", cls = "", key = "";
   if (on) {
     const m = EV().BY_ID[s.ev.monster], L = ev.locName(m.loc);
-    if (s.phase === "live") { txt = `<b>🔴 LIVE</b>${s.ev.premiere ? " 🎉" : ""} ${esc(m.name)} · <b>${countdown(s.msLeft)}</b>`; cls = "live"; el.title = "Di " + L; }
-    else if (s.phase === "closing") { txt = `Event ${esc(m.name)} selesai · menghitung juara…`; cls = "end"; }
-    else if (s.phase === "ended" && info.winner && ev.serverNow() < s.ev.close + 15 * 60000) { txt = `👑 Juara ${esc(m.name)}: <b>${esc(info.winner.name)}</b> · skor ${fmt(info.winner.score)}`; cls = "end"; }
+    if (s.phase === "live") { txt = `<b>🔴 LIVE</b>${s.ev.premiere ? " 🎉" : ""} ${esc(m.name)} · <b>${countdown(s.msLeft)}</b>`; cls = "live"; key = "live:" + s.ev.id; el.title = "Di " + L; }
+    else if (s.phase === "closing") { txt = `Event ${esc(m.name)} selesai · menghitung juara…`; cls = "end"; key = "closing:" + s.ev.id; }
+    else if (s.phase === "ended" && info.winner && ev.serverNow() < s.ev.close + 15 * 60000) { txt = `👑 Juara ${esc(m.name)}: <b>${esc(info.winner.name)}</b> · skor ${fmt(info.winner.score)}`; cls = "end"; key = "win:" + s.ev.id; }
     else if ((s.phase === "upcoming" || s.phase === "ended") && s.msToStart <= 24 * 3600000) {   // di antara dua event fase = "ended": hitung mundur ke event berikutnya
-      const nm = EV().BY_ID[(s.phase === "ended" ? s.next : s.ev).monster]; txt = `🌊 ${esc(nm.name)} muncul di ${esc(ev.locName(nm.loc))} · <b>${countdown(s.msToStart)}</b>`; cls = s.msToStart <= 600000 ? "soon" : "";
+      const nx = s.phase === "ended" ? s.next : s.ev, nm = EV().BY_ID[nx.monster]; txt = `🌊 ${esc(nm.name)} muncul di ${esc(ev.locName(nm.loc))} · <b>${countdown(s.msToStart)}</b>`;
+      cls = s.msToStart <= 600000 ? "soon" : ""; key = (s.msToStart <= 600000 ? "soon:" : "up:") + nx.id;
     }
   }
-  const hide = !txt || ev.active(); if (txt && el.innerHTML !== txt) el.innerHTML = txt; el.className = "ev-pill" + (cls ? " " + cls : "") + (hide ? " hidden" : "");
+  const now = performance.now(); if (key && !(key in pillSeen)) pillSeen[key] = now;
+  const age = key ? now - pillSeen[key] : Infinity, gone = age >= PILL_MS + FADE_MS, fade = age >= PILL_MS;
+  const hide = !txt || gone || ev.active();
+  if (txt && !gone && el.innerHTML !== txt) el.innerHTML = txt;
+  el.className = "ev-pill" + (cls ? " " + cls : "") + (fade && !hide ? " fade" : "") + (hide ? " hidden" : "");
+  clearTimeout(pillTimer); if (key && !gone) pillTimer = setTimeout(pill, (age < PILL_MS ? PILL_MS : PILL_MS + FADE_MS) - age + 30);
   const cd = $("evCount"); if (cd && on) cd.innerHTML = statusLine();
 }
 function statusLine() {

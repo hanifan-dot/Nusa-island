@@ -115,6 +115,31 @@ with sync_playwright() as p:
         ok("J11 tamu tidak mendapat tiket (duel berhadiah butuh akun)", ev(pg, "!document.querySelector('#panelBody [data-act=evpass]')") and ev(pg, "NW.event.passGo()") is False); ctx.close()
         ctx, pg, errs = boot(b, S1 + 2 * 86400000, up=NEW, anchor="2026-11-01"); go_fishing(pg, "muara")
         ok("J12 setelah pembukaan: Selasa 3 Nov tidak ada tiket/monster; rotasi: Minggu 8 Nov = Toman Purba", ev(pg, "NW.event.passAvailable('megalodon_bayangan')") is False and ev(pg, "NW.event.status().next.monster") == "toman_purba" and ev(pg, "NW.event.status().next.date") == "2026-11-08"); ctx.close()
+        # ---- K. banner #evPill: 5 detik saja, memudar, tidak muncul lagi; akses tetap lewat menu ☰ ----
+        ctx, pg, errs = boot(b, S1 - 2 * 3600000, anchor="2026-11-01"); P = "document.getElementById('evPill').className"
+        ok("K1 banner hitung mundur tampil saat pertama muncul", "hidden" not in ev(pg, P) and "ev-pill" in ev(pg, P), ev(pg, P))
+        time.sleep(2.2); ev(pg, "NW.event.fetchInfo()"); time.sleep(0.4); ok("K2 pembaruan data server di detik ke-2/3 tidak mereset/menyembunyikan lebih awal", "hidden" not in ev(pg, P) and "fade" not in ev(pg, P), ev(pg, P))
+        time.sleep(2.4); ev(pg, "NW.event.fetchInfo()"); t0 = time.time(); seen_fade = False
+        while time.time() - t0 < 2.5:
+            if "fade" in ev(pg, P): seen_fade = True
+            time.sleep(0.1)
+        ok("K3 setelah ±5 detik memudar (kelas fade) lalu hilang (hidden)", seen_fade and "hidden" in ev(pg, P), ev(pg, P))
+        for _ in range(4): ev(pg, "NW.event.fetchInfo()"); time.sleep(1.1)
+        ok("K4 pembaruan/hitungan berikutnya TIDAK memunculkan banner lagi", "hidden" in ev(pg, P), ev(pg, P))
+        ev(pg, "document.getElementById('hudMenuBtn').click()"); time.sleep(0.4)
+        ok("K5 menu ☰ memuat ubin 🦈 Event Monster Legenda", ev(pg, "!!document.querySelector('#hmList .hm-tile[data-for=evBtn]')") and "Event Monster" in ev(pg, "document.querySelector('#hmList .hm-tile[data-for=evBtn]').textContent"))
+        ev(pg, "document.querySelector('#hmList .hm-tile[data-for=evBtn]').click()"); time.sleep(0.7); html = ev(pg, "document.getElementById('panelBody').textContent")
+        ok("K6 dari menu ☰ panel event terbuka: jadwal, hitung mundur, hadiah tetap ada saat banner sudah hilang", all(x in html for x in ["Megalodon", "Hadiah", "Jadwal berikutnya", "19.00"]) and ev(pg, "!!document.getElementById('evCount')"), html[:100])
+        ev(pg, "Nusa.closePanel()")
+        ev(pg, "(t)=>{window.__setSrv(t)}", S1 - 2000); ev(pg, "NW.event.fetchInfo()"); time.sleep(3.2)
+        ev(pg, "(t)=>{window.__setSrv(t)}", S1 + 1500); ev(pg, "NW.event.fetchInfo()"); time.sleep(1.4)
+        ok("K7 tepat 19.00: pengumuman LIVE (besar) tampil", "show" in ev(pg, "document.getElementById('evAnn').className") and "MUNCUL" in ev(pg, "document.getElementById('evAnn').textContent"), ev(pg, "document.getElementById('evAnn').textContent"))
+        ok("K8 banner LIVE ikut tampil (kabar baru = kunci baru)", "live" in ev(pg, P) and "hidden" not in ev(pg, P), ev(pg, P))
+        time.sleep(6.6)
+        ok("K9 ±5 detik kemudian pengumuman & banner LIVE hilang, event tetap bisa diakses dari menu ☰ (lencana ! + panel)", "hidden" in ev(pg, P) and "show" not in ev(pg, "document.getElementById('evAnn').className") and ev(pg, "!document.getElementById('evBadge').classList.contains('hidden')"), [ev(pg, P), ev(pg, "document.getElementById('evAnn').className")])
+        ev(pg, "document.getElementById('hudMenuBtn').click()"); time.sleep(0.3); ev(pg, "document.querySelector('#hmList .hm-tile[data-for=evBtn]').click()"); time.sleep(0.6)
+        ok("K10 panel saat LIVE: status LIVE + tombol ikut event/tiket tersedia", "LIVE" in ev(pg, "document.getElementById('panelBody').textContent") and ev(pg, "!!document.querySelector('#panelBody [data-act=evpass], #panelBody [data-act=go]') || document.getElementById('panelBody').textContent.includes('Kamu sudah di')"), ev(pg, "document.getElementById('panelBody').textContent")[:200])
+        ok("K11 tanpa error JS", errs == [], errs); ctx.close()
     finally:
         b.close()
 fails = [x for x in R if x.startswith("FAIL")]; print(f"\nevent browser: {len(R)-len(fails)} lulus, {len(fails)} gagal"); raise SystemExit(1 if fails else 0)
