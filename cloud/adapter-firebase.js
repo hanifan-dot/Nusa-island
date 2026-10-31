@@ -36,6 +36,7 @@
           auth.onAuthStateChanged(async (u) => { cur = await toUser(u).catch(() => null); cbs.forEach((f) => f(cur)); });
         },
         currentUser: () => cur,
+        idToken: async () => { const u = auth && auth.currentUser; if (!u) throw Object.assign(new Error("Masuk dulu dengan akun Google."), { code: "auth" }); return u.getIdToken(); },   // dipakai mp/client.js (token untuk server Dunia Bersama)
         rawFirestore: () => (fsdb && fb && auth && auth.currentUser ? { fb, db: fsdb, uid: auth.currentUser.uid } : null),   // dipakai streak/streak.js (buku klaim Login Streak)
         onAuth: (f) => cbs.push(f),
         async signInGoogle() {
