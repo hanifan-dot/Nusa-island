@@ -86,7 +86,10 @@ function applyLook() {
     if (dk && owned[dk]) { const gold = dk === "dekor_sultan"; for (const [x, y] of [[1.2, 1.2], [3.6, 1.2]]) r.list.push({ d: x + y + 3, draw: (c) => { const p = NW.P(x, y, 0), sw = Math.sin(t * 2 + x) * 2; c.strokeStyle = "#2a1a10"; c.beginPath(); c.moveTo(p.x, p.y - 62); c.lineTo(p.x + sw * .3, p.y - 48); c.stroke(); c.fillStyle = gold ? "#e8c25a" : "#d8452f"; c.beginPath(); c.ellipse(p.x + sw, p.y - 40, 6, 8, 0, 0, 7); c.fill(); c.fillStyle = gold ? "#b8902f" : "#e8c25a"; c.fillRect(p.x + sw - 4, p.y - 49, 8, 2); if (night > 0.3) { c.fillStyle = "rgba(255,190,90,.25)"; c.beginPath(); c.arc(p.x + sw, p.y - 40, 16, 0, 7); c.fill(); } } }); } return r; }; }
 })();
 
-NW.shop = { setOwned, toggleEquip, isEquipped, has, applyLook, B, SPOT, KEEP, EQ, owned: () => owned };
+// ---------- 4) dompet tunggal: saldo Top Up tinggal di SERVER (lihat shop/wallet.js); tidak ada lagi pemindahan koin ke S.money ----------
+const deliver = () => (NW.wallet ? NW.wallet.refresh() : Promise.resolve());
+NW.shop = { deliver, setOwned, toggleEquip, isEquipped, has, applyLook, B, SPOT, KEEP, EQ, owned: () => owned };
 // muat hak milik di latar belakang (setelah game siap) agar kosmetik terpakai tanpa membuka toko
-setTimeout(() => { try { NW.shopApi.getEntitlements().then(setOwned).catch(() => {}); } catch (e) {} }, 600);
+setTimeout(() => { try { NW.shopApi.getEntitlements().then((e) => { setOwned(e); deliver(); }).catch(() => {}); } catch (e) {} }, 600);
+if (NW.cloud && NW.cloud.onChange) try { NW.cloud.onChange(() => setTimeout(() => NW.shopApi.getEntitlements().then((e) => { setOwned(e); deliver(); }).catch(() => {}), 800)); } catch (e) {}
 })();

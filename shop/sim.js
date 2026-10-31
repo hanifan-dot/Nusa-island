@@ -18,13 +18,14 @@ const server = NusaShopCore.makeShopServer(db, { realEnabled: false });
 // uid: akun Google bila masuk, kalau tidak "tamu" (tamu hanya di perangkat ini; tidak bisa dipulihkan di perangkat lain)
 const uid = () => (NW.cloud && NW.cloud.user && NW.cloud.user.uid) || "tamu-lokal";
 const auth = () => ({ uid: uid() });
-const test = /[?&]shoptest=1/.test(location.search);
+const CFG = window.NUSA_SHOP || {};
+const test = /[?&]shoptest=1/.test(location.search) && CFG.release !== "publik";   // build publik: alat uji Owner tidak ada
 // pembungkus yang mengisi auth otomatis — pemain TIDAK bisa memilih uid
 const call = (n) => (p) => server[n](auth(), p);
 NW.shopApi = {
-  sim: true, isGuest: () => !(NW.cloud && NW.cloud.user && NW.cloud.user.uid), uid,
+  sim: true, live: false, spendCoins: async () => { throw Object.assign(new Error("Tidak ada saldo Top Up pada simulasi."), { code: "failed-precondition" }); }, isGuest: () => !(NW.cloud && NW.cloud.user && NW.cloud.user.uid), uid,
   getCatalog: () => server.getCatalog(), getTime: () => server.getTime(),
-  createOrder: call("createOrder"), cancelOrder: call("cancelOrder"), claimPaid: call("claimPaid"), simulatePayment: call("simulatePayment"),
+  createOrder: call("createOrder"), cancelOrder: call("cancelOrder"), claimPaid: call("claimPaid"), simulatePayment: CFG.release === "publik" ? undefined : call("simulatePayment"),
   listOrders: call("listOrders"), getEntitlements: call("getEntitlements"), listLedger: call("listLedger"),
 };
 // alat uji Owner — HANYA aktif bila URL memuat ?shoptest=1 (bukan untuk pemain)

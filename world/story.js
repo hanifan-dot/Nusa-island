@@ -99,7 +99,7 @@ function dartoStory(open, npc, role) {
     if (s.step === 1) return D([`Dua ikan dari dermaga Muara, ${callName()}. Pelan-pelan saja. Sudah ${s.prog.c1 || 0}/2.`]);
     if (s.step === 2) return D(["Wah, sudah dapat! Tanganmu mulai kenal joran.", "Dengar rahasia kecil: ikan suka berkumpul di air yang beriak, karena di situ ada makanan.", "Sebelum melempar, cari gelembung di permukaan air. Lepas meteran tepat di garis kuning supaya pelampung jatuh di riaknya."], [{ label: "🎯 Akan kucoba", act: () => { learn("presisi", "Lemparan Presisi"); advance(); } }]);
     if (s.step === 3) return D(["Cari gelembung di air, lalu lepas meteran pas di garis kuning. Arahkan lemparan dengan posisi jarimu di layar."]);
-    if (s.step === 4) return D(["Tepat di riaknya! Ayahku dulu bilang, nelayan yang baik itu sabar dan teliti.", "Ini upah pertama dari Pak Darto. Besok-besok mampir lagi, ya. Aku punya cerita lain."], [{ label: "🙏 Terima kasih, Pak", act: () => { reward("ch1", () => { S().money += 150; N().toast("📖 Bab 1 selesai! +🪙150", "good"); }); advance(); } }]);
+    if (s.step === 4) return D(["Tepat di riaknya! Ayahku dulu bilang, nelayan yang baik itu sabar dan teliti.", "Ini upah pertama dari Pak Darto. Besok-besok mampir lagi, ya. Aku punya cerita lain."], [{ label: "🙏 Terima kasih, Pak", act: () => { reward("ch1", () => { N().earn("story:ch1", 150); N().toast("📖 Bab 1 selesai! +🪙150", "good"); }); advance(); } }]);
   }
   if (s.ch === 2) {
     if (s.step === 0) return D(["Kamu tahu? Di kolong rumahku ada joran tua, warisan ayahku.", "Joran bambu itu pernah menarik ikan toman sebesar paha orang dewasa. Tapi senarnya putus dan gagangnya retak.", "Kalau kamu mau, kita perbaiki bersama. Aku butuh benang senar yang kuat dari toko Pak Bono, ruas bambu tua yang lurus, dan getah damar.", "Bu Sari biasanya menyimpan damar. Soal bambu, tanya Dika, dia hafal setiap sudut kampung."], [{ label: "🤝 Aku bantu, Pak", act: advance }]);
@@ -123,7 +123,7 @@ function dartoStory(open, npc, role) {
 function repairRod(open, npc, role) {
   const f = $("fade"); f.classList.add("on");
   setTimeout(() => {
-    reward("ch2", () => { S().money += 200; st().corner = Math.max(st().corner, 1); NW.life.addFriend("darto", 1); });
+    reward("ch2", () => { N().earn("story:ch2", 200); st().corner = Math.max(st().corner, 1); NW.life.addFriend("darto", 1); });
     if (st().ch === 2) { st().step = 2; advance(); }
     setTimeout(() => f.classList.remove("on"), 60);
     open({ name: "Pak Darto", avatar: "🧓", role, npc, lines: ["Pak Darto mengikat senar baru, menambal retakan dengan damar hangat, lalu menyambung ruas bambu.", "Lihat! Joran ini hidup lagi. Ayahku pasti senang.", "Sudut dermaga juga sudah kubereskan sedikit. Terima kasih, ya. (+🪙200)"] });
@@ -215,7 +215,7 @@ function sariOption(open, n, role) {
   const f = N().FISH_BY_ID[it.id];
   return { label: `🫙 Tukar ${f.name} ${N().fmtW(it.w)} dengan damar`, act: () => {
     const i = S().cooler.findIndex((x) => x.uid === it.uid); if (i < 0) return; // item yang ditunjuk saja yang diambil
-    S().cooler.splice(i, 1); st().mats.damar = true; N().save(); N().refreshHUD(); N().toast(`🫙 ${f.name} ditukar dengan getah damar`, "good");
+    { const gone = S().cooler.splice(i, 1)[0]; if (NW.eco && gone) NW.eco.drop([gone.uid]); } st().mats.damar = true; N().save(); N().refreshHUD(); N().toast(`🫙 ${f.name} ditukar dengan getah damar`, "good");
     open({ name: "Bu Sari", avatar: "👩", role, npc: n, lines: ["Terima kasih, Nak! Ini getah damarnya, masih hangat dari pohon di belakang rumah Ibu.", "Salam untuk Pak Darto, ya."] }); matsCheck();
   } };
 }

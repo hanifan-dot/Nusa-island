@@ -68,7 +68,7 @@
   function makeShopServer(db, opts) {
     opts = opts || {};
     const clock = opts.clock || (() => Date.now()), rng = opts.rng || Math.random, realEnabled = opts.realEnabled === true;
-    const env = () => (realEnabled ? "NYATA" : "SIMULASI");
+    const envOf = (cfg) => (realEnabled && cfg && cfg.mode === "nyata" ? "NYATA" : "SIMULASI"); // NYATA hanya bila backend dinyalakan (env var) DAN Owner menyetel mode nyata
     const uidOf = (auth) => { if (!auth || typeof auth.uid !== "string" || !auth.uid) throw E("unauthenticated", "Masuk dulu untuk membeli."); return auth.uid; };
     const isOwner = (auth) => !!(auth && auth.token && auth.token.role === "owner");
     const requireOwner = (auth) => { uidOf(auth); if (!isOwner(auth)) throw E("permission-denied", "Hanya Owner."); };
@@ -84,7 +84,7 @@
       await t.set(AUD, a);
     }
     const safeOrder = (o) => ({ orderId: o.orderId, productId: o.productId, kind: o.kind, name: o.name, rupiah: o.rupiah, uniqueCode: o.uniqueCode, payAmount: o.payAmount, coins: o.coins, bonus: o.bonus, status: o.status, env: o.env,
-      createdAt: o.createdAt, expiresAt: o.expiresAt, paidAt: o.paidAt || null, claimedAt: o.claimedAt || null, merchant: MERCHANT.name, reason: o.reason || null });
+      nick: o.nick || "", createdAt: o.createdAt, expiresAt: o.expiresAt, paidAt: o.paidAt || null, claimedAt: o.claimedAt || null, merchant: MERCHANT.name, reason: o.reason || null });
     const rid = () => { let s = ""; for (let i = 0; i < 6; i++) s += "0123456789ABCDEFGHJKLMNPQRSTUVWXYZ"[Math.floor(rng() * 34)]; const d = new Date(clock()); return `NI-${String(d.getUTCFullYear()).slice(2)}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(d.getUTCDate()).padStart(2, "0")}-${s}`; };
     async function expireStale(t, uid, now) {
       const idx = (await t.get(IDX(uid))) || { ids: [] };
@@ -108,7 +108,7 @@
         const ps = promoState(cfg, now);
         const items = PRODUCTS.map((p) => ({ id: p.id, cat: p.cat, name: p.name, icon: p.icon, desc: p.desc, permanent: true, cosmetic: true, power: false, price: priceOf(p, cfg, now), intro: p.intro, regular: p.regular, enabled: !cfg.disabled[p.id], grants: p.grants }));
         const packs = PACKAGES.map((p) => ({ id: p.id, name: p.name, icon: p.icon, rupiah: p.rupiah, coins: p.coins, base: p.base, bonus: p.bonus, bonusPct: p.bonusPct, enabled: !cfg.disabled[p.id] }));
-        return { now, mode: cfg.mode, env: env(), promo: ps, items, packs, merchant: MERCHANT, coinsPer1000: COINS_PER_1000 };
+        return { now, mode: cfg.mode, env: envOf(cfg), live: envOf(cfg) === "NYATA", promo: ps, items, packs, merchant: MERCHANT, coinsPer1000: COINS_PER_1000 };
       },
       async getTime() { return { now: clock() }; },
       // ---- pesanan pemain ----
@@ -116,9 +116,11 @@
         const uid = uidOf(auth); p = p || {}; const prod = BY_ID[p.productId];
         if (!prod) throw E("not-found", "Produk tidak ada.");
         if (!p.opId || typeof p.opId !== "string" || p.opId.length > 60) throw E("invalid-argument", "opId wajib.");
+        const nick = String(p.nick === undefined ? "" : p.nick).replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 24); // nama pemain = TIDAK tepercaya; hanya untuk pencarian & tampilan Owner
         return db.tx(async (t) => {
           const now = clock(), cfg = await cfgOf(t);
           if (cfg.mode === "nyata" && !realEnabled) throw E("failed-precondition", "Pembayaran nyata belum diaktifkan.");
+          if (cfg.mode === "nyata" && Array.isArray(cfg.pilot) && cfg.pilot.length && cfg.pilot.indexOf(uid) < 0) throw E("failed-precondition", "Toko sedang uji terbatas. Segera dibuka untuk semua pemain."); // uji uang asli terkendali: hanya UID di shop_config/main.pilot
           if (cfg.disabled[prod.id]) throw E("failed-precondition", "Produk sedang dinonaktifkan.");
           const idx = await expireStale(t, uid, now), ent = (await t.get(ENT(uid))) || { products: {} };
           if (!isCoinPack(prod) && ent.products[prod.id]) throw E("already-exists", "Kamu sudah memiliki produk ini.");
@@ -130,8 +132,8 @@
           let code = 1 + Math.floor(rng() * 99), tries = 0; while (used.has(`${rupiah}:${code}`) && tries++ < 100) code = (code % 99) + 1;   // kode unik Rp1–99 (kecil agar tagihan tidak membengkak)
           if (tries >= 100) throw E("resource-exhausted", "Kode unik habis, coba lagi nanti.");
           let orderId = rid(); while (await t.get(ORD(orderId))) orderId = rid();
-          const o = { orderId, uid, opId: p.opId, productId: prod.id, kind: isCoinPack(prod) ? "topup" : "produk", name: isCoinPack(prod) ? "Top Up Paket " + prod.name : prod.name, rupiah, uniqueCode: code, payAmount: rupiah + code, coins: isCoinPack(prod) ? prod.coins : 0, bonus: isCoinPack(prod) ? prod.bonus : 0,
-            status: "PENDING", env: env(), createdAt: now, expiresAt: now + cfg.orderTtlMs, events: [{ at: now, s: "PENDING", by: "pemain" }] };
+          const o = { orderId, uid, opId: p.opId, productId: prod.id, kind: isCoinPack(prod) ? "topup" : "produk", nick, nickLower: nick.toLowerCase(), name: isCoinPack(prod) ? "Top Up Paket " + prod.name : prod.name, rupiah, uniqueCode: code, payAmount: rupiah + code, coins: isCoinPack(prod) ? prod.coins : 0, bonus: isCoinPack(prod) ? prod.bonus : 0,
+            status: "PENDING", env: envOf(cfg), createdAt: now, expiresAt: now + cfg.orderTtlMs, events: [{ at: now, s: "PENDING", by: "pemain" }] };
           cnt.pending[orderId] = { rupiah, code, until: o.expiresAt };
           for (const k of Object.keys(cnt.pending)) if (cnt.pending[k].until <= now) delete cnt.pending[k];
           idx.ids.push(orderId); await t.set(CNT, cnt); await t.set(ORD(orderId), o); await t.set(IDX(uid), idx); await audit(t, auth, "createOrder", orderId, { productId: prod.id, rupiah });
@@ -182,13 +184,15 @@
           const o = await t.get(ORD(p.orderId)); if (!o) throw E("not-found", "Pesanan tidak ditemukan.");
           if (o.env !== "NYATA") throw E("failed-precondition", "Pesanan simulasi tidak bisa dikonfirmasi sebagai nyata.");
           if (o.status === "PAID") return { order: safeOrder(o), granted: false, duplicate: true };
-          if (o.status !== "PENDING") throw E("failed-precondition", "Status pesanan " + o.status + ".");
+          const lateRevive = o.status === "FAILED" && o.reason === "kedaluwarsa" && p.allowExpired === true && isOwner(auth);   // pemain bayar tepat waktu tetapi Owner baru memeriksa
+          if (o.status !== "PENDING" && !lateRevive) throw E("failed-precondition", "Status pesanan " + o.status + ".");
           if (!Number.isInteger(p.paidAmount) || p.paidAmount !== o.payAmount) { await audit(t, auth, "confirmRejected", o.orderId, { reason: "nominal-tidak-cocok", expected: o.payAmount, got: p.paidAmount }); throw E("failed-precondition", "Nominal tidak cocok dengan tagihan."); }
-          if (clock() >= o.expiresAt) { await audit(t, auth, "confirmRejected", o.orderId, { reason: "kedaluwarsa" }); throw E("failed-precondition", "Pesanan kedaluwarsa — perlu tinjauan manual."); }
+          const late = lateRevive || clock() >= o.expiresAt;
+          if (late && !(p.allowExpired === true && isOwner(auth))) { await audit(t, auth, "confirmRejected", o.orderId, { reason: "kedaluwarsa" }); throw E("failed-precondition", "Pesanan kedaluwarsa — setujui manual dengan opsi 'izinkan kedaluwarsa'."); }
           o.status = "PAID"; o.paidAt = clock(); o.events.push({ at: o.paidAt, s: "PAID", by: auth.system || "owner", ref: p.providerRef }); await t.set(ORD(o.orderId), o);
           await t.set(REF(p.providerRef), { orderId: o.orderId, at: o.paidAt });
           const g = await grant(t, o, auth.system || "owner", p.providerRef); const cnt = (await t.get(CNT)) || { pending: {} }; delete cnt.pending[o.orderId]; await t.set(CNT, cnt);
-          await audit(t, auth, "confirmPayment", o.orderId, { providerRef: p.providerRef }); return { order: safeOrder(o), granted: g };
+          await audit(t, auth, "confirmPayment", o.orderId, { providerRef: p.providerRef, late: late || undefined, note: typeof p.note === "string" ? p.note.slice(0, 80) : undefined }); return { order: safeOrder(o), granted: g };
         });
       },
       async failOrder(auth, p) {
@@ -199,14 +203,69 @@
       },
       // ---- data milik sendiri (UID) ----
       async listOrders(auth) { const uid = uidOf(auth); return db.tx(async (t) => { const idx = await expireStale(t, uid, clock()); const out = []; for (const id of idx.ids) { const o = await t.get(ORD(id)); if (o && o.uid === uid) out.push(safeOrder(o)); } return { orders: out.sort((a, b) => b.createdAt - a.createdAt) }; }); },
-      async getEntitlements(auth) { const uid = uidOf(auth); const e = (await db.get(ENT(uid))) || { products: {}, wallet: { SIMULASI: 0, NYATA: 0 }, owned: {} }; return { products: e.products, owned: e.owned, wallet: e.wallet, env: env() }; },
+      async getEntitlements(auth) { const uid = uidOf(auth); const cfg0 = await db.get(CFG); const e = (await db.get(ENT(uid))) || { products: {}, wallet: { SIMULASI: 0, NYATA: 0 }, owned: {} }; return { products: e.products, owned: e.owned, wallet: e.wallet, pending: ((e.deliveries || []).find((x) => x.state === "pending") || null) && { opId: e.deliveries.find((x) => x.state === "pending").opId, amount: e.deliveries.find((x) => x.state === "pending").amount }, env: envOf(Object.assign(defaultCfg(), cfg0 || {})) }; },
       async listLedger(auth) { const uid = uidOf(auth); const l = (await db.get(LED(uid))) || { items: [] }; return { items: l.items.slice().sort((a, b) => b.at - a.at) }; },
       // ---- Owner (Command Center) ----
       async ownerCatalog(auth) { requireOwner(auth); return api.getCatalog(); },
-      async ownerListOrders(auth, p) { requireOwner(auth); const keys = (await db.get("shop/allOrders")) || { ids: [] }; void keys; return { note: "Daftar lintas-pengguna memakai indeks koleksi di backend nyata (lihat docs/TAHAP35.md)." }; },
+      // Payment Center: daftar/cari pesanan lintas pengguna. Adapter db.queryOrders({status,q,limit}) disediakan backend (Firestore).
+      async ownerListOrders(auth, p) {
+        requireOwner(auth); p = p || {};
+        if (typeof db.queryOrders !== "function") throw E("failed-precondition", "Backend belum mendukung daftar pesanan.");
+        const status = STATUS.includes(p.status) ? p.status : null, q = typeof p.q === "string" ? p.q.trim().slice(0, 40) : "", limit = Math.min(100, Math.max(1, Math.floor(p.limit) || 50));
+        const rows = await db.queryOrders({ status, q, limit });
+        return { orders: rows.map((o) => Object.assign(safeOrder(o), { uid: o.uid, events: o.events, ref: (o.events.find((e) => e.ref) || {}).ref || null })) };
+      },
+      // Owner menyetujui setelah melihat uang MASUK di merchant. paidAmount WAJIB sama dengan tagihan (kode unik) — mencegah salah klik pesanan lain.
+      async ownerApprove(auth, p) {
+        requireOwner(auth); p = p || {};
+        return api.confirmPayment(auth, { orderId: p.orderId, paidAmount: p.paidAmount, providerRef: "manual:" + String(p.orderId || ""), allowExpired: p.allowExpired === true, note: p.note });
+      },
+      async ownerReject(auth, p) { requireOwner(auth); return api.failOrder(auth, { orderId: p && p.orderId, reason: (p && p.reason) || "ditolak Owner" }); },
+      // ---- dompet koin NYATA tepercaya: koin top up disimpan SERVER; klien menjemputnya lewat pengiriman bertanda (dua langkah, tanpa kehilangan/ganda) ----
+      async redeemCoins(auth) {
+        const uid = uidOf(auth);
+        return db.tx(async (t) => {
+          const ent = (await t.get(ENT(uid))) || { products: {}, wallet: { SIMULASI: 0, NYATA: 0 }, owned: {} }; ent.deliveries = ent.deliveries || [];
+          let d = ent.deliveries.find((x) => x.state === "pending");
+          if (!d && (ent.wallet.NYATA || 0) > 0) {
+            d = { opId: "D-" + clock().toString(36) + "-" + Math.floor(rng() * 1e6).toString(36), amount: ent.wallet.NYATA, state: "pending", at: clock() };
+            ent.wallet.NYATA = 0; ent.deliveries.push(d); if (ent.deliveries.length > 50) ent.deliveries.splice(0, ent.deliveries.length - 50);
+            await t.set(ENT(uid), ent); await audit(t, auth, "redeemCoins", null, { amount: d.amount });
+          }
+          return { delivery: d ? { opId: d.opId, amount: d.amount } : null };
+        });
+      },
+      // ---- DOMPET TUNGGAL berjangkar server: koin top up TIDAK dipindah ke klien; dipakai belanja lewat sini (idempoten per opId) ----
+      async spendCoins(auth, p) {
+        const uid = uidOf(auth); p = p || {}; const amt = p.amount;
+        if (!Number.isInteger(amt) || amt < 1 || amt > 1000000) throw E("invalid-argument", "Jumlah koin tidak valid.");
+        if (typeof p.opId !== "string" || !/^[A-Za-z0-9_-]{8,60}$/.test(p.opId)) throw E("invalid-argument", "opId tidak valid.");
+        const reason = typeof p.reason === "string" && /^[a-z0-9:_-]{1,40}$/.test(p.reason) ? p.reason : "belanja";
+        return db.tx(async (t) => {
+          const ent = (await t.get(ENT(uid))) || { products: {}, wallet: { SIMULASI: 0, NYATA: 0 }, owned: {} }; ent.spends = ent.spends || [];
+          const done = ent.spends.find((x) => x.opId === p.opId);
+          if (done) return { ok: true, duplicate: true, spent: done.amount, balance: ent.wallet.NYATA || 0 };   // ulang karena jaringan putus: hasil sama, tidak dipotong dua kali
+          if ((ent.wallet.NYATA || 0) < amt) throw E("failed-precondition", "Saldo koin top up tidak cukup.");
+          ent.wallet.NYATA -= amt; ent.spentTotal = (ent.spentTotal || 0) + amt;
+          ent.spends.push({ opId: p.opId, amount: amt, reason, at: clock() }); if (ent.spends.length > 100) ent.spends.splice(0, ent.spends.length - 100);
+          await t.set(ENT(uid), ent);
+          return { ok: true, duplicate: false, spent: amt, balance: ent.wallet.NYATA };
+        });
+      },
+      async ackDelivery(auth, p) {
+        const uid = uidOf(auth);
+        return db.tx(async (t) => {
+          const ent = await t.get(ENT(uid)); const d = ent && (ent.deliveries || []).find((x) => x.opId === (p && p.opId));
+          if (!d) throw E("not-found", "Pengiriman tidak ditemukan.");
+          if (d.state === "pending") { d.state = "delivered"; d.ackAt = clock(); await t.set(ENT(uid), ent); }
+          return { ok: true };
+        });
+      },
       async ownerSetLaunch(auth, p) { requireOwner(auth); if (!Number.isFinite(p && p.launchAt)) throw E("invalid-argument", "launchAt (ms) wajib."); return db.tx(async (t) => { const c = await cfgOf(t); c.launchAt = Math.floor(p.launchAt); if (p.promoDays !== undefined) { if (!(p.promoDays >= 1 && p.promoDays <= 90)) throw E("invalid-argument"); c.promoDays = Math.floor(p.promoDays); } await t.set(CFG, c); await audit(t, auth, "setLaunch", null, { launchAt: c.launchAt, promoDays: c.promoDays }); return { config: c }; }); },
       async ownerSetEnabled(auth, p) { requireOwner(auth); if (!BY_ID[p && p.productId]) throw E("not-found"); return db.tx(async (t) => { const c = await cfgOf(t); if (p.enabled) delete c.disabled[p.productId]; else c.disabled[p.productId] = true; await t.set(CFG, c); await audit(t, auth, "setEnabled", null, { productId: p.productId, enabled: !!p.enabled }); return { config: c }; }); },
       async ownerSetMode(auth, p) { requireOwner(auth); if (p && p.mode === "nyata" && !realEnabled) throw E("failed-precondition", "Backend pembayaran nyata belum siap; mode nyata tidak bisa dinyalakan."); if (!p || !["simulasi", "nyata"].includes(p.mode)) throw E("invalid-argument"); return db.tx(async (t) => { const c = await cfgOf(t); c.mode = p.mode; await t.set(CFG, c); await audit(t, auth, "setMode", null, { mode: p.mode }); return { config: c }; }); },
+      // daftar UID pilot (uji uang asli terkendali). Kosong = terbuka untuk semua pemain.
+      async ownerSetPilot(auth, p) { requireOwner(auth); const u = (p && p.uids); if (!Array.isArray(u) || u.length > 20 || u.some((x) => typeof x !== "string" || !/^[A-Za-z0-9_-]{6,128}$/.test(x))) throw E("invalid-argument", "Daftar UID tidak valid (maks 20)."); return db.tx(async (t) => { const c = await cfgOf(t); c.pilot = Array.from(new Set(u)); await t.set(CFG, c); await audit(t, auth, "setPilot", null, { n: c.pilot.length }); return { config: c }; }); },
       async ownerAudit(auth) { requireOwner(auth); return (await db.get(AUD)) || { n: 0, items: [] }; },
       async ownerUserReport(auth, p) { requireOwner(auth); const uid = p && p.uid; if (typeof uid !== "string") throw E("invalid-argument"); const led = (await db.get(LED(uid))) || { items: [] }; let nyata = 0, sim = 0; for (const x of led.items) { if (x.env === "NYATA") nyata += x.rupiah; else sim += x.rupiah; } return { uid, nyataRupiah: nyata, simulasiRupiah: sim, entries: led.items.length }; },
     };

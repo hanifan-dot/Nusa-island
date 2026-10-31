@@ -275,7 +275,7 @@ function renovHTML() {
     if (e1.wall !== e0.wall) feats.push({ papan: "Dinding papan rapi", papanCat: "Dinding papan bercat", ukir: "Dinding berukir", ukirGelap: "Kayu gelap berukir emas", ukirEmas: "Ukiran emas detail" }[e1.wall]);
     for (const x of e1.extras) if (!e0.extras.includes(x)) { const nm = { pagarBambu: "Pagar bambu", pagarKayu: "Pagar kayu", kebun: "Kebun", rakLuar: "Rak luar", kolong: "Kolong rumah", lentera: "Lentera", gudang: "Gudang kecil", jalanBatu: "Jalan batu", tamanBunga: "Taman bunga", paviliun: "Paviliun", kolam: "Kolam hias koi", obor: "Obor bambu", potBunga: "Pot bunga" }[x]; if (nm) feats.push(nm); }
     for (const b of next.builtins) if (!cur.builtins.some((x) => x.type === b.type)) { const nm = { rak: "Rak perabot", kursiRotan: "Ruang keluarga (kursi rotan)", lemariUkir: "Lemari ukir", mejaTamu: "Ruang tamu", tiang: "Tiang ukiran", lemariPamer: "Lemari pamer tangkapan", dindingLegenda: "Dinding legenda" }[b.type]; if (nm) feats.push(nm); }
-    const lockStars = S.rep < next.stars, poor = S.money < next.price;
+    const lockStars = S.rep < next.stars, poor = N().balance() < next.price;
     h += `<div class="renov-card next"><div class="muted">Berikutnya · Level ${lv + 1}</div><b>${next.name}</b><canvas class="renov-prev" data-lv="${lv + 1}" width="300" height="190"></canvas><div class="muted">${next.desc}</div></div></div>
       <ul class="renov-feats">${feats.map((f) => `<li>${f}</li>`).join("")}</ul>
       <div class="renov-buy"><div><div class="muted">Biaya renovasi</div><b>🪙 ${N().fmt(next.price)}</b>${next.stars ? ` · butuh ${next.stars} ⭐ (kamu ${S.rep})` : ""}</div>
@@ -299,10 +299,15 @@ function drawPreviews() {
 function renovAct(a) {
   if (a !== "renov" || state.upgrading) return;
   const S = N().S, h = H(), next = HD.LEVELS[h.level + 1];
-  if (!next || S.money < next.price || S.rep < next.stars) return;
+  if (!next || N().balance() < next.price || S.rep < next.stars) return;
   state.upgrading = true;
+  if (!N().charge(next.price, "rumah:" + next.lv, () => renovDo(next), () => { state.upgrading = false; })) state.upgrading = false;
+}
+function renovDo(next) {
+  const S = N().S, h = H();
+  if (h.level + 1 !== next.lv) { state.upgrading = false; return; }
   const fishBefore = HD.inventoryReport(S).total, itemsBefore = h.furniture.length + h.stored.length;
-  S.money -= next.price; h.level = next.lv; h.updatedAt = Date.now();
+  h.level = next.lv; h.updatedAt = Date.now();
   const rep = HD.relayout(h); HD.ensureFishUids(S); bump();
   console.assert(HD.inventoryReport(S).total === fishBefore && h.furniture.length + h.stored.length === itemsBefore, "upgrade mengubah jumlah barang");
   N().save(); N().refreshHUD(); N().closePanel();
@@ -325,9 +330,9 @@ function owned(c) {
 }
 function catalogHTML() {
   const S = N().S;
-  let h = `<p class="muted">Perabot baru dipasang otomatis dan bisa digeser lewat 🛠️ Tata Ruang. Kamu punya 🪙 ${N().fmt(S.money)} · ⭐ ${S.rep}.</p><div class="list">`;
+  let h = `<p class="muted">Perabot baru dipasang otomatis dan bisa digeser lewat 🛠️ Tata Ruang. Kamu punya 🪙 ${N().fmt(N().balance())} · ⭐ ${S.rep}.</p><div class="list">`;
   for (const c of HD.CATALOG) {
-    const own = owned(c), lock = S.rep < c.stars, poor = S.money < c.price;
+    const own = owned(c), lock = S.rep < c.stars, poor = N().balance() < c.price;
     h += `<div class="shop-item"><div class="ic">${HD.catIcon(c)}</div><div class="grow"><b>${HD.catName(c)}</b><div class="muted">${c.desc}</div>${c.stars ? `<div class="muted">Butuh ${c.stars} ⭐</div>` : ""}</div>
       ${own ? `<span class="muted">✔ Dimiliki</span>` : lock ? `<span class="muted">🔒 ${c.stars} ⭐</span>` : `<button class="btn ${poor ? "" : "gold"}" data-act="buyItem" data-arg="${c.id}" ${poor ? "disabled" : ""}>🪙 ${N().fmt(c.price)}</button>`}</div>`;
   }
@@ -336,8 +341,11 @@ function catalogHTML() {
 function catalogAct(a, arg) {
   if (a !== "buyItem") return;
   const S = N().S, h = H(), c = HD.CATALOG.find((x) => x.id === arg);
-  if (!c || owned(c) || S.money < c.price || S.rep < c.stars) return;
-  S.money -= c.price;
+  if (!c || owned(c) || N().balance() < c.price || S.rep < c.stars) return;
+  N().charge(c.price, "dekor:" + c.id, () => catalogGrant(c));
+}
+function catalogGrant(c) {
+  const S = N().S, h = H(); if (owned(c)) return;
   let msg = `${HD.catIcon(c)} ${HD.catName(c)} dipasang di Rumahku!`;
   if (c.deco) h.decorations.push(c.id);
   else { const r = HD.addFurniture(h, S, c.furn); if (!r.placed) msg = `${HD.catIcon(c)} ${HD.catName(c)} dibeli, tapi ruangan penuh. Barang ada di gudang 📦`; }

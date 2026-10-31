@@ -439,7 +439,7 @@ function landFish(fish, w) {
   S.stats.caught++;
   if (fish.rarity === "legenda") S.stats.legends++;
   let reward = 0;
-  if (fish.protected) { reward = Math.round(fish.price * PRICE_SCALE * NW.FM.effectiveKg(w) * 1.2); S.money += reward; S.stats.earned += reward; }
+  if (fish.protected) { reward = Math.round(fish.price * PRICE_SCALE * NW.FM.effectiveKg(w) * 1.2); S.stats.earned += reward; if (!(NW.eco && NW.eco.release(fish, w))) S.money += reward; }   // ekonomi server: hadiah dihitung & dibayar server
   // Bumbu 2.2: varian kosmetik dipilih SEKALI di sini (tidak pernah di-roll ulang), hanya untuk ikan yang benar-benar disimpan
   const vr = NW.variants && !fish.protected ? NW.variants.roll(fish, { spot: G.spotId, hit: G.hotHit }) : "normal";
   let item = null;
@@ -449,6 +449,7 @@ function landFish(fish, w) {
     if (vr !== "normal") { item.vr = vr; if (vr === "pearl") item.lock = true; } // Mutiara Nusantara otomatis terkunci
     if (fish.mistik) item.lock = true; // ikan mistis otomatis terkunci (tidak ikut "jual semua" tanpa sengaja; bisa dibuka kuncinya di Inventaris)
     S.cooler.push(item);
+    if (NW.eco) NW.eco.onCatch(item);   // lapor ke server (kotak ikan server) bila ekonomi server aktif
     if (NW.variants) NW.variants.record(S, fish, vr, w, LOCATIONS[S.loc].id);
   }
   emit("catch", { fish, w, night: isNight(), loc: LOCATIONS[S.loc].id, vr, spot: G.spotId || null, sea: fishFrom === "sea" && G.sea ? G.sea.id : null });
@@ -1127,7 +1128,7 @@ function updateHint() {
   hint.textContent = msg; hint.classList.toggle("fade", !msg);
 }
 function refreshHUD() {
-  $("money").textContent = fmt(S.money);
+  $("money").textContent = fmt(balance());
   const cc = $("coolerChip"); $("cooler").textContent = `${S.cooler.length}/${coolerCap()}`;
   cc.classList.toggle("full", S.cooler.length >= coolerCap());
   $("locName").textContent = LOCATIONS[S.loc].name;
@@ -1267,6 +1268,9 @@ function openPanel(name) {
   currentPanel = name; renderPanel(); $("panelWrap").classList.remove("hidden"); $("hint").classList.add("fade");
 }
 function closePanel() { SFX.click(); $("panelWrap").classList.add("hidden"); currentPanel = null; if (NW.inv) NW.inv.panelChanged(null); updateHint(); }
+const balance = () => (NW.wallet ? NW.wallet.bal() : S.money);
+const earn = (key, amount) => { if (NW.eco) NW.eco.reward(key, () => { S.money += amount; }); else S.money += amount; };   // hadiah tetap: server bila ekonomi server aktif
+const charge = (cost, why, ok, no) => (NW.wallet ? NW.wallet.charge(cost, why, ok, no) : (S.money >= cost ? ((S.money -= cost), ok(), true) : false));
 function renderPanel() {
   const body = $("panelBody");
   if (NW.inv) NW.inv.panelChanged(currentPanel); // kartu detail inventaris tidak tertinggal di panel lain
@@ -1304,7 +1308,7 @@ function rodShopHTML() {
       <div class="sub">${U2.info[i]} · Kuat ${U2.strength[i]}× · Tarik ${U2.reel[i]}×</div>
       <div class="sub">${U2.desc[i]}</div>
       <div class="sub price-line">${price}</div></div>
-      ${next ? `<button class="btn ${S.money >= cost ? "gold" : ""}" data-act="buy" data-arg="rod" data-lv="${i}" ${S.money >= cost ? "" : "disabled"}>Beli</button>` : ""}</div>`;
+      ${next ? `<button class="btn ${balance() >= cost ? "gold" : ""}" data-act="buy" data-arg="rod" data-lv="${i}" ${balance() >= cost ? "" : "disabled"}>Beli</button>` : ""}</div>`;
   }
   return h + `</div>`;
 }
@@ -1317,7 +1321,7 @@ function shopHTML() {
       <div class="nm"><b>${U2.levels[lv]}</b></div>
       <div class="lvl">${U2.levels.map((_, i) => `<i class="${i <= lv ? "on" : ""}"></i>`).join("")}</div>
       <div class="muted">${max ? "Level maksimal 🌟" : "Berikutnya: " + U2.levels[lv + 1] + " · " + U2.info[lv + 1]}</div></div>
-      ${max ? "" : `<button class="btn ${S.money >= cost ? "gold" : ""}" data-act="buy" data-arg="${k}" data-lv="${lv + 1}" ${S.money >= cost ? "" : "disabled"}>🪙 ${fmt(cost)}</button>`}</div>`;
+      ${max ? "" : `<button class="btn ${balance() >= cost ? "gold" : ""}" data-act="buy" data-arg="${k}" data-lv="${lv + 1}" ${balance() >= cost ? "" : "disabled"}>🪙 ${fmt(cost)}</button>`}</div>`;
   }
   return h;
 }
@@ -1328,12 +1332,15 @@ function buy(k, expectLv) {
   // Penjagaan pembelian ganda: tombol membawa level tujuan (data-lv). Klik basi/ganda ditolak, jadi koin tidak terpotong dua kali.
   if (expectLv !== undefined && expectLv !== lv + 1) return;
   const now = performance.now(); if (now - buyLockT < 350) return; buyLockT = now;
-  const cost = U2.cost[lv + 1]; if (S.money < cost) return;
-  S.money -= cost; S.up[k] = lv + 1;
-  SFX.coin();
-  if (k === "boat") toast(`⛵ ${LOCATIONS[lv + 1].name} terbuka! Buka Peta untuk berlayar`, "good");
-  else toast(`${U2.icon} ${U2.levels[lv + 1]} dibeli!`, "good");
-  save(); refreshHUD(); renderPanel();
+  const cost = U2.cost[lv + 1]; if (balance() < cost) return;
+  charge(cost, "up:" + k, () => {                 // koin Top Up (server) dipakai dulu; pemberian barang hanya SETELAH pembayaran sah
+    if ((S.up[k] || 0) !== lv) return;            // sudah berubah selama menunggu server
+    S.up[k] = lv + 1;
+    SFX.coin();
+    if (k === "boat") toast(`⛵ ${LOCATIONS[lv + 1].name} terbuka! Buka Peta untuk berlayar`, "good");
+    else toast(`${U2.icon} ${U2.levels[lv + 1]} dibeli!`, "good");
+    save(); refreshHUD(); renderPanel();
+  });
 }
 
 // Bumbu 2.2: satu spesies = satu kartu, varian sebagai sub-bagian kecil (✓ pernah / ? belum)
@@ -1459,6 +1466,7 @@ function loop(now) {
 // API untuk modul dunia pulau (world/*.js)
 window.Nusa = {
   get S() { return S; },
+  balance, charge, earn,
   mode: () => MODE, isStarted: () => started,
   isPanelOpen: () => !$("panelWrap").classList.contains("hidden") || !$("catchWrap").classList.contains("hidden") || !$("shareWrap").classList.contains("hidden") || !!($("aqWrap") && !$("aqWrap").classList.contains("hidden")) || !!(NW.kedai && NW.kedai.isOpen()) || !!(NW.shopUI && NW.shopUI.isOpen()),
   openPanel, enterFishing, goWorld, travel, canSail, tickTime, darkness, goldenHour, isNight, marketTip, setHint, save, toast,

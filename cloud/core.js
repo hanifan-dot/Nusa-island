@@ -132,7 +132,8 @@
     if (save.shop !== undefined) { // Tahap 3.5: HANYA pilihan kosmetik yang sedang dipakai. Hak milik/uang TIDAK disimpan di sini (ada di server toko).
       const sh = save.shop;
       if (!isObj(sh) || (sh.equip !== undefined && (!isObj(sh.equip) || Object.keys(sh.equip).length > 12 || Object.entries(sh.equip).some(([k, v]) => !ID_RE.test(k) || typeof v !== "string" || !ID_RE.test(v))))) errors.push("Data toko tidak valid");
-      else if (Object.keys(sh).some((k) => k !== "v" && k !== "equip")) errors.push("Data toko tidak valid");
+      else if (Object.keys(sh).some((k) => k !== "v" && k !== "equip" && k !== "applied")) errors.push("Data toko tidak valid");
+      else if (sh.applied !== undefined && (!Array.isArray(sh.applied) || sh.applied.length > 40 || sh.applied.some((x) => typeof x !== "string" || !/^D-[a-z0-9-]{1,40}$/.test(x)))) errors.push("Data toko tidak valid");
     }
     if (errors.length === 0 && JSON.stringify(save).length > LIMITS.MAX_BYTES) errors.push("Data terlalu besar");
     return { ok: errors.length === 0, errors, flags };
@@ -182,24 +183,33 @@
       const save = parseData(p, "data");
       const chk = validateSave(save, { sandbox });
       if (!chk.ok) fail("invalid-argument", "Data ditolak: " + chk.errors[0]);
+      // Ekonomi server: bila aktif untuk uid ini, koin/upgrade/level rumah pada simpanan DITIMPA nilai server (klien tidak bisa menaikkannya lewat simpanan).
+      let text = p.data, ecoChanged = [];
+      if (!sandbox && opts && typeof opts.overlay === "function") {
+        const au = await opts.overlay(uid);
+        if (au) { const r = opts.enforce(save, au); ecoChanged = r.changed; if (r.changed.length) { text = JSON.stringify(r.save); Object.assign(save, r.save); } }
+      }
       const baseRev = Number.isInteger(p.baseRev) && p.baseRev >= 0 ? p.baseRev : fail("invalid-argument", "baseRev tidak valid.");
       const opId = strField(p, "opId", 64), deviceId = strField(p, "deviceId", 64);
       if (!opId) fail("invalid-argument", "opId wajib.");
       const confirm = p.confirmOverwrite === true;
-      const text = p.data, t = now();
+      const t = now();
       return db.tx(async (tx) => {
         const cur = await tx.get(path);
         if (cur && cur.opId === opId) return { ok: true, duplicate: true, rev: cur.rev, savedAt: cur.savedAt, hash: cur.hash };   // percobaan ulang aman
         if (cur && t - cur.savedAtMs < LIMITS.WRITE_GAP_MS) fail("resource-exhausted", "Terlalu sering menyimpan. Coba lagi sebentar.");
         if (cur && baseRev !== cur.rev && !confirm) return { conflict: true, rev: cur.rev, savedAt: cur.savedAt, deviceId: cur.deviceId, summary: cur.summary, hash: cur.hash };
         if (!cur && baseRev > 0 && !confirm) return { conflict: true, rev: 0, missing: true };
-        let flags = [];
+        let flags = [], backedUp = false;
         if (cur) {
           try { flags = plausibility(JSON.parse(cur.data), save); } catch (e) {}
-          await tx.set(`${backupDir}/s${cur.rev % slots}`, cur);   // cadangan bergilir sebelum menimpa
+          // cadangan bergilir sebelum menimpa; opts.backupEveryMs (mode Worker) membatasi frekuensi agar hemat kuota tulis (bawaan: setiap tulis)
+          if (!(opts && opts.backupEveryMs) || !cur.lastBackupMs || t - cur.lastBackupMs >= opts.backupEveryMs) { await tx.set(`${backupDir}/s${cur.rev % slots}`, cur); backedUp = true; }
         }
         const rev = (cur ? cur.rev : 0) + 1;
+        if (ecoChanged.length) flags = flags.concat(ecoChanged.map((c) => "eco-timpa:" + c));
         const doc = { rev, savedAt: new Date(t).toISOString(), savedAtMs: t, deviceId, opId, hash: hashText(text), summary: summarize(save), flags, data: text };
+        if (opts && opts.backupEveryMs) doc.lastBackupMs = backedUp || !cur ? t : (cur.lastBackupMs || t);
         await tx.set(path, doc);
         return { ok: true, rev, savedAt: doc.savedAt, hash: doc.hash, flags };
       });
@@ -212,7 +222,14 @@
 
     return {
       // --- pemain biasa: hanya data milik uid yang terverifikasi ---
-      async loadSave(auth, p) { const uid = requireAuth(auth); const r = await readDoc(`users/${uid}/saves/current`); if (p && p.metaOnly === true) delete r.data; return r; },
+      async loadSave(auth, p) {
+        const uid = requireAuth(auth); const r = await readDoc(`users/${uid}/saves/current`);
+        if (r.data && opts && typeof opts.overlay === "function") {   // koin/upgrade/rumah selalu dari server saat dimuat
+          const au = await opts.overlay(uid);
+          if (au) { try { const e = opts.enforce(JSON.parse(r.data), au); r.data = JSON.stringify(e.save); r.eco = true; } catch (e) {} }
+        }
+        if (p && p.metaOnly === true) delete r.data; return r;
+      },
       async writeSave(auth, p) { const uid = requireAuth(auth); return writeDoc(auth, p, { path: `users/${uid}/saves/current`, backupDir: `users/${uid}/backups`, sandbox: false }); },
       async listBackups(auth) {
         const uid = requireAuth(auth), out = [];
