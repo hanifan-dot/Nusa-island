@@ -64,7 +64,7 @@ let S = DEFAULT();
 let MODE = "world", fishFrom = "dock";
 // Versi simpanan: 1 = Tahap 1, 2 = Tahap 2A, 3 = rumah 10 level + ikan ber-uid.
 // Sebelum migrasi, data lama disalin ke kunci cadangan sehingga tidak pernah hilang diam-diam.
-const SAVE_VERSION = 10; // 10 = Bumbu 2.4 (kapal & laut: S.sea, cerita Selat Sunda di S.adv.selat); 9 = Bumbu 2.3 (cuaca: S.wx.seed); 4 = Bumbu 1 (cerita, keahlian, petunjuk, ingatan NPC); 5 = Bumbu 1.1 (gelar tangkapan, nama pemain lokal); 6 = Bumbu 1.2 (coolbox & joran 10 tingkat, kunci ikan); 7 = Bumbu 2 (petualangan: area terakhir, penemuan, cerita Toba, penghargaan)
+const SAVE_VERSION = 11; // 11 = Bumbu 3.1 (Kedai Atuk Bahar: S.kedai — dompet Koin Kedai terpisah, rekor, batas harian, gelar); 10 = Bumbu 2.4 (kapal & laut: S.sea, cerita Selat Sunda di S.adv.selat); 9 = Bumbu 2.3 (cuaca: S.wx.seed); 4 = Bumbu 1 (cerita, keahlian, petunjuk, ingatan NPC); 5 = Bumbu 1.1 (gelar tangkapan, nama pemain lokal); 6 = Bumbu 1.2 (coolbox & joran 10 tingkat, kunci ikan); 7 = Bumbu 2 (petualangan: area terakhir, penemuan, cerita Toba, penghargaan)
 let loadNote = "", isNewPlayer = true;
 function backup(raw, tag) { try { const k = `${SAVE_KEY}-backup-${tag}`; if (!localStorage.getItem(k)) localStorage.setItem(k, raw); } catch (e) {} }
 function load() {
@@ -103,6 +103,7 @@ function migrate() {
   if (NW.variants) NW.variants.migrate(S);
   if (NW.secret) NW.secret.migrate(S);
   if (NW.weather) NW.weather.migrate(S); // Bumbu 2.3 (v9): benih cuaca tersimpan sekali; tidak ada koin/progres yang disentuh
+  if (NW.kedai) NW.kedai.migrate(S);     // Bumbu 3.1 (v11): S.kedai — hanya merapikan/mengisi; tidak menambah koin atau gelar
   if (NW.boat) NW.boat.migrate(S);       // Bumbu 2.4 (v10): kapal (S.sea) — nilai aman bila belum ada; tidak pernah mulai di laut tanpa kapal
   if (r.from === "2A") loadNote = "Rumahku diperbarui ke sistem 10 level. Semua perabot tetap ada.";
   S.v = SAVE_VERSION;
@@ -1447,7 +1448,7 @@ function loop(now) {
   if (MODE === "world") {
     G.t += dt;
     if (started) { NW.world.update(dt); if (NW.audioDirector) NW.audioDirector.frame(dt); }
-    NW.world.draw(ctx, G.t);
+    if (!(NW.kedaiUI && NW.kedaiUI.isOpen())) NW.world.draw(ctx, G.t); // Kedai menutupi layar → dunia tidak digambar (hemat CPU/baterai HP)
   } else {
     if (started) update(dt); else { G.t += dt; for (const c of clouds) c.x = (c.x + c.v * dt) % 1.2; }
     draw();
@@ -1459,7 +1460,7 @@ function loop(now) {
 window.Nusa = {
   get S() { return S; },
   mode: () => MODE, isStarted: () => started,
-  isPanelOpen: () => !$("panelWrap").classList.contains("hidden") || !$("catchWrap").classList.contains("hidden") || !$("shareWrap").classList.contains("hidden") || !!($("aqWrap") && !$("aqWrap").classList.contains("hidden")),
+  isPanelOpen: () => !$("panelWrap").classList.contains("hidden") || !$("catchWrap").classList.contains("hidden") || !$("shareWrap").classList.contains("hidden") || !!($("aqWrap") && !$("aqWrap").classList.contains("hidden")) || !!(NW.kedai && NW.kedai.isOpen()),
   openPanel, enterFishing, goWorld, travel, canSail, tickTime, darkness, goldenHour, isNight, marketTip, setHint, save, toast,
   coolerFull: () => S.cooler.length >= coolerCap(),
   sfx: (n, a) => { initAudio(); if (NW.audio && NW.audio.sfx(n, a)) return; if (SFX[n]) SFX[n](a); },

@@ -30,6 +30,8 @@ python tests/browser/test_bumbu23.py         # Bumbu 2.3: 18 skenario cuaca (vis
 python tests/browser/test_bumbu24.py         # Bumbu 2.4: kapal, laut, memancing dari kapal, Selat Sunda, Peta Laut, audio, migrasi v10, performa-emulasi
 python tests/browser/test_tahap3.py          # Tahap 3: login, tamu, Cloud Save, konflik, offline, Owner (demo + SDK Firebase palsu)
 node tests/unit-cloud.js                      # Tahap 3: logika server (cloud/core.js)
+node tests/unit-kedai.js                      # Bumbu 3.1: hadiah/batas harian/gelar GOAT/migrasi + mesin 5 permainan (batok, gasing, congklak, gelang, kelereng)
+python tests/browser/test_bumbu31.py          # Bumbu 3.1: Kedai Atuk Bahar — 5 permainan × 4 kesulitan lewat sentuhan, ekonomi, gelar, tamu & Cloud (demo), performa-emulasi
 python tests/browser/test_bumbu241.py        # Bumbu 2.4.1: 12 ikan laut, Palung Mistis Selat, Lentera Arwah & Pari Bayang, peluang, save lama, performa-emulasi
 python tests/visual_bumbu23.py <folder>       # tangkapan layar bukti visual cuaca
 node tests/unit-variants.js                   # simulasi statistik peluang varian (24 pemeriksaan)

@@ -141,6 +141,16 @@ const L = {
   furn_geser: (c, o, t) => nz(c, o, t, "lowpass", 800, 320, 0.7, 0.2, 0.07, 0.03),
   furn_taruh: (c, o, t) => { tone(c, o, t, 330, 200, 0.07, 0.12); pl(c, o, t + 0.05, "G4", 0.2); pl(c, o, t + 0.13, "C5", 0.2); },
   furn_ambil: (c, o, t) => { tone(c, o, t, 500, 380, 0.05, 0.06); },
+  // ---------- Bumbu 3.1: Kedai Atuk Bahar ----------
+  kedai_tawa: (c, o, t) => { for (let i = 0; i < 4; i++) { const b = t + i * 0.17, f = 210 - i * 14; tone(c, o, b, f * 1.5, f, 0.13, 0.07, "sawtooth", 0.01); nz(c, o, b, "bandpass", 900 - i * 60, 700, 2, 0.12, 0.05, 0.01); } }, // "ha-ha-ha-ha" kakek
+  kedai_klik: (c, o, t) => { tone(c, o, t, 520, 400, 0.05, 0.08, "triangle"); nz(c, o, t, "bandpass", 1800, 1500, 3, 0.03, 0.04); },
+  kedai_tok: (c, o, t) => { tone(c, o, t, 260, 150, 0.09, 0.16, "triangle"); nz(c, o, t, "bandpass", 1200, 800, 2, 0.05, 0.08); }, // kayu/batok beradu
+  kedai_putar: (c, o, t) => { nz(c, o, t, "bandpass", 700, 1500, 3, 0.5, 0.08, 0.1); tone(c, o, t, 180, 340, 0.45, 0.04, "sawtooth", 0.1); },
+  kedai_lempar: (c, o, t) => { nz(c, o, t, "bandpass", 900, 2400, 1.5, 0.22, 0.1, 0.04); },
+  kedai_biji: (c, o, t) => { tone(c, o, t, 900 + Math.random() * 200, 700, 0.04, 0.05, "triangle"); },
+  kedai_menang: (c, o, t) => { [["C5", 0], ["E5", 0.1], ["G5", 0.2], ["C6", 0.32]].forEach(([n, d]) => pl(c, o, t + d, n, 0.3)); },
+  kedai_kalah: (c, o, t) => { pl(c, o, t, "E4", 0.22); pl(c, o, t + 0.16, "C4", 0.22); },
+  kedai_goat: (c, o, t) => { [["C5", 0], ["E5", 0.09], ["G5", 0.18], ["C6", 0.27], ["E6", 0.4], ["G6", 0.52], ["C7", 0.66]].forEach(([n, d]) => pl(c, o, t + d, n, 0.32)); tone(c, o, t + 0.7, 392, 0, 0.5, 0.05, "triangle", 0.05); },
   gelembung: (c, o, t) => { for (let i = 0; i < 3; i++) tone(c, o, t + i * rand(0.06, 0.16), rand(500, 800), rand(900, 1300), 0.06, 0.025); },
 };
 // aturan pembatasan frekuensi (detik minimal antar-pemutaran) dan prioritas
@@ -152,6 +162,7 @@ const RULE = {
   nibble: { gap: 0.12 }, click: { gap: 0.03 }, coin: { gap: 0.05 },
   step_kayu: { gap: 0.2 }, step_rumput: { gap: 0.2 }, step_pasir: { gap: 0.2 }, step_tanah: { gap: 0.2 }, step_lantai: { gap: 0.2 },
   furn_geser: { gap: 0.18 }, gelembung: { gap: 0.8 },
+  kedai_klik: { gap: 0.04 }, kedai_tok: { gap: 0.06 }, kedai_biji: { gap: 0.05 }, kedai_tawa: { gap: 0.9, g: 0.9 }, kedai_menang: { g: 0.5, crit: 1 }, kedai_kalah: { g: 0.6, crit: 1 }, kedai_goat: { g: 0.45, crit: 1, gap: 2 },
   boat_naik: { gap: 0.6 }, boat_jangkar: { gap: 0.6 }, boat_angkat: { gap: 0.6 }, boat_bentur: { gap: 0.6, g: 0.8 },
 };
 // jingle/stinger: dipakai pula oleh menu uji dengar

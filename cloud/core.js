@@ -54,7 +54,7 @@
     if (!isObj(save)) return false;
     const st = save.stats || {};
     return (st.casts > 0) || (st.caught > 0) || (Array.isArray(save.cooler) && save.cooler.length > 0) ||
-      (save.day > 1) || dexCount(save) > 0 || (save.up && Object.values(save.up).some((v) => v > 0));
+      (save.day > 1) || dexCount(save) > 0 || !!(isObj(save.kedai) && save.kedai.plays > 0) || (save.up && Object.values(save.up).some((v) => v > 0));
   }
   function summarize(save) {
     save = isObj(save) ? save : {};
@@ -116,6 +116,18 @@
     if (save.stats !== undefined) {
       if (!isObj(save.stats)) errors.push("Statistik tidak valid");
       else for (const val of Object.values(save.stats)) if (!num(val) || val < 0 || val > 1e12) { errors.push("Statistik di luar batas"); break; }
+    }
+    if (save.kedai !== undefined) { // Bumbu 3.1: Kedai Atuk Bahar. Koin Kedai = dompet SIMULASI lokal terpisah (bukan S.money); hanya bentuk datanya diperiksa
+      const k = save.kedai, G = ["batok", "gasing", "congklak", "gelang", "kelereng"], DF = ["mudah", "normal", "sulit", "goat"];
+      const okN = (x, hi) => Number.isInteger(x) && x >= 0 && x <= hi;
+      if (!isObj(k) || !okN(k.koin, 1e6) || !okN(k.earned, 100) || !okN(k.life || 0, 1e6)) errors.push("Data Kedai tidak valid");
+      else {
+        for (const key of ["claimed", "goat"]) if (k[key] !== undefined && (!isObj(k[key]) || Object.keys(k[key]).some((g) => !G.includes(g) || k[key][g] !== true))) { errors.push("Data Kedai tidak valid"); break; }
+        if (k.rec !== undefined) {
+          if (!isObj(k.rec) || Object.keys(k.rec).some((g) => !G.includes(g) || !isObj(k.rec[g]) || Object.keys(k.rec[g]).some((d) => !DF.includes(d) || !isObj(k.rec[g][d]) || Object.values(k.rec[g][d]).some((v) => !okN(v, 1e9))))) errors.push("Rekor Kedai tidak valid");
+        }
+        if (k.title !== undefined && !(k.title === 0 || (Number.isFinite(k.title) && k.title > 0))) errors.push("Gelar Kedai tidak valid");
+      }
     }
     if (errors.length === 0 && JSON.stringify(save).length > LIMITS.MAX_BYTES) errors.push("Data terlalu besar");
     return { ok: errors.length === 0, errors, flags };
