@@ -120,6 +120,7 @@
         return db.tx(async (t) => {
           const now = clock(), cfg = await cfgOf(t);
           if (cfg.mode === "nyata" && !realEnabled) throw E("failed-precondition", "Pembayaran nyata belum diaktifkan.");
+          if (cfg.mode === "nyata" && Array.isArray(cfg.pilot) && cfg.pilot.length && cfg.pilot.indexOf(uid) < 0) throw E("failed-precondition", "Toko sedang uji terbatas. Segera dibuka untuk semua pemain."); // uji uang asli terkendali: hanya UID di shop_config/main.pilot
           if (cfg.disabled[prod.id]) throw E("failed-precondition", "Produk sedang dinonaktifkan.");
           const idx = await expireStale(t, uid, now), ent = (await t.get(ENT(uid))) || { products: {} };
           if (!isCoinPack(prod) && ent.products[prod.id]) throw E("already-exists", "Kamu sudah memiliki produk ini.");
