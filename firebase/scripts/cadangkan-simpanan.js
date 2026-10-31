@@ -1,9 +1,11 @@
 // Menyalin SEMUA simpanan pemain (users/*/saves/current) ke satu berkas lokal sebelum rilis, dan menghitungnya. Hanya BACA (Admin SDK).
 //   node cadangkan-simpanan.js <berkas-keluaran.json>      →  mencetak  SIMPANAN=<jumlah>
 //   node cadangkan-simpanan.js --hitung                    →  hanya menghitung (dipakai setelah rilis untuk membandingkan)
-const admin = require("firebase-admin"), fs = require("fs");
-admin.initializeApp({ projectId: "nusa-island-d2023" });
-const db = admin.firestore(), out = process.argv[2];
+const { initializeApp } = require("firebase-admin/app");
+const { getFirestore } = require("firebase-admin/firestore");
+const fs = require("fs");
+initializeApp({ projectId: "nusa-island-d2023" });
+const db = getFirestore(), out = process.argv[2];
 (async () => {
   const q = db.collectionGroup("saves"); const n = (await q.count().get()).data().count;
   if (out && out !== "--hitung") {
