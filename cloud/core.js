@@ -54,7 +54,7 @@
     if (!isObj(save)) return false;
     const st = save.stats || {};
     return (st.casts > 0) || (st.caught > 0) || (Array.isArray(save.cooler) && save.cooler.length > 0) ||
-      (save.day > 1) || dexCount(save) > 0 || (save.up && Object.values(save.up).some((v) => v > 0));
+      (save.day > 1) || dexCount(save) > 0 || !!(isObj(save.kedai) && save.kedai.plays > 0) || (save.up && Object.values(save.up).some((v) => v > 0));
   }
   function summarize(save) {
     save = isObj(save) ? save : {};

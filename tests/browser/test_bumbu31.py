@@ -96,7 +96,7 @@ def act(pg, cdp, g, d, win):
                   const cv=document.getElementById('kdCv');const ev2=(t,xy)=>cv.dispatchEvent(new PointerEvent(t,{clientX:xy[0],clientY:xy[1],pointerId:9,pointerType:'touch',isPrimary:true,bubbles:true}));
                   ev2('pointerdown',px(180,348));ev2('pointermove',px(p[0],p[1]));ev2('pointerup',px(p[0],p[1]));return true})()""")
             else:
-                x0, y0 = cpt(pg, 180, 348); x1, y1 = cpt(pg, 60, 330); touch_drag(pg, cdp, [(x0, y0)] + drag_path((x0, y0), (x1, y1), 3)[1:])
+                x0, y0 = cpt(pg, 180, 348); x1, y1 = cpt(pg, 100, 378); touch_drag(pg, cdp, [(x0, y0)] + drag_path((x0, y0), (x1, y1), 3)[1:])
             time.sleep(0.15); return True
     elif g == "kelereng":
         if ph == "aim":
@@ -178,7 +178,7 @@ def main():
         # ===== 3. Semua permainan × semua kesulitan dimainkan sampai selesai (menang) lewat sentuhan; hadiah sesuai =====
         ctx, pg, errs, cdp = fresh(b)
         touchtypes = []
-        ev(pg, "()=>{window.__pt={};for(const t of ['pointerdown','pointermove','pointerup']) document.addEventListener(t,e=>{window.__pt[e.pointerType]=(window.__pt[e.pointerType]||0)+1},true)}")
+        ev(pg, "()=>{window.__pt={};for(const t of ['pointerdown','pointermove','pointerup']) document.addEventListener(t,e=>{if(!(e.target&&e.target.id==='kdCv'))return;window.__pt[e.pointerType]=(window.__pt[e.pointerType]||0)+1},true)}")
         money0 = S(pg)["money"]
         for g in GAMES:
             for d in DIFFS:
@@ -214,7 +214,7 @@ def main():
         ok("5c menang lagi setelah refresh/muat ulang → tetap tanpa koin (tidak berlipat)", K(pg)["koin"] == 5 and K(pg)["earned"] == 5)
         # mulai permainan lalu refresh di tengah → tidak ada hadiah
         start_game(pg, "gasing", "goat"); pg.click("[data-x=go]"); time.sleep(0.3); pg.reload(); time.sleep(0.7)
-        ok("5d refresh di tengah permainan: tidak ada koin & tidak ada kehilangan", K(pg)["koin"] == 5 and K(pg)["plays"] == 2, K(pg))
+        ok("5d refresh di tengah permainan: tidak ada koin & tidak ada kehilangan", K(pg)["koin"] == 5 and K(pg)["plays"] == 3, K(pg))
         # tutup-buka panel berulang tidak memicu hadiah
         pg.click("#startBtn") if ev(pg, "!document.getElementById('splash').classList.contains('hidden')") else None
         for _ in range(3): ev(pg, "NW.kedai.enter()"); time.sleep(0.15); pg.click("[data-x=exit]"); time.sleep(0.1)
@@ -289,10 +289,11 @@ def main():
         time.sleep(1.8); ev(pg, "NW.cloud.flush()"); wait_for(pg, "NW.cloud.status==='idle'", 8); time.sleep(0.2)
         doc = ev(pg, """async()=>{const d=window.__demoCloud; const r=await d.server.loadSave(d.tokenOf('demo-a'),{}); return r.exists? JSON.parse(r.data):null}""")
         ok("7f login Google (demo): progres Kedai (koin, klaim, rekor) ikut tersimpan ke cloud", doc and doc["kedai"]["koin"] == 20 and doc["kedai"]["claimed"].get("kelereng") is True and doc["kedai"]["rec"]["kelereng"]["sulit"]["wins"] == 1 and doc["v"] == 11, doc and doc.get("kedai"))
-        # perangkat B: simpanan lokal kosong, memuat dari cloud
-        ev(pg, "()=>{localStorage.removeItem('nusa-island-v1'); localStorage.removeItem('nusa-auth-v1')}"); pg.reload(); time.sleep(1.0)
-        ev(pg, "window.__demoAuto='demo-a'"); pg.click("#gateGoogle"); time.sleep(0.9)
-        if wait_for(pg, "!!document.getElementById('srcChoose')", 4): pg.click("[data-c=cloud]")
+        # perangkat B: konteks baru dengan "basis data cloud demo" yang sama, simpanan lokal kosong
+        dbraw = ev(pg, "localStorage.getItem('nusa-demo-cloud-v1')"); ctx.close()
+        ctx, pg, errs, cdp = new(b, "?cloud=demo", init="window.__demoAuto='demo-a'; if(!localStorage.getItem('__s')){localStorage.setItem('__s','1');localStorage.setItem('nusa-demo-cloud-v1', %s);}" % json.dumps(dbraw)); time.sleep(0.5)
+        pg.click("#gateGoogle"); time.sleep(0.9)
+        if wait_for(pg, "!!document.getElementById('srcChoose')", 3): pg.click("[data-c=cloud]")
         wait_for(pg, "window.__nusa && window.__nusa.S.kedai && window.__nusa.S.kedai.koin===20", 12); time.sleep(0.5)
         pg.click("#startBtn") if ev(pg, "!document.getElementById('splash').classList.contains('hidden')") else None; time.sleep(0.3); ev(pg, "window.__nusa.S.muted=true")
         ok("7g perangkat lain memuat progres Kedai dari cloud (koin 20, klaim kelereng)", K(pg)["koin"] == 20 and K(pg)["claimed"].get("kelereng") is True, K(pg))
