@@ -91,7 +91,7 @@
     auth: "Sesi login berakhir. Silakan login lagi.", busy: "Terlalu sering menyimpan. Mencoba lagi sebentar lagi.",
     denied: "Akses ditolak.", invalid: "Data ditolak server: " + String((e && e.message) || "tidak valid").slice(0, 120),
     cancel: "Login dibatalkan.", popup: "Jendela login diblokir browser. Izinkan popup lalu coba lagi.",
-    error: "Terjadi kesalahan. Coba lagi nanti.",
+    error: "Terjadi kesalahan. Coba lagi nanti." + (e && typeof e.code === "string" && /^[\w\/.-]{2,48}$/.test(e.code) ? " (kode: " + e.code + ")" : (e && e.name ? " (" + String(e.name).slice(0, 24) + ")" : "")),
   })[kindOf(e)];
   const toast = (m, t) => { try { if (window.Nusa && window.Nusa.toast) window.Nusa.toast(m, t); else if (cloud.ui && cloud.ui.notice) cloud.ui.notice(m, t); } catch (e) {} };
   cloud.toast = toast;
