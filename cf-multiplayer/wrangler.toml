@@ -1,0 +1,28 @@
+# NUSA ISLAND — Tahap 4: server multiplayer di Cloudflare Workers (paket GRATIS, Durable Objects berbasis SQLite).
+# WORKER TERPISAH dari "nusa-api" (ekonomi/QRIS): nama, binding, dan Durable Object berbeda; deploy ini TIDAK menyentuh nusa-api.
+# Tanpa rahasia di berkas ini. Verifikasi login memakai kunci publik Google (project id di bawah).
+name = "nusa-multiplayer"
+main = "src/index.js"
+compatibility_date = "2025-10-01"
+keep_vars = true
+
+[vars]
+FIREBASE_PROJECT_ID = "nusa-island-d2023"
+# hanya situs game ini yang boleh membuka koneksi (tambahkan domain sendiri bila perlu, pisahkan dengan koma)
+ALLOWED_ORIGINS = "https://nusa-island-d2023.web.app,https://nusa-island-d2023.firebaseapp.com,https://hanifan-dot.github.io"
+# "0" = matikan dunia bersama tanpa deploy ulang kode (ubah di dashboard Cloudflare → Variables)
+MP_ENABLED = "1"
+# MP_BLOCKED_UIDS (daftar uid diblokir, pisahkan koma) sengaja TIDAK ditulis di sini: isi lewat dashboard Cloudflare saat dibutuhkan
+# dan tidak tertimpa deploy berikutnya berkat keep_vars.
+
+[[durable_objects.bindings]]
+name = "ROOM"
+class_name = "MuaraRoom"
+
+[[durable_objects.bindings]]
+name = "LOBBY"
+class_name = "Lobby"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MuaraRoom", "Lobby"]
