@@ -143,7 +143,7 @@ async function pollOrder() {
 async function buy(id) {
   if (st.busy) return; st.busy = true;
   try { const nick = (window.Nusa && window.Nusa.S.profile && window.Nusa.S.profile.name) || ""; const r = await api().createOrder({ nick, productId: id, opId: "op-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7) }); await refresh(); st.view = { order: r.order }; sfx("click"); }
-  catch (e) { toast(e.message || "Gagal membuat pesanan."); }
+  catch (e) { let m = e.message || "Gagal membuat pesanan."; if (/uji terbatas/.test(m)) { try { m += " (UID akunmu: " + api().uid() + ")"; } catch (x) { /* abaikan */ } } toast(m); }
   st.busy = false; render();
 }
 async function act(name) {
