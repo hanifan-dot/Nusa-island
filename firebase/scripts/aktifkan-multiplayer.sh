@@ -21,7 +21,7 @@ code() { curl -s -o /dev/null -w '%{http_code}' -m 12 "$1" 2>/dev/null || echo 0
 command -v node >/dev/null && command -v npm >/dev/null && command -v curl >/dev/null && command -v git >/dev/null || die "butuh node, npm, curl, git (Cloud Shell sudah punya)."
 
 say "1/6 Pagar pengaman (jangan menayangkan cabang lama)"
-[ -d cf-multiplayer ] && [ -f mp/proto.js ] && [ -d shop ] && [ -d economy ] && [ -d streak ] || die "folder cf-multiplayer, mp, shop, economy, atau streak tidak ada: ini bukan cabang produksi + Tahap 4."
+[ -d cf-multiplayer ] && [ -f mp/proto.js ] && [ -d hud ] && [ -d shop ] && [ -d economy ] && [ -d streak ] || die "folder cf-multiplayer, mp, shop, economy, atau streak tidak ada: ini bukan cabang produksi + Tahap 4."
 git fetch -q origin "$PROD_BRANCH" || die "tidak bisa mengambil origin/$PROD_BRANCH."
 git merge-base --is-ancestor "origin/$PROD_BRANCH" HEAD || die "cabang ini TIDAK memuat origin/$PROD_BRANCH terbaru. Jalankan: git merge origin/$PROD_BRANCH (atau pakai cabang multiplayer produksi yang sudah diperbarui) lalu ulangi."
 [ -z "$(git status --porcelain --untracked-files=no)" ] || die "ada perubahan lokal yang belum di-commit; build mengambil dari pohon kerja. Commit atau buang dulu."
@@ -79,7 +79,7 @@ fi
 say "5/6 Build PRODUKSI (toko QRIS + Worker ekonomi + Dunia Bersama)"
 NUSA_API_BASE="$API" NUSA_MP_WS="wss://$MP_HOST" bash firebase/scripts/build-hosting.sh produksi
 grep -q "apiBase: \"$API\"" firebase/public/cloud/config.js || die "build tidak membawa alamat nusa-api: dibatalkan."
-for d in shop economy streak world cloud audio mp; do [ -d "firebase/public/$d" ] || die "folder $d hilang dari build: dibatalkan."; done
+for d in shop economy streak world cloud audio mp hud; do [ -d "firebase/public/$d" ] || die "folder $d hilang dari build: dibatalkan."; done
 
 say "6/6 Tayangkan"
 echo "Akan menayangkan ke $SITE:"

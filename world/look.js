@@ -190,29 +190,39 @@ function drawHeldRod(ctx, spec, hp, mid, tip, back, U, night) {
 // Dirender sekali ke kanvas kecil lalu di-cache; per frame hanya drawImage.
 const labelCache = new Map();
 const LABEL_RES = 2; // resolusi internal supaya tajam di layar HP
+const LABEL_MAXW = 96, LABEL_GAP = 60;           // lebar maks (px layar) & jarak dasar label dari kaki karakter (px dunia; karakter ±56 px)
+function fitText(m, text, font, maxW) {           // potong dengan "…" bila terlalu lebar (nama panjang)
+  m.font = font; if (m.measureText(text).width <= maxW) return text;
+  const a = Array.from(text); while (a.length > 1 && m.measureText(a.join("") + "…").width > maxW) a.pop();
+  return a.join("").trimEnd() + "…";
+}
 function labelCanvas(name, title) {
   const key = name + "\u0001" + (title || "");
   let cv = labelCache.get(key); if (cv) return cv;
-  const lines = title ? [{ t: name, f: "800 12px system-ui, sans-serif", c: "#fff" }, { t: "🎣 " + title, f: "600 10px system-ui, sans-serif", c: "#ffe9a8" }] : [{ t: name, f: "800 12px system-ui, sans-serif", c: "#fff" }];
-  const m = document.createElement("canvas").getContext("2d");
-  let w = 0; for (const l of lines) { m.font = l.f; w = Math.max(w, m.measureText(l.t).width); }
-  const padX = 7, padY = 3, lh = [14, 12], W = Math.ceil(w + padX * 2), H = lines.reduce((s, _, i) => s + lh[i], 0) + padY * 2;
+  // hierarki: gelar kecil & redup di ATAS, nama tebal di BAWAH; latar transparan lembut, bantalan proporsional
+  const m = document.createElement("canvas").getContext("2d"), fN = "800 11px system-ui, sans-serif", fT = "600 8.5px system-ui, sans-serif";
+  const nm = fitText(m, name, fN, LABEL_MAXW - 12), tt = title ? fitText(m, title, fT, LABEL_MAXW - 12) : "";
+  m.font = fN; let w = m.measureText(nm).width; if (tt) { m.font = fT; w = Math.max(w, m.measureText(tt).width); }
+  const padX = 6, padY = 2.5, hT = tt ? 10 : 0, hN = 13, W = Math.ceil(w + padX * 2), H = Math.ceil(hT + hN + padY * 2);
   cv = document.createElement("canvas"); cv.width = W * LABEL_RES; cv.height = H * LABEL_RES; cv._w = W; cv._h = H;
   const g = cv.getContext("2d"); g.scale(LABEL_RES, LABEL_RES);
-  g.fillStyle = "rgba(14, 34, 44, .58)"; g.beginPath();
-  if (g.roundRect) g.roundRect(0, 0, W, H, 7); else g.rect(0, 0, W, H);
+  g.fillStyle = "rgba(12, 32, 40, .40)"; g.beginPath();
+  if (g.roundRect) g.roundRect(0, 0, W, H, 8); else g.rect(0, 0, W, H);
   g.fill();
-  g.textAlign = "center"; g.textBaseline = "middle"; g.shadowColor = "rgba(0,0,0,.6)"; g.shadowBlur = 2;
-  let y = padY; lines.forEach((l, i) => { g.font = l.f; g.fillStyle = l.c; g.fillText(l.t, W / 2, y + lh[i] / 2 + 0.5); y += lh[i]; });
-  if (labelCache.size > 40) labelCache.delete(labelCache.keys().next().value);
+  g.textAlign = "center"; g.textBaseline = "middle"; g.shadowColor = "rgba(0,0,0,.55)"; g.shadowBlur = 1.5;
+  if (tt) { g.font = fT; g.fillStyle = "rgba(255, 226, 150, .95)"; g.fillText(tt, W / 2, padY + hT / 2 + 0.5); }
+  g.font = fN; g.fillStyle = "#fff"; g.fillText(nm, W / 2, padY + hT + hN / 2 + 0.5);
+  if (labelCache.size > 60) labelCache.delete(labelCache.keys().next().value);
   labelCache.set(key, cv);
   return cv;
 }
 // (x, y) = titik kaki karakter di ruang dunia; `scale` mengimbangi zoom kamera agar ukuran di layar tetap terbaca
 function drawLabel(c, info, x, y, scale, lift) {
   const cv = labelCanvas(info.name, info.title), s = scale || 1;
-  c.drawImage(cv, x - (cv._w * s) / 2, y - 58 - (lift || 0) - cv._h * s, cv._w * s, cv._h * s);
+  c.drawImage(cv, x - (cv._w * s) / 2, y - LABEL_GAP - (lift || 0) - cv._h * s, cv._w * s, cv._h * s);
 }
+// tinggi label (px layar) & titik atas label: dipakai bubble chat supaya tidak menumpuk di atas label
+function labelTop(info, y, scale, lift) { const cv = labelCanvas(info.name, info.title); return y - LABEL_GAP - (lift || 0) - cv._h * (scale || 1); }
 function drawPlayerLabel(c, b, scale, lift) { drawLabel(c, { name: playerName(), title: currentTitle() }, b.x, b.y, scale, lift); }
 
 // ---------- Panel (dipasang di menu 🎯) ----------
@@ -240,5 +250,5 @@ function hook() {
   N().on("catch", onCatch);
 }
 
-NW.look = { TITLES, RODS, rodPreview, drawHeldRod, syncNames, rankOf, titleName, count, rank, currentTitle, nextGoal, playerName, cleanName, rodSpec, drawBackRod, drawLabel, drawPlayerLabel, panelSection, act, hook, defaults };
+NW.look = { TITLES, RODS, rodPreview, drawHeldRod, syncNames, rankOf, titleName, count, rank, currentTitle, nextGoal, playerName, cleanName, rodSpec, drawBackRod, drawLabel, labelTop, drawPlayerLabel, panelSection, act, hook, defaults };
 })();

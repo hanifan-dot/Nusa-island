@@ -181,7 +181,10 @@ for (const k of Object.keys(SFX)) { const legacy = SFX[k]; SFX[k] = (...a) => { 
 // ---------- Canvas & proyeksi 2.5D ----------
 const cv = $("game"), ctx = cv.getContext("2d");
 let W = 0, H = 0, DPR = 1, U = 1, HZ = 0, K = 0, BY = 0;
+let lastRW = 0;
 function resize() {
+  if (NW.mp && NW.mp.typing && window.innerWidth === lastRW) return; // keyboard Android muncul: tinggi berubah tapi kanvas/dunia tidak ditata ulang (dirapikan sekali saat keyboard tutup)
+  lastRW = window.innerWidth;
   DPR = Math.min(window.devicePixelRatio || 1, 2);
   W = window.innerWidth; H = window.innerHeight;
   cv.width = W * DPR; cv.height = H * DPR;
@@ -1503,8 +1506,9 @@ if (NW.selat) NW.selat.hook();             // Bumbu 2.4: cerita "Jejak Arus Sela
 if (NW.boat) NW.boat.hook();               // Bumbu 2.4: tombol kapal & panel Peta Laut
 if (NW.cloud) NW.cloud.hook();             // Tahap 3: tombol Profil & akun
 if (NW.mp) NW.mp.hook();                   // Tahap 4: Dunia Bersama (multiplayer Muara Kampung) — hanya aktif untuk akun Google yang menyetujui
-if (NW.streak) NW.streak.hook();
-if (NW.event) NW.event.hook();                // Event 5 Monster Legenda: jadwal dari jam server, monster mingguan, duel yang dinilai server           // Login Streak 7 Hari: tombol 🎁 & Kalender Hadiah (klaim hanya lewat server Firebase)
+if (NW.streak) NW.streak.hook();           // Login Streak 7 Hari: tombol 🎁 & Kalender Hadiah (klaim hanya lewat server Firebase)
+if (NW.event) NW.event.hook();             // Event 5 Monster Legenda: jadwal dari jam server, monster mingguan, duel yang dinilai server
+if (NW.hudMenu) NW.hudMenu.hook();         // Tahap 4.1: menu utama ☰ (menyatukan ikon HUD kanan atas; tombol asli tetap dimiliki modulnya) — SETELAH modul yang membuat tombol
 if (loadNote) setTimeout(() => toast(loadNote), 1200);
 save(); // simpan hasil migrasi (data lama sudah dicadangkan)
 resize(); buildScenery(); initAmbient(); refreshHUD(); applyMode();

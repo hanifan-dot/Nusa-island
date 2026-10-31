@@ -22,20 +22,26 @@ function build() {
   const ann = document.createElement("div"); ann.id = "evAnn"; ann.className = "ev-ann"; ann.setAttribute("aria-live", "polite");
   const res = document.createElement("div"); res.id = "evResult"; res.className = "ev-result hidden"; res.setAttribute("role", "dialog");
   document.body.appendChild(pill); document.body.appendChild(ann); document.body.appendChild(res);
-  const hud = document.querySelector(".hud-right"), dex = $("dexBtn");
-  if (hud && dex && !$("evBtn")) {
-    const b = document.createElement("button"); b.className = "chip icon-btn misi hidden"; b.id = "evBtn"; b.setAttribute("aria-label", "Event Monster Legenda");
-    b.innerHTML = `🦈<span id="evBadge" class="badge story hidden">!</span>`; dex.parentNode.insertBefore(b, dex);
-    b.addEventListener("click", () => { N().sfx("click"); N().openPanel("event"); });
-  }
   const tb = $("tensionBar"); if (tb && !tb.querySelector(".ev-sweet")) { const z = document.createElement("div"); z.className = "ev-sweet"; tb.insertBefore(z, tb.firstChild); }
+}
+
+// tombol 🦈 hanya ADA di DOM selama event dinyalakan server (menu ☰ Tahap 4.1 membuat ubin dari tombol .hud-right yang ada)
+function ensureBtn(on) {
+  const hud = document.querySelector(".hud-right"), cur = $("evBtn");
+  if (!on) { if (cur) cur.remove(); return null; }
+  if (cur || !hud) return cur;
+  const b = document.createElement("button"); b.className = "chip icon-btn misi"; b.id = "evBtn"; b.type = "button"; b.setAttribute("aria-label", "Event Monster Legenda");
+  b.innerHTML = `🦈<span id="evBadge" class="badge story hidden">!</span>`; const dex = $("dexBtn"); hud.insertBefore(b, dex && dex.parentNode === hud ? dex : null);
+  b.addEventListener("click", () => { N().sfx("click"); N().openPanel("event"); });
+  return b;
 }
 
 // ---------- penanda hitung mundur ----------
 function pill() {
-  const el = $("evPill"), btn = $("evBtn"); if (!el) return;
+  const el = $("evPill"); if (!el) return;
   const ev = E(), info = ev.info(), s = ev.status(), on = !!(info && info.on && s);
-  if (btn) { btn.classList.toggle("hidden", !on); const bd = $("evBadge"); if (bd) bd.classList.toggle("hidden", !(on && s.phase === "live")); }
+  const btn = ensureBtn(on);
+  if (btn) { const bd = $("evBadge"); if (bd) bd.classList.toggle("hidden", !(on && s.phase === "live")); }
   let txt = "", cls = "";
   if (on) {
     const m = EV().BY_ID[s.ev.monster], L = ev.locName(m.loc);

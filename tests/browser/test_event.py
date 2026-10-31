@@ -82,7 +82,7 @@ with sync_playwright() as p:
         ctx.close()
         # ---- H. event dimatikan ----
         ctx, pg, errs = boot(b, S1 + 40000, eventOn=False); go_fishing(pg, "muara"); time.sleep(0.6)
-        ok("H1 saklar Owner mati: tidak ada monster, tombol 🦈 & penanda tersembunyi, mancing normal", ev(pg, "NW.event.status()") is None and ev(pg, "NW.event.monsterNow()") is None and ev(pg, "document.getElementById('evPill').classList.contains('hidden')") and ev(pg, "document.getElementById('evBtn').classList.contains('hidden')"))
+        ok("H1 saklar Owner mati: tidak ada monster, tombol 🦈 & penanda tersembunyi, mancing normal", ev(pg, "NW.event.status()") is None and ev(pg, "NW.event.monsterNow()") is None and ev(pg, "document.getElementById('evPill').classList.contains('hidden')") and ev(pg, "!document.getElementById('evBtn')"))
         ctx.close()
         # ---- I. jaringan putus saat kirim hasil: terkirim ulang, tidak ganda ----
         ctx, pg, errs = boot(b, S1 + 40000); go_fishing(pg, "muara"); time.sleep(0.5); bal0 = ev(pg, "NW.eco.state().balance"); ev(pg, "()=>{window.__failFinish=2}"); ev(pg, BAIT)
