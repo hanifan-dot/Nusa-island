@@ -30,7 +30,7 @@ const dirArrow = (dx, dy) => { const a = Math.atan2(dy, dx), i = ((Math.round(a 
 function panelHTML() {
   const v = NW.mp.view(), p = v.prefs, me = NW.world && NW.world.player, st = statusOf(v), online = v.online;
   const consent = p.consent !== true;
-  const err = v.lastError && Date.now() - v.lastError.at < 60000 ? `<div class="sv-err" role="alert">${esc(v.lastError.msg)}</div>` : "";
+  const err = v.lastError && Date.now() - v.lastError.at < 15000 ? `<div class="sv-err" role="alert">${esc(v.lastError.msg)}</div>` : "";
   const hr = online && v.hour != null ? `<div class="sv-row"><span>Waktu dunia</span><b>${v.hour >= 19 || v.hour < 5 ? "🌙" : "☀️"} ${HUR(v.hour)}</b><small>sama untuk semua pemain di server ini</small></div>` : "";
   const hidden = online ? Math.max(0, v.n - 1 - v.players.length) : 0;
   const rooms = v.rooms && v.rooms.rooms ? v.rooms.rooms : null;

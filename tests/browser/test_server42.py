@@ -149,7 +149,9 @@ def main():
 
             # ================= 7. Dua pemain di room yang sama (screenshot nyata) =================
             cA, A, eA = page(b, "demo-a", "Budi", PORT, hour=12, cooler=FISH); join_id(A, 3); online(A, 3); wait_for(B, "NW.mp.view().players.length===1", 8); time.sleep(0.8)
-            A.keyboard.down("ArrowRight"); time.sleep(0.5); A.keyboard.up("ArrowRight"); ev(A, "NW.hold.start('f-dewa')"); ev(A, "NW.mp.sendChat('Lihat ikanku!')"); time.sleep(1.6)
+            spot = ev(A, "(()=>{const npcs=NW.world.areaNpcs(); let best=null; for(let x=14;x<28;x+=0.5)for(let y=14;y<26;y+=0.5){ if(!NW.walkable(x,y)||!NW.walkable(x+2,y)||!NW.walkable(x+1,y+1)) continue; const dn=Math.min(...npcs.map(n=>Math.hypot(n.x-x,n.y-y)), ...npcs.map(n=>Math.hypot(n.x-x-2,n.y-y))); if(!best||dn>best.dn) best={x,y,dn}; } return best})()")
+            ev(A, "(s)=>{NW.world.player.x=s.x; NW.world.player.y=s.y}", spot); ev(B, "(s)=>{NW.world.player.x=s.x+2.2; NW.world.player.y=s.y}", spot); time.sleep(1.2)
+            ev(A, "NW.hold.start('f-dewa')"); ev(A, "NW.mp.sendChat('Lihat ikanku!')"); time.sleep(1.8)
             A.screenshot(path=OUT + "03b_dua_pemain_A.png"); B.screenshot(path=OUT + "04b_ikan_terlihat_B.png")
             pos = ev(B, "(()=>{const p=[...NW.mp._R.players.values()][0]; const q=NW.P(p.ch.x,p.ch.y), c=NW.world.cam, Z=NW.world.zoom; return {x:(q.x-c.x)*Z+innerWidth/2, y:(q.y-c.y)*Z+innerHeight/2, hold:p.hold&&p.hold.i, pose:p.ch.hold&&p.ch.hold.p.id}})()")
             ok("7a ikan besar (dewa 18 kg) tampil di tangan A pada layar B dengan pose 'angkat'", pos["hold"] == "dewa" and pos["pose"] == "angkat", pos)
@@ -223,7 +225,7 @@ def main():
             ok(f"10b biaya gambar 3 pemain lain (CPU 4× lebih lambat): +{extra:.2f} ms/frame di atas dasar {wo_ms:.1f} ms (anggaran 60 FPS = 16,7 ms) — sandbox tanpa GPU, bukan Android asli", extra < 4.0 and with_ms < 33, (round(with_ms, 2), round(wo_ms, 2)))
             for c, pg, _ in ctxs: c.close()
             st = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{PORT}/stats", timeout=2).read())
-            ok("10c data keluar server terukur wajar (< 6 KB/dtk total untuk 4 pemain bergerak)", True, st)
+            ok("10c data keluar server selama pengujian kecil (< 60 KB total untuk 4 pemain)", st["bytesOut"] < 60000, st["bytesOut"])
             b.close()
     finally:
         for s in (srv, srv2):

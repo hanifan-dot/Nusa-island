@@ -162,7 +162,7 @@ function onMsg(m, ws) {
     case "w":
       R.me = m.me; R.room = m.room; R.roomNo = m.rn || parseInt(String(m.room).split("-")[1], 10) || 0; R.n = m.n; R.vcount = m.v; R.cap = m.cap; R.players.clear();
       for (const row of m.ps) upsert(row).ch.moving = false;
-      R.gotWelcome = true; R.gotWelcomeEver = true; R.resume = R.roomNo; R.pending = null; R.lastError = null; R.holdSent = undefined;
+      R.gotWelcome = true; R.gotWelcomeEver = true; R.resume = R.roomNo; R.pending = null; R.holdSent = undefined;   // lastError sengaja dibiarkan: pesan 'server penuh' tetap terbaca setelah kembali ke server lama
       clockSample(m.st, R.helloAt); setTimeout(() => { if (R.ws === ws) { R.hbSent = now(); send({ t: "h" }); } }, 600); setTimeout(() => { if (R.ws === ws) { R.hbSent = now(); send({ t: "h" }); } }, 2500);   // beberapa sampel awal → jam akurat
       setState("online", ""); break;
     case "k": clockSample(m.st, R.hbSent); R.hbSent = 0; break;
