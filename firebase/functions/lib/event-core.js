@@ -17,6 +17,7 @@
   "use strict";
   const MIN = 60000, HOUR = 3600000, DAY = 86400000, WEEK = 7 * DAY, WIB = 7 * HOUR;
   const START_H = 19, DURATION = 20 * MIN, GRACE = 90000;           // 19.00–19.20 WIB; duel yang sudah mulai boleh selesai sampai 90 dtk setelahnya
+  const PREMIERE = "megalodon_bayangan";                              // monster pembukaan publik (minggu ke-0), diputuskan di sini = di server
   const DEFAULT_ANCHOR = "2026-11-01";                                // Minggu pertama (minggu ke-0 = Toman Purba)
   const MAX_ATTEMPTS = 3;
   const DT = 0.05, MAX_STEPS = 1200, SWEET = [0.35, 0.75];            // simulasi duel: 20 langkah/detik, maks 60 detik
@@ -50,8 +51,9 @@
   }
   function dateKey(startMs) { return new Date(startMs + WIB).toISOString().slice(0, 10); }
   function eventOf(week, anchor) {
-    const start = anchorMs(anchor) + week * WEEK, mon = MONSTERS[((week % 5) + 5) % 5];
-    return { week, id: "e" + dateKey(start).replace(/-/g, ""), date: dateKey(start), start, end: start + DURATION, close: start + DURATION + GRACE, monster: mon.id };
+    // Minggu ke-0 = PEMBUKAAN PUBLIK: Megalodon Bayangan Purba (spesial). Setelah itu rotasi 5 monster: minggu 1 Toman Purba … minggu 5 Megalodon, lalu mengulang.
+    const start = anchorMs(anchor) + week * WEEK, mon = week === 0 ? BY_ID[PREMIERE] : MONSTERS[(((week - 1) % 5) + 5) % 5];
+    return { week, premiere: week === 0, id: "e" + dateKey(start).replace(/-/g, ""), date: dateKey(start), start, end: start + DURATION, close: start + DURATION + GRACE, monster: mon.id };
   }
   // Keadaan pada waktu `now`. phase: "upcoming" (event berikut belum mulai) | "live" | "closing" (sudah selesai, duel berjalan boleh selesai) | "ended"
   function status(now, anchor) {
@@ -167,6 +169,6 @@
   const rewardsOf = (monId) => BY_ID[monId].rw;
   const sanitizeName = (s) => String(s == null ? "" : s).replace(/[^\p{L}\p{N} _.-]/gu, "").trim().slice(0, 16) || "Pemancing";
 
-  return { MIN, HOUR, DAY, WEEK, WIB, START_H, DURATION, GRACE, DEFAULT_ANCHOR, MAX_ATTEMPTS, DT, MAX_STEPS, SWEET,
+  return { MIN, HOUR, DAY, WEEK, WIB, START_H, DURATION, GRACE, DEFAULT_ANCHOR, PREMIERE, MAX_ATTEMPTS, DT, MAX_STEPS, SWEET,
     MONSTERS, BY_ID, SWIM, anchorMs, eventOf, eventById, status, isLive, swimAt, makePlan, kindAt, warnAt, checkLog, makeDuel, summary, simulate, better, rewardsOf, sanitizeName, mulberry32, hash };
 });

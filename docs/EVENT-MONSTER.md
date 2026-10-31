@@ -3,9 +3,9 @@
 Status: **kode selesai & lulus tes lokal; BELUM diuji di Firebase/Cloudflare sungguhan** (belum ada yang di-deploy; saklar Owner masih mati sampai kamu menyetujui rilis).
 
 ## Ringkasan
-Setiap **Minggu 19.00–19.20 WIB** satu monster raksasa muncul di satu lokasi. Urutan mingguan (lalu mengulang): 
+Setiap **Minggu 19.00–19.20 WIB** satu monster raksasa muncul di satu lokasi. **Minggu ke-0 = PEMBUKAAN PUBLIK: Megalodon Bayangan Purba** (spesial, diputuskan server di `event/core.js` → `PREMIERE`). Setelah itu rotasi mingguan (lalu mengulang): 
 
-| Minggu | Monster | Bobot (fantasi) | Lokasi | Hadiah ikut / taklukkan / juara |
+| Minggu (setelah pembukaan) | Monster | Bobot (fantasi) | Lokasi | Hadiah ikut / taklukkan / juara |
 |---|---|---|---|---|
 | 1 | Toman Purba | 800 kg | Muara Kampung | 200 / 300 / 1.500 |
 | 2 | Jurung Mahkota | 2 ton | Danau Toba | 300 / 600 / 3.000 |
@@ -13,9 +13,11 @@ Setiap **Minggu 19.00–19.20 WIB** satu monster raksasa muncul di satu lokasi. 
 | 4 | Kuwe Titan | 12 ton | Raja Ampat | 700 / 2.000 / 9.000 |
 | 5 | Megalodon Bayangan Purba | 50 ton | Laut Banda | 1.000 / 3.500 / 16.000 |
 
+Pembukaan 1 Nov 2026 = Megalodon (Laut Banda); 8 Nov = Toman Purba; 15 Nov = Jurung Mahkota; … Jadwal sepenuhnya dari server (`eventInfo`), bukan dari HP.
+
 Angka hadiah ada di `event/core.js` (`MONSTERS[].rw`) dan hanya server yang membacanya. Mudah diubah sebelum rilis.
 
-Lima lokasi **sudah ada** di game (`data.js` LOCATIONS). Muara/Toba/Selat = area darat + dermaga; Raja Ampat/Laut Banda = lokasi memancing dari kapal (syarat kapal level 4/5 dari sistem lama, **tidak diubah**). Panel event hanya menampilkan tombol "Menuju …" bila kapal cukup; bila tidak, tombol terkunci dan menyebut syaratnya. Tidak ada lokasi baru dan tidak ada tombol ke tempat yang belum ada.
+Lima lokasi **sudah ada** di game (`data.js` LOCATIONS). Muara/Toba/Selat = area darat + dermaga; Raja Ampat/Laut Banda = lokasi memancing dari kapal (syarat kapal level 4/5 dari sistem lama, **tidak diubah**). Panel event menampilkan "Menuju …" bila kapal cukup. Bila kapal belum cukup, ada **akses event khusus (tiket)**: selama event LIVE (jam server) dan saklar server `eventPass` aktif, pemain berakun dibawa ke lokasi monster hanya untuk menantang monster itu. Syarat kapal untuk perjalanan biasa **tidak berubah** (`canSail`/`travel` tetap menolak); di lokasi tiket ikan biasa tidak menggigit (tidak bisa dipakai memancing lokasi terkunci); tiket gugur saat event selesai/pemain pindah dan pemain dikembalikan ke lokasi semula; tamu tidak mendapat tiket. Mematikan tiket: `toko.js event-pass tidak`. Tidak ada lokasi baru dan tidak ada tombol ke tempat yang belum ada.
 
 ## Cara kerja
 1. **Jadwal & jam = jam server WIB.** `eventInfo` (publik, tanpa data pribadi) mengembalikan jam server + jadwal. Game memakai jam monoton `performance.now()` sejak jawaban terakhir, jadi mengubah jam HP tidak menggeser event (diuji).
@@ -47,7 +49,8 @@ Lima lokasi **sudah ada** di game (`data.js` LOCATIONS). Muara/Toba/Selat = area
 
 ## Operasi
 ```
-node firebase/scripts/toko.js event-buka 2026-11-01   # buka event; tanggal = Minggu minggu-ke-0 (Toman Purba). Target terlewat? ganti ke Minggu berikutnya.
+node firebase/scripts/toko.js event-buka 2026-11-01   # buka event; tanggal = Minggu pembukaan (Megalodon). Target terlewat? ganti ke Minggu berikutnya.
+node firebase/scripts/toko.js event-pass ya|tidak     # akses event khusus (tiket) — bawaan ya
 node firebase/scripts/toko.js event-tutup              # matikan seketika
 node firebase/scripts/toko.js status                   # termasuk status event
 ```
@@ -55,3 +58,6 @@ node firebase/scripts/toko.js status                   # termasuk status event
 ## Pengujian
 `node tests/unit-event.js` (22 tes: jadwal WIB, rotasi, lintasan, duel, semua aturan server, anti-curang, juara tunggal, klaim) · `python tests/browser/test_event.py` (game asli + inti produksi di dalam halaman) · `python tests/browser/shots_event.py` (5 foto asli).
 Belum diuji: Firestore/Cloudflare/Functions sungguhan, beban banyak pemain bersamaan, perangkat Android sungguhan (FPS).
+
+## Rilis
+Satu perintah dari repo dashboard: `scripts/rilis-event.sh --saya-setuju` — membaca konfigurasi produksi live (variabel Worker, alamat nusa-api, endpoint multiplayer), memasangnya ulang, memverifikasi sebelum/sesudah, dan memeriksa build memuat `hud/`, menu ☰ 4.1, `event/`, `mp/endpoint.json`.

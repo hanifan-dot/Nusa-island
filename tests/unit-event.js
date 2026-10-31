@@ -6,7 +6,8 @@ function mkdb() { const m = new Map(); const rd = (p) => (m.has(p) ? JSON.parse(
   return { m, get: async (p) => rd(p), tx: (fn) => { const run = q.then(async () => { const buf = new Map(); const out = await fn({ get: async (p) => (buf.has(p) ? JSON.parse(buf.get(p)) : rd(p)), set: async (p, o) => { buf.set(p, JSON.stringify(o)); } }); for (const [p, v] of buf) m.set(p, v); return out; }); q = run.catch(() => {}); return run; } }; }
 const MIN = EV.MIN, S1 = Date.UTC(2026, 10, 1, 12, 0, 0);             // Minggu 1 Nov 2026, 19.00 WIB
 let now = S1 - 3 * EV.HOUR, n = 0; const op = () => "op" + (++n) + "xxxxxxxx";
-const mk = (cfg) => { const db = mkdb(); if (cfg !== null) db.m.set("shop/config", JSON.stringify(Object.assign({ eventOn: true }, cfg || {}))); return { db, e: EC.makeEconomyServer(db, { clock: () => now, tables: T, fishmath: FM, trustClientInit: true, event: EV, rng: (() => { let s = 7; return () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; })() }) }; };
+const HOURMS = 3600000;
+const mk = (cfg) => { const db = mkdb(); if (cfg !== null) db.m.set("shop/config", JSON.stringify(Object.assign({ eventOn: true, eventAnchor: "2026-10-25" }, cfg || {}))); return { db, e: EC.makeEconomyServer(db, { clock: () => now, tables: T, fishmath: FM, trustClientInit: true, event: EV, rng: (() => { let s = 7; return () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; })() }) }; };
 const U = { uid: "user1" }, V = { uid: "user2" }, W = { uid: "user3" };
 
 // Pemain terampil (bot) yang memutuskan dari keadaan tertunda `delay` langkah — dipakai untuk membuktikan duel BISA dimenangkan, bukan untuk curang.
@@ -31,25 +32,26 @@ async function play(e, u, opts) {      // mulai → mainkan bot → tunggu waktu
 
 (async () => {
   // ---------------- jadwal ----------------
-  await t("jadwal: Minggu 19.00–19.20 WIB, urutan 5 monster lalu berulang", () => {
+  await t("jadwal: Minggu 19.00–19.20 WIB; minggu ke-0 = PEMBUKAAN Megalodon, lalu rotasi 5 monster", () => {
     assert.equal(EV.anchorMs("2026-11-01"), S1);
-    const seq = []; for (let w = 0; w < 11; w++) { const e = EV.eventOf(w); assert.equal(new Date(e.start + EV.WIB).getUTCDay(), 0); assert.equal(new Date(e.start + EV.WIB).getUTCHours(), 19); assert.equal(e.end - e.start, 20 * MIN); seq.push(e.monster); }
-    assert.deepEqual(seq.slice(0, 5), ["toman_purba", "jurung_mahkota", "barakuda_guntur", "kuwe_titan", "megalodon_bayangan"]);
-    assert.deepEqual(seq.slice(5, 10), seq.slice(0, 5)); assert.equal(seq[10], "toman_purba");
+    const seq = []; for (let w = 0; w < 12; w++) { const e = EV.eventOf(w); assert.equal(new Date(e.start + EV.WIB).getUTCDay(), 0); assert.equal(new Date(e.start + EV.WIB).getUTCHours(), 19); assert.equal(e.end - e.start, 20 * MIN); assert.equal(e.premiere, w === 0); seq.push(e.monster); }
+    assert.equal(seq[0], "megalodon_bayangan"); assert.equal(EV.eventOf(0).id, "e20261101");
+    assert.deepEqual(seq.slice(1, 6), ["toman_purba", "jurung_mahkota", "barakuda_guntur", "kuwe_titan", "megalodon_bayangan"]);
+    assert.deepEqual(seq.slice(6, 11), seq.slice(1, 6)); assert.equal(seq[11], "toman_purba");
     assert.deepEqual(EV.MONSTERS.map((m) => m.kg), [800, 2000, 5000, 12000, 50000]); assert.deepEqual(EV.MONSTERS.map((m) => m.loc), ["muara", "toba", "selat", "ampat", "banda"]);
   });
   await t("status: sebelum / tepat mulai / 19.19 / 19.20 / masa tutup / pekan depan", () => {
     assert.equal(EV.status(S1 - 1).phase, "upcoming"); assert.equal(EV.status(S1 - 1).msToStart, 1);
     assert.equal(EV.status(S1).phase, "live"); assert.equal(EV.status(S1 + 20 * MIN - 1).phase, "live");
     assert.equal(EV.status(S1 + 20 * MIN).phase, "closing"); assert.equal(EV.status(S1 + 20 * MIN + EV.GRACE - 1).phase, "closing");
-    const e = EV.status(S1 + 21 * MIN + EV.GRACE); assert.equal(e.phase, "ended"); assert.equal(e.next.date, "2026-11-08"); assert.equal(e.next.monster, "jurung_mahkota");
-    assert.equal(EV.status(S1 + EV.WEEK).phase, "live"); assert.equal(EV.status(S1 + EV.WEEK).ev.monster, "jurung_mahkota");
-    assert.equal(EV.status(S1 + 5 * EV.WEEK).ev.monster, "toman_purba");
+    const e = EV.status(S1 + 21 * MIN + EV.GRACE); assert.equal(e.phase, "ended"); assert.equal(e.next.date, "2026-11-08"); assert.equal(e.next.monster, "toman_purba");
+    assert.equal(EV.status(S1 + EV.WEEK).phase, "live"); assert.equal(EV.status(S1 + EV.WEEK).ev.monster, "toman_purba"); assert.equal(EV.status(S1).ev.monster, "megalodon_bayangan");
+    assert.equal(EV.status(S1 + 6 * EV.WEEK).ev.monster, "toman_purba");
   });
   await t("anchor bisa digeser (target terlewat → Minggu berikutnya) dan harus hari Minggu", () => {
-    const a = EV.status(S1 + 6 * EV.HOUR, "2026-11-08"); assert.equal(a.phase, "upcoming"); assert.equal(a.ev.monster, "toman_purba"); assert.equal(a.ev.date, "2026-11-08");
+    const a = EV.status(S1 + 6 * EV.HOUR, "2026-11-08"); assert.equal(a.phase, "upcoming"); assert.equal(a.ev.monster, "megalodon_bayangan"); assert.equal(a.ev.date, "2026-11-08");
     assert.equal(EV.anchorMs("2026-11-02"), S1); assert.equal(EV.anchorMs("ngawur"), S1);                   // Senin / sampah → kembali ke bawaan
-    assert.equal(EV.eventById("e20261108", "2026-11-01").monster, "jurung_mahkota"); assert.equal(EV.eventById("e20261109", "2026-11-01"), null); assert.equal(EV.eventById("e20261025", "2026-11-01"), null);
+    assert.equal(EV.eventById("e20261108", "2026-11-01").monster, "toman_purba"); assert.equal(EV.eventById("e20261109", "2026-11-01"), null); assert.equal(EV.eventById("e20261025", "2026-11-01"), null);
   });
   // ---------------- lintasan ----------------
   await t("lintasan renang: deterministik (sama untuk semua pemain), dalam batas, benar-benar bergerak, ada selam", () => {
@@ -81,7 +83,7 @@ async function play(e, u, opts) {      // mulai → mainkan bot → tunggu waktu
     const { e: e2 } = mk({ eventOn: false }); await init(e2, U); await assert.rejects(() => e2.ecoEventStart(U, { opId: op(), eventId: "e20261101" }), /belum dibuka/);
   });
   await t("eventInfo publik (tamu): jam server + jadwal; tanpa uid", async () => {
-    const { e } = mk(); now = S1 - 2 * EV.HOUR; const a = await e.eventInfo(); assert.equal(a.on, true); assert.equal(a.now, now); assert.equal(a.phase, "upcoming"); assert.equal(a.ev.monster, "toman_purba"); assert.equal(a.ev.start, S1);
+    const { e } = mk({ eventAnchor: "2026-11-01" }); now = S1 - 2 * EV.HOUR; const a = await e.eventInfo(); assert.equal(a.on, true); assert.equal(a.now, now); assert.equal(a.phase, "upcoming"); assert.equal(a.ev.monster, "megalodon_bayangan"); assert.equal(a.ev.start, S1);
     now = S1 + MIN; assert.equal((await e.eventInfo()).phase, "live");
   });
   await t("mulai duel: hanya saat event berlangsung, ID event harus cocok, seed dari SERVER (kiriman klien diabaikan), perlu akun ekonomi", async () => {
@@ -175,11 +177,19 @@ async function play(e, u, opts) {      // mulai → mainkan bot → tunggu waktu
     assert.equal(caught.filter((x) => x.f.score === maxS && x.uid === doc.top.uid).length, 1);
     for (const f of fs) assert.ok(f.paid.part > 0);
   });
-  await t("rotasi mingguan di server: pekan ke-2 = Jurung Mahkota dengan hadiah lebih besar; anchor digeser lewat konfigurasi Owner", async () => {
-    const { e } = mk(); await init(e, U); now = S1 + EV.WEEK + MIN; const s = await e.ecoEventStart(U, { opId: op(), eventId: "e20261108" }); assert.equal(s.duel.monster, "jurung_mahkota");
+  await t("rotasi mingguan di server: pekan ke-2 = Jurung Mahkota dengan hadiah lebih besar; anchor digeser lewat konfigurasi Owner (pembukaan ikut bergeser)", async () => {
+    const { e } = mk({ eventAnchor: "2026-10-25" }); await init(e, U); now = S1 + EV.WEEK + MIN; const s = await e.ecoEventStart(U, { opId: op(), eventId: "e20261108" }); assert.equal(s.duel.monster, "jurung_mahkota");
     const { e: e2 } = mk({ eventAnchor: "2026-11-08" }); await init(e2, U); now = S1 + MIN; await assert.rejects(() => e2.ecoEventStart(U, { opId: op(), eventId: "e20261101" }), /tidak berlangsung/);
-    now = S1 + EV.WEEK + MIN; assert.equal((await e2.ecoEventStart(U, { opId: op(), eventId: "e20261108" })).duel.monster, "toman_purba");
+    now = S1 + EV.WEEK + MIN; assert.equal((await e2.ecoEventStart(U, { opId: op(), eventId: "e20261108" })).duel.monster, "megalodon_bayangan");
     assert.ok(EV.MONSTERS.every((m, i, a) => !i || m.rw.win > a[i - 1].rw.win));
+  });
+  await t("PEMBUKAAN PUBLIK 1 Nov: server memutuskan Megalodon; eventInfo menandai premiere + akses event khusus; saklar eventPass", async () => {
+    const { e } = mk({ eventAnchor: "2026-11-01" }); now = S1 - HOURMS; const a = await e.eventInfo();
+    assert.equal(a.ev.monster, "megalodon_bayangan"); assert.equal(a.ev.premiere, true); assert.equal(a.pass, true); assert.equal(a.next.premiere, true); assert.equal(a.ev.id, "e20261101");
+    await init(e, U); now = S1 + MIN; const s = await e.ecoEventStart(U, { opId: op(), eventId: "e20261101" }); assert.equal(s.duel.monster, "megalodon_bayangan");
+    const b = bot("megalodon_bayangan", s.duel.seed, 8); now += b.r.ms + 700; const f = await e.ecoEventFinish(U, { opId: op(), eventId: "e20261101", log: b.log }); assert.equal(f.caught, true); assert.equal(f.paid.part + f.paid.catch, EV.rewardsOf("megalodon_bayangan").part + EV.rewardsOf("megalodon_bayangan").catch);
+    const { e: off } = mk({ eventAnchor: "2026-11-01", eventPass: false }); now = S1 - HOURMS; assert.equal((await off.eventInfo()).pass, false);
+    now = S1 + 6 * EV.WEEK; assert.equal((await e.eventInfo()).ev.premiere, false);
   });
   await t("ecoState tetap kompatibel (field lama utuh) + trofi", async () => {
     const { e } = mk(); const r = await e.ecoInit(U, { money: 0 }); for (const k of ["init", "own", "topup", "balance", "up", "homeLv", "cat", "box", "claimed", "troph"]) assert.ok(k in r, k);

@@ -61,10 +61,40 @@ async function claim(eventId) {
   } catch (e) { claimChecked = ""; }
 }
 
+// ---------- AKSES EVENT KHUSUS (tiket) ----------
+// Syarat kapal untuk perjalanan biasa TIDAK diubah. Selama event LIVE (jam server) dan saklar server eventPass aktif, pemain berakun boleh "ikut event":
+// ia dibawa ke lokasi monster hanya untuk menonton & menantang monster. Ikan biasa tidak menggigit di sana (tidak bisa dipakai memancing lokasi terkunci),
+// dan begitu event selesai / pemain pergi, ia dikembalikan ke lokasi semula. Saat game dibuka lagi, lokasi awal tetap dipilih game lewat syarat kapal biasa (startArea/canSail) sehingga tiket tidak terbawa.
+let pass = null;
+const sailOkFor = (locId) => { try { return N().canSail(locIndex(locId)); } catch (e) { return true; } };
+function passAvailable(monId) {
+  const s = st, m = EV.BY_ID[monId]; if (!s || s.phase !== "live" || !info || info.pass === false || !m || !ecoOn()) return false;
+  return s.ev.monster === monId && !sailOkFor(m.loc);
+}
+function passGo() {
+  const s = st; if (!s || s.phase !== "live") return false;
+  const m = EV.BY_ID[s.ev.monster]; if (!passAvailable(m.id) || (my && my.left <= 0)) return false;
+  if (here(m.id)) return true;
+  const S = N().S, prev = pass ? pass.prev : S.loc;
+  pass = { evId: s.ev.id, loc: locIndex(m.loc), prev };
+  N().fish.enterAt(pass.loc); toast(`🎟️ Akses event: ${m.name} di ${locName(m.loc)}. Lempar kail dekat monster!`, "good");
+  return true;
+}
+function passActive() { return !!pass; }
+function passEnd(restore) {
+  if (!pass) return; const p = pass; pass = null;
+  if (restore && N().fish.locIdx() === p.loc && N().canSail(p.prev)) { N().fish.enterAt(p.prev); toast("🎟️ Akses event berakhir — kembali ke lokasi semula.", "good"); }
+}
+function passTick() {
+  if (!pass) return;
+  if (N().fish.locIdx() !== pass.loc || N().mode() !== "fish") { if (N().mode() !== "fish" || N().fish.locIdx() !== pass.loc) { /* pergi ke tempat lain: tiket gugur tanpa mengembalikan */ if (!duel) pass = null; } return; }
+  const s = st; if ((!s || s.phase === "ended" || s.phase === "upcoming" || s.ev.id !== pass.evId) && !duel) passEnd(true);
+}
+
 // ---------- detak 1 detik: transisi fase, pengumuman, penyegaran ----------
 function tick() {
   if (!info) return;
-  const s = status(); st = s; const ph = s ? s.phase : "off";
+  const s = status(); st = s; passTick(); const ph = s ? s.phase : "off";
   if (ph !== prevPhase) {
     if (prevPhase !== null && s) {
       const m = EV.BY_ID[s.ev.monster], L = locName(m.loc);
@@ -74,11 +104,12 @@ function tick() {
     }
     prevPhase = ph;
   }
-  if (s && s.phase === "upcoming" && s.msToStart <= 10 * 60000 && s.msToStart > 0 && (lsGet(SEEN) || {}).warn !== s.ev.id) {
-    lsSet(SEEN, Object.assign({}, lsGet(SEEN) || {}, { warn: s.ev.id }));
-    toast(`🌊 ${Math.ceil(s.msToStart / 60000)} menit lagi: ${EV.BY_ID[s.ev.monster].name} muncul di ${locName(EV.BY_ID[s.ev.monster].loc)}!`, "good");
+  const nx = s && (s.phase === "upcoming" ? s.ev : s.phase === "ended" ? s.next : null);   // event berikutnya (di antara dua event fase-nya "ended")
+  if (nx && s.msToStart <= 10 * 60000 && s.msToStart > 0 && (lsGet(SEEN) || {}).warn !== nx.id) {
+    lsSet(SEEN, Object.assign({}, lsGet(SEEN) || {}, { warn: nx.id }));
+    toast(`🌊 ${Math.ceil(s.msToStart / 60000)} menit lagi: ${EV.BY_ID[nx.monster].name} muncul di ${locName(EV.BY_ID[nx.monster].loc)}!`, "good");
   }
-  const near = s && (s.phase === "live" || s.phase === "closing" || (s.phase === "upcoming" && s.msToStart < 20 * 60000)), every = near ? 60000 : 300000;
+  const near = s && (s.phase === "live" || s.phase === "closing" || (nx && s.msToStart < 20 * 60000)), every = near ? 60000 : 300000;
   if (Date.now() - lastFetch > every) fetchInfo();
   else if (s && s.phase === "ended" && !info.winner && Date.now() - lastFetch > 15000 && serverNow() < s.ev.close + 180000) fetchInfo();   // tunggu pengumuman juara
   if (NW.eventUI) NW.eventUI.pill();
@@ -242,6 +273,6 @@ const hook = () => {
 };
 
 NW.event = { Core: EV, hook, drawWater, onWaiting, update,
-  info: () => info, status: () => st, my: () => my, duel: () => duel, serverNow, monsterNow, here, why, locName, locIndex, fetchInfo, fetchMy, onChange: (f) => listeners.push(f),
+  info: () => info, status: () => st, my: () => my, duel: () => duel, serverNow, monsterNow, here, why, locName, locIndex, fetchInfo, fetchMy, passAvailable, passGo, passActive, passEnd, onChange: (f) => listeners.push(f),
   ecoOn, sizeAt, active: () => !!duel };
 })();

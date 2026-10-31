@@ -265,11 +265,11 @@
     // ---------- EVENT 5 MONSTER LEGENDA (event/core.js) ----------
     // Dokumen global: shop/event/{eventId} = { id, monster, top:{uid,score,at,name} }. Hanya ditulis saat ada skor tertinggi baru (hemat kuota tulis).
     // Juara = skor terbaik dari duel SUKSES (dimainkan ulang server); seri → selesai paling awal → uid. Satu dokumen = satu juara global untuk semua room/sesi.
-    // Saklar: shop/config.eventOn === true (Owner, toko.js event-buka). eventAnchor = tanggal Minggu untuk minggu ke-0 (Toman Purba).
+    // Saklar: shop/config.eventOn === true (Owner, toko.js event-buka). eventAnchor = tanggal Minggu untuk minggu ke-0 (PEMBUKAAN: Megalodon). eventPass !== false → akses event khusus (tiket) aktif.
     const needEV = () => { if (!EV) throw E("failed-precondition", "Event belum tersedia di server ini."); };
     const EVD = (id) => `shop/event/${id}`;
-    const evSet = (cfg) => ({ on: !!(cfg && cfg.eventOn === true), anchor: cfg && typeof cfg.eventAnchor === "string" ? cfg.eventAnchor : EV.DEFAULT_ANCHOR });
-    const evShape = (e) => e && { id: e.id, date: e.date, start: e.start, end: e.end, close: e.close, monster: e.monster };
+    const evSet = (cfg) => ({ on: !!(cfg && cfg.eventOn === true), pass: !(cfg && cfg.eventPass === false), anchor: cfg && typeof cfg.eventAnchor === "string" ? cfg.eventAnchor : EV.DEFAULT_ANCHOR });
+    const evShape = (e) => e && { id: e.id, date: e.date, start: e.start, end: e.end, close: e.close, monster: e.monster, premiere: !!e.premiere };
     const evPrune = (eco) => { const ks = Object.keys(eco.ev).sort(); while (ks.length > 6) delete eco.ev[ks.shift()]; };
     const evTroph = (eco, mon, now) => (eco.troph[mon] = eco.troph[mon] || { seen: now, caught: 0, best: 0, champ: 0 });
     // Gambaran publik (boleh dipanggil tamu): jam server, jadwal, dan juara event terakhir yang SUDAH final (setelah masa tutup).
@@ -277,7 +277,7 @@
       const now = clock(), s = evSet(await readCfg());
       if (!s.on) return { now, on: false };
       const st = EV.status(now, s.anchor);
-      const out = { now, on: true, anchor: s.anchor, phase: st.phase, ev: evShape(st.ev), next: evShape(st.next), winner: null };
+      const out = { now, on: true, pass: s.pass, anchor: s.anchor, phase: st.phase, ev: evShape(st.ev), next: evShape(st.next), winner: null };
       const fin = st.phase === "ended" ? st.ev : null;
       if (fin) { const d = await readDoc(fin.id); if (d && d.top) out.winner = { name: d.top.name, score: d.top.score, monster: fin.monster, date: fin.date, uid: d.top.uid }; }
       return out;

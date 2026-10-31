@@ -379,6 +379,7 @@ function landBobber() {
   const sp = UPGRADES.bait.speed[upLvl("bait")] * (G.streakBait ? NW.streak.BAIT_SPEED : 1);
   G.wxBite = NW.weather ? NW.weather.biteFactor() : 1; // cuaca: ±ringan (0,88–1,08) pada waktu tunggu SAJA; tidak menyentuh pemilihan ikan, varian, atau pertarungan
   G.biteTimer = rand(2.2, 7) / sp * G.wxBite;
+  if (NW.event && NW.event.passActive()) G.biteTimer = 1e9; // akses event khusus: di lokasi yang belum terbuka lewat kapal, ikan biasa TIDAK menggigit (hanya monster event)
   G.nibbles = [];
   const n = (Math.random() * 3) | 0;
   for (let i = 0; i < n; i++) G.nibbles.push(rand(0.5, G.biteTimer - 0.4));
@@ -1484,7 +1485,7 @@ window.Nusa = {
   // keadaan mancing untuk audio (tanpa rarity/berat ikan, supaya suara tidak membocorkan hasil)
   fishState: () => { const F = G.fight; return { phase: G.phase, T: F ? F.T : 0, surge: !!(F && F.surge > 0), tired: !!(F && F.tiredT > 0 && !(F.surge > 0)), warn: !!(F && F.T > 0.82) }; },
   // Event 5 Monster Legenda (event/*.js): akses terbatas ke keadaan memancing
-  fish: { G, loc: () => LOCATIONS[S.loc].id, hint: updateHint, reelBack: startReelBack, splash: splashAt, ripple: addRipple, navLock: setNavLocked, geom: () => ({ W, H, HZ, U, projX, projY, projS }) },
+  fish: { G, loc: () => LOCATIONS[S.loc].id, locIdx: () => S.loc, enterAt: (i) => { if (LOCATIONS[i]) { closePanel(); S.loc = i; S.hour = (S.hour + 1.5) % 24; enterFishing("boat"); } }, hint: updateHint, reelBack: startReelBack, splash: splashAt, ripple: addRipple, navLock: setNavLocked, geom: () => ({ W, H, HZ, U, projX, projY, projS }) },
   seaSpot: () => (fishFrom === "sea" && G.sea ? G.sea.id : null), fishFrom: () => fishFrom,
   tone, on, emit, registerPanel, renderPanel: () => currentPanel && renderPanel(), currentPanel: () => currentPanel, closePanel,
   sleepUntilMorning, refreshHUD, drawFish, fishImg, priceOf, priceMult, fmt, fmtW, FISH_BY_ID, coolerCap, upLvl, trendHTML,

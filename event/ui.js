@@ -45,10 +45,12 @@ function pill() {
   let txt = "", cls = "";
   if (on) {
     const m = EV().BY_ID[s.ev.monster], L = ev.locName(m.loc);
-    if (s.phase === "live") { txt = `<b>🔴 LIVE</b> ${esc(m.name)} · <b>${countdown(s.msLeft)}</b>`; cls = "live"; el.title = "Di " + L; }
+    if (s.phase === "live") { txt = `<b>🔴 LIVE</b>${s.ev.premiere ? " 🎉" : ""} ${esc(m.name)} · <b>${countdown(s.msLeft)}</b>`; cls = "live"; el.title = "Di " + L; }
     else if (s.phase === "closing") { txt = `Event ${esc(m.name)} selesai · menghitung juara…`; cls = "end"; }
-    else if (s.phase === "upcoming" && s.msToStart <= 24 * 3600000) { txt = `🌊 ${esc(m.name)} muncul di ${esc(L)} · <b>${countdown(s.msToStart)}</b>`; cls = s.msToStart <= 600000 ? "soon" : ""; }
     else if (s.phase === "ended" && info.winner && ev.serverNow() < s.ev.close + 15 * 60000) { txt = `👑 Juara ${esc(m.name)}: <b>${esc(info.winner.name)}</b> · skor ${fmt(info.winner.score)}`; cls = "end"; }
+    else if ((s.phase === "upcoming" || s.phase === "ended") && s.msToStart <= 24 * 3600000) {   // di antara dua event fase = "ended": hitung mundur ke event berikutnya
+      const nm = EV().BY_ID[(s.phase === "ended" ? s.next : s.ev).monster]; txt = `🌊 ${esc(nm.name)} muncul di ${esc(ev.locName(nm.loc))} · <b>${countdown(s.msToStart)}</b>`; cls = s.msToStart <= 600000 ? "soon" : "";
+    }
   }
   const hide = !txt || ev.active(); if (txt && el.innerHTML !== txt) el.innerHTML = txt; el.className = "ev-pill" + (cls ? " " + cls : "") + (hide ? " hidden" : "");
   const cd = $("evCount"); if (cd && on) cd.innerHTML = statusLine();
@@ -112,6 +114,7 @@ function render() {
   else if (!logged) act = `<p class="ev-warn">🔐 Masuk dengan akun Google (profil 👤) agar duel berhadiah tercatat server. Tanpa akun kamu tetap bisa menonton monsternya.</p>`;
   else if (my && my.left <= 0) act = `<p class="ev-warn">Kesempatanmu di event ini habis. Tunggu ${esc(C.BY_ID[s.next.monster].name)} minggu depan!</p>`;
   else if (here) act = `<p class="ev-ok-note">✅ Kamu sudah di ${esc(L.name)}. Lempar kail dekat monster — tunggu ia mendekati umpan!</p>`;
+  else if (!sailOk && ev.passAvailable(m.id)) act = `<button class="ev-btn" data-act="evpass">🎟️ Ikut Event (akses khusus) → ${esc(L.name)}</button><p class="ev-sub">Tiket event membawamu ke ${esc(L.name)} hanya untuk menantang monster ini. Memancing biasa di sana tetap butuh ${esc(boatName)}; setelah event kamu dikembalikan ke lokasi semula.</p>`;
   else if (!sailOk) act = `<button class="ev-btn ghost" disabled>🔒 Butuh ${esc(boatName)} untuk ke ${esc(L.name)}</button>`;
   else act = `<button class="ev-btn" data-act="go" data-arg="${li}">⛵ Menuju ${esc(L.name)}</button>${m.loc === "ampat" || m.loc === "banda" ? "" : `<p class="ev-sub">Setelah tiba, jalan ke dermaga lalu mulai memancing.</p>`}`;
   const tro = (logged && NW.eco.state() && NW.eco.state().troph) || {};
@@ -123,7 +126,7 @@ function render() {
   const sched = []; for (let w = cur.week, i = 0; i < 5; i++, w++) { const e = C.eventOf(w, info.anchor), x = C.BY_ID[e.monster]; sched.push(`<li${i === 0 ? ' class="now"' : ""}><span>${dateWIB(e.start).replace(/^[A-Za-z]+, /, "")}</span><b>${esc(x.name)}</b><small>${esc(ev.locName(x.loc))}</small></li>`); }
   const win = info.winner ? `<div class="ev-win">👑 Juara terakhir (${esc(C.BY_ID[info.winner.monster].name)}, ${esc(info.winner.date)}): <b>${esc(info.winner.name)}</b> · skor ${fmt(info.winner.score)}</div>` : "";
   const mine = my && live ? `<p class="ev-sub">Kesempatanmu: <b>${my.left}</b> dari ${C.MAX_ATTEMPTS}${my.best ? ` · skor terbaikmu <b>${fmt(my.best)}</b>` : ""}</p>` : "";
-  return `<div class="ev-hero"><canvas id="evHeroCv" data-mon="${m.id}" width="320" height="140"></canvas><div class="ev-hero-t"><b>${esc(m.name)}</b><small>${esc(m.title)} · ${esc(kgText(m.kg))}</small></div></div>
+  return `<div class="ev-hero"><canvas id="evHeroCv" data-mon="${m.id}" width="320" height="140"></canvas><div class="ev-hero-t"><b>${esc(m.name)}</b><small>${esc(m.title)} · ${esc(kgText(m.kg))}</small></div></div>${cur.premiere ? `<div class="ev-prem">🎉 <b>PEMBUKAAN PUBLIK</b> — monster spesial perdana! Semua pemain berakun boleh ikut lewat akses event khusus.</div>` : ""}
     <p class="ev-blurb">${esc(m.blurb)}</p><div class="ev-count" id="evCount">${statusLine()}</div>
     <div class="ev-loc">📍 ${esc(L.name)}${sailOk ? "" : ` <small>(🔒 ${esc(boatName)})</small>`}</div>${mine}${act}${win}
     <h4>🎁 Hadiah</h4><ul class="ev-rw"><li>Ikut duel (sekali per event): <b>+${fmt(rw.part)}</b> koin</li><li>Menaklukkan monster (sekali): <b>+${fmt(rw.catch)}</b> koin + trofi</li><li>👑 Juara tunggal (skor tertinggi di seluruh pemain): <b>+${fmt(rw.win)}</b> koin</li></ul>
@@ -136,7 +139,7 @@ function after(body) {
   const hero = $("evHeroCv"); if (hero && NW.eventDraw) { const draw = () => { if (!document.body.contains(hero)) return; NW.eventDraw.icon(hero, hero.dataset.mon, { t: performance.now() / 1000 }); requestAnimationFrame(draw); }; draw(); }   // monster di panel ikut berenang
   const ev = E(); const n = Date.now(); if (n - lastAfter > 15000) { lastAfter = n; ev.fetchInfo && ev.fetchInfo(); ev.fetchMy(true); }   // dibatasi: fetch → onChange → render → after tidak boleh berputar
 }
-function act(a, arg) { if (a === "go") { /* ditangani game.js: travel(+arg) */ } }
+function act(a, arg) { if (a === "evpass") E().passGo(); /* "go" ditangani game.js: travel(+arg) */ }
 function hook() { build(); if (N().registerPanel) N().registerPanel("event", { title: () => "🦈 Event Monster Legenda", render, act, after }); E().onChange(() => { pill(); if (N().currentPanel() === "event") { const ae = document.activeElement; if (!ae || ae.tagName !== "BUTTON") N().renderPanel(); } }); pill(); }
 
 NW.eventUI = { hook, pill, announce, duelHud, result, render, countdown };
