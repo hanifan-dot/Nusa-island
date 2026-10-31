@@ -153,6 +153,56 @@ const mv = (r, c, x, y, d = 2, f = 1) => r.room.message(c, JSON.stringify({ t: "
   const L6 = new Lobby({ cap: 2, max: 3, now: () => t }); L6.sync(1, ["p", "q"]); ok(L6.assign("z", "4.4.4.4").room === 2, "sync dari instance memulihkan hitungan setelah lobby tidur");
 }
 
+// ---------- Tahap 4.2: ID server, hitungan, jam dunia, pamer ikan ----------
+{
+  ok(P.roomId("3") === 3 && P.roomId(12) === 12 && P.roomId(" 7 ") === 7, "roomId angka sah");
+  for (const bad of ["0", "13", "99", "abc", "3x", "-1", "1e1", "3 OR 1=1", "", null, undefined, "٣", "03a", "1000"]) ok(P.roomId(bad) === null, "roomId menolak " + JSON.stringify(bad));
+  ok(P.roomId("03") === 3, "roomId '03' = 3");
+  // lobby: pilih ID, acak, otomatis, penuh, validasi
+  let t = 0; const L = new Lobby({ cap: 2, max: 12, now: () => t, rnd: () => 0.5, lim: { perUid: 1e9, perIp: 1e9, global: 1e9 } });
+  let r = L.assign("a", "ip", [], { room: 3 }); ok(r.room === 3 && !r.error, "ID 3 → server 3"); L.sync(3, ["a"]);
+  r = L.assign("b", "ip", [], { room: "3" }); ok(r.room === 3, "B ID 3 → server yang sama dengan A"); L.sync(3, ["a", "b"]);
+  r = L.assign("c", "ip", [], { room: 3 }); ok(r.error === "full" && r.room === 3, "C ID 3 → penuh (kapasitas tidak bisa dilewati)");
+  r = L.assign("c", "ip", [], { room: 99 }); ok(r.error === "bad_room", "ID 99 ditolak server"); r = L.assign("c", "ip", [], { room: "abc" }); ok(r.error === "bad_room", "ID 'abc' ditolak server");
+  r = L.assign("c", "ip", [], { mode: "random" }); ok(!r.error && r.room !== 3 && r.room >= 1 && r.room <= 12, "acak memilih server yang ada tempat (bukan penuh): " + r.room);
+  r = L.assign("a", "ip", [], { mode: "random" }); ok(r.room !== 3, "acak untuk pemain yang sudah di server 3 → server lain"); ok(r.kick === 3, "sesi di server lama ditandai ditutup saat pindah");
+  r = L.assign("a", "ip", [], { room: 3 }); ok(r.room === 3 && !r.error, "pemain yang SUDAH di server penuh boleh masuk lagi ke server itu (bukan dihitung dua kali)");
+  const L2 = new Lobby({ cap: 2, max: 3, now: () => t, lim: { perUid: 1e9, perIp: 1e9, global: 1e9 } }); L2.sync(1, ["x", "y"]); L2.sync(2, ["z", "w"]); L2.sync(3, ["q", "r"]);
+  ok(L2.assign("n", "ip", [], { mode: "random" }).error === "full" && L2.assign("n", "ip", [], {}).error === "full", "semua penuh → full (acak & otomatis)");
+  const d = L2.sync(2, ["z", "w", "x"]); ok(d.length === 1 && d[0].room === 1 && d[0].uid === "x", "akun yang muncul di dua server: sesi lama dilaporkan untuk ditutup");
+  ok(L2.list("ip9").rooms.length === 3 && L2.list("ip9").cap === 2, "daftar server = angka nyata");
+  const L3 = new Lobby({ cap: 2, max: 3, now: () => t }); let lim = 0; for (let i = 0; i < 40; i++) if (L3.list("same").error) lim++; ok(lim === 10, "daftar server dibatasi 30/menit per IP");
+  // jam dunia
+  const gs = fs.readFileSync(path.join(__dirname, "../game.js"), "utf8");
+  ok(/const HOURS_PER_SEC = 24 \/ 480;/.test(gs) && Math.abs(P.WORLD_HPS - 24 / 480) < 1e-12, "konstanta jam dunia sama dengan HOURS_PER_SEC di game.js");
+  ok(Math.abs(P.sharedHour(P.WORLD_EPOCH_MS) - 6) < 1e-9, "epoch = 06:00"); ok(Math.abs(P.sharedHour(P.WORLD_EPOCH_MS + 480000) - 6) < 1e-6, "satu hari game = 8 menit nyata");
+  ok(Math.abs(P.sharedHour(P.WORLD_EPOCH_MS + 120000) - 12) < 1e-6, "2 menit = +6 jam"); let mono = true, pv = P.sharedHour(1.8e12); for (let i = 1; i < 2000; i++) { const h = P.sharedHour(1.8e12 + i * 1000); if (!(h > pv || h < 1)) mono = false; pv = h; } ok(mono, "jam dunia monoton (hanya wrap tengah malam)");
+  ok(P.sharedHour(-5e12) >= 0 && P.sharedHour(5e12) < 24, "jam dunia selalu 0..24");
+  // pesan jam server & hitungan
+  const r1 = mkRoom(); r1.room.join(1, "a", {}); r1.room.message(1, JSON.stringify({ t: "h" })); const k = r1.to(1).find((o) => o.t === "k"); ok(k && k.st === r1.now(), "heartbeat dibalas jam SERVER");
+  hello(r1, 1, "A"); const w = r1.to(1).find((o) => o.t === "w"); ok(w.st === r1.now() && w.rn === 1 && w.n === 1 && w.v === 1, "welcome membawa jam server, nomor server, jumlah tersambung");
+  r1.room.join(2, "b", {}); r1.clear(); r1.room.tick(); const cnt = r1.to(1).find((o) => o.t === "cnt"); ok(cnt && cnt.n === 2 && cnt.v === 1, "jumlah tersambung (2) berbeda dari yang terlihat (1) sebelum B masuk dunia");
+  ok(r1.to(2).some((o) => o.t === "cnt" && o.n === 2), "pemain yang belum 'hello' pun menerima hitungan tersambung");
+  hello(r1, 2, "B"); r1.room.tick(); r1.room.message(2, JSON.stringify({ t: "v", on: 0 })); r1.room.tick(); ok(r1.to(1).filter((o) => o.t === "cnt").pop().v === 1 && r1.to(1).filter((o) => o.t === "cnt").pop().n === 2, "pemain yang bersembunyi tetap terhitung tersambung");
+  // pamer ikan
+  const h = mkRoom(); h.room.join(1, "a", {}); hello(h, 1, "A"); h.room.join(2, "b", {}); hello(h, 2, "B"); h.clear();
+  h.room.message(1, JSON.stringify({ t: "f", i: "arwana", w: 3200, v: "silver" })); const f1 = h.to(2).find((o) => o.t === "f"); ok(f1 && f1.h[0] === "arwana" && f1.h[1] === 3200 && f1.h[2] === "silver", "status pamer disiarkan ke teman");
+  ok(!h.to(1).some((o) => o.t === "f"), "tidak digemakan ke pengirim"); h.clear(); h.room.message(1, JSON.stringify({ t: "f", i: "arwana", w: 3200, v: "silver" })); ok(h.log.length === 0, "status sama tidak disiarkan ulang");
+  h.clear(); h.room.message(1, JSON.stringify({ t: "f" })); ok(h.to(2).some((o) => o.t === "f" && o.h === 0), "berhenti pamer dibersihkan di teman");
+  for (const bad of [{ i: "<b>x</b>", w: 5 }, { i: "a", w: 5 }, { i: "nila", w: 0 }, { i: "nila", w: 1e12 }, { i: "nila", w: "x" }, { i: "nila".repeat(20), w: 5 }, { i: { x: 1 }, w: 5 }]) { h.clear(); h.room.message(1, JSON.stringify(Object.assign({ t: "f" }, bad))); ok(!h.to(2).some((o) => o.t === "f"), "status palsu ditolak: " + JSON.stringify(bad).slice(0, 40)); }
+  h.clear(); h.room.message(1, JSON.stringify({ t: "f", i: "nila", w: 1200, v: "<img>" })); ok(h.to(2).find((o) => o.t === "f").h[2] === "normal", "varian tak dikenal → normal");
+  h.room.message(1, JSON.stringify({ t: "f", i: "arwana", w: 3000, v: "pearl" })); const pubRow = h.to(2).find((o) => o.t === "w"); const room2 = h; h.room.join(3, "c", {}); hello(h, 3, "C"); const wc = h.to(3).find((o) => o.t === "w"); ok(wc.ps.find((q) => q[1] === "A")[8][0] === "arwana", "pemain yang baru masuk langsung melihat ikan yang sedang dipamerkan");
+  h.room.message(1, JSON.stringify({ t: "v", on: 0 })); h.room.message(1, JSON.stringify({ t: "v", on: 1 })); ok(h.room.players.get(1).hold === null, "pindah area/sembunyi membersihkan status pamer di server");
+  h.room.message(1, JSON.stringify({ t: "f", i: "nila", w: 1000, v: "normal" })); h.room.leave(1); ok(![...h.room.players.values()].some((q) => q.hold && q.name === "A"), "keluar = status pamer hilang bersama pemain");
+  const hf = mkRoom(); hf.room.join(1, "a", {}); hello(hf, 1, "A"); hf.room.join(2, "b", {}); hello(hf, 2, "B"); let leaked = 0; for (let i = 0; i < 40; i++) { hf.adv(100); hf.room.message(1, JSON.stringify({ t: "f", i: i % 2 ? "nila" : "mas", w: 1000 + i, v: "normal" })); } leaked = hf.to(2).filter((o) => o.t === "f").length; ok(leaked <= 9, "laju perubahan status pamer dibatasi (" + leaked + " dari 40)");
+  // protokol tidak memuat inventaris
+  const src2 = fs.readFileSync(path.join(__dirname, "../mp/room-core.js"), "utf8") + fs.readFileSync(path.join(__dirname, "../mp/proto.js"), "utf8");
+  ok(!/uid:\s*it\.uid|cooler|money|inventor/i.test(src2.replace(/\/\/.*$/gm, "")), "kode server tidak mengenal coolbox/koin/inventaris");
+  const wtoml = fs.readFileSync(path.join(__dirname, "../cf-multiplayer/src/index.js"), "utf8");
+  ok(/Proto\.roomId\(wantRaw\)/.test(wtoml) && /wsError\("bad_room"\)/.test(wtoml) && /CLOSE = \{ full: 4006, bad_room: 4007, rate: 4008/.test(wtoml), "Worker memvalidasi ?room= dan melaporkan galat lewat WebSocket");
+  ok(/\/rooms/.test(wtoml) && /verifyFirebaseToken\(tok/.test(wtoml), "daftar server butuh token sah");
+}
+
 // ---------- JWT (kunci RSA buatan sendiri; tanpa jaringan) ----------
 (async () => {
   const kp = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 }), jwk = kp.publicKey.export({ format: "jwk" }); jwk.kid = "k1"; jwk.alg = "RS256";

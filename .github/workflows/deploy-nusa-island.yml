@@ -1,0 +1,72 @@
+# NUSA ISLAND — tombol rilis manual "Deploy Nusa Island".
+# TIDAK pernah berjalan otomatis: hanya lewat GitHub → Actions → "Deploy Nusa Island" → Run workflow, dan job deploy menunggu
+# PERSETUJUAN pemilik (Environment "production" dengan Required reviewers). Rahasia hanya ada di Environment secrets (bukan di repo/chat).
+# Cara menyiapkan (sekali, ±5 menit): docs/RILIS-GITHUB.md
+name: Deploy Nusa Island
+run-name: "Deploy Nusa Island (${{ inputs.target }}) dari ${{ github.ref_name }}"
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Apa yang dirilis"
+        type: choice
+        options: [semua, server, game]
+        default: semua
+      konfirmasi:
+        description: "Ketik persis: deploy"
+        required: true
+        type: string
+concurrency:
+  group: deploy-nusa-island
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  cek:
+    name: Cek cepat (tanpa rahasia)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Konfirmasi diketik benar
+        env:
+          KONF: ${{ inputs.konfirmasi }}
+        run: '[ "$KONF" = "deploy" ] || { echo "::error::Ketik persis: deploy"; exit 1; }'
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Cabang harus memuat produksi terbaru
+        run: |
+          git fetch -q origin uji/gabungan-kedai-ekonomi
+          git merge-base --is-ancestor origin/uji/gabungan-kedai-ekonomi HEAD || { echo "::error::Cabang ini tidak memuat uji/gabungan-kedai-ekonomi terbaru"; exit 1; }
+      - name: Tes logika multiplayer
+        run: node tests/unit-mp.js
+  deploy:
+    name: Deploy (menunggu persetujuan pemilik)
+    needs: cek
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    env:
+      NUSA_CI: "1"
+      NUSA_CONFIRM: "ya"
+      NUSA_TARGET: ${{ inputs.target }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Kredensial Firebase Hosting (hanya di runner ini)
+        if: ${{ inputs.target != 'server' }}
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          [ -n "$SA" ] || { echo "::error::Secret FIREBASE_SERVICE_ACCOUNT belum diisi (docs/RILIS-GITHUB.md)"; exit 1; }
+          umask 077; printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+      - name: Rilis
+        run: bash firebase/scripts/rilis.sh --ci
+      - name: Hapus kredensial
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sa.json"
