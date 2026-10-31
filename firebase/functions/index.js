@@ -88,6 +88,8 @@ const shopWrap = (name, publicOk) => onCall({ enforceAppCheck: false }, async (r
   }
 });
 for (const n of ["getCatalog", "getTime"]) exports["shop_" + n] = shopWrap(n, true);
-for (const n of ["createOrder", "cancelOrder", "claimPaid", "listOrders", "getEntitlements", "listLedger", "spendCoins",
-  "ownerCatalog", "ownerListOrders", "ownerApprove", "ownerReject", "ownerSetLaunch", "ownerSetEnabled", "ownerSetMode", "ownerSetPilot", "ownerAudit", "ownerUserReport"]) exports["shop_" + n] = shopWrap(n, false);
+for (const n of ["createOrder", "cancelOrder", "claimPaid", "listOrders", "getEntitlements", "listLedger", "spendCoins"
+]) exports["shop_" + n] = shopWrap(n, false);
+// SENGAJA tidak ada fungsi Owner (setujui/tolak/mode/pilot) di sini: satu-satunya jalur persetujuan = server dashboard (Cloud Run) yang memeriksa
+// token + claim role=owner + owners/{uid}.active dan memeriksa integritas pesanan. Mengurangi permukaan serangan pada fungsi yang bisa dipanggil publik.
 // NB: simulatePayment sengaja TIDAK diekspor — pada produksi tidak ada jalur "anggap dibayar".
