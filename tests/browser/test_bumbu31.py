@@ -318,7 +318,7 @@ def main():
         for g in GAMES:
             start_game(pg, g, "goat"); pg.click("[data-x=go]"); time.sleep(0.4)
             r = ev(pg, """async()=>{const c=NW.kedaiUI._state().ctl, cv=document.getElementById('kdCv').getContext('2d');const ts=[];for(let i=0;i<90;i++){const t0=performance.now();c.update(1/60);c.draw(cv);ts.push(performance.now()-t0)}
-               const fr=await new Promise(res=>{let n=0,t0=performance.now();function f(){n++;if(n<60)requestAnimationFrame(f);else res(1000*60/(performance.now()-t0))}requestAnimationFrame(f)});ts.sort((a,b)=>a-b);return {avg:ts.reduce((a,b)=>a+b,0)/ts.length,p95:ts[Math.floor(ts.length*.95)],fps:fr}})()""")
+               const fr=await new Promise(res=>{let n=0,t0=performance.now();function f(){n++;if(n<60)requestAnimationFrame(f);else res(1000*60/(performance.now()-t0))}requestAnimationFrame(f)});ts.sort((a,b)=>a-b);return {avg:ts.reduce((a,b)=>a+b,0)/ts.length,p95:ts[Math.floor(ts.length*.95)],fps:fr}}""")
             perf[g] = r
         cdp.send("Emulation.setCPUThrottlingRate", {"rate": 1})
         ok("8a update+draw per bingkai rata-rata ≤ 6 ms pada CPU 4× lebih lambat (emulasi) untuk kelima permainan", all(v["avg"] <= 6 for v in perf.values()), {k: round(v["avg"], 2) for k, v in perf.items()})
