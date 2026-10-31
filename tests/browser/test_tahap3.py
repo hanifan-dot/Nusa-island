@@ -353,9 +353,10 @@ def main():
           window.firebase={ initializeApp:(c)=>{calls.push(['init',c.projectId])},
             auth:Object.assign(()=>({ getRedirectResult:async()=>({}), onAuthStateChanged:(f)=>{listeners.push(f); setTimeout(()=>f(window.__fb.user),0); return ()=>{}},
                signInWithPopup:async()=>{calls.push(['popup']); if(window.__fb.popupFail){const e=new Error('x');e.code=window.__fb.popupFail;throw e} window.__fb.user=mkUser(); listeners.forEach(f=>f(window.__fb.user)); return {user:window.__fb.user}},
-               signInWithRedirect:async()=>{calls.push(['redirect'])}, signOut:async()=>{window.__fb.user=null; listeners.forEach(f=>f(null))}, get currentUser(){return window.__fb.user} }), {GoogleAuthProvider: function(){this.setCustomParameters=()=>{}}}),
-            app:()=>({functions:(region)=>({httpsCallable:(name)=>async(p)=>{ calls.push(['call',name,region]); if(window.__fb.offline){const e=new Error('net');e.code='functions/unavailable';throw e}
-                 if(name==='loadSave') return {data:{exists:false,rev:0}}; if(name==='writeSave'){window.__fb.store=p; return {data:{ok:true,rev:1,hash:'h'}}} return {data:{}} } })}) };
+               signInWithRedirect:async()=>{calls.push(['redirect'])}, signOut:async()=>{window.__fb.user=null; listeners.forEach(f=>f(null))}, get currentUser(){return window.__fb.user} }), {GoogleAuthProvider: function(){this.setCustomParameters=()=>{}}})
+            };
+          window.firebase.firestore=Object.assign(()=>({doc:(p)=>({_p:p,get:async()=>{ calls.push(['get',p]); if(window.__fb.offline){const e=new Error('net');e.code='unavailable';throw e} return {exists:false}}}),
+            runTransaction:async(fn)=>fn({get:async(r)=>({exists:false}), set:(r,d)=>{calls.push(['set',r._p]); window.__fb.store=d}})}), {FieldValue:{serverTimestamp:()=>'TS'}});
         })();"""
         ctx = b.new_context(viewport={"width": 390, "height": 844}, has_touch=True)
         ctx.add_init_script("Object.defineProperty(window,'NUSA_FIREBASE',{get:()=>({apiKey:'k',authDomain:'x.firebaseapp.com',projectId:'proyek-uji',appId:'a',functionsRegion:'asia-southeast2'}),set:()=>{}, configurable:true});")
@@ -363,10 +364,10 @@ def main():
         pg = ctx.new_page(); errs = []; pg.on("pageerror", lambda e: errs.append(str(e)))
         pg.route("https://www.gstatic.com/firebasejs/**", lambda r: (reqs.append(r.request.url), r.fulfill(status=200, content_type="application/javascript", body=fake_sdk if r.request.url.endswith("firebase-app-compat.js") else "/*stub*/")))
         pg.goto(ROOT); settle(pg, 10); time.sleep(0.5)
-        ok("10a dengan config terisi, SDK Firebase dimuat dari gstatic.com (versi dikunci 10.14.1) & layar login muncul", len(reqs) == 3 and all("/10.14.1/" in u for u in reqs) and gate_visible(pg), reqs)
+        ok("10a dengan config terisi, SDK Firebase (app, auth, firestore) dimuat dari gstatic.com (versi dikunci 10.14.1) & layar login muncul", len(reqs) == 3 and all("/10.14.1/" in u for u in reqs) and gate_visible(pg), reqs)
         pg.click("#gateGoogle"); time.sleep(1.0)
         calls = ev(pg, "window.__fb.calls")
-        ok("10b Login Google lewat popup; fungsi dipanggil di region yang dikonfigurasi", ["popup"] in calls and any(c[0] == "call" and c[2] == "asia-southeast2" for c in calls) and not gate_visible(pg), calls)
+        ok("10b Login Google lewat popup; data dibaca/ditulis langsung ke Firestore milik UID itu (tanpa Cloud Functions)", ["popup"] in calls and any(c[0] == "get" and c[1] == "users/fb-uid-1/saves/current" for c in calls) and not any(c[0] == "call" for c in calls) and not gate_visible(pg), calls)
         ok("10c nama & foto Google dipakai; UID Firebase menjadi UID pemain", ev(pg, "NW.cloud.user.name") == "Nelayan FB" and ev(pg, "NW.cloud.user.uid") == "fb-uid-1" and meta(pg).get("uid") == "fb-uid-1")
         ok("10d payload tulis berisi baseRev/opId/deviceId (tanpa email)", "@" not in json.dumps(ev(pg, "window.__fb.store") or {}))
         ctx.close()

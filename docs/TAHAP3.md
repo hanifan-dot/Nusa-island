@@ -68,15 +68,21 @@ Akses Control Center disiapkan (`ownerAccess` → `controlCenter.phase = "3.5"`)
 3. Owner login ulang (atau tunggu token menyegarkan) agar claim berlaku.
 
 ## Konfigurasi Firebase yang masih harus dilakukan pemilik proyek
-1. Buat proyek Firebase **baru** untuk Nusa Island (jangan memakai proyek Kota Nusa) dan paket Blaze (Cloud Functions membutuhkannya).
+1. Buat proyek Firebase **baru** untuk Nusa Island (jangan memakai proyek Kota Nusa). **Mode Spark (gratis) cukup**: game menulis langsung ke Firestore, tanpa Cloud Functions.
 2. Authentication → Sign-in method → aktifkan **Google**. Authorized domains: tambahkan domain tempat game di-host.
-3. Firestore Database (mode produksi), pilih region (disarankan `asia-southeast2`, sesuaikan `NUSA_REGION`/`functionsRegion`).
-4. `cp firebase/.firebaserc.example firebase/.firebaserc` lalu isi ID proyek. Deploy dari `firebase/`: `firebase deploy --only firestore:rules,functions`
-   (di `functions/` jalankan `npm i` dulu). **Belum pernah dijalankan.**
-5. Isi `cloud/config.js` dengan konfigurasi web app (apiKey web bersifat publik; keamanan ada di Rules + Functions).
-6. Sangat disarankan: aktifkan **App Check** (lalu ubah `enforceAppCheck: true` di `index.js`), batasi apiKey ke domain game, atur anggaran/alert.
+3. Firestore Database (mode produksi), region `asia-southeast2`.
+4. `cp firebase/.firebaserc.example firebase/.firebaserc` lalu isi ID proyek. Deploy dari `firebase/`: `firebase deploy --only firestore:rules`
+   (cukup Rules; folder `functions/` TIDAK dipakai di mode Spark). **Belum pernah dijalankan.**
+5. Isi `cloud/config.js` dengan konfigurasi web app (apiKey web bersifat publik; keamanan ada di Firestore Rules).
+6. Sangat disarankan: aktifkan **App Check** untuk Firestore, batasi apiKey ke domain game.
 7. Daftarkan Owner (bagian di atas).
 8. Opsional: tambahkan *Subresource Integrity* untuk skrip gstatic dan Content-Security-Policy yang mengizinkan `www.gstatic.com`, `*.googleapis.com`, `*.firebaseapp.com`.
+
+## MODE SPARK (yang dipakai sekarang)
+Pemilik proyek memilih tetap di paket gratis, jadi **tidak ada Cloud Functions**. Kode logika yang sama (`cloud/core.js`: validasi, konflik rev, cadangan, guard Owner) berjalan **di browser** terhadap Firestore lewat `cloud/adapter-firebase.js`.
+Penegakan sebenarnya ada di `firebase/firestore.rules`: pemilik UID + email Google terverifikasi, nomor revisi harus naik tepat 1, jeda tulis diukur waktu SERVER, batas ukuran, bentuk dokumen, batas koin pada ringkasan, kunci terlarang di dalam data, cadangan harus salinan persis save berlaku, sandbox Owner hanya untuk claim `role: owner` + `owners/{uid}.active`.
+**Lebih lemah dari versi Functions:** Rules tidak membaca isi save secara mendalam, jadi koin/item di dalam `data` tidak bisa diverifikasi; `summary.money` ditulis klien dan tidak terikat kriptografis pada `data`; deteksi lonjakan (`flags`) dan validasi mendalam hanya berjalan di klien yang jujur. Pemain yang paham teknis bisa menulis save tak wajar ke akunnya SENDIRI (tidak ke akun lain). Versi Functions (butuh Blaze) tetap tersimpan: `firebase/functions/` dan `firebase/firestore.rules.blaze-functions`.
+Owner tetap aman dari pemalsuan: claim hanya bisa dipasang Admin SDK (`set-owner.js`), dan rules memeriksa claim + registri.
 
 ## Batasan keamanan (jujur)
 Game berjalan di browser. Pemain tetap bisa mengubah koin/item **di perangkatnya sendiri** (DevTools). Yang dilakukan server:
@@ -86,6 +92,6 @@ Untuk ekonomi yang benar-benar tepercaya (mis. Premium Shop/QRIS, Tahap berikutn
 Memaksa mode sandbox lewat storage hanya mengubah salinan lokal di perangkat itu sendiri; server menolak dan menutup mode itu, dan tidak ada yang tersinkron.
 
 ## Pengujian
-- `node tests/unit-cloud.js` — 69 pemeriksaan logika server (validasi, isolasi akun, konflik, cadangan, guard Owner, sandbox terpisah, rules statis, tidak ada email/kunci di repo).
+- `node tests/unit-cloud.js` — 71 pemeriksaan logika server (validasi, isolasi akun, konflik, cadangan, guard Owner, sandbox terpisah, rules statis, tidak ada email/kunci di repo).
 - `python tests/browser/test_tahap3.py` — 114 pemeriksaan di browser (login/logout, tamu & popup, save/load, migrasi tamu→Google & v4, konflik, offline, isolasi akun, Owner & pemalsuan, adapter Firebase dengan **SDK palsu**, layar HP, performa-emulasi).
-- **Belum teruji:** Google Sign-In sungguhan, Firebase Auth/Firestore/Functions/Security Rules sungguhan, Admin SDK & `set-owner.js` (membutuhkan proyek & kredensial), App Check, perilaku popup/redirect Google di Android fisik. Rules hanya diperiksa secara statis (teks), bukan dijalankan di emulator.
+- **Belum teruji:** Google Sign-In sungguhan, Firebase Auth/Firestore/Security Rules sungguhan, Admin SDK & `set-owner.js` (membutuhkan proyek & kredensial), App Check, perilaku popup/redirect Google di Android fisik. Rules hanya diperiksa secara statis (teks), bukan dijalankan di emulator.

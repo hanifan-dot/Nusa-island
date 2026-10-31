@@ -1,0 +1,18 @@
+rules_version = '2';
+// NUSA ISLAND — Tahap 3. Prinsip: tolak semuanya, buka seminimal mungkin.
+//  - Pemain hanya boleh MEMBACA save miliknya sendiri (UID dari token terverifikasi).
+//  - TIDAK ADA tulis dari klien: semua perubahan lewat Cloud Functions (Admin SDK melewati rules)
+//    yang memvalidasi data dan memeriksa konflik/rev.
+//  - Cadangan, registri Owner, dan sandbox Owner tertutup total dari klien (hanya fungsi server).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/saves/{doc} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+    match /users/{uid}/backups/{doc} { allow read, write: if false; }
+    match /owners/{doc} { allow read, write: if false; }
+    match /ownerSandbox/{doc=**} { allow read, write: if false; }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

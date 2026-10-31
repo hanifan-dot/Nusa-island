@@ -1,4 +1,5 @@
-// NUSA ISLAND — Tahap 3: Cloud Functions (callable, Gen 2).
+// NUSA ISLAND — Tahap 3: Cloud Functions (callable, Gen 2). TIDAK DIPAKAI di mode Spark (lihat docs/TAHAP3.md); disimpan untuk
+// kalau nanti memakai paket Blaze (dengan firestore.rules.blaze-functions).
 // Semua logika ada di lib/core.js (diuji di tests/unit-cloud.js). File ini hanya jembatan ke Firebase:
 //   - mengambil identitas dari request.auth (token TERVERIFIKASI oleh Firebase, bukan dari isi permintaan),
 //   - membungkus Firestore Admin SDK sebagai `db`,
