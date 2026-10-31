@@ -307,7 +307,7 @@ def main():
         # validasi server: data Kedai curang ditolak oleh pemeriksa bentuk data (core.js)
         bad = ev(pg, """async()=>{const d=window.__demoCloud; const doc=await d.server.loadSave(d.tokenOf('demo-a'),{}); const base=JSON.parse(doc.data); const out=[];
            for(const mut of [k=>{k.koin=-5},k=>{k.koin=1e9},k=>{k.earned=5000},k=>{k.goat={xx:true}},k=>{k.rec={batok:{goat:{wins:-1}}}}]){ const c=JSON.parse(JSON.stringify(base)); mut(c.kedai);
-             try{ await d.server.writeSave(d.tokenOf('demo-a'),{data:JSON.stringify(c),baseRev:doc.rev,opId:'x'+Math.random(),deviceId:'t'}); out.push('diterima'); }catch(e){ out.push(e.code) } } return out})()""")
+             try{ await d.server.writeSave(d.tokenOf('demo-a'),{data:JSON.stringify(c),baseRev:doc.rev,opId:'x'+Math.random(),deviceId:'t'}); out.push('diterima'); }catch(e){ out.push(e.code) } } return out}""")
         ok("7k data Kedai di luar batas wajar ditolak validasi server (5/5)", all(x != "diterima" for x in bad), bad)
         ok("7l tanpa error JavaScript (Google demo)", errs == [], errs); ctx.close()
 
