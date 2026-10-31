@@ -23,6 +23,14 @@ let n = 0; const op = () => "op" + (++n) + "xxxxxxxx";
     await assert.rejects(() => e.ecoCatch(U, cat("ikan_palsu", 1)), /tidak dikenal/);
     const f = T.FISH.find((x) => x.id === "nila"); await assert.rejects(() => e.ecoCatch(U, cat("nila", f.wMax * 5)), /berat/i);
     now += 5000; await e.ecoCatch(U, cat("nila", f.wMin)); await assert.rejects(() => e.ecoCatch(U, cat("nila", f.wMin)), /terlalu cepat/i); });
+  await t("paket tangkapan: ≤10 ikan satu tulis; jeda rata-rata ditegakkan; uid ganda & jumlah berlebih ditolak", async () => { const { e } = mk(); await e.ecoInit(U, {}); now += 20000;
+    const items = Array.from({ length: 6 }, (_, i) => ({ id: "nila", w: 1, uid: "bt" + i + Math.random().toString(36).slice(2, 7) }));
+    const r = await e.ecoCatch(U, { opId: op(), items }); assert.equal(r.box.length, 6);
+    await assert.rejects(() => e.ecoCatch(U, { opId: op(), items: [{ id: "nila", w: 1, uid: "zz1abcd" }, { id: "nila", w: 1, uid: "zz1abcd" }] }), /UID/);
+    await assert.rejects(() => e.ecoCatch(U, { opId: op(), items: Array.from({ length: 11 }, (_, i) => ({ id: "nila", w: 1, uid: "mm" + i + "abcd" })) }), /Paket/);
+    await assert.rejects(() => e.ecoCatch(U, { opId: op(), items: Array.from({ length: 10 }, (_, i) => ({ id: "nila", w: 1, uid: "qq" + i + "abcd" })) }), /terlalu cepat/i);
+    now += 60000; const id = op(), ok = await e.ecoCatch(U, { opId: id, items: Array.from({ length: 10 }, (_, i) => ({ id: "nila", w: 1, uid: "rr" + i + "abcd" })) }); assert.equal(ok.box.length, 16);
+    assert.ok((await e.ecoCatch(U, { opId: id, items: [{ id: "nila", w: 1, uid: "rr0abcd" }] })).duplicate); });
   await t("batas per jam", async () => { const { e } = mk(); await e.ecoInit(U, {}); const f = T.FISH.find((x) => x.id === "nila"); let ok = 0, err = null;
     for (let i = 0; i < 420; i++) { now += 1600; try { await e.ecoCatch(U, cat("nila", f.wMin)); ok++; } catch (x) { err = x; if (/penuh/.test(x.message)) { await e.ecoDrop(U, { opId: op(), uids: (await e.ecoState(U)).box }); i--; now -= 1600; } } }
     assert.ok(ok <= EC.LIM.catchPerHour + 1); });

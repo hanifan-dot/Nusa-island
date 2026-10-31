@@ -16,7 +16,8 @@
   const KEY = "nusa-island-v1", SBX_KEY = "nusa-island-v1-owner-sandbox";
   const META_KEY = "nusa-auth-v1", SBX_META_KEY = "nusa-auth-v1-owner-sandbox", SBX_FLAG = "nusa-owner-sandbox";
   const BAK_PREFIX = "nusa-island-v1-bak-", BAK_KEEP = 6;
-  const PUSH_DELAY = 6000, REMOTE_POLL = 60000, CALL_TIMEOUT = 15000, SIM_COINS = 9e9;
+  const WK = !!(window.NusaApi && window.NusaApi.enabled());   // mode Worker (kuota gratis Firestore 20.000 tulis/hari) → tulis & baca lebih jarang
+  const PUSH_DELAY = WK ? 60000 : 6000, REMOTE_POLL = WK ? 300000 : 60000, CALL_TIMEOUT = 15000, SIM_COINS = 9e9;
   const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } };
   const lsDel = (k) => { try { localStorage.removeItem(k); } catch (e) {} };

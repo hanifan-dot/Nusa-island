@@ -51,6 +51,9 @@
         async signOut() { await auth.signOut(); cur = null; },
         async refreshClaims() { if (auth && auth.currentUser) { await auth.currentUser.getIdToken(true); cur = await toUser(auth.currentUser); } return cur && cur.claims; },
         async call(name, payload) {
+          if (window.NusaApi && window.NusaApi.enabled()) {   // mode Worker: logika & Firestore di server; browser tidak menyentuh Firestore
+            try { return await window.NusaApi.call(name, payload, true); } catch (e) { throw Object.assign(e, { code: "functions/" + String(e.code || "internal").replace("functions/", "") }); }
+          }
           const u = auth.currentUser;
           if (!u || typeof server[name] !== "function") throw Object.assign(new Error("Masuk dulu dengan akun Google."), { code: "functions/unauthenticated" });
           const tr = await u.getIdTokenResult();   // klaim dari token terverifikasi Firebase (rules memeriksa ulang di server)

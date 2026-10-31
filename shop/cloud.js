@@ -18,7 +18,9 @@ function fns() {
   fnP.catch(() => { fnP = null; });
   return fnP;
 }
+const PUBLIC_FNS = { shop_getCatalog: 1, shop_getTime: 1 };
 const callFn = (full) => async (data) => {
+  if (window.NusaApi && window.NusaApi.enabled()) { try { return await window.NusaApi.call(full, data, !PUBLIC_FNS[full]); } catch (e) { throw Object.assign(e, { code: String(e.code || "internal").replace("functions/", "") }); } }
   try { const f = await fns(); const r = await f.httpsCallable(full)(data || {}); return r.data; }
   catch (e) { const m = String((e && e.code) || ""); throw Object.assign(new Error(e && e.message ? e.message : "Gagal menghubungi server toko."), { code: m.replace("functions/", "") || "internal" }); }
 };
