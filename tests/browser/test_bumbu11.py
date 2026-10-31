@@ -6,7 +6,7 @@ import time, json, os, tempfile
 import os as _os
 MUTED = "false" if _os.environ.get("NUSA_AUDIO") else "true"  # NUSA_AUDIO=1: jalankan dengan audio aktif (Bumbu 2.1)
 from playwright.sync_api import sync_playwright
-ROOT = "file://" + os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "index.html"))
+ROOT = "file://" + os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "index.html")) + "?cloud=off"
 OUT = tempfile.mkdtemp(prefix="nusa-b11-") + "/"
 R = []
 def ok(name, cond, extra=""): R.append(("PASS" if cond else "FAIL") + "  " + name + ("  " + str(extra) if extra != "" else ""))

@@ -1,6 +1,6 @@
 import time, json
 import os, tempfile
-ROOT = "file://" + os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "index.html"))
+ROOT = "file://" + os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "index.html")) + "?cloud=off"
 OUT = tempfile.mkdtemp(prefix="nusa-test-") + "/"
 from playwright.sync_api import sync_playwright
 R = []

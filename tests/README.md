@@ -28,6 +28,8 @@ python tests/browser/test_bumbu22.py         # Bumbu 2.2: 87 pemeriksaan (20 ske
 node tests/unit-weather.js                    # model cuaca: deterministik, episode, pengali mancing 0,88–1,08, migrasi (28 pemeriksaan)
 python tests/browser/test_bumbu23.py         # Bumbu 2.3: 18 skenario cuaca (visual, audio, NPC, Rumahku, mancing, pengaturan, migrasi v9, refresh, performa-emulasi)
 python tests/browser/test_bumbu24.py         # Bumbu 2.4: kapal, laut, memancing dari kapal, Selat Sunda, Peta Laut, audio, migrasi v10, performa-emulasi
+python tests/browser/test_tahap3.py          # Tahap 3: login, tamu, Cloud Save, konflik, offline, Owner (demo + SDK Firebase palsu)
+node tests/unit-cloud.js                      # Tahap 3: logika server (cloud/core.js)
 python tests/browser/test_bumbu241.py        # Bumbu 2.4.1: 12 ikan laut, Palung Mistis Selat, Lentera Arwah & Pari Bayang, peluang, save lama, performa-emulasi
 python tests/visual_bumbu23.py <folder>       # tangkapan layar bukti visual cuaca
 node tests/unit-variants.js                   # simulasi statistik peluang varian (24 pemeriksaan)

@@ -203,6 +203,9 @@ Melanjutkan Bumbu 2.4 (sistem kapal, laut, dan memancing **tidak dibuat ulang**)
 - **Inventaris & save**: masuk coolbox dengan UID unik, **otomatis terkunci** (tidak ikut “jual semua”), tidak punya varian kosmetik, tercatat di koleksi dan Buku Petualangan (catatan sekali per spesies). Kunci localStorage tetap `nusa-island-v1`, `SAVE_VERSION` tetap 10; `S.sea.pity` (penghitung perlindungan sial) ditambahkan dengan nilai awal 0 dan dibersihkan bila rusak — save lama tidak pernah direset.
 - Uji: `python tests/browser/test_bumbu241.py` (83 pemeriksaan: ikan & ID, peluang/kondisi, penemuan, memancing kedua ikan, inventaris/koleksi/akuarium/simpan, kapal & tabrakan, save lama, performa-emulasi) dan bukti visual `python tests/visual_bumbu241.py <folder>`. Tidak ada Firebase, Tahap 3, Megalodon, atau Monster Dunia (khusus Tahap 4.2).
 
+## Tahap 3 — Google Login, Cloud Save & akun Owner (belum terhubung ke Firebase sungguhan)
+Layar login (Login dengan Google / Main sebagai Tamu + popup peringatan data tamu), Cloud Save dengan konflik/offline/cadangan, pemindahan progres tamu → Google tanpa menjumlahkan apa pun, Profil Nelayan (👤 di HUD), dan akun Owner yang dijaga **di backend** (claim + pendaftaran administrator), dengan Mode Uji Owner di penyimpanan terpisah dari ekonomi normal. Kunci simpanan `nusa-island-v1` dan `SAVE_VERSION` tidak berubah. **Fitur cloud non-aktif sampai `cloud/config.js` diisi** (proyek Firebase belum dibuat); coba alurnya dengan `?cloud=demo` (simulasi lokal, bukan Google sungguhan). Dokumentasi lengkap, langkah konfigurasi pemilik proyek, dan daftar yang belum teruji: [`docs/TAHAP3.md`](docs/TAHAP3.md).
+
 ## Cara mancing
 1. **Tahan layar** untuk mengayun joran, **lepas** untuk melempar. Lepas di zona atas meteran untuk *Lemparan Sempurna* (lebih hoki). Ketuk sisi kiri atau kanan layar untuk mengarahkan lemparan.
 2. Tunggu sampai pelampung **tenggelam** dan muncul tanda **!**, lalu ketuk secepatnya.

@@ -38,7 +38,8 @@ function hashStr(str) { let h = 2166136261; for (const c of str) { h ^= c.charCo
 const FISH_BY_ID = Object.fromEntries(FISH.map((f) => [f.id, f]));
 
 // ---------- Simpanan ----------
-const SAVE_KEY = "nusa-island-v1";
+// Tahap 3: kunci lama TIDAK berubah. Hanya Mode Uji Owner (sandbox terpisah, diverifikasi server) memakai kunci sendiri.
+const SAVE_KEY = NW.cloud && NW.cloud.sandbox ? "nusa-island-v1-owner-sandbox" : "nusa-island-v1";
 const DEFAULT = () => ({
   money: 50, day: 1, hour: 6.5, loc: 0,
   up: { rod: 0, bait: 0, cooler: 0, boat: 0 },
@@ -85,6 +86,7 @@ function load() {
     }
   }
   migrate();
+  if (NW.cloud && NW.cloud.sandbox) NW.cloud.applySandbox(S, { UPGRADES, HD: NW.HD }); // Tahap 3: hanya Mode Uji Owner
 }
 function migrate() {
   const r = NW.HD.migrateHome(S);           // rumah lama → skema berversi (perabot tetap)
@@ -106,7 +108,15 @@ function migrate() {
   S.v = SAVE_VERSION;
   return { home: r, fixed };
 }
-function save() { try { S.v = SAVE_VERSION; localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
+function save() {
+  if (NW.cloud && NW.cloud.saveFrozen) return; // Tahap 3: saat data cloud sedang dimuat, jangan menimpa dengan data lama
+  try {
+    S.v = SAVE_VERSION;
+    if (NW.cloud && NW.cloud.sandbox && !(S.money >= NW.cloud.SIM_COINS / 4)) S.money = NW.cloud.SIM_COINS; // koin simulasi Owner terisi ulang (hanya sandbox)
+    localStorage.setItem(SAVE_KEY, JSON.stringify(S));
+  } catch (e) {}
+  if (NW.cloud && NW.cloud.onLocalSave) NW.cloud.onLocalSave(); // Tahap 3: jadwalkan sinkron cloud (bila login)
+}
 
 // ---------- Audio ----------
 // Bumbu 2.1: satu AudioContext milik NW.audio (audio/manager.js). Fungsi lama (tone, noise, SFX) tetap ada
@@ -1474,6 +1484,7 @@ if (NW.audioDirector) NW.audioDirector.hook(); // Bumbu 2.1: pengarah musik & su
 if (NW.toba) NW.toba.hook();               // Bumbu 2: cerita "Rahasia Tepian Danau" (tantangan ikan jurung)
 if (NW.selat) NW.selat.hook();             // Bumbu 2.4: cerita "Jejak Arus Selat"
 if (NW.boat) NW.boat.hook();               // Bumbu 2.4: tombol kapal & panel Peta Laut
+if (NW.cloud) NW.cloud.hook();             // Tahap 3: tombol Profil & akun
 if (loadNote) setTimeout(() => toast(loadNote), 1200);
 save(); // simpan hasil migrasi (data lama sudah dicadangkan)
 resize(); buildScenery(); initAmbient(); refreshHUD(); applyMode();

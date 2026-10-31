@@ -1,0 +1,83 @@
+/* NUSA ISLAND — Tahap 3: akun & cloud (layar login, modal, profil). Animasi hanya transform/opacity, dimatikan setelah gerbang ditutup. */
+.gate { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  background: linear-gradient(180deg, #ffc98a 0%, #ffe3b0 28%, #bfe6e0 55%, #4fa3a0 100%); transition: opacity .35s ease; padding: 16px; }
+.gate.out { opacity: 0; pointer-events: none; }
+.gate-bg { position: absolute; inset: 0; pointer-events: none; }
+.g-sun { position: absolute; left: 50%; top: 14%; width: 110px; height: 110px; margin-left: -55px; border-radius: 50%; background: radial-gradient(circle, #fff6c8 0 38%, #ffd26e 60%, rgba(255, 210, 110, 0) 72%); opacity: .95; }
+.g-isle { position: absolute; left: 0; right: 0; bottom: 18%; width: 100%; height: 30%; }
+.g-wave { position: absolute; left: -10%; width: 120%; height: 24%; border-radius: 45% 55% 0 0 / 30% 30% 0 0; }
+.g-wave.w1 { bottom: 0; height: 26%; background: rgba(23, 94, 110, .85); animation: gwave 7s ease-in-out infinite alternate; }
+.g-wave.w2 { bottom: 0; height: 18%; background: rgba(15, 62, 80, .92); animation: gwave 5.2s ease-in-out infinite alternate-reverse; }
+@keyframes gwave { to { transform: translateX(4%); } }
+.gate-card { position: relative; width: min(420px, 100%); text-align: center; padding: 22px 20px 18px; border-radius: 22px; background: rgba(255, 249, 236, .92); box-shadow: var(--shadow); animation: gup .5s ease-out; max-height: 100%; overflow-y: auto; }
+@keyframes gup { from { transform: translateY(18px); opacity: 0; } }
+.gate-card .logo { font: 800 38px/0.95 var(--display, inherit); color: var(--ink); letter-spacing: 2px; }
+.gate-card .logo span { color: var(--teal); font-size: 30px; letter-spacing: 6px; }
+.gate-card .tag { margin: 10px 0 14px; opacity: .85; }
+.gate-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.gate-actions .btn { width: 100%; min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.gate-google { background: #fff; color: #1f1f1f; border: 1px solid #c9c4b4 !important; box-shadow: 0 2px 6px rgba(10, 35, 45, .15); }
+.gate-load { display: flex; gap: 10px; align-items: center; justify-content: center; padding: 14px 0; color: var(--ink); font-weight: 600; }
+.gate-load i { width: 18px; height: 18px; border-radius: 50%; border: 3px solid #cfe4dc; border-top-color: var(--teal); animation: gspin .8s linear infinite; }
+@keyframes gspin { to { transform: rotate(360deg); } }
+.gate-msg { min-height: 18px; margin: 10px 0 0; color: #a53a31; font-size: 13.5px; }
+.gate-note { margin-top: 10px; }
+.gate-demo { margin: 10px 0 0; padding: 4px 8px; border-radius: 8px; background: #fde7a8; color: #6b4a00; font: 700 11.5px var(--font, inherit); }
+.gate.hidden .g-wave, .gate.out .g-wave { animation: none; }
+@media (prefers-reduced-motion: reduce) { .g-wave, .gate-card, .gate-load i { animation: none; } }
+@media (max-height: 520px) { .g-sun, .g-isle { display: none; } .gate-card { padding: 14px; } .gate-card .logo { font-size: 28px; } }
+
+/* modal umum */
+.cmodal { position: fixed; inset: 0; z-index: 70; background: rgba(10, 30, 40, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.cbox { position: relative; width: min(400px, 100%); max-height: 100%; overflow-y: auto; background: var(--paper); border-radius: 18px; padding: 18px 18px 16px; box-shadow: var(--shadow); animation: gup .22s ease-out; }
+.cbox.wide { width: min(560px, 100%); }
+.cbox h3 { margin: 0 28px 10px 0; font: 700 18px var(--display, inherit); }
+.cbox p { margin: 0 0 10px; line-height: 1.4; }
+.cbox.warn { border: 3px solid #e0b84c; }
+.gw-x { position: absolute; top: 10px; right: 10px; }
+.cbtns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.cbtns .btn { flex: 1 1 140px; min-height: 46px; }
+.cbtns.col { flex-direction: column; }
+.demo-acc { display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 8px; text-align: left; }
+.src-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 420px) { .src-grid { grid-template-columns: 1fr; } }
+.src-card { background: var(--cream); border: 1px solid #ebdfbd; border-radius: 12px; padding: 10px; }
+.src-card h4 { margin: 0 0 4px; font-size: 13px; }
+.src-card ul { list-style: none; padding: 0; margin: 6px 0 0; font-size: 13px; line-height: 1.5; }
+.src-name { font-size: 15px; }
+
+/* HUD & profil */
+#acctBtn { position: relative; }
+.acct-dot { position: absolute; right: 3px; top: 3px; width: 8px; height: 8px; border-radius: 50%; background: #9aa5a0; box-shadow: 0 0 0 1.5px #fff; }
+#acctBtn[data-state="idle"] .acct-dot { background: #36b37e; }
+#acctBtn[data-state="dirty"] .acct-dot, #acctBtn[data-state="syncing"] .acct-dot { background: #e0b84c; }
+#acctBtn[data-state="offline"] .acct-dot, #acctBtn[data-state="conflict"] .acct-dot, #acctBtn[data-state="error"] .acct-dot, #acctBtn[data-state="auth"] .acct-dot { background: var(--danger); }
+.prof-head { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+.prof-av { width: 58px; height: 58px; border-radius: 50%; background: var(--mint); display: flex; align-items: center; justify-content: center; font-size: 30px; overflow: hidden; flex: none; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(10, 35, 45, .2); }
+.prof-av img { width: 100%; height: 100%; object-fit: cover; }
+.prof-id b { font-size: 18px; }
+.owner-badge { color: #8a6412; font-weight: 700; }
+.prof-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.prof-grid > div { background: var(--cream); border: 1px solid #ebdfbd; border-radius: 12px; padding: 9px 10px; display: flex; flex-direction: column; gap: 3px; }
+.prof-grid small { opacity: .7; font-size: 11.5px; }
+.prof-grid b { font-size: 15px; }
+.bar.mini { height: 7px; border-radius: 4px; background: #e8e2cf; overflow: hidden; }
+.bar.mini .bar-fill { height: 100%; background: linear-gradient(90deg, #5fb4ec, #6bc4ae); }
+.prof-h { margin: 14px 0 6px; font-size: 14px; }
+.prof-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.prof-chips span { background: var(--cream); border: 1px solid #ebdfbd; border-radius: 999px; padding: 4px 10px; font-size: 12.5px; }
+.cloud-card, .owner-card { background: var(--cream); border: 1px solid #ebdfbd; border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+.owner-card { border-color: #e0b84c; background: #fff7dc; margin-top: 12px; }
+.cs-row { display: flex; align-items: center; gap: 8px; }
+.dotc { width: 10px; height: 10px; border-radius: 50%; background: #9aa5a0; flex: none; }
+.dotc.idle { background: #36b37e; } .dotc.dirty, .dotc.syncing { background: #e0b84c; } .dotc.offline, .dotc.conflict, .dotc.error, .dotc.auth { background: var(--danger); }
+.prof-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.prof-btns .btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; }
+.warn-line { background: #fff0b0; border-radius: 10px; padding: 8px 10px; }
+.sbx-banner { position: fixed; left: 0; right: 0; top: 0; z-index: 8; background: #8a1f78; color: #fff; font: 700 11.5px var(--font, inherit); padding: calc(env(safe-area-inset-top, 0px) + 2px) 8px 2px; text-align: center; display: flex; gap: 8px; justify-content: center; align-items: center; pointer-events: auto; }
+.sbx-banner .btn { padding: 2px 8px; font-size: 11px; background: #fff; color: #8a1f78; }
+body:has(.sbx-banner) .hud { top: 22px; }
+
+/* Tombol 👤 menambah satu ikon di HUD: rapatkan sedikit di layar sempit agar tetap muat di 360 px (Bumbu 2 I2). */
+@media (max-width: 400px) { .hud-right .icon-btn { padding: 5px 4px; } .hud-right { gap: 2px; } }
+.cbtns.col .btn { flex: none; width: 100%; }

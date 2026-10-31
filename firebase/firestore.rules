@@ -1,0 +1,87 @@
+rules_version = '2';
+// NUSA ISLAND — Tahap 3 (MODE SPARK, tanpa Cloud Functions).
+// Game menulis langsung ke Firestore; keamanan ditegakkan di sini. Prinsip: tolak semuanya, buka seminimal mungkin.
+// BATASAN JUJUR: rules tidak bisa membaca isi save (string JSON) secara mendalam, jadi koin/item di dalam `data` TIDAK
+// bisa diverifikasi di sini. Yang ditegakkan: pemilik akun, email Google terverifikasi, nomor revisi naik 1, jeda tulis
+// (waktu SERVER), batas ukuran, bentuk dokumen, batas koin pada ringkasan, dan kunci terlarang di dalam data.
+// BELUM DIUJI di emulator/Firebase sungguhan (lihat docs/TAHAP3.md).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function verified() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+    function isOwner() {
+      return verified() && request.auth.token.role == 'owner'
+        && get(/databases/$(database)/documents/owners/$(request.auth.uid)).data.active == true;
+    }
+    function saveShape(d, cap) {
+      return d.keys().hasOnly(['rev','savedAt','savedAtMs','deviceId','opId','hash','summary','flags','data','ts'])
+        && d.keys().hasAll(['rev','savedAt','savedAtMs','opId','hash','summary','data','ts'])
+        && d.rev is int && d.rev >= 1
+        && d.savedAt is string && d.savedAtMs is number
+        && d.opId is string && d.opId.size() <= 64
+        && d.hash is string
+        && d.data is string && d.data.size() >= 2 && d.data.size() <= 800000
+        && d.summary is map
+        && d.summary.keys().hasOnly(['name','money','day','caught','species','fishInBox','rank','homeLevel','boat','mystic','v'])
+        && d.summary.money is number && d.summary.money >= 0 && d.summary.money <= cap
+        && d.ts == request.time;
+    }
+    function noForbiddenKeys(d) {
+      return !d.data.matches('.*"(owner|sandbox|ownerSandbox|role|claims|admin|isOwner|sim)"[ ]*:.*');
+    }
+    function backupShape(d, curData) {
+      return d.keys().hasOnly(['rev','savedAt','savedAtMs','deviceId','opId','hash','summary','flags','data'])
+        && d.rev == curData.rev && d.data == curData.data;
+    }
+
+    // ---- save pemain biasa ----
+    match /users/{uid}/saves/current {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if verified() && request.auth.uid == uid
+        && saveShape(request.resource.data, 1000000000) && noForbiddenKeys(request.resource.data)
+        && request.resource.data.rev == 1;
+      allow update: if verified() && request.auth.uid == uid
+        && saveShape(request.resource.data, 1000000000) && noForbiddenKeys(request.resource.data)
+        && request.resource.data.rev == resource.data.rev + 1
+        && request.time > resource.data.ts + duration.value(1000, 'ms');
+      allow delete: if false;
+    }
+    // cadangan bergilir: harus salinan persis dari save yang sedang berlaku
+    match /users/{uid}/backups/{slot} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if verified() && request.auth.uid == uid && slot.matches('s[0-4]')
+        && backupShape(request.resource.data, get(/databases/$(database)/documents/users/$(uid)/saves/current).data);
+      allow delete: if false;
+    }
+
+    // ---- registri Owner: hanya dibaca akun itu sendiri; ditulis administrator lewat Admin SDK (set-owner.js) ----
+    match /owners/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+
+    // ---- sandbox Owner (data simulasi, terpisah total dari ekonomi normal) ----
+    match /ownerSandbox/{uid} {
+      allow read: if isOwner() && request.auth.uid == uid;
+      allow create: if isOwner() && request.auth.uid == uid
+        && saveShape(request.resource.data, 10000000000000) && request.resource.data.rev == 1;
+      allow update: if isOwner() && request.auth.uid == uid
+        && saveShape(request.resource.data, 10000000000000)
+        && request.resource.data.rev == resource.data.rev + 1
+        && request.time > resource.data.ts + duration.value(1000, 'ms');
+      allow delete: if false;
+      match /backups/{slot} {
+        allow read: if isOwner() && request.auth.uid == uid;
+        allow create, update: if isOwner() && request.auth.uid == uid && slot.matches('s[0-4]')
+          && backupShape(request.resource.data, get(/databases/$(database)/documents/ownerSandbox/$(uid)).data);
+        allow delete: if false;
+      }
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}
