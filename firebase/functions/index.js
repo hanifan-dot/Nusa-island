@@ -51,7 +51,7 @@ exports.ownerSandboxSave = wrap("ownerSandboxSave");
 // =====================================================================================================
 const shopCore = require("./lib/shop-core");
 // Path logis "shop/orders/ID" (3 segmen) → dokumen Firestore "shop_orders/ID" (2 segmen)
-const sp = (p) => { const a = p.split("/"); return a.length === 3 ? `${a[0]}_${a[1]}/${a[2]}` : p; };
+const sp = (p) => { const a = p.split("/"); return a.length === 3 ? `${a[0]}_${a[1] === "userOrders" ? "user_orders" : a[1]}/${a[2]}` : p; }; // sama dengan dashboard (server/shop/db.js)
 const shopDb = {
   get: async (p) => { const s = await fs.doc(sp(p)).get(); return s.exists ? s.data() : null; },
   tx: (fn) => fs.runTransaction(async (t) => {
