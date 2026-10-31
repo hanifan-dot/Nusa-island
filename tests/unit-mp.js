@@ -192,7 +192,7 @@ const mv = (r, c, x, y, d = 2, f = 1) => r.room.message(c, JSON.stringify({ t: "
   ok(!/NusaApi|apiBase|shop_|economy|S\.money|\.money\b|entitlements|wallet|firestore/i.test(cli.replace(/\/\/.*$/gm, "")), "klien multiplayer tidak menyentuh ekonomi/toko/Worker nusa-api/Firestore/saldo");
   ok(/fetch\("mp\/endpoint\.json"/.test(cli) && !/fetch\([^)]*nusa-api/.test(cli), "satu-satunya fetch HTTP klien = mp/endpoint.json");
   const bh = fs.readFileSync(path.join(__dirname, "../firebase/scripts/build-hosting.sh"), "utf8");
-  ok(/cp -r audio cloud world shop economy streak hud/.test(bh) && /NUSA_MP_WS/.test(bh) && /backend: "cloud"/.test(bh) && /release: "publik"/.test(bh), "build-hosting mempertahankan folder & konfigurasi produksi + menambah multiplayer");
+  ok(/cp -r audio cloud world shop economy streak event hud/.test(bh) && /NUSA_MP_WS/.test(bh) && /backend: "cloud"/.test(bh) && /release: "publik"/.test(bh), "build-hosting mempertahankan folder & konfigurasi produksi + menambah multiplayer");
   const act = fs.readFileSync(path.join(__dirname, "../firebase/scripts/aktifkan-multiplayer.sh"), "utf8");
   ok(/merge-base --is-ancestor/.test(act) && /produksi/.test(act) && /\$\{?WORKER_ONLY|--worker-saja/.test(act) && !/wrangler@4 deploy[^\n]*nusa-api/.test(act), "skrip aktivasi: pagar cabang lama, build produksi, opsi worker-saja");
   ok(/"ya"/.test(act) && /whoami/.test(act), "skrip aktivasi: konfirmasi eksplisit & memakai login Wrangler yang ada");
