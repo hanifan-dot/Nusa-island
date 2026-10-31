@@ -11,6 +11,13 @@ service cloud.firestore {
       allow write: if false;
     }
     match /users/{uid}/backups/{doc} { allow read, write: if false; }
+    // Premium Shop (Tahap 3.6): seluruh koleksi shop_* TERTUTUP dari klien; semua baca/tulis lewat Cloud Functions (Admin SDK).
+    match /shop/{doc=**} { allow read, write: if false; }
+    match /shop_orders/{doc} { allow read, write: if false; }
+    match /shop_userOrders/{doc} { allow read, write: if false; }
+    match /shop_entitlements/{doc} { allow read, write: if false; }
+    match /shop_ledger/{doc} { allow read, write: if false; }
+    match /shop_refs/{doc} { allow read, write: if false; }
     match /owners/{doc} { allow read, write: if false; }
     match /ownerSandbox/{doc=**} { allow read, write: if false; }
     match /{document=**} { allow read, write: if false; }
