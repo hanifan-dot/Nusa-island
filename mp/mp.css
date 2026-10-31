@@ -34,3 +34,18 @@ body.mode-fish .mp-log { bottom: auto; top: calc(env(safe-area-inset-top, 0px) +
 /* teks petunjuk/banner tengah disembunyikan sementara saat menu atau obrolan terbuka supaya tulisan tidak bertumpuk */
 body.mp-chat-open #hint, body.mp-chat-open .banner, body.hm-open #hint, body.hm-open .banner { visibility: hidden; }
 .mp-chat input:focus { outline: 2px solid #1f9a8f; outline-offset: 0; }
+
+/* menu server */
+.sv-title { font: 800 17px var(--display, system-ui); letter-spacing: .5px; color: #0f6d6a; margin-bottom: 8px; }
+.sv-card { background: linear-gradient(160deg, #e6f7f1, #fdf3d8); border: 1px solid #b9dccf; border-radius: 14px; padding: 8px 12px; margin-bottom: 8px; }
+.sv-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; padding: 5px 0; font-size: 14px; } .sv-row > span:first-child { min-width: 92px; opacity: .75; } .sv-row b { font-size: 15px; } .sv-row small { font-size: 11.5px; opacity: .7; flex-basis: 100%; }
+.sv-id { font-size: 26px !important; color: #e2574c; min-width: 34px; } .sv-row .btn { margin-left: auto; }
+.sv-err { background: #ffe9e3; border: 1px solid #f0b3a4; color: #8a2a1a; border-radius: 12px; padding: 8px 10px; font-size: 13px; margin-bottom: 8px; font-weight: 600; }
+.sv-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; } .sv-big { font-size: 16px; padding: 13px 10px; width: 100%; }
+.sv-idform label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 4px; } .sv-idform > div { display: flex; gap: 8px; }
+.sv-idform input { flex: 1; min-width: 0; height: 48px; font-size: 20px; font-weight: 800; text-align: center; border-radius: 12px; border: 2px solid #cdbf94; background: #fff; color: #173f50; } .sv-idform input.bad { border-color: #e2574c; background: #fff3f0; }
+.sv-idform .btn { min-width: 84px; height: 48px; }
+.mp-h-row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; } .mp-h-row .mp-h { margin: 0; }
+.sv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 6px 0; }
+.sv-chip { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 52px; border: 1px solid #cfe6dc; border-radius: 12px; background: #f6fbf8; color: #173f50; } .sv-chip b { font-size: 17px; } .sv-chip small { font-size: 10.5px; opacity: .75; }
+.sv-chip.cur { background: #2fb39a; color: #fff; border-color: #2fb39a; } .sv-chip.full { background: #f1e6e3; opacity: .6; }
