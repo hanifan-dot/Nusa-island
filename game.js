@@ -539,9 +539,11 @@ function update(dt) {
         s.z = lerp(s.z, G.bob.z + 0.15 + 0.9 * (1 - k), dt * 1.2);
       }
       if (G.myst && G.myst.fish && !G.myst.shown && G.biteTimer <= G.myst.hintAt) NW.mystic.hint(G); // petunjuk: kilau + pesan + suara pendek (jenis ikan tidak disebut)
+      if (NW.event) NW.event.onWaiting(dt); // Event: monster mendekati umpan (menahan gigitan ikan biasa sebentar), duel dimulai lewat server
       if (G.biteTimer <= 0) triggerBite();
       break;
     }
+    case "event": { const r = NW.event ? NW.event.update(dt) : { angle: -0.9, bend: 0 }; targetAngle = r.angle; targetBend = r.bend; break; } // duel Event Monster Legenda
     case "bite":
       G.biteWindow -= dt; G.bob.sink = 0.8 + Math.sin(G.t * 30) * 0.2; targetBend = 0.25;
       if (Math.random() < dt * 8) splashAt(G.bob.x, G.bob.z, 2);
@@ -755,6 +757,7 @@ function draw() {
 
   if (G.spotId && NW.secret && fishFrom === "dock") NW.secret.drawTint(ctx, { W, H, HZ }, G.spotId); // suasana air spot rahasia
   if (fishFrom === "sea" && G.sea && NW.mystic) NW.mystic.drawFishScene(ctx, G, { W, H, HZ, U, dk, projX, projY, projS }); // suasana Palung Mistis Selat + kilau petunjuk
+  if (NW.event) NW.event.drawWater(ctx, { W, H, HZ, U, dk, projX, projY, projS }); // Event 5 Monster Legenda: monster berenang di air (hanya saat event & di lokasinya)
   drawBoat(dk);
   drawLineAndBobber();
 
@@ -1257,7 +1260,7 @@ $("muteBtn").addEventListener("click", () => {
 $("dexBtn").addEventListener("click", () => { SFX.click(); openPanel("dex"); });
 $("misiBtn").addEventListener("click", () => { SFX.click(); openPanel("missions"); });
 $("landBtn").addEventListener("click", () => {
-  if (["fight", "bite", "charging", "result"].includes(G.phase)) return;
+  if (["fight", "bite", "charging", "result", "event"].includes(G.phase)) return;
   SFX.click();
   // Bumbu 2.4: memancing dari kapal → kembali ke kapal di tempat yang sama
   if (fishFrom === "sea" && NW.boat && NW.boat.on) return goWorld("sea", NW.boat.area);
@@ -1266,7 +1269,7 @@ $("landBtn").addEventListener("click", () => {
 });
 
 function openPanel(name) {
-  if (["fight", "bite", "charging", "result"].includes(G.phase)) return;
+  if (["fight", "bite", "charging", "result", "event"].includes(G.phase)) return;
   if (G.phase === "waiting" || G.phase === "flying") { G.phase = "idle"; G.bob.vis = false; G.shadow = null; showMeter(false); updateHint(); }
   currentPanel = name; renderPanel(); $("panelWrap").classList.remove("hidden"); $("hint").classList.add("fade");
 }
@@ -1477,6 +1480,8 @@ window.Nusa = {
   sfx: (n, a) => { initAudio(); if (NW.audio && NW.audio.sfx(n, a)) return; if (SFX[n]) SFX[n](a); },
   // keadaan mancing untuk audio (tanpa rarity/berat ikan, supaya suara tidak membocorkan hasil)
   fishState: () => { const F = G.fight; return { phase: G.phase, T: F ? F.T : 0, surge: !!(F && F.surge > 0), tired: !!(F && F.tiredT > 0 && !(F.surge > 0)), warn: !!(F && F.T > 0.82) }; },
+  // Event 5 Monster Legenda (event/*.js): akses terbatas ke keadaan memancing
+  fish: { G, loc: () => LOCATIONS[S.loc].id, hint: updateHint, reelBack: startReelBack, splash: splashAt, ripple: addRipple, navLock: setNavLocked, geom: () => ({ W, H, HZ, U, projX, projY, projS }) },
   seaSpot: () => (fishFrom === "sea" && G.sea ? G.sea.id : null), fishFrom: () => fishFrom,
   tone, on, emit, registerPanel, renderPanel: () => currentPanel && renderPanel(), currentPanel: () => currentPanel, closePanel,
   sleepUntilMorning, refreshHUD, drawFish, fishImg, priceOf, priceMult, fmt, fmtW, FISH_BY_ID, coolerCap, upLvl, trendHTML,
@@ -1498,7 +1503,8 @@ if (NW.selat) NW.selat.hook();             // Bumbu 2.4: cerita "Jejak Arus Sela
 if (NW.boat) NW.boat.hook();               // Bumbu 2.4: tombol kapal & panel Peta Laut
 if (NW.cloud) NW.cloud.hook();             // Tahap 3: tombol Profil & akun
 if (NW.mp) NW.mp.hook();                   // Tahap 4: Dunia Bersama (multiplayer Muara Kampung) — hanya aktif untuk akun Google yang menyetujui
-if (NW.streak) NW.streak.hook();           // Login Streak 7 Hari: tombol 🎁 & Kalender Hadiah (klaim hanya lewat server Firebase)
+if (NW.streak) NW.streak.hook();
+if (NW.event) NW.event.hook();                // Event 5 Monster Legenda: jadwal dari jam server, monster mingguan, duel yang dinilai server           // Login Streak 7 Hari: tombol 🎁 & Kalender Hadiah (klaim hanya lewat server Firebase)
 if (loadNote) setTimeout(() => toast(loadNote), 1200);
 save(); // simpan hasil migrasi (data lama sudah dicadangkan)
 resize(); buildScenery(); initAmbient(); refreshHUD(); applyMode();

@@ -7,6 +7,7 @@
 //   node toko.js bekukan                  MEMBEKUKAN snapshot ekonomi semua simpanan lama ke shop_legacy/{uid} (sekali per akun; tidak menimpa) + menandai migrasi siap.
 //                                         ecoInit HANYA memakai snapshot ini — bukan angka dari browser. WAJIB dijalankan sebelum akun lama masuk ekonomi server.
 //   node toko.js audit [batas]            ringkasan snapshot & akun ekonomi: jumlah, yang melewati batas koin, 5 terbesar (UID dipotong)
+//   node toko.js event-buka [YYYY-MM-DD] BUKA Event 5 Monster Legenda (tanggal = Minggu minggu-ke-0 / Toman Purba; bawaan 2026-11-01). event-tutup = matikan.
 //   node toko.js status                   tampilkan mode, daftar uji, jumlah pesanan PAID nyata
 // CATATAN: "umum" saja TIDAK cukup membuka toko: Worker juga harus berkunci NUSA_PUBLIC_OPEN="ya" (scripts/buka-umum.sh mengerjakan keduanya).
 const { initializeApp } = require("firebase-admin/app");
@@ -61,6 +62,10 @@ const UID = /^[A-Za-z0-9_-]{6,128}$/;
     console.log(`Snapshot: ${L.length} akun; melewati ${cap}: ${L.filter((x) => x.m > cap).length}; terbesar:`, L.slice(0, 5).map((x) => `${x.u}=${x.m}`).join(", "));
     console.log(`Akun ekonomi aktif: ${E.length}; saldo terbesar:`, E.slice(0, 5).map((x) => `${x.u}=${x.b}`).join(", "));
   } else if (cmd === "tutup") { await CFG.set({ mode: "simulasi" }, { merge: true }); console.log("Toko: mode simulasi (tertutup untuk uang nyata)."); }
-  else if (cmd === "status") { console.log(JSON.stringify({ mode: cur.mode || "simulasi", pilot: cur.pilot || [], pesananNyataPAID: await paid() })); }
-  else throw new Error("Perintah: pilot <UID> | perbaiki-owner <email> | akun | bekukan | audit | umum | tutup | status");
+  else if (cmd === "event-buka") {   // Event 5 Monster Legenda: node toko.js event-buka [YYYY-MM-DD hari Minggu = minggu ke-0 / Toman Purba]
+    const d = arg || "2026-11-01"; if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || new Date(d + "T12:00:00Z").getUTCDay() !== 0) throw new Error("Tanggal harus hari Minggu, format YYYY-MM-DD.");
+    await CFG.set({ eventOn: true, eventAnchor: d, eventOnAt: Date.now() }, { merge: true }); console.log("Event 5 Monster Legenda DIBUKA. Event pertama (Toman Purba): Minggu " + d + " 19.00–19.20 WIB.");
+  } else if (cmd === "event-tutup") { await CFG.set({ eventOn: false }, { merge: true }); console.log("Event 5 Monster Legenda DITUTUP (tidak ada duel baru; juara yang sudah ada tetap bisa klaim bila dibuka lagi)."); }
+  else if (cmd === "status") { console.log(JSON.stringify({ mode: cur.mode || "simulasi", pilot: cur.pilot || [], pesananNyataPAID: await paid(), event: { buka: cur.eventOn === true, anchor: cur.eventAnchor || null } })); }
+  else throw new Error("Perintah: pilot <UID> | perbaiki-owner <email> | akun | bekukan | audit | umum | tutup | event-buka [YYYY-MM-DD] | event-tutup | status");
 })().then(() => process.exit(0), (e) => { console.error("GAGAL:", e.message); process.exit(1); });

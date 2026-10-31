@@ -18,7 +18,7 @@ function fns() {
   fnP.catch(() => { fnP = null; });
   return fnP;
 }
-const PUBLIC_FNS = { shop_getCatalog: 1, shop_getTime: 1 };
+const PUBLIC_FNS = { shop_getCatalog: 1, shop_getTime: 1, eventInfo: 1 };
 const callFn = (full) => async (data) => {
   if (window.NusaApi && window.NusaApi.enabled()) { try { return await window.NusaApi.call(full, data, !PUBLIC_FNS[full]); } catch (e) { throw Object.assign(e, { code: String(e.code || "internal").replace("functions/", "") }); } }
   try { const f = await fns(); const r = await f.httpsCallable(full)(data || {}); return r.data; }
@@ -36,5 +36,7 @@ NW.shopApi = {
   listLedger: authed("listLedger"), spendCoins: authed("spendCoins"),
   // Ekonomi server (economy/client.js): fungsi eco* (bukan shop_*)
   eco: (name, d) => (signedIn() ? callFn(name)(d) : needLogin()),
+  // Event 5 Monster Legenda: jam server + jadwal boleh dibaca TAMU (tanpa token); duel/hadiah lewat eco("ecoEvent…") yang wajib masuk akun.
+  eventInfo: (d) => callFn("eventInfo")(d || {}),
 };
 })();

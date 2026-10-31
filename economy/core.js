@@ -39,6 +39,7 @@
     if (!T || !FM) throw new Error("tables & fishmath wajib");
     const initCap = Number.isFinite(opts.initCap) ? opts.initCap : 20000;     // batas koin lama yang diakui SEKALI saat migrasi; 0 saat rilis
     const SK = opts.streak || null;                                           // StreakCore (streak/core.js), opsional
+    const EV = opts.event || null;                                            // EventCore (event/core.js): Event 5 Monster Legenda, opsional
     const rng = opts.rng || (() => { try { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] / 4294967296; } catch (e) { return Math.random(); } });
     // KEAMANAN MIGRASI: secara BAWAAN ecoInit TIDAK memakai angka dari browser sama sekali. Saldo/level/ikan lama diambil dari SNAPSHOT yang dibekukan
     // Owner di server (shop/legacy/{uid}, dibuat sekali oleh toko.js bekukan) — bukan dari permintaan klien. Hanya pengujian yang boleh opts.trustClientInit=true.
@@ -48,10 +49,10 @@
     const uidOf = (a) => { if (!a || typeof a.uid !== "string" || !a.uid) throw E("unauthenticated", "Masuk dulu."); return a.uid; };
     const needOp = (p) => { if (!p || typeof p.opId !== "string" || !OP_RE.test(p.opId)) throw E("invalid-argument", "opId tidak valid."); return p.opId; };
     const fresh = () => ({ v: 1, init: false, bal: 0, up: { rod: 0, bait: 0, cooler: 0, boat: 0 }, homeLv: 1, cat: {}, claimed: {}, box: [], catches: [], missions: { day: 0, total: 0, n: 0, ids: [] },
-      ops: [], earned: 0, spent: 0, lastCatchAt: 0, streak: null, streakBait: 0 });
+      ops: [], earned: 0, spent: 0, lastCatchAt: 0, streak: null, streakBait: 0, ev: {}, troph: {} });
     const topupOf = (ent) => (ent && ent.wallet && ent.wallet.NYATA) || 0;
     const view = (eco, ent) => ({ init: eco.init, own: eco.bal, topup: topupOf(ent), balance: eco.bal + topupOf(ent), up: eco.up, homeLv: eco.homeLv, cat: eco.cat,
-      box: eco.box.map((b) => b.u), claimed: Object.keys(eco.claimed) });
+      box: eco.box.map((b) => b.u), claimed: Object.keys(eco.claimed), troph: eco.troph || {} });
     const doneOp = (eco, id) => { const o = eco.ops.find((x) => x.id === id); return o ? o.r : null; };
     const remember = (eco, id, r) => { eco.ops.push({ id, r }); if (eco.ops.length > LIM.ops) eco.ops.splice(0, eco.ops.length - LIM.ops); return r; };
     const getEco = async (t, uid) => Object.assign(fresh(), (await t.get(ECO(uid))) || {});
@@ -260,6 +261,117 @@
         return eco && eco.init ? { money: eco.bal, up: eco.up, homeLv: eco.homeLv, box: eco.box.map((b) => b.u) } : null;
       },
     };
+
+    // ---------- EVENT 5 MONSTER LEGENDA (event/core.js) ----------
+    // Dokumen global: shop/event/{eventId} = { id, monster, top:{uid,score,at,name} }. Hanya ditulis saat ada skor tertinggi baru (hemat kuota tulis).
+    // Juara = skor terbaik dari duel SUKSES (dimainkan ulang server); seri → selesai paling awal → uid. Satu dokumen = satu juara global untuk semua room/sesi.
+    // Saklar: shop/config.eventOn === true (Owner, toko.js event-buka). eventAnchor = tanggal Minggu untuk minggu ke-0 (Toman Purba).
+    const needEV = () => { if (!EV) throw E("failed-precondition", "Event belum tersedia di server ini."); };
+    const EVD = (id) => `shop/event/${id}`;
+    const evSet = (cfg) => ({ on: !!(cfg && cfg.eventOn === true), anchor: cfg && typeof cfg.eventAnchor === "string" ? cfg.eventAnchor : EV.DEFAULT_ANCHOR });
+    const evShape = (e) => e && { id: e.id, date: e.date, start: e.start, end: e.end, close: e.close, monster: e.monster };
+    const evPrune = (eco) => { const ks = Object.keys(eco.ev).sort(); while (ks.length > 6) delete eco.ev[ks.shift()]; };
+    const evTroph = (eco, mon, now) => (eco.troph[mon] = eco.troph[mon] || { seen: now, caught: 0, best: 0, champ: 0 });
+    // Gambaran publik (boleh dipanggil tamu): jam server, jadwal, dan juara event terakhir yang SUDAH final (setelah masa tutup).
+    async function evInfo(readCfg, readDoc) {
+      const now = clock(), s = evSet(await readCfg());
+      if (!s.on) return { now, on: false };
+      const st = EV.status(now, s.anchor);
+      const out = { now, on: true, anchor: s.anchor, phase: st.phase, ev: evShape(st.ev), next: evShape(st.next), winner: null };
+      const fin = st.phase === "ended" ? st.ev : null;
+      if (fin) { const d = await readDoc(fin.id); if (d && d.top) out.winner = { name: d.top.name, score: d.top.score, monster: fin.monster, date: fin.date, uid: d.top.uid }; }
+      return out;
+    }
+    Object.assign(api, {
+      async eventInfo() {
+        needEV();
+        const r = await evInfo(async () => (await db.get("shop/config")) || {}, (id) => db.get(EVD(id)));
+        if (r.winner) delete r.winner.uid;                                  // publik: tanpa uid
+        return r;
+      },
+      async ecoEventState(auth) {
+        needEV(); const uid = uidOf(auth);
+        return db.tx(async (t) => {
+          const eco = await getEco(t, uid), ent = await entOf(t, uid);
+          const r = await evInfo(async () => (await t.get("shop/config")) || {}, (id) => t.get(EVD(id)));
+          const rec = r.ev && eco.ev[r.ev.id] || null;
+          r.my = rec ? { att: rec.att || 0, left: Math.max(0, EV.MAX_ATTEMPTS - (rec.att || 0)), best: rec.best || 0, part: !!rec.part, got: !!rec.got, claimed: !!rec.claimed, act: !!(rec.act && clock() < rec.act.exp) } : { att: 0, left: EV.MAX_ATTEMPTS, best: 0 };
+          if (r.winner) { r.my.win = r.winner.uid === uid; r.my.claimed = !!(eco.ev[r.ev.id] && eco.ev[r.ev.id].claimed); delete r.winner.uid; }
+          return Object.assign(r, { eco: view(eco, ent) });
+        });
+      },
+      // Mulai duel: server memilih seed acak (klien tidak bisa memilih pola). Duel sebelumnya yang belum selesai dianggap hangus (tetap menghabiskan satu kesempatan).
+      async ecoEventStart(auth, p) {
+        needEV(); const uid = uidOf(auth), opId = needOp(p); p = p || {};
+        return db.tx(async (t) => {
+          const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco);
+          const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, { eco: view(eco, ent) });
+          const s = evSet((await t.get("shop/config")) || {}); if (!s.on) throw E("failed-precondition", "Event belum dibuka.");
+          const now = clock(), st = EV.status(now, s.anchor);
+          if (st.phase !== "live" || st.ev.id !== p.eventId) throw E("failed-precondition", "Event sedang tidak berlangsung.");
+          const rec = eco.ev[st.ev.id] = eco.ev[st.ev.id] || { att: 0 };
+          if (rec.att >= EV.MAX_ATTEMPTS) throw E("resource-exhausted", "Kesempatanmu di event ini sudah habis.");
+          const seed = Math.floor(rng() * 4294967296) >>> 0;
+          rec.att++; rec.act = { seed, at: now, exp: now + EV.MAX_STEPS * EV.DT * 1000 + 30000, n: rec.att };
+          evTroph(eco, st.ev.monster, now); evPrune(eco);
+          const r = { duel: { seed, n: rec.att, left: EV.MAX_ATTEMPTS - rec.att, monster: st.ev.monster, eventId: st.ev.id }, now };
+          await t.set(ECO(uid), remember(eco, opId, r) && eco);
+          return Object.assign({ ok: true }, r, { eco: view(eco, ent) });
+        });
+      },
+      // Selesai duel: klien mengirim LOG tombol. Server memainkan ulang dengan seed miliknya, menilai, memberi hadiah partisipasi/tangkapan (sekali per event),
+      // dan memperbarui skor tertinggi global. Klien tidak pernah mengirim hasil, skor, atau jumlah koin.
+      async ecoEventFinish(auth, p) {
+        needEV(); const uid = uidOf(auth), opId = needOp(p); p = p || {};
+        return db.tx(async (t) => {
+          const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco);
+          const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, { eco: view(eco, ent) });
+          const s = evSet((await t.get("shop/config")) || {}); if (!s.on) throw E("failed-precondition", "Event belum dibuka.");
+          const now = clock(), st = EV.status(now, s.anchor);
+          if (!(st.phase === "live" || st.phase === "closing") || st.ev.id !== p.eventId) throw E("failed-precondition", "Event sudah ditutup.");
+          const rec = eco.ev[st.ev.id], act = rec && rec.act;
+          if (!act) throw E("failed-precondition", "Tidak ada duel yang sedang berjalan.");
+          if (now > act.exp) { delete rec.act; await t.set(ECO(uid), remember(eco, opId, { result: "hangus", score: 0 }) && eco); return Object.assign({ ok: true, result: "hangus", score: 0 }, { eco: view(eco, ent) }); }
+          const sim = EV.simulate(st.ev.monster, act.seed, p.log);
+          if (!sim.valid) throw E("invalid-argument", "Catatan duel tidak valid.");
+          if (now - act.at < sim.ms - 2500) throw E("failed-precondition", "Duel selesai lebih cepat dari waktu sebenarnya.");   // tidak bisa menyetor hasil sebelum duelnya mungkin selesai
+          delete rec.act; rec.fin = (rec.fin || 0) + 1;
+          const R = EV.rewardsOf(st.ev.monster), paid = { part: 0, catch: 0 }, tr = evTroph(eco, st.ev.monster, now);
+          if (!rec.part) { rec.part = true; paid.part = R.part; credit(eco, R.part); }
+          let top = null;
+          if (sim.caught) {
+            if (!rec.got) { rec.got = true; paid.catch = R.catch; credit(eco, R.catch); tr.caught++; }
+            if (sim.score > (rec.best || 0)) rec.best = sim.score;
+            tr.best = Math.max(tr.best || 0, sim.score);
+            const d = (await t.get(EVD(st.ev.id))) || { id: st.ev.id, monster: st.ev.monster }, cand = { uid, score: sim.score, at: now, name: EV.sanitizeName(p.name) };
+            if (EV.better(cand, d.top)) { d.top = cand; await t.set(EVD(st.ev.id), d); }
+            top = d.top && d.top.uid === uid && d.top.score === sim.score;
+          }
+          const r = { result: sim.result, score: sim.score, steps: sim.steps, caught: sim.caught, paid, leading: !!top };
+          await t.set(ECO(uid), remember(eco, opId, r) && eco);
+          return Object.assign({ ok: true }, r, { eco: view(eco, ent) });
+        });
+      },
+      // Hadiah juara: hanya untuk uid yang tercatat sebagai juara di dokumen global, setelah masa tutup, sekali per event.
+      async ecoEventClaim(auth, p) {
+        needEV(); const uid = uidOf(auth), opId = needOp(p); p = p || {};
+        return db.tx(async (t) => {
+          const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco);
+          const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, { eco: view(eco, ent) });
+          const s = evSet((await t.get("shop/config")) || {}), ev = EV.eventById(p.eventId, s.anchor);
+          if (!ev) throw E("invalid-argument", "Event tidak dikenal.");
+          const now = clock(); if (now < ev.close) throw E("failed-precondition", "Hasil event belum diumumkan.");
+          const d = await t.get(EVD(ev.id));
+          if (!d || !d.top || d.top.uid !== uid) return Object.assign({ ok: true, winner: false, amount: 0 }, { eco: view(eco, ent) });
+          const rec = eco.ev[ev.id] = eco.ev[ev.id] || { att: 0 };
+          if (rec.claimed) return Object.assign({ ok: true, winner: true, already: true, amount: 0 }, { eco: view(eco, ent) });
+          const amt = EV.rewardsOf(ev.monster).win; rec.claimed = true; credit(eco, amt); evTroph(eco, ev.monster, now).champ++;
+          const r = { winner: true, amount: amt, monster: ev.monster, score: d.top.score };
+          await t.set(ECO(uid), remember(eco, opId, r) && eco);
+          return Object.assign({ ok: true }, r, { eco: view(eco, ent) });
+        });
+      },
+    });
     return api;
   }
   // Menimpa simpanan klien dengan nilai server (dipanggil writeSave & loadSave). Mengembalikan simpanan baru + daftar perubahan.
