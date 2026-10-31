@@ -95,3 +95,17 @@ Memaksa mode sandbox lewat storage hanya mengubah salinan lokal di perangkat itu
 - `node tests/unit-cloud.js` — 71 pemeriksaan logika server (validasi, isolasi akun, konflik, cadangan, guard Owner, sandbox terpisah, rules statis, tidak ada email/kunci di repo).
 - `python tests/browser/test_tahap3.py` — 114 pemeriksaan di browser (login/logout, tamu & popup, save/load, migrasi tamu→Google & v4, konflik, offline, isolasi akun, Owner & pemalsuan, adapter Firebase dengan **SDK palsu**, layar HP, performa-emulasi).
 - **Belum teruji:** Google Sign-In sungguhan, Firebase Auth/Firestore/Security Rules sungguhan, Admin SDK & `set-owner.js` (membutuhkan proyek & kredensial), App Check, perilaku popup/redirect Google di Android fisik. Rules hanya diperiksa secara statis (teks), bukan dijalankan di emulator.
+
+## Hasil uji Firebase ASLI (31 Okt 2026, Chrome Android, mode Spark)
+Diuji manual oleh pemilik proyek di https://nusa-island-d2023.web.app (Firebase Hosting, proyek `nusa-island-d2023`). Hasil dilaporkan pemilik; sebagian tanpa tangkapan layar.
+| Uji | Hasil |
+|---|---|
+| Login Google (popup, tab biasa) | Berhasil |
+| Cloud Save menyimpan (revisi naik sampai ≥22, status "Tersinkron") | Berhasil; Rules tidak menolak |
+| Ambil data dari cloud di sesi baru (tab penyamaran, tanpa tangkapan layar) | Berhasil (2 ikan, sama) |
+| Tamu bertemu akun Google yang punya cloud save | Layar pilihan progres tampil benar; tidak menimpa diam-diam |
+| Pendaftaran Owner (`set-owner.js` via Cloud Shell) | Berhasil setelah 2 perbaikan skrip (API modular firebase-admin, kredensial ADC) |
+| Lencana & kartu Owner setelah login ulang | Tampil |
+| Mode Uji Owner terpisah dari ekonomi normal | Berhasil: koin simulasi 9 miliar; setelah keluar kembali 50 koin / 2 ikan |
+
+**Belum teruji / temuan terbuka:** pemain biasa ditolak dari fitur Owner (butuh akun Google kedua); login Google di tab penyamaran Chrome gagal (`about:blank` sebentar; penyebab belum diselidiki); alamat dengan titik di belakang (`web.app.`) → `auth/unauthorized-domain` (bukan bug); App Check & pembatasan apiKey belum aktif; dua perangkat menyimpan bersamaan, pemulihan cadangan, dan mode offline belum diuji di Firebase asli; teks "diverifikasi server" di kartu Owner perlu disesuaikan dengan mode Spark.
