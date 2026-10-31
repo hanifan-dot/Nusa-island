@@ -30,6 +30,6 @@ NW.shopApi = {
   getCatalog: call("getCatalog"), getTime: call("getTime"),
   createOrder: authed("createOrder"), cancelOrder: authed("cancelOrder"), claimPaid: authed("claimPaid"),
   listOrders: (d) => (signedIn() ? call("listOrders")(d) : { orders: [] }), getEntitlements: (d) => (signedIn() ? call("getEntitlements")(d) : { products: {}, owned: {}, wallet: { SIMULASI: 0, NYATA: 0 }, pending: null, env: "SIMULASI" }),
-  listLedger: authed("listLedger"), redeemCoins: authed("redeemCoins"), ackDelivery: authed("ackDelivery"),
+  listLedger: authed("listLedger"), spendCoins: authed("spendCoins"),
 };
 })();

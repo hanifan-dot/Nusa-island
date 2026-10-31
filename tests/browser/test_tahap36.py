@@ -25,7 +25,7 @@ LIVE = """async()=>{ const KEY='t36-db'; const m=new Map(Object.entries(JSON.par
   tx:f=>{const run=async()=>{const buf=new Map();const r=await f({get:async p=>buf.has(p)?JSON.parse(buf.get(p)):g(p),set:async(p,v)=>{buf.set(p,JSON.stringify(v))}});for(const[k,v]of buf)m.set(k,v);persist();return r};const r=chain.then(run,run);chain=r.catch(()=>{});return r}};
  const srv=NusaShopCore.makeShopServer(db,{realEnabled:true}); const OWN={uid:'o',token:{role:'owner'}}; await srv.ownerSetMode(OWN,{mode:'nyata'});
  const A={uid:'u-live'}; const w=(n)=>(p)=>srv[n](A,p);
- NW.shopApi={sim:false,live:true,isGuest:()=>false,uid:()=>'u-live',getCatalog:()=>srv.getCatalog(),getTime:()=>srv.getTime(),createOrder:w('createOrder'),cancelOrder:w('cancelOrder'),claimPaid:w('claimPaid'),listOrders:w('listOrders'),getEntitlements:w('getEntitlements'),listLedger:w('listLedger'),redeemCoins:w('redeemCoins'),ackDelivery:w('ackDelivery')};
+ NW.shopApi={sim:false,live:true,isGuest:()=>false,uid:()=>'u-live',getCatalog:()=>srv.getCatalog(),getTime:()=>srv.getTime(),createOrder:w('createOrder'),cancelOrder:w('cancelOrder'),claimPaid:w('claimPaid'),listOrders:w('listOrders'),getEntitlements:w('getEntitlements'),listLedger:w('listLedger'),spendCoins:w('spendCoins')}; NW.wallet.hook();
  window.__owner={approve:(orderId,paidAmount,extra)=>srv.ownerApprove(OWN,Object.assign({orderId,paidAmount},extra||{})),reject:(orderId)=>srv.ownerReject(OWN,{orderId,reason:'tidak masuk'}),list:(p)=>srv.ownerListOrders(OWN,p||{})}; return true}"""
 def page(b, qs="?cloud=off", cfg=None, init=None):
     ctx = b.new_context(viewport={"width": 390, "height": 844}, has_touch=True, device_scale_factor=2)
@@ -90,28 +90,38 @@ with sync_playwright() as p:
         ev(pg, "(async()=>{await NW.shop.toggleEquip('gamepass_sultan')})()"); time.sleep(0.4); ok("5b dipakai: gelar Sultan Samudra muncul", ev(pg, "NW.look.currentTitle()") == "Sultan Samudra")
         ok("5c tanpa error JS", errs == [], errs); ctx.close()
 
-        # ===== 6. koin top up =====
+        # ===== 6. DOMPET TUNGGAL berjangkar server (koin top up tidak pernah menjadi S.money) =====
         ctx, pg, errs = page(b); start(pg); ev(pg, "localStorage.removeItem('t36-db')"); ev(pg, LIVE); ev(pg, "()=>{window.__nusa.S.money=500;window.__nusa.save()}"); openshop(pg, "topup")
-        ev(pg, "NW.shopUI._el().querySelector('[data-a=buy][data-id=topup_juragan]').click()"); time.sleep(0.8); o = ev(pg, "NW.shopUI._state().view.order")
-        ok("6a pesanan Top Up Juragan: Rp10.000 + kode unik, 2.300 koin", o["rupiah"] == 10000 and o["coins"] == 2300 and 10001 <= o["payAmount"] <= 10099)
-        ok("6b sebelum disetujui koin utama tetap 500", ev(pg, "window.__nusa.S.money") == 500)
+        ev(pg, "NW.shopUI._el().querySelector('[data-a=buy][data-id=topup_pemula]').click()"); time.sleep(0.8); o = ev(pg, "NW.shopUI._state().view.order")
+        ok("6a pesanan Top Up Pemula: Rp2.000 + kode unik, 400 koin", o["rupiah"] == 2000 and o["coins"] == 400 and 2001 <= o["payAmount"] <= 2099, o)
+        ev(pg, "Nusa.refreshHUD()"); ok("6b sebelum disetujui: dompet tetap 500 (HUD 500)", ev(pg, "NW.wallet.bal()") == 500 and ev(pg, "document.getElementById('money').textContent").replace(".", "") == "500")
         ev(pg, "(async()=>{const o=NW.shopUI._state().view.order;await window.__owner.approve(o.orderId,o.payAmount)})()")
-        ok("6c setelah Owner setuju: koin masuk TEPAT sekali → 2.800", wait_for(pg, "window.__nusa.S.money===2800", 14), ev(pg, "window.__nusa.S.money"))
-        time.sleep(1.2); ev(pg, "NW.shop.deliver()"); time.sleep(0.8); ok("6d memanggil pengiriman lagi tidak menambah (tetap 2.800)", ev(pg, "window.__nusa.S.money") == 2800)
-        pg.reload(); time.sleep(0.8); start(pg); ev(pg, LIVE); ev(pg, "NW.shop.deliver()"); time.sleep(1.0); ok("6e muat ulang: koin tidak berlipat (tetap 2.800)", ev(pg, "window.__nusa.S.money") == 2800, ev(pg, "window.__nusa.S.money"))
-        ok("6f dompet server NYATA = 0 setelah dikirim; riwayat memuat PAID bertanda NYATA", ev(pg, "(async()=>(await NW.shopApi.getEntitlements()).wallet.NYATA)()") == 0)
-        # app tertutup sebelum 'ack'
-        ev(pg, "NW.shopUI.open()"); wait_for(pg, "!!NW.shopUI._state()&&!!NW.shopUI._state().cat"); ev(pg, "NW.shopUI._el().querySelector('[data-id=topup]').click()")
-        ev(pg, "NW.shopUI._el().querySelector('[data-a=buy][data-id=topup_pemula]').click()"); time.sleep(0.8); ev(pg, "(async()=>{const o=NW.shopUI._state().view.order;await window.__owner.approve(o.orderId,o.payAmount)})()"); wait_for(pg, "window.__nusa.S.money===3200", 14)
-        ok("6g paket Pemula (+400) → 3.200", ev(pg, "window.__nusa.S.money") == 3200)
-        ev(pg, "NW.shopUI.close()"); ev(pg, "(async()=>{const o=NW.shopUI._state().view.order;await window.__owner.approve(o.orderId,o.payAmount)})()".replace("o.orderId","'x'") if False else "0")
-        o2 = ev(pg, "(async()=>{const c=await NW.shopApi.getCatalog();const r=await NW.shopApi.createOrder({productId:'topup_nelayan',opId:'crash1',nick:'x'});await window.__owner.approve(r.order.orderId,r.order.payAmount);const d=(await NW.shopApi.redeemCoins()).delivery;return d})()")  # 'app crash': dijemput tetapi TIDAK di-ack dan TIDAK diterapkan
-        pg.reload(); time.sleep(0.8); start(pg); ev(pg, LIVE); m0 = ev(pg, "window.__nusa.S.money"); ev(pg, "NW.shop.deliver()"); time.sleep(1.0)
-        m1 = ev(pg, "window.__nusa.S.money"); ev(pg, "NW.shop.deliver()"); time.sleep(0.8)
-        ok("6h app tertutup sebelum 'ack': pengiriman yang sama diterapkan tepat sekali (+1.100)", m1 - m0 == 1100 and ev(pg, "window.__nusa.S.money") == m1, [m0, m1, o2])
-        ok("6i tidak ada koin yang hilang: total top up 2.300 + 400 + 1.100 = 3.800 ditambahkan ke 500", ev(pg, "window.__nusa.S.money") == 500 + 3800, ev(pg, "window.__nusa.S.money"))
-        ok("6j S.shop.applied hanya berisi id pengiriman (bukan data uang)", ev(pg, "window.__nusa.S.shop.applied.every(x=>/^D-/.test(x))"))
-        ok("6k tanpa error JS", errs == [], errs); ctx.close()
+        ok("6c setelah Owner setuju: 400 koin muncul di dompet utama (total 900), HUD satu angka", wait_for(pg, "NW.wallet.bal()===900", 60) or (ev(pg, "NW.wallet.refresh()") or True) and wait_for(pg, "NW.wallet.bal()===900", 10), ev(pg, "[NW.wallet.bal(),NW.wallet.topup(),window.__nusa.S.money]"))
+        ok("6d koin top up TIDAK dipindah ke S.money (S.money tetap 500; 400 ada di server)", ev(pg, "window.__nusa.S.money") == 500 and ev(pg, "(async()=>(await NW.shopApi.getEntitlements()).wallet.NYATA)()") == 400)
+        ev(pg, "()=>{window.__nusa.S.money=999999}")
+        ok("6e memanipulasi S.money di browser TIDAK mengubah saldo server (tetap 400)", ev(pg, "(async()=>(await NW.shopApi.getEntitlements()).wallet.NYATA)()") == 400)
+        ev(pg, "()=>{window.__nusa.S.money=500}")
+        r = ev(pg, "(async()=>{let g=0;const a=NW.wallet.charge(300,'uji:a',()=>{g++});const b=NW.wallet.charge(300,'uji:a',()=>{g++});await new Promise(r=>setTimeout(r,500));return {a,b,g,srv:(await NW.shopApi.getEntitlements()).wallet.NYATA,loc:window.__nusa.S.money,bal:NW.wallet.bal()}})()")
+        ok("6f belanja 300: memakai saldo top up lebih dulu (server 400→100), S.money utuh, klik ganda hanya sekali", r["a"] is True and r["b"] is False and r["g"] == 1 and r["srv"] == 100 and r["loc"] == 500 and r["bal"] == 600, r)
+        r = ev(pg, "(async()=>{let g=0;const a=NW.wallet.charge(250,'uji:b',()=>{g++});await new Promise(r=>setTimeout(r,500));return {a,g,srv:(await NW.shopApi.getEntitlements()).wallet.NYATA,loc:window.__nusa.S.money}})()")
+        ok("6g belanja 250: 100 dari server + 150 dari S.money (satu dompet, dua sumber)", r["a"] and r["g"] == 1 and r["srv"] == 0 and r["loc"] == 350, r)
+        ok("6h belanja melebihi total saldo ditolak, tidak ada yang terpotong", ev(pg, "(()=>{let g=0;const a=NW.wallet.charge(351,'uji:c',()=>{g++});return [a,g,NW.wallet.bal()]})()") == [False, 0, 350])
+        # jaringan putus SETELAH server memotong: percobaan ulang memakai opId sama → tidak terpotong dua kali
+        ev(pg, "(async()=>{const o=await NW.shopApi.createOrder({productId:'topup_pemula',opId:'r2',nick:'x'});await window.__owner.approve(o.order.orderId,o.order.payAmount);await NW.wallet.refresh()})()"); wait_for(pg, "NW.wallet.topup()===400", 8)
+        r = ev(pg, """(async()=>{const real=NW.shopApi.spendCoins;let n=0;NW.shopApi.spendCoins=async(d)=>{const x=await real(d);if(n++===0)throw Object.assign(new Error('putus'),{code:'unavailable'});return x};
+          let g=0;const a=NW.wallet.charge(100,'uji:d',()=>{g++});await new Promise(r=>setTimeout(r,400));const g1=g;const b=NW.wallet.charge(100,'uji:d',()=>{g++});await new Promise(r=>setTimeout(r,400));NW.shopApi.spendCoins=real;
+          return {a,b,g1,g,srv:(await NW.shopApi.getEntitlements()).wallet.NYATA}})()""")
+        ok("6i jaringan putus setelah server memotong: ulang dengan opId sama → terpotong SEKALI (400→300), barang diberikan sekali", r["a"] and r["g1"] == 0 and r["b"] and r["g"] == 1 and r["srv"] == 300, r)
+        pg.reload(); time.sleep(0.8); start(pg); ev(pg, LIVE); ev(pg, "NW.wallet.refresh()"); time.sleep(0.8)
+        ok("6j muat ulang / perangkat lain: saldo top up tetap dari server (300), tidak berlipat", ev(pg, "NW.wallet.topup()") == 300 and ev(pg, "NW.wallet.bal()") == ev(pg, "window.__nusa.S.money") + 300)
+        # pembelian sungguhan lewat panel toko game (peningkatan alat) memakai dompet tunggal
+        ev(pg, "()=>{window.__nusa.S.money=0}"); ev(pg, "Nusa.openPanel('shop')"); time.sleep(0.3)
+        cost = ev(pg, "(()=>{const bs=[...document.querySelectorAll('#panelWrap [data-act=buy]')].filter(b=>!b.disabled);return bs.length?bs[0].textContent:null})()")
+        ok("6k panel toko game: ada barang yang terjangkau oleh saldo top up 300 saja (S.money 0)", cost is not None, cost)
+        if cost:
+            up0 = ev(pg, "JSON.stringify(window.__nusa.S.up)"); ev(pg, "document.querySelector('#panelWrap [data-act=buy]:not([disabled])').click()"); time.sleep(0.8)
+            ok("6l beli lewat panel: barang naik level, saldo server berkurang, S.money tetap ≥ 0", ev(pg, "JSON.stringify(window.__nusa.S.up)") != up0 and ev(pg, "(async()=>(await NW.shopApi.getEntitlements()).wallet.NYATA)()") < 300 and ev(pg, "window.__nusa.S.money") >= 0, [up0, ev(pg, "JSON.stringify(window.__nusa.S.up)")])
+        ok("6m tanpa error JS", errs == [], errs); ctx.close()
     finally:
         b.close()
 f = [x for x in R if x.startswith("FAIL")]

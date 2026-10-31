@@ -23,7 +23,7 @@ const test = /[?&]shoptest=1/.test(location.search) && CFG.release !== "publik";
 // pembungkus yang mengisi auth otomatis — pemain TIDAK bisa memilih uid
 const call = (n) => (p) => server[n](auth(), p);
 NW.shopApi = {
-  sim: true, live: false, redeemCoins: async () => ({ delivery: null }), ackDelivery: async () => ({ ok: true }), isGuest: () => !(NW.cloud && NW.cloud.user && NW.cloud.user.uid), uid,
+  sim: true, live: false, spendCoins: async () => { throw Object.assign(new Error("Tidak ada saldo Top Up pada simulasi."), { code: "failed-precondition" }); }, isGuest: () => !(NW.cloud && NW.cloud.user && NW.cloud.user.uid), uid,
   getCatalog: () => server.getCatalog(), getTime: () => server.getTime(),
   createOrder: call("createOrder"), cancelOrder: call("cancelOrder"), claimPaid: call("claimPaid"), simulatePayment: CFG.release === "publik" ? undefined : call("simulatePayment"),
   listOrders: call("listOrders"), getEntitlements: call("getEntitlements"), listLedger: call("listLedger"),

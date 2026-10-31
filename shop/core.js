@@ -235,6 +235,23 @@
           return { delivery: d ? { opId: d.opId, amount: d.amount } : null };
         });
       },
+      // ---- DOMPET TUNGGAL berjangkar server: koin top up TIDAK dipindah ke klien; dipakai belanja lewat sini (idempoten per opId) ----
+      async spendCoins(auth, p) {
+        const uid = uidOf(auth); p = p || {}; const amt = p.amount;
+        if (!Number.isInteger(amt) || amt < 1 || amt > 1000000) throw E("invalid-argument", "Jumlah koin tidak valid.");
+        if (typeof p.opId !== "string" || !/^[A-Za-z0-9_-]{8,60}$/.test(p.opId)) throw E("invalid-argument", "opId tidak valid.");
+        const reason = typeof p.reason === "string" && /^[a-z0-9:_-]{1,40}$/.test(p.reason) ? p.reason : "belanja";
+        return db.tx(async (t) => {
+          const ent = (await t.get(ENT(uid))) || { products: {}, wallet: { SIMULASI: 0, NYATA: 0 }, owned: {} }; ent.spends = ent.spends || [];
+          const done = ent.spends.find((x) => x.opId === p.opId);
+          if (done) return { ok: true, duplicate: true, spent: done.amount, balance: ent.wallet.NYATA || 0 };   // ulang karena jaringan putus: hasil sama, tidak dipotong dua kali
+          if ((ent.wallet.NYATA || 0) < amt) throw E("failed-precondition", "Saldo koin top up tidak cukup.");
+          ent.wallet.NYATA -= amt; ent.spentTotal = (ent.spentTotal || 0) + amt;
+          ent.spends.push({ opId: p.opId, amount: amt, reason, at: clock() }); if (ent.spends.length > 100) ent.spends.splice(0, ent.spends.length - 100);
+          await t.set(ENT(uid), ent);
+          return { ok: true, duplicate: false, spent: amt, balance: ent.wallet.NYATA };
+        });
+      },
       async ackDelivery(auth, p) {
         const uid = uidOf(auth);
         return db.tx(async (t) => {
