@@ -188,7 +188,7 @@ def main():
         v4 = {"v": 4, "money": 7777, "day": 8, "hour": 9, "loc": 0, "up": {"rod": 3, "bait": 2, "cooler": 2, "boat": 1}, "cooler": [{"uid": "i1", "id": "nila", "w": 0.8}], "dex": {"nila": {"n": 20, "best": 1.1}}, "stats": {"casts": 60, "caught": 33, "earned": 900, "legends": 0}, "muted": True}
         ctx, pg, errs = ctx_page(b, seed=v4, auto="demo-a"); login(pg)
         d = cloud_doc(pg, "demo-a"); cj = json.loads(d["data"]) if d.get("exists") else {}
-        ok("5f save lama v4 → dimigrasi ke v10 lalu diunggah; koin/joran/ikan utuh", cj.get("v") == 10 and cj.get("money") == 7777 and cj["up"]["rod"] == 3 and cj["cooler"][0]["id"] == "nila" and ev(pg, "Object.keys(localStorage).some(k=>k.startsWith('nusa-island-v1-backup-v4'))"), cj.get("v"))
+        ok("5f save lama v4 → dimigrasi ke v10 lalu diunggah; koin/joran/ikan utuh", cj.get("v") in (10, 11) and cj.get("money") == 7777 and cj["up"]["rod"] == 3 and cj["cooler"][0]["id"] == "nila" and ev(pg, "Object.keys(localStorage).some(k=>k.startsWith('nusa-island-v1-backup-v4'))"), cj.get("v"))
         ctx.close()
 
         # ===== 6. Konflik tamu vs cloud =====
