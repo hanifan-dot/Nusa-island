@@ -1448,7 +1448,7 @@ function loop(now) {
   if (MODE === "world") {
     G.t += dt;
     if (started) { NW.world.update(dt); if (NW.audioDirector) NW.audioDirector.frame(dt); }
-    if (!(NW.shopUI && NW.shopUI.isOpen())) NW.world.draw(ctx, G.t); // Tahap 3.5: toko menutupi layar → hemat baterai/CPU HP
+    if (!((NW.shopUI && NW.shopUI.isOpen()) || (NW.kedaiUI && NW.kedaiUI.isOpen()))) NW.world.draw(ctx, G.t); // Kedai/Toko menutupi layar → dunia tidak digambar (hemat CPU/baterai HP)
   } else {
     if (started) update(dt); else { G.t += dt; for (const c of clouds) c.x = (c.x + c.v * dt) % 1.2; }
     draw();
