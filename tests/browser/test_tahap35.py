@@ -166,6 +166,7 @@ with sync_playwright() as p:
         time.sleep(1.2)
         if ev(pg, "!!document.getElementById('gwContinue')"): pg.click("#gwContinue"); time.sleep(0.6)
         ev(pg, "(()=>{const s=document.getElementById('splash'); if(s && !s.classList.contains('hidden')) document.getElementById('startBtn').click()})()"); time.sleep(1.2)
+        wait_for(pg, "!NW.shopApi.isGuest()", 10); time.sleep(0.4)
         rec = ev(pg, "(async()=>{const e=await NW.shopApi.getEntitlements(); NW.shop.setOwned(e); NW.shop.applyLook(); return {own:Object.keys(e.products), title:NW.look.currentTitle(), eq:NW.shop.isEquipped('gamepass_sultan')}})()")
         ok("8b login ulang di perangkat lain memulihkan kepemilikan Gamepass (data akun yang sama) + pilihan pakai dari Cloud Save", "gamepass_sultan" in rec["own"] and rec["eq"] and rec["title"] == "Sultan Samudra", rec)
         ok("8c tanpa error JavaScript", errs == [], errs); ctx.close()
