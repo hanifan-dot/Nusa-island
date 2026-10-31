@@ -506,7 +506,8 @@ function drawBuiltin(c, b, t, ctx) {
 function drawFurniture(c, f, t, ctx) {
   const HD = NW.HD, r = HD.fp(f), T = HD.FURN[f.type];
   const tint = ctx.highlight === f.uid ? (ctx.valid ? "rgba(90,200,120,.35)" : "rgba(226,87,76,.4)") : null;
-  if (f.type === "karpet") {
+  if (T.gen && NW.streakFurn) NW.streakFurn.draw(c, f, r, T, t, ctx);   // perabot hadiah Login Streak (streak/furniture.js)
+  else if (f.type === "karpet") {
     c.fillStyle = "#a63d2f"; poly(c, [P(r.x0, r.y0, 1), P(r.x1, r.y0, 1), P(r.x1, r.y1, 1), P(r.x0, r.y1, 1)]); c.fill();
     c.fillStyle = "#e0b84c"; poly(c, [P(r.x0 + 0.15, r.y0 + 0.15, 1), P(r.x1 - 0.15, r.y0 + 0.15, 1), P(r.x1 - 0.15, r.y1 - 0.15, 1), P(r.x0 + 0.15, r.y1 - 0.15, 1)]); c.fill();
     c.fillStyle = "#7a2a20"; poly(c, [P(r.x0 + 0.25, r.y0 + 0.25, 1), P(r.x1 - 0.25, r.y0 + 0.25, 1), P(r.x1 - 0.25, r.y1 - 0.25, 1), P(r.x0 + 0.25, r.y1 - 0.25, 1)]); c.fill();
