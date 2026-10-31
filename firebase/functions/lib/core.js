@@ -210,6 +210,10 @@
         if (ecoChanged.length) flags = flags.concat(ecoChanged.map((c) => "eco-timpa:" + c));
         const doc = { rev, savedAt: new Date(t).toISOString(), savedAtMs: t, deviceId, opId, hash: hashText(text), summary: summarize(save), flags, data: text };
         if (opts && opts.backupEveryMs) doc.lastBackupMs = backedUp || !cur ? t : (cur.lastBackupMs || t);
+        // Kunjungi Rumah Teman: salinan publik rumah dibuat SERVER dari simpanan pemilik sendiri (uid dari token). Kegagalan di sini tidak boleh menggagalkan simpanan.
+        if (!sandbox && opts && opts.house && typeof opts.house.publish === "function") {
+          try { const ph = await opts.house.publish(tx, uid, save, cur && cur.pubHash); if (ph) doc.pubHash = ph; } catch (e) { if (cur && cur.pubHash) doc.pubHash = cur.pubHash; }
+        }
         await tx.set(path, doc);
         return { ok: true, rev, savedAt: doc.savedAt, hash: doc.hash, flags };
       });

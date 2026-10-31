@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="mp/mp.css">
 <link rel="stylesheet" href="hud/menu.css">
 <link rel="stylesheet" href="event/event.css">
+<link rel="stylesheet" href="house/house.css">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -69,6 +70,10 @@
 
 <!-- Rumahku: Mode Tata Ruang -->
 <button id="layoutBtn" class="layout-btn hidden" aria-label="Tata ruang">🛠️ Tata Ruang</button>
+<!-- Kunjungi Rumah Teman -->
+<button id="visitBtn" class="visit-btn hidden" aria-label="Kunjungi rumah teman">🏠 Kunjungi Rumah Teman</button>
+<button id="visitBack" class="visit-back hidden" aria-label="Kembali ke rumah saya">⬅ Kembali ke Rumah Saya</button>
+<div id="visitTag" class="visit-tag hidden" aria-live="polite"></div>
 <div id="layoutBar" class="layout-bar hidden">
   <div class="lb-row"><b id="lbTitle">Ketuk & geser perabot</b>
     <button class="btn small" id="lbRotate">↻ Putar</button>
@@ -213,6 +218,8 @@
 <script src="mp/proto.js"></script>
 <script src="mp/ui.js"></script>
 <script src="mp/client.js"></script>
+<script src="house/core.js"></script>
+<script src="house/client.js"></script>
 <script src="hud/menu.js"></script>
 <script src="audio/synth.js"></script>
 <script src="audio/music.js"></script>

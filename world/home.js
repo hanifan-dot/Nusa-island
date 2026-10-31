@@ -9,7 +9,9 @@ const N = () => window.Nusa, HD = NW.HD, HS = NW.HOUSE, P = NW.P;
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rand = (a, b) => a + Math.random() * (b - a);
-const H = () => N().S.home;
+// Mode KUNJUNGAN (Kunjungi Rumah Teman): H() = rumah asli teman (salinan publik dari server), bukan milikmu. Semua pengubah (renovasi, katalog, tata ruang, akuarium)
+// ditolak di mode ini; data rumahmu sendiri (N().S.home) TIDAK disentuh dan tidak dipakai selama berkunjung.
+const H = () => (state.visit ? state.visit.home : N().S.home);
 const lvl = () => H().level;
 
 // ---------- Sprite ikan (cache supaya akuarium ramai tetap ringan) ----------
@@ -25,12 +27,12 @@ NW.drawFishSprite = (c, fish, x, y, L, vr) => {
 const speedOf = (it) => { const f = NW.HD_FISH(it.id); return 0.3 + (f ? f.power : 3) * 0.06; };
 const sizeOf = (it, base) => { const f = NW.HD_FISH(it.id); if (!f) return base; const r = clamp((it.w - f.wMin) / Math.max(0.01, f.wMax - f.wMin), 0, 1); return base * (0.8 + r * 0.45) * (0.85 + (f.shape ? f.shape[0] - 1 : 0) * 0.35); };
 function replicas(rarity) {
-  const S = N().S, order = ["legenda", "epik", "langka", "biasa"];
-  return FISH.filter((f) => !f.emoji && S.dex[f.id] && (!rarity || f.rarity === rarity)).sort((a, b) => order.indexOf(a.rarity) - order.indexOf(b.rarity));
+  const S = N().S, order = ["legenda", "epik", "langka", "biasa"], has = state.visit ? (id) => state.visit.leg.has(id) : (id) => S.dex[id];
+  return FISH.filter((f) => !f.emoji && has(f.id) && (!rarity || f.rarity === rarity)).sort((a, b) => order.indexOf(a.rarity) - order.indexOf(b.rarity));
 }
 
 // ---------- Status ----------
-const state = { active: false, scene: null, editing: false, sel: null, ghost: null, valid: true, drag: null, upgradeT: 0, upgrading: false, flash: 0 };
+const state = { visit: null, active: false, scene: null, editing: false, sel: null, ghost: null, valid: true, drag: null, upgradeT: 0, upgrading: false, flash: 0 };
 let radioOn = false, radioT = null, ver = 0, cache = { ver: -1 };
 const bump = () => { ver++; };
 function computed() { // titik interaksi & jalan, dihitung ulang hanya bila tata ruang berubah
@@ -108,15 +110,16 @@ function candidates() {
     const L = HS.plotLayout(lvl()), list = [
       { id: "p_gate", x: L.gate.x, y: L.gate.y - 0.5, r: 0.9, icon: "🏝️", label: "Ke Kampung" },
       { id: "p_door", x: L.doorPt.x, y: L.doorPt.y, r: 0.9, icon: "🚪", label: "Masuk" },
-      { id: "p_sign", x: L.sign.x + 0.4, y: L.sign.y + 0.45, r: 0.85, icon: "🔨", label: "Renovasi" },
+      { id: "p_sign", x: L.sign.x + 0.4, y: L.sign.y + 0.45, r: 0.85, icon: state.visit ? "🪧" : "🔨", label: state.visit ? "Papan" : "Renovasi" },
       { id: "p_mail", x: L.mailbox.x + 0.35, y: L.mailbox.y + 0.4, r: 0.75, icon: "✉️", label: "Surat" },
     ];
+    if (state.visit) list[0] = { id: "p_gate", x: L.gate.x, y: L.gate.y - 0.5, r: 0.9, icon: "⬅", label: "Pulang" };
     if (L.ex.paviliun) list.push({ id: "p_pav", x: L.ex.paviliun.x1 + 0.4, y: (L.ex.paviliun.y0 + L.ex.paviliun.y1) / 2, r: 0.9, icon: "🍵", label: "Duduk" });
     if (L.ex.kolam) list.push({ id: "p_pond", x: (L.ex.kolam.x0 + L.ex.kolam.x1) / 2, y: L.ex.kolam.y0 - 0.4, r: 1.0, icon: "🐟", label: "Kolam" });
     return list;
   }
   const h = H(), C = computed(), sp = HD.doorOf(lvl()).spawn;
-  const list = [{ id: "h_door", x: sp.x, y: sp.y, r: 0.75, icon: "🚪", label: "Keluar" }];
+  const list = [{ id: "h_door", x: sp.x, y: sp.y, r: 0.75, icon: "🚪", label: state.visit ? "Ke halaman" : "Keluar" }];
   for (const { f, p } of C.pts) {
     if (!p) continue;
     const T = HD.FURN[f.type];
@@ -134,29 +137,36 @@ function candidates() {
 }
 function fadeThen(fn) { const f = $("fade"); f.classList.add("on"); setTimeout(() => { fn(); setTimeout(() => f.classList.remove("on"), 60); }, 320); }
 function banner(text) { const b = $("banner"); b.textContent = text; b.classList.add("show"); clearTimeout(banner.t); banner.t = setTimeout(() => b.classList.remove("show"), 1800); }
+// tamu muncul sedikit di samping titik masuk supaya tidak menumpuk persis di atas pemilik / tamu lain
+function nudgeVisitor(player) {
+  if (!state.visit) return;
+  for (const [dx, dy] of [[1.0, 0.5], [1.0, -0.5], [1.6, 0.2], [0.6, 0.9], [-0.6, 0.9]]) if (walkable(player.x + dx, player.y + dy)) { player.x += dx; player.y += dy; return; }
+}
 function goPlot(player, at) {
   state.active = true; state.scene = "plot"; setEditing(false);
   if (NW.story) NW.story.mark("home");
   const L = HS.plotLayout(lvl());
   if (at === "door") { player.x = L.doorPt.x; player.y = L.doorPt.y + 0.2; player.dir = 2; }
   else { player.x = L.gate.x + 0.2; player.y = L.gate.y - 0.7; player.dir = 7; }
-  NW.world.snapCamera(); syncUI(); banner(`🏡 Halaman Rumahku · Lv ${lvl()}`);
+  nudgeVisitor(player);
+  NW.world.snapCamera(); syncUI(); banner(state.visit ? `🏠 Rumah ${state.visit.name} · Lv ${lvl()}` : `🏡 Halaman Rumahku · Lv ${lvl()}`);
 }
 function goRoom(player) {
-  state.scene = "room"; const sp = HD.doorOf(lvl()).spawn; player.x = sp.x; player.y = sp.y; player.dir = 0; bump();
-  NW.world.snapCamera(); syncUI(); banner(`🏠 ${HD.LEVELS[lvl()].name}`);
-  N().setHint(H().stored.length ? `${H().stored.length} perabot ada di gudang. Buka 🛠️ Tata Ruang untuk memasangnya.` : "");
+  state.scene = "room"; const sp = HD.doorOf(lvl()).spawn; player.x = sp.x; player.y = sp.y; player.dir = 0; bump(); nudgeVisitor(player);
+  NW.world.snapCamera(); syncUI(); banner(state.visit ? `🏠 Rumah ${state.visit.name} · ${HD.LEVELS[lvl()].name}` : `🏠 ${HD.LEVELS[lvl()].name}`);
+  N().setHint(!state.visit && H().stored.length ? `${H().stored.length} perabot ada di gudang. Buka 🛠️ Tata Ruang untuk memasangnya.` : "");
 }
 function enter(player) { fadeThen(() => goPlot(player, "gate")); }
 function exitToIsland(player) {
-  fadeThen(() => { state.active = false; state.scene = null; radio(false); setEditing(false); syncUI(); player.x = NW.HOME_GATE.x; player.y = NW.HOME_GATE.y + 0.7; player.dir = 2; NW.world.snapCamera(); NW.world.updateHint(); });
+  fadeThen(() => { state.active = false; state.scene = null; state.visit = null; radio(false); setEditing(false); syncUI(); player.x = NW.HOME_GATE.x; player.y = NW.HOME_GATE.y + 0.7; player.dir = 2; NW.world.snapCamera(); NW.world.updateHint(); });
 }
 function interact(t, player, openDialog) {
+  if (state.visit) return visitInteract(t, player, openDialog);
   const S = N().S, h = H();
   if (t.id === "p_gate") return exitToIsland(player);
   if (t.id === "p_door") return fadeThen(() => goRoom(player));
   if (t.id === "p_sign") return N().openPanel("renov");
-  if (t.id === "p_mail") return openDialog({ name: "Kotak Surat", avatar: "✉️", lines: ["Surat dari Pak Kades: \"Halaman ini milikmu sendiri. Warga lain tidak bisa masuk.\"", "\"Nanti, kalau sudah ada fitur kunjungan, teman hanya bisa melihat. Mengubah dekorasi atau mengambil ikan butuh izinmu.\""] });
+  if (t.id === "p_mail") return openDialog({ name: "Kotak Surat", avatar: "✉️", lines: ["Surat dari Pak Kades: \"Halaman ini milikmu sendiri. Warga lain tidak bisa masuk.\"", "\"Teman bisa berkunjung lewat tombol 🏠 Kunjungi Rumah Teman. Mereka hanya bisa melihat; mengubah dekorasi atau mengambil ikan tidak mungkin.\""] });
   if (t.id === "p_pav") return openDialog({ name: "Paviliun", avatar: "🍵", lines: ["Kamu duduk sebentar di paviliun sambil menikmati angin laut.", "Tempat yang pas untuk menyambut tamu nanti."] });
   if (t.id === "p_pond") return openDialog({ name: "Kolam Hias", avatar: "🐟", lines: ["Ikan koi berenang santai di antara teratai.", "Ikan hasil tangkapanmu dipajang di akuarium di dalam rumah."] });
   if (t.id === "h_door") return fadeThen(() => goPlot(player, "door"));
@@ -174,16 +184,71 @@ function interact(t, player, openDialog) {
   } else if (t.id === "h_cat") { cat.hearts = 1.5; cat.wait = 3; cat.sleep = 0; N().tone(880, 0.12, "triangle", 0.06, 660); N().tone(740, 0.18, "triangle", 0.05, 520, 0.12); N().toast("Si Belang mendengkur senang 🐈"); }
 }
 
+// ---------- Kunjungi Rumah Teman ----------
+// Hanya-lihat. Yang boleh: berjalan, melihat perabot/dekorasi/ikan, menyalakan radio (suara lokal), mengelus kucing, duduk-duduk, chat. Tidak ada yang mengubah data rumah.
+function visitHome(snap) {
+  const maxLv = HD.MAX_LEVEL || HD.LEVELS.length - 1, level = clamp(Math.floor(+snap.level) || 1, 1, maxLv);
+  const furniture = (snap.furn || []).filter((f) => HD.FURN[f.type]).map((f) => { const o = { uid: f.uid, type: f.type, x: f.x, y: f.y, rot: f.rot ? 1 : 0 }; if (f.water) o.water = f.water; return o; });
+  const aqs = new Set(furniture.map((f) => f.uid));
+  const placedFish = (snap.fish || []).filter((p) => N().FISH_BY_ID[p.id] && aqs.has(p.aq)).map((p, i) => ({ uid: p.uid || "vf" + i, id: p.id, w: p.w, t: 0, aq: p.aq }));
+  const decorations = (snap.deco || []).filter((d) => typeof d === "string");
+  return { version: HD.HOME_VERSION, ownerId: "tamu", houseId: "tamu", level, furniture, stored: [], decorations, placedFish, permissions: { visitors: "none", visitorDecorate: false, visitorTakeFish: false }, updatedAt: 0 };
+}
+function visitInteract(t, player, openDialog) {
+  const v = state.visit, h = v.home, who = v.name;
+  const say = (name, avatar, ...lines) => openDialog({ name, avatar, lines });
+  if (t.id === "p_gate") return leaveVisit(player);
+  if (t.id === "p_door") return fadeThen(() => goRoom(player));
+  if (t.id === "h_door") return fadeThen(() => goPlot(player, "door"));
+  if (t.id === "p_sign") return say("Papan Rumah", "🪧", `Rumah ${who} · Level ${h.level}.`, "Renovasi hanya bisa dilakukan pemilik rumah.");
+  if (t.id === "p_mail") return say("Kotak Surat", "✉️", `Kotak surat milik ${who}.`, "Tamu hanya boleh melihat-lihat.");
+  if (t.id === "p_pav") return say("Paviliun", "🍵", `Paviliun ${who}. Tempat yang nyaman untuk mengobrol.`);
+  if (t.id === "p_pond") return say("Kolam Hias", "🐟", "Ikan koi berenang santai di antara teratai.");
+  if (t.id === "h_bed") return say("Kasur", "🛏️", `Kasur milik ${who}. Tamu tidak menginap di sini 😄`);
+  if (t.id === "h_catalog") return say("Katalog", "📒", `Katalog perabot milik ${who}. Hanya pemilik yang bisa berbelanja untuk rumahnya.`);
+  if (t.id === "h_aqua") {
+    const fish = HD.fishIn(h, t.f.uid).map((it) => { const f = N().FISH_BY_ID[it.id]; return f ? `${f.name} ${N().fmtW(it.w)}` : null; }).filter(Boolean);
+    return say(`Akuarium ${who}`, "🐠", fish.length ? `Isi akuarium: ${fish.join(", ")}.` : "Akuarium ini masih kosong.", "Ikan di akuarium ini milik pemilik. Kamu hanya bisa melihat.");
+  }
+  if (t.id === "h_radio") { radio(!radioOn); return N().toast(radioOn ? "📻 Radio menyala (hanya terdengar olehmu)" : "📻 Radio mati"); }
+  if (t.id === "h_trophy" || t.id === "h_show") {
+    const L = replicas("legenda");
+    return say(t.b ? (t.b.type === "dindingLegenda" ? "Dinding Legenda" : "Lemari Pamer") : "Rak Trofi", "🏆", L.length ? `Replika ikan legenda milik ${who}: ${L.map((f) => f.name).join(", ")}.` : `${who} belum punya ikan legenda.`);
+  }
+  if (t.id === "h_cat") { cat.hearts = 1.5; cat.wait = 3; cat.sleep = 0; N().tone(880, 0.12, "triangle", 0.06, 660); N().tone(740, 0.18, "triangle", 0.05, 520, 0.12); return N().toast("Si Belang mendengkur senang 🐈"); }
+}
+function enterVisit(info, player) {
+  // info = jawaban homeVisit dari server: { owner:{name,level,sid,pid}, home:<salinan publik> }
+  const leg = new Set(info.home.leg || []);
+  const v = { name: info.owner.name, pid: info.owner.pid, sid: info.owner.sid, home: visitHome(info.home), leg, ret: { scene: state.scene } };
+  fadeThen(() => {
+    state.visit = v; cache = { ver: -1 }; bump(); radio(false); setEditing(false);
+    goPlot(player, "gate");
+    if (NW.house) NW.house.onVisitChange();
+  });
+}
+function leaveVisit(player) {
+  if (!state.visit) return;
+  fadeThen(() => {
+    state.visit = null; cache = { ver: -1 }; bump(); radio(false);
+    goPlot(player, "door");                                   // titik aman di depan pintu rumah sendiri
+    banner("🏡 Kembali ke Rumahku");
+    if (NW.house) NW.house.onVisitChange();
+  });
+}
+
 // ---------- Mode Tata Ruang ----------
 const snap = (v) => Math.round((v - 0.05) / HD.SNAP) * HD.SNAP + 0.05;
 function setEditing(on) {
+  if (on && state.visit) return;                                   // tamu tidak bisa menata ulang rumah orang
   state.editing = on; state.sel = null; state.ghost = null; state.drag = null;
   document.body.classList.toggle("editing", on);
   syncUI(); renderBar();
-  if (!on) { N().save(); bump(); }
+  if (!on) { if (!state.visit) N().save(); bump(); }
 }
 function syncUI() {
-  $("layoutBtn").classList.toggle("hidden", !(state.active && state.scene === "room") || state.editing);
+  $("layoutBtn").classList.toggle("hidden", !(state.active && state.scene === "room") || state.editing || !!state.visit);
+  document.body.classList.toggle("home-active", !!state.active); document.body.classList.toggle("home-visit", !!state.visit);
   $("layoutBar").classList.toggle("hidden", !state.editing);
 }
 function hitFurniture(cx, cy) {
@@ -254,7 +319,7 @@ function renderBar() {
   $("lbStored").innerHTML = st.length ? `<span class="muted">Gudang:</span>` + st.map((x) => `<button class="chip-btn" data-uid="${x.uid}">${HD.FURN[x.type].icon} ${HD.FURN[x.type].name}</button>`).join("") : `<span class="muted">Gudang kosong</span>`;
   void bar;
 }
-$("layoutBtn").addEventListener("click", () => { N().sfx("click"); setEditing(true); N().toast("Mode Tata Ruang: ketuk perabot lalu geser 🛠️"); });
+$("layoutBtn").addEventListener("click", () => { if (state.visit) return; N().sfx("click"); setEditing(true); N().toast("Mode Tata Ruang: ketuk perabot lalu geser 🛠️"); });
 $("lbDone").addEventListener("click", () => { N().sfx("click"); setEditing(false); N().toast("Tata ruang disimpan ✔", "good"); });
 $("lbRotate").addEventListener("click", rotateSel);
 $("lbStore").addEventListener("click", storeSel);
@@ -262,6 +327,7 @@ $("lbStored").addEventListener("click", (e) => { const b = e.target.closest("[da
 
 // ---------- Renovasi ----------
 function renovHTML() {
+  if (state.visit) return `<p class="muted">Renovasi hanya bisa dilakukan pemilik rumah.</p>`;
   const S = N().S, lv = lvl(), next = HD.LEVELS[lv + 1], cur = HD.LEVELS[lv];
   let h = `<div class="renov-strip">${HD.LEVELS.slice(1).map((L) => `<div class="rs ${L.lv < lv ? "done" : L.lv === lv ? "cur" : ""}" title="${L.name}">${L.lv}</div>`).join("")}</div>`;
   h += `<div class="renov-cols"><div class="renov-card"><div class="muted">Sekarang · Level ${lv}</div><b>${cur.name}</b><canvas class="renov-prev" data-lv="${lv}" width="300" height="190"></canvas><div class="muted">Ruangan ${cur.room[0]}×${cur.room[1]} · ${cur.windows} jendela</div></div>`;
@@ -297,7 +363,7 @@ function drawPreviews() {
   });
 }
 function renovAct(a) {
-  if (a !== "renov" || state.upgrading) return;
+  if (state.visit || a !== "renov" || state.upgrading) return;
   const S = N().S, h = H(), next = HD.LEVELS[h.level + 1];
   if (!next || N().balance() < next.price || S.rep < next.stars) return;
   state.upgrading = true;
@@ -329,6 +395,7 @@ function owned(c) {
   return all.some((f) => f.type === c.furn);
 }
 function catalogHTML() {
+  if (state.visit) return `<p class="muted">Katalog hanya untuk pemilik rumah.</p>`;
   const S = N().S;
   let h = `<p class="muted">Perabot baru dipasang otomatis dan bisa digeser lewat 🛠️ Tata Ruang. Kamu punya 🪙 ${N().fmt(N().balance())} · ⭐ ${S.rep}.</p><div class="list">`;
   for (const c of HD.CATALOG) {
@@ -339,7 +406,7 @@ function catalogHTML() {
   return h + `</div>`;
 }
 function catalogAct(a, arg) {
-  if (a !== "buyItem") return;
+  if (state.visit || a !== "buyItem") return;
   const S = N().S, h = H(), c = HD.CATALOG.find((x) => x.id === arg);
   if (!c || owned(c) || N().balance() < c.price || S.rep < c.stars) return;
   N().charge(c.price, "dekor:" + c.id, () => catalogGrant(c));
@@ -379,6 +446,7 @@ function drawScene(ctx, t, dk, player, V) {
     HS.state.scaffold = state.upgradeT > 0 ? Math.min(1, state.upgradeT) : 0;
     const L = HS.drawPlotGround(ctx, lvl(), t), { list } = HS.plotObjects(lvl(), t, night);
     list.push({ d: player.x + player.y, draw: (c) => NW.drawCharacter(c, player, t) });
+    for (const it of remoteItems(t)) list.push(it);
     list.sort((a, b) => a.d - b.d).forEach((it) => it.draw(ctx));
     // pemain di belakang rumah tetap terlihat (siluet)
     const hb = L.house; if (player.y < hb.y1 && player.x > hb.x0 - 0.5 && player.x < hb.x1 + 0.5) { ctx.globalAlpha = 0.5; NW.drawCharacter(ctx, player, t); ctx.globalAlpha = 1; }
@@ -410,6 +478,7 @@ function drawScene(ctx, t, dk, player, V) {
   for (const f of h.furniture) if (HD.FURN[f.type].kind === "solid") { const r = HD.fp(show(f)); L.push({ d: (r.x0 + r.x1) / 2 + (r.y0 + r.y1) / 2, draw: (c) => HS.drawFurniture(c, show(f), t, ctxF) }); }
   if (hasDeco("kucing")) L.push({ d: cat.x + cat.y, draw: (c) => drawCat(c, t) });
   if (!state.editing) L.push({ d: player.x + player.y, draw: (c) => NW.drawCharacter(c, player, t) });
+  for (const it of remoteItems(t)) L.push(it);
   L.sort((a, b) => a.d - b.d).forEach((it) => it.draw(ctx));
   // lampu gantung
   const { w, d } = HD.roomOf(lv), lit = hasDeco("lampu") || lv >= 5;
@@ -424,6 +493,12 @@ function drawScene(ctx, t, dk, player, V) {
     V.worldXf();
     if (lit) { ctx.globalCompositeOperation = "lighter"; const p = P(w / 2, d / 2, 60), r = 120 + (w + d) * 10, gl = ctx.createRadialGradient(p.x, p.y, 4, p.x, p.y, r); gl.addColorStop(0, `rgba(255,190,110,${0.4 * dk})`); gl.addColorStop(1, "rgba(255,190,110,0)"); ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
   }
+}
+// pemain lain NYATA di ruang rumah yang sama (dari server; kosong bila tidak tersambung) — dalam adegan (halaman/dalam) yang sama
+function remoteItems(t) {
+  const out = []; if (!NW.mp || !NW.mp.homeLayer) return out;
+  for (const it of NW.mp.homeLayer(state.scene)) out.push({ d: it.d, draw: (c) => { NW.drawCharacter(c, it.ch, t); NW.mp.drawTag(c, it.remote, 1 / (NW.world.zoom || 1)); } });
+  return out;
 }
 const HX = () => HS.plotLayout(lvl()).doorPt.x;
 function drawGrid(ctx, lv) {
@@ -443,7 +518,8 @@ NW.home = {
     if (state.flash > 0) state.flash = Math.max(0, state.flash - dt * 1.5);
   },
   lit: () => hasDeco("lampu") || lvl() >= 5, center: () => { const { w, d } = HD.roomOf(lvl()); return P(w / 2, d / 2, 20); },
-  reset() { state.active = false; state.scene = null; setEditing(false); radio(false); },
+  reset() { state.active = false; state.scene = null; state.visit = null; setEditing(false); radio(false); },
   goRoom, goPlot, bump, spriteCache,
+  get visit() { return state.visit; }, enterVisit, leaveVisit,
 };
 })();

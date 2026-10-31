@@ -629,6 +629,7 @@ function drawHome(ctx, t) {
   NW.home.drawScene(ctx, t, N().darkness(), player, { W, H: H2, DPR, worldXf: () => worldXf(ctx) });
   if (NW.weather && NW.home.scene === "plot") { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); NW.weather.drawScreen(ctx, W, H2, t, N().darkness() / 0.85, A().id, "plot"); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); }
   if (!NW.home.isEditing()) { worldXf(ctx); drawTargetBubble(ctx, t); }
+  if (NW.mp && NW.mp.inHouse && NW.mp.inHouse() && !NW.home.isEditing()) { worldXf(ctx); NW.look.drawPlayerLabel(ctx, NW.P(player.x, player.y, 0), 1.0 / Z, 0); NW.mp.drawBubbles(ctx, 1.0 / Z); }   // ruang rumah: label & bubble chat
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
 // layar → tile (dipakai Mode Tata Ruang)

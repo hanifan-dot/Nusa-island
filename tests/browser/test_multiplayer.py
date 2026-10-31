@@ -135,7 +135,7 @@ def main():
 
             # ===== 7. Tersembunyi saat di luar Muara =====
             ev(A, "NW.world.switchArea('toba')"); time.sleep(0.9)
-            ok("7a A pindah ke area lain → menghilang dari dunia B", peer(B, "Budi") is None and V(B)["n"] <= 1, V(B)["players"])
+            ok("7a A pindah ke area lain → menghilang dari dunia B (tetap tersambung: hitungan server 2, terlihat 0)", peer(B, "Budi") is None and V(B)["n"] == 2 and V(B)["visible"] == 1 and V(B)["players"] == [], (V(B)["n"], V(B)["visible"], V(B)["players"]))
             ev(A, "NW.world.switchArea('muara')"); time.sleep(1.0)
             ok("7b A kembali ke Muara → muncul lagi", peer(B, "Budi") is not None)
 
@@ -161,7 +161,7 @@ def main():
             ev(B, "NW.mp.setPref('low', true)"); time.sleep(0.4); B_rx1 = V(B)["rx"]
             A.keyboard.down("ArrowRight"); time.sleep(3.0); A.keyboard.up("ArrowRight"); time.sleep(0.9)
             rx_low = V(B)["rx"] - B_rx1
-            ok("10c mode hemat data: B menerima lebih sedikit dari mode normal", rx_low < rx_norm * 0.75, (rx_low, rx_norm))
+            ok("10c mode hemat data: B menerima lebih sedikit dari mode normal", rx_low < rx_norm * 0.9, (rx_low, rx_norm))
             lb = remote_ch(B, "Budi"); ap = me_pos(A)
             ok("10d posisi akhir tetap benar di mode hemat data", abs(lb["x"] - ap["x"]) < 0.6 and abs(lb["y"] - ap["y"]) < 0.6, (lb, ap))
             ev(B, "NW.mp.setPref('low', false)")

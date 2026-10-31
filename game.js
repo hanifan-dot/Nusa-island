@@ -472,10 +472,25 @@ function landFish(fish, w) {
 // ---------- Update ----------
 let last = performance.now(), started = false, saveT = 0;
 // waktu berjalan (dipakai mode mancing & mode pulau)
+// Dunia Bersama (Tahap 4.2): bila tersambung & terlihat di Muara, jam mengikuti JAM SERVER (sama untuk semua pemain di server itu).
+// Yang disentuh hanya S.hour (nilai jam). Hari (S.day), misi, harga, save, dan semua logika lain tetap seperti biasa:
+//  - selisih kecil dihaluskan (maks ±50% kecepatan) → tidak melompat; lompatan besar (saat masuk/sambung ulang) tidak menambah hari.
+//  - hari bertambah HANYA saat jam benar-benar melewati tengah malam secara alami, jadi pindah-pindah server tidak bisa menambang hari.
+//  - putus koneksi / keluar Muara → sharedHour() = null → jam lokal berlanjut dari nilai terakhir tanpa lompatan.
+function stepHour(dt) {
+  const sh = NW.mp ? NW.mp.sharedHour() : null, step = dt * HOURS_PER_SEC;
+  if (sh == null) { S.hour += step; if (S.hour >= 24) { S.hour -= 24; newDay(); } return; }
+  const prev = S.hour; let h = prev + step, wrapped = false;
+  if (h >= 24) { h -= 24; wrapped = true; }
+  let d = ((sh - h + 36) % 24) - 12;                                  // selisih bertanda terpendek, -12..12 jam
+  if (Math.abs(d) > 0.5) { S.hour = sh; return; }                     // lompatan besar: pasang langsung, TANPA tambah hari
+  h += Math.max(-step * 0.5, Math.min(step * 0.5, d));
+  if (h >= 24) { h -= 24; wrapped = true; } else if (h < 0) h += 24;
+  S.hour = h; if (wrapped) newDay();
+}
 function tickTime(dt) {
   const prevNight = isNight();
-  S.hour += dt * HOURS_PER_SEC;
-  if (S.hour >= 24) { S.hour -= 24; newDay(); }
+  stepHour(dt);
   if (prevNight !== isNight() && started) clockNote(isNight() ? "🌙 Malam, ikan malam keluar" : "☀️ Pagi tiba");
   refreshClock();
   saveT += dt; if (saveT > 5) { saveT = 0; save(); }
@@ -1506,6 +1521,7 @@ if (NW.toba) NW.toba.hook();               // Bumbu 2: cerita "Rahasia Tepian Da
 if (NW.selat) NW.selat.hook();             // Bumbu 2.4: cerita "Jejak Arus Selat"
 if (NW.boat) NW.boat.hook();               // Bumbu 2.4: tombol kapal & panel Peta Laut
 if (NW.cloud) NW.cloud.hook();             // Tahap 3: tombol Profil & akun
+if (NW.house) NW.house.hook();                 // Kunjungi Rumah Teman (tombol di Rumahku + panel cari); sebelum mp supaya ruang rumah sudah dikenali
 if (NW.mp) NW.mp.hook();                   // Tahap 4: Dunia Bersama (multiplayer Muara Kampung) — hanya aktif untuk akun Google yang menyetujui
 if (NW.streak) NW.streak.hook();           // Login Streak 7 Hari: tombol 🎁 & Kalender Hadiah (klaim hanya lewat server Firebase)
 if (NW.event) NW.event.hook();             // Event 5 Monster Legenda: jadwal dari jam server, monster mingguan, duel yang dinilai server

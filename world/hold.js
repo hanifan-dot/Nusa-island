@@ -198,10 +198,13 @@ function drawFx(c, hd, G, y0, hy, t) {
 function labelLift() {
   if (!H.uid) return 0;
   const it = find(H.uid); if (!it) return 0;
-  const p = poseFor(it.w), L = fishLen(it.w) * 1.12, Lw = L * 1.333, Lh = L * 0.8;
+  return liftFor(it.w);
+}
+function liftFor(w) {
+  const p = poseFor(w), L = fishLen(w) * 1.12, Lw = L * 1.333, Lh = L * 0.8;
   const a = Math.abs(p.rot) + p.wob * 1.3 + 0.05, half = (Lw / 2) * Math.sin(a) + (Lh / 2) * Math.cos(a);
   const top = -p.bottom + 5 + Lh / 2 + half + p.bounce;               // tinggi ujung atas ikan dari kaki
-  return Math.max(0, top + 5 - 58);                                   // label standar berada 58 di atas kaki
+  return Math.max(0, top + 5 - 60);                                   // label standar berada 60 di atas kaki
 }
 
 // ---------- Label ikan (nama + berat) di bawah kaki karakter ----------
@@ -239,6 +242,24 @@ function camLift(dt) {
   return H.camK;
 }
 
+// ---------- Dunia Bersama (Tahap 4.2): pamer ikan terlihat teman ----------
+// Yang dikirim lewat jaringan HANYA status tampilan: id spesies, berat (gram), kode varian. Tidak ada uid, tidak ada isi coolbox.
+function snapshot() {
+  if (!H.uid) return null; const it = find(H.uid); if (!it || !isShowable(it)) return null;
+  const vr = NW.variants && NW.variants.of ? NW.variants.of(it) : it.vr;
+  return { i: it.id, w: Math.max(1, Math.round(it.w * 1000)), v: typeof vr === "string" ? vr : "normal" };
+}
+// bingkai gambar untuk karakter pemain LAIN dari status tampilan yang diterima (tidak menyentuh coolbox sendiri)
+function remoteFrame(h) {
+  const f = h && N().FISH_BY_ID[h.i]; if (!f || f.rarity === "sampah") return null;
+  const w = clamp(h.w / 1000, 0.01, 1000), p = poseFor(w);
+  return { uid: "r:" + h.i, f, w, vr: h.v && h.v !== "normal" ? h.v : undefined, p, L: fishLen(w), t0: performance.now() / 1000, crouch: p.crouch, remote: true };
+}
+function drawRemoteTag(c, b, scale, hd) {
+  const cv = tagCanvas(hd.f, hd.w), s = scale || 1, k = ease((performance.now() / 1000 - hd.t0) / 0.5);
+  c.save(); c.globalAlpha = clamp(k, 0, 1); c.drawImage(cv, b.x - (cv._w * s) / 2, b.y + 8 * s, cv._w * s, cv._h * s); c.restore();
+}
+
 function hook() {
   btn = document.createElement("button"); btn.id = "holdStop"; btn.className = "hold-stop hidden"; btn.type = "button";
   btn.innerHTML = "<span>✋</span> Berhenti<br>Memegang";
@@ -249,7 +270,7 @@ function hook() {
   N().on("catch", off);
 }
 
-NW.hold = { POSES, poseFor, fishLen, holding, start, stop, validate, frame, geom, drawFishBody, drawArms, drawFace, drawFx, labelLift, drawTag, camLift, isShowable, hook, state: H };
+NW.hold = { POSES, poseFor, fishLen, holding, start, stop, validate, frame, geom, drawFishBody, drawArms, drawFace, drawFx, labelLift, drawTag, camLift, isShowable, hook, snapshot, remoteFrame, liftFor, drawRemoteTag, state: H };
 // Dipakai modul inventaris lewat NW.look (titik pasang fase 3)
 NW.look = NW.look || {};
 Object.assign(NW.look, { holdUI, holdAct, holding });

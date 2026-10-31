@@ -12,6 +12,8 @@ FIREBASE_PROJECT_ID = "nusa-island-d2023"
 ALLOWED_ORIGINS = "https://nusa-island-d2023.web.app,https://nusa-island-d2023.firebaseapp.com,https://hanifan-dot.github.io"
 # "0" = matikan dunia bersama tanpa deploy ulang kode (ubah di dashboard Cloudflare → Variables)
 MP_ENABLED = "1"
+# "0" = matikan hanya ruang rumah teman (Muara tetap jalan)
+HOUSE_ENABLED = "1"
 # MP_BLOCKED_UIDS (daftar uid diblokir, pisahkan koma) sengaja TIDAK ditulis di sini: isi lewat dashboard Cloudflare saat dibutuhkan
 # dan tidak tertimpa deploy berikutnya berkat keep_vars.
 
@@ -23,6 +25,19 @@ class_name = "MuaraRoom"
 name = "LOBBY"
 class_name = "Lobby"
 
+# Kunjungi Rumah Teman: satu DO per rumah + tanya izin masuk ke nusa-api (service binding; tanpa rahasia bersama, tanpa URL publik).
+[[durable_objects.bindings]]
+name = "HOUSE"
+class_name = "HouseRoom"
+
+[[services]]
+binding = "API"
+service = "nusa-api"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["MuaraRoom", "Lobby"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["HouseRoom"]
