@@ -89,5 +89,5 @@ const shopWrap = (name, publicOk) => onCall({ enforceAppCheck: false }, async (r
 });
 for (const n of ["getCatalog", "getTime"]) exports["shop_" + n] = shopWrap(n, true);
 for (const n of ["createOrder", "cancelOrder", "claimPaid", "listOrders", "getEntitlements", "listLedger", "redeemCoins", "ackDelivery",
-  "ownerCatalog", "ownerListOrders", "ownerApprove", "ownerReject", "ownerSetLaunch", "ownerSetEnabled", "ownerSetMode", "ownerAudit", "ownerUserReport"]) exports["shop_" + n] = shopWrap(n, false);
+  "ownerCatalog", "ownerListOrders", "ownerApprove", "ownerReject", "ownerSetLaunch", "ownerSetEnabled", "ownerSetMode", "ownerSetPilot", "ownerAudit", "ownerUserReport"]) exports["shop_" + n] = shopWrap(n, false);
 // NB: simulatePayment sengaja TIDAK diekspor — pada produksi tidak ada jalur "anggap dibayar".
