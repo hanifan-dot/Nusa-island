@@ -4,3 +4,4 @@ serviceAccount*.json
 *.key
 .env
 .env.*
+public/
