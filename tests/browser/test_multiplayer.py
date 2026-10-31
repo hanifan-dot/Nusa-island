@@ -106,13 +106,13 @@ def main():
 
             # ===== 5. Chat =====
             A.click("#mpChatBtn"); time.sleep(0.2)
-            ok("5a bilah chat terbuka & joystick diblokir saat mengetik", ev(A, "!document.getElementById('mpBar').classList.contains('hidden')") and ev(A, "NW.mp.typing") is True)
+            ok("5a panel obrolan terbuka & joystick diblokir saat mengetik", ev(A, "!document.getElementById('mpChat').classList.contains('hidden')") and ev(A, "NW.mp.typing") is True)
             A.fill("#mpInput", "Halo   Sari! kontol http://x.com ayo mancing"); A.press("#mpInput", "Enter"); time.sleep(0.6)
             lg = V(B)["log"]; lastB = lg[-1]["text"] if lg else ""
             ok("5b B menerima chat, disaring (kata kasar & tautan disamarkan)", "Halo Sari!" in lastB and "kontol" not in lastB and "x.com" not in lastB, lastB)
             ok("5c A melihat gema chat yang sama persis seperti yang dilihat B", V(A)["log"][-1]["text"] == lastB)
             ok("5d bubble chat muncul di atas Budi di layar B", ev(B, "[...NW.mp._R.players.values()].some(p=>p.bubble && p.bubble.text.includes('Halo'))"))
-            ok("5e bilah chat tertutup setelah kirim", ev(A, "NW.mp.typing") is False)
+            ok("5e keyboard menutup setelah kirim (typing=false), panel tetap terbuka", ev(A, "NW.mp.typing") is False and ev(A, "!document.getElementById('mpChat').classList.contains('hidden')"))
             B.screenshot(path=OUT + "03_chat.png")
             for i in range(8): ev(A, "NW.mp.sendChat('spam %d')" % i)
             time.sleep(0.6)

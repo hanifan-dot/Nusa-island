@@ -79,7 +79,7 @@ function onDown(e) {
   if (dialog.open) { advanceDialog(); return; }
   if (cine && cine.t > 0.6) { cine.t = Math.max(cine.t, cine.dur - 0.5); return; } // ketuk = lewati sorotan
   if (blocked()) return;
-  if (e.target && e.target.closest && e.target.closest(".mp-dock, .mp-bar, .mp-ask")) return; // ketuk tombol Dunia Bersama ≠ menggeser joystick
+  if (e.target && e.target.closest && e.target.closest(".mp-dock, .mp-chat, .mp-ask, .hm, .hm-ov")) return; // ketuk tombol Dunia Bersama ≠ menggeser joystick
   if (e.clientX < W * 0.6 && !joy.active) {
     const home = joyHome();
     joy.active = true; joy.id = e.pointerId;

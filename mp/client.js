@@ -109,7 +109,7 @@ function upsert(row) {
   } else { p.name = name; p.rank = rank; p.rod = rod; p.tx = qx / P.Q; p.ty = qy / P.Q; p.d = d; p.f = f; p.at = now(); if (NW.look) p.ch.rodSpec = NW.look.rodSpec(Math.max(0, Math.min(9, rod | 0))); }
   return p;
 }
-function addLog(name, text, mine) { R.log.push({ name, text, t: Date.now(), mine: !!mine }); if (R.log.length > 40) R.log.shift(); }
+function addLog(name, text, mine) { R.log.push({ name, text, t: Date.now(), mine: !!mine }); if (R.log.length > 80) R.log.shift(); }
 function onMsg(m) {
   switch (m.t) {
     case "w": R.me = m.me; R.room = m.room; R.n = m.n; R.cap = m.cap; R.players.clear(); for (const row of m.ps) upsert(row).ch.moving = false; R.gotWelcome = true; R.gotWelcomeEver = true; setState("online", ""); break;
@@ -186,24 +186,50 @@ function drawTag(ctx, p, scale) {
   const pb = NW.P(p.ch.x, p.ch.y, (NW.groundZ ? NW.groundZ(p.ch.x, p.ch.y) : 0) - (p.ch.sit ? 6 : 0));
   NW.look.drawLabel(ctx, { name: p.name, title: titleOf(p.rank) }, pb.x, pb.y, scale, 0);
 }
-function wrap(text, n) { const w = text.split(" "), out = []; let l = ""; for (const x of w) { if ((l + " " + x).trim().length > n && l) { out.push(l); l = x; } else l = (l + " " + x).trim(); } if (l) out.push(l); return out.slice(0, 4); }
-function bubbleAt(ctx, x, y, text, scale, alpha) {
-  const lines = wrap(text, 20); ctx.save(); ctx.globalAlpha = alpha; ctx.font = `600 ${11 * scale}px system-ui, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 14 * scale, h = lines.length * 13 * scale + 8 * scale, bx = x - w / 2, by = y - h - 8 * scale, r = 8 * scale;
-  ctx.fillStyle = "rgba(255,255,255,.95)"; ctx.strokeStyle = "rgba(23,63,80,.55)"; ctx.lineWidth = 1.2 * scale;
+const BUBBLE_COLS = 20, BUBBLE_ROWS = 3;                   // bubble memotong pesan panjang (maks 3 baris × 20 huruf); panel obrolan tetap menampilkan lengkap
+function wrap(text, n) {
+  const words = []; for (const w of text.split(" ")) { const a = Array.from(w); for (let i = 0; i < a.length; i += n) words.push(a.slice(i, i + n).join("")); }   // kata tanpa spasi yang panjang dipecah
+  const out = []; let l = "";
+  for (const x of words) { if ((l + " " + x).trim().length > n && l) { out.push(l); l = x; } else l = (l + " " + x).trim(); }
+  if (l) out.push(l);
+  if (out.length > BUBBLE_ROWS) { const keep = out.slice(0, BUBBLE_ROWS); let last = Array.from(keep[BUBBLE_ROWS - 1]); if (last.length >= n) last = last.slice(0, n - 1); keep[BUBBLE_ROWS - 1] = last.join("").trimEnd() + "…"; return keep; }
+  return out;
+}
+function bubbleLayout(ctx, x, baseY, text, scale) {
+  const lines = wrap(text, BUBBLE_COLS); ctx.font = `600 ${11 * scale}px system-ui, sans-serif`;
+  const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 14 * scale, h = lines.length * 13 * scale + 8 * scale;
+  return { lines, w, h, x: x - w / 2, y: baseY - h - 7 * scale };
+}
+function bubbleDraw(ctx, B, x, scale, alpha) {
+  ctx.save(); ctx.globalAlpha = alpha; ctx.font = `600 ${11 * scale}px system-ui, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const { x: bx, y: by, w, h } = B, r = 8 * scale;
+  ctx.fillStyle = "rgba(255,255,255,.95)"; ctx.strokeStyle = "rgba(23,63,80,.5)"; ctx.lineWidth = 1.1 * scale;
   ctx.beginPath(); ctx.moveTo(bx + r, by); ctx.arcTo(bx + w, by, bx + w, by + h, r); ctx.arcTo(bx + w, by + h, bx, by + h, r); ctx.arcTo(bx, by + h, bx, by, r); ctx.arcTo(bx, by, bx + w, by, r); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(x - 5 * scale, by + h - 0.5); ctx.lineTo(x, by + h + 7 * scale); ctx.lineTo(x + 5 * scale, by + h - 0.5); ctx.fill();
-  ctx.fillStyle = "#173f50"; lines.forEach((l, i) => ctx.fillText(l, x, by + 4 * scale + (i + 0.5) * 13 * scale)); ctx.restore();
+  const tx = Math.max(bx + 9 * scale, Math.min(bx + w - 9 * scale, x));
+  ctx.beginPath(); ctx.moveTo(tx - 4.5 * scale, by + h - 0.5); ctx.lineTo(tx, by + h + 5 * scale); ctx.lineTo(tx + 4.5 * scale, by + h - 0.5); ctx.fill();
+  ctx.fillStyle = "#173f50"; B.lines.forEach((l, i) => ctx.fillText(l, bx + w / 2, by + 4 * scale + (i + 0.5) * 13 * scale)); ctx.restore();
 }
 function drawBubbles(ctx, scale) {
   if (!R.vis && !R.self.bubble && !R.self.emote) return;
-  const t = now(), one = (ch, o, lift) => {
-    const pb = NW.P(ch.x, ch.y, (NW.groundZ ? NW.groundZ(ch.x, ch.y) : 0) - (ch.sit ? 6 : 0)), top = pb.y - 84 * scale - lift;
-    if (o.bubble) { if (t > o.bubble.until) o.bubble = null; else bubbleAt(ctx, pb.x, top, o.bubble.text, scale, Math.min(1, (o.bubble.until - t) / 600)); }
-    if (o.emote) { if (t > o.emote.until) o.emote = null; else { const k = (t - o.emote.from) / 2600; ctx.save(); ctx.globalAlpha = 1 - k * k; ctx.font = `${26 * scale}px serif`; ctx.textAlign = "center"; ctx.fillText(P.EMOTES[o.emote.i], pb.x, top - k * 18 * scale + 10 * scale); ctx.restore(); } }
+  const t = now(), placed = [];
+  const one = (ch, o, info) => {
+    const pb = NW.P(ch.x, ch.y, (NW.groundZ ? NW.groundZ(ch.x, ch.y) : 0) - (ch.sit ? 6 : 0));
+    const topLabel = NW.look.labelTop(info, pb.y, scale, 0) - 5 * scale;          // tepat di atas label nama: tidak menumpuk
+    if (o.bubble) {
+      if (t > o.bubble.until) o.bubble = null;
+      else {
+        const B = bubbleLayout(ctx, pb.x, topLabel, o.bubble.text, scale);
+        for (let k = 0; k < 4; k++) { const hit = placed.find((q) => B.x < q.x + q.w && B.x + B.w > q.x && B.y < q.y + q.h + 2 * scale && B.y + B.h + 6 * scale > q.y); if (!hit) break; B.y = hit.y - B.h - 8 * scale; }   // bubble pemain berdekatan tidak saling menimpa
+        const Zm = NW.world.zoom || 1, cam = NW.world.cam, Wd = window.innerWidth, sl = (B.x - cam.x) * Zm + Wd / 2, sr = sl + B.w * Zm;   // jaga bubble tetap di dalam layar (pemain di tepi)
+        if (sl < 6) B.x += (6 - sl) / Zm; else if (sr > Wd - 6) B.x += (Wd - 6 - sr) / Zm;
+        placed.push(B); bubbleDraw(ctx, B, pb.x, scale, Math.min(1, (o.bubble.until - t) / 600));
+      }
+    }
+    if (o.emote) { if (t > o.emote.until) o.emote = null; else { const k = (t - o.emote.from) / 2600; ctx.save(); ctx.globalAlpha = 1 - k * k; ctx.font = `${24 * scale}px serif`; ctx.textAlign = "center"; ctx.fillText(P.EMOTES[o.emote.i], pb.x, topLabel - 4 * scale - k * 16 * scale); ctx.restore(); } }
   };
-  one(NW.world.player, R.self, 0);
-  for (const p of R.players.values()) if (p.bubble || p.emote) one(p.ch, p, 0);
+  let myName = "Pemancing", myTitle = null; try { myName = NW.look.playerName(); myTitle = NW.look.currentTitle(); } catch (e) {}
+  one(NW.world.player, R.self, { name: myName, title: myTitle });
+  for (const p of R.players.values()) if (p.bubble || p.emote) one(p.ch, p, { name: p.name, title: titleOf(p.rank) });
 }
 
 // ---------- API untuk UI ----------

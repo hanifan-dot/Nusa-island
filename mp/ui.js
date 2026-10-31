@@ -49,46 +49,82 @@ function act(a) {
 function after(body) {
   body.querySelectorAll("[data-pref]").forEach((el) => el.addEventListener("change", () => { NW.mp.setPref(el.dataset.pref, el.checked); N().renderPanel(); refresh(); }));
 }
+let askDismissed = false, chatOpen = false, lastSeen = Date.now(), histKey = "", raf = 0;
+const COLORS = ["#ffe08a", "#9fe3d2", "#ffb3a1", "#b9d4ff", "#e3c2ff", "#c8f08f", "#ffc98a", "#f5a9d0"];
+const hue = (n) => { let h = 0; for (let i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0; return COLORS[h % COLORS.length]; };
+function histHTML(v) {
+  if (!v.prefs.chat) return `<div class="mp-sys">Chat pemain lain disembunyikan. Aktifkan lagi di 👥 Dunia Bersama.</div>`;
+  if (!v.log.length) return `<div class="mp-sys">${v.online ? "Belum ada obrolan. Sapa pemain lain di Muara Kampung! 👋" : "Tidak tersambung ke Dunia Bersama."}</div>`;
+  return v.log.map((l) => l.name === "Sistem" ? `<div class="mp-sys">${esc(l.text)}</div>` : `<div class="m ${l.mine ? "mine" : ""}"><b style="color:${l.mine ? "#fff" : hue(l.name)}">${esc(l.name)}</b><span>${esc(l.text)}</span></div>`).join("");
+}
+function renderHist(force) {
+  const v = NW.mp.view(), h = $("mpHist"); if (!h) return;
+  const key = v.log.length + "|" + (v.log.length ? v.log[v.log.length - 1].t : 0) + "|" + v.prefs.chat + "|" + v.online;
+  if (!force && key === histKey) return; histKey = key;
+  const nearEnd = h.scrollHeight - h.scrollTop - h.clientHeight < 60;
+  h.innerHTML = histHTML(v); if (nearEnd || force) h.scrollTop = h.scrollHeight;
+}
+function setChat(on) {
+  chatOpen = on; const c = $("mpChat"); if (!c) return; document.body.classList.toggle("mp-chat-open", on);
+  c.classList.toggle("hidden", !on); $("mpChatBtn").classList.toggle("open", on); $("mpChatBtn").setAttribute("aria-expanded", on ? "true" : "false");
+  if (on) { lastSeen = Date.now(); renderHist(true); setTimeout(() => { const i = $("mpInput"); if (i && !i.disabled) i.focus({ preventScroll: true }); }, 40); }
+  else { lastSeen = Date.now(); const i = $("mpInput"); if (i) i.blur(); $("mpEmo").classList.add("hidden"); NW.mp.typing = false; document.body.classList.remove("mp-typing"); }
+  refresh();
+}
 function refresh() {
   const v = NW.mp.view(), dock = $("mpDock"); if (!dock) return;
   const loggedIn = !!(NW.cloud && NW.cloud.enabled && NW.cloud.user);
-  dock.classList.toggle("hidden", !loggedIn || !N().isStarted() || document.body.classList.contains("hide-mp"));
+  dock.classList.toggle("hidden", !loggedIn || !N().isStarted());
   $("mpN").textContent = v.online ? v.n : "–";
   $("mpCount").classList.toggle("on", v.online); $("mpCount").classList.toggle("ask", v.prefs.consent === null && loggedIn);
   $("mpChatBtn").classList.toggle("hidden", !v.online);
-  // log chat singkat
-  const lg = $("mpLog"), cut = Date.now() - 9000, rec = v.prefs.chat ? v.log.filter((l) => l.t > cut).slice(-5) : [];
+  if (chatOpen && !v.online) setChat(false);
+  // lencana belum dibaca: hanya pesan NYATA dari pemain lain sejak panel terakhir dibuka/ditutup
+  const unread = chatOpen || !v.prefs.chat ? 0 : v.log.filter((l) => l.t > lastSeen && !l.mine && l.name !== "Sistem").length;
+  const ub = $("mpUnread"); ub.textContent = unread > 9 ? "9+" : String(unread); ub.classList.toggle("hidden", !unread);
+  $("mpChatCount").textContent = v.online ? v.n + " pemain" : "offline";
+  const inp = $("mpInput"); if (inp) { inp.disabled = !v.online; inp.placeholder = v.online ? "Ketik pesan…" : "Tidak tersambung"; }
+  // umpan singkat saat panel tertutup (5 pesan terakhir, 9 detik)
+  const lg = $("mpLog"), cut = Date.now() - 9000, rec = !chatOpen && v.prefs.chat ? v.log.filter((l) => l.t > cut && l.name !== "Sistem").slice(-4) : [];
   lg.innerHTML = rec.map((l) => `<div class="${l.mine ? "mine" : ""}"><b>${esc(l.name)}</b> ${esc(l.text)}</div>`).join(""); lg.classList.toggle("hidden", !rec.length);
-  // ajakan persetujuan (sekali, kecil)
+  if (chatOpen) { if (!raf) raf = requestAnimationFrame(() => { raf = 0; renderHist(false); }); }
   const ask = $("mpAsk");
   if (ask) ask.classList.toggle("hidden", !(loggedIn && v.prefs.consent === null && N().isStarted() && !askDismissed));
 }
-let askDismissed = false;
 function mount() {
   if ($("mpDock")) return;
   const d = document.createElement("div"); d.id = "mpDock"; d.className = "mp-dock hidden";
-  d.innerHTML = `<button id="mpCount" class="chip icon-btn" aria-label="Dunia Bersama">👥 <b id="mpN">–</b></button><button id="mpChatBtn" class="chip icon-btn hidden" aria-label="Chat">💬</button>`;
+  d.innerHTML = `<button id="mpCount" class="chip icon-btn" aria-label="Dunia Bersama">👥 <b id="mpN">–</b></button><button id="mpChatBtn" class="chip icon-btn hidden" aria-label="Obrolan" aria-expanded="false">💬<span id="mpUnread" class="mp-unread hidden">0</span></button>`;
   document.body.appendChild(d);
   const log = document.createElement("div"); log.id = "mpLog"; log.className = "mp-log hidden"; document.body.appendChild(log);
-  const bar = document.createElement("div"); bar.id = "mpBar"; bar.className = "mp-bar hidden";
-  bar.innerHTML = `<div class="mp-emo">${NW.mp.EMOTES.map((e, i) => `<button type="button" data-emo="${i}" aria-label="Emoji ${e}">${e}</button>`).join("")}</div>
-    <form id="mpForm" autocomplete="off"><input id="mpInput" type="text" maxlength="80" placeholder="Ketik pesan…" enterkeyhint="send" autocapitalize="sentences"><button class="btn gold" type="submit">Kirim</button><button class="btn" type="button" id="mpClose" aria-label="Tutup">✕</button></form>`;
-  document.body.appendChild(bar);
+  const chat = document.createElement("section"); chat.id = "mpChat"; chat.className = "mp-chat hidden"; chat.setAttribute("role", "dialog"); chat.setAttribute("aria-label", "Obrolan");
+  chat.innerHTML = `<header><b>Obrolan</b><span id="mpChatCount" class="mp-cc">offline</span><button type="button" id="mpEmoBtn" aria-label="Emoji cepat">😊</button><button type="button" id="mpClose" aria-label="Tutup obrolan">✕</button></header>
+    <div id="mpHist" class="mp-hist" role="log" aria-live="polite"></div>
+    <div id="mpEmo" class="mp-emo hidden">${NW.mp.EMOTES.map((e, i) => `<button type="button" data-emo="${i}" aria-label="Emoji ${e}">${e}</button>`).join("")}</div>
+    <form id="mpForm" autocomplete="off"><input id="mpInput" type="text" maxlength="80" placeholder="Ketik pesan…" enterkeyhint="send" autocapitalize="sentences" autocomplete="off" autocorrect="on"><button class="mp-send" type="submit">Kirim</button></form>`;
+  document.body.appendChild(chat);
   const ask = document.createElement("div"); ask.id = "mpAsk"; ask.className = "mp-ask hidden";
   ask.innerHTML = `<div><b>👥 Main bersama pemain lain?</b><div class="muted">Nama panggilan & chat terlihat pemain lain di Muara Kampung. Tanpa koin/item/email dibagikan.</div></div><div class="mp-btns"><button class="btn gold small" data-ask="yes">Ikut</button><button class="btn small" data-ask="later">Nanti</button></div>`;
   document.body.appendChild(ask);
   ask.addEventListener("click", (e) => { const b = e.target.closest("[data-ask]"); if (!b) return; if (b.dataset.ask === "yes") { NW.mp.setPref("consent", true); N().toast("👥 Dunia Bersama aktif", "good"); } else askDismissed = true; refresh(); });
   $("mpCount").addEventListener("click", () => { N().sfx("click"); N().openPanel("mp"); });
-  const openBar = (on) => { bar.classList.toggle("hidden", !on); NW.mp.typing = on; if (on) setTimeout(() => $("mpInput").focus(), 30); else $("mpInput").blur(); };
-  $("mpChatBtn").addEventListener("click", () => { N().sfx("click"); openBar(bar.classList.contains("hidden")); });
-  $("mpClose").addEventListener("click", () => openBar(false));
-  $("mpForm").addEventListener("submit", (e) => { e.preventDefault(); const i = $("mpInput"); if (i.value.trim()) NW.mp.sendChat(i.value); i.value = ""; openBar(false); });
-  bar.querySelector(".mp-emo").addEventListener("click", (e) => { const b = e.target.closest("[data-emo]"); if (b) { NW.mp.sendEmote(+b.dataset.emo); } });
-  $("mpInput").addEventListener("keydown", (e) => { if (e.key === "Escape") openBar(false); });
+  $("mpChatBtn").addEventListener("click", () => { N().sfx("click"); setChat(!chatOpen); });
+  $("mpClose").addEventListener("click", () => setChat(false));
+  $("mpEmoBtn").addEventListener("click", () => $("mpEmo").classList.toggle("hidden"));
+  $("mpForm").addEventListener("submit", (e) => {
+    e.preventDefault(); const i = $("mpInput"), t = i.value.trim();
+    if (t) { if (NW.mp.sendChat(t) === false) N().toast("Tidak tersambung", "bad"); }
+    i.value = ""; i.blur();                                   // keyboard menutup, panel tetap terbuka
+  });
+  chat.querySelector(".mp-emo").addEventListener("click", (e) => { const b = e.target.closest("[data-emo]"); if (b) { NW.mp.sendEmote(+b.dataset.emo); $("mpEmo").classList.add("hidden"); } });
+  const inp = $("mpInput");
+  inp.addEventListener("focus", () => { NW.mp.typing = true; document.body.classList.add("mp-typing"); });
+  inp.addEventListener("blur", () => { NW.mp.typing = false; document.body.classList.remove("mp-typing"); setTimeout(() => window.dispatchEvent(new Event("resize")), 120); });   // setelah keyboard tertutup, rapikan kanvas sekali
+  inp.addEventListener("keydown", (e) => { if (e.key === "Escape") setChat(false); });
   N().registerPanel("mp", { title: () => "👥 Dunia Bersama", render: panelHTML, act, after });
   NW.mp.onChange(() => { refresh(); if (N().currentPanel() === "mp") N().renderPanel(); });
   setInterval(refresh, 1500);
   refresh();
 }
-NW.mpUI = { mount, refresh };
+NW.mpUI = { mount, refresh, setChat, isChatOpen: () => chatOpen };
 })();
