@@ -133,6 +133,7 @@
         const rank = L ? L.rank() : 0, goal = L ? L.nextGoal() : null, cur = L && L.currentTitle ? L.currentTitle() : null;
         const prevMin = rank > 0 ? L.TITLES[rank - 1].min : 0, pct = goal ? Math.max(0, Math.min(100, Math.round(((L.count() - prevMin) / (goal.min - prevMin)) * 100))) : 100;
         const awards = Object.values((S.adv && S.adv.awards) || {});
+        const kedaiProfile = (S) => { const k = S.kedai; if (!k || !(k.plays > 0 || k.title)) return ""; const w = NW.kedai ? NW.kedai.D.totalWins(S) : 0, gc = NW.kedai ? NW.kedai.D.goatCount(S) : 0; return `<h4 class="prof-h">Kedai Atuk Bahar</h4><div class="prof-note">${k.title ? `<span class="prof-badge-goat">🐐 PENAKLUK ATUK BAHAR</span> · ` : ""}${k.plays} kali main · ${w} menang · GOAT ${gc}/5 · 🪙 ${k.koin} Koin Kedai <span class="muted">(simulasi lokal, terpisah dari koin utama)</span></div>`; };
         const titles = L ? L.TITLES.slice(0, rank).map((t) => t.name) : [];
         const st = cloud.status;
         const mode = !cloud.enabled ? "Mode lokal (Cloud Save belum diaktifkan)" : u ? "Akun Google" : st === "guest" ? "Mode tamu" : "Belum login";
@@ -146,7 +147,8 @@
             <div><small>Ikan terbesar</small><b>${biggest ? `${esc(biggest.name)} · ${N.fmtW ? N.fmtW(biggest.w) : biggest.w + " kg"}` : "—"}</b></div>
             <div><small>Spesies ditemukan</small><b>${species}</b></div>
           </div>
-          <h4 class="prof-h">Gelar & pencapaian</h4><div class="prof-chips">${titles.map((t) => `<span>🎖️ ${esc(t)}</span>`).join("")}${awards.map((a) => `<span>${esc(a.icon || "🏅")} ${esc(a.name)}</span>`).join("") || (titles.length ? "" : `<span class="muted">Belum ada — tangkap ikan pertamamu!</span>`)}</div>
+          <h4 class="prof-h">Gelar & pencapaian</h4><div class="prof-chips">${titles.map((t) => `<span>🎖️ ${esc(t)}</span>`).join("")}${awards.map((a) => `<span${a.name === "PENAKLUK ATUK BAHAR" ? ' class="prof-badge-goat"' : ""}>${esc(a.icon || "🏅")} ${esc(a.name)}</span>`).join("") || (titles.length ? "" : `<span class="muted">Belum ada — tangkap ikan pertamamu!</span>`)}</div>
+          ${kedaiProfile(S)}
           <h4 class="prof-h">Cloud Save</h4><div class="cloud-card" id="cloudCard">
             <div class="cs-row"><span class="dotc ${st}"></span><b id="csText">${esc(cloud.statusText())}</b></div>
             ${cloud.lastError ? `<p class="muted" id="csErr">${esc(cloud.lastError)}</p>` : ""}
