@@ -243,8 +243,14 @@ const mv = (r, c, x, y, d = 2, f = 1) => r.room.message(c, JSON.stringify({ t: "
   ok(/fetch\("mp\/endpoint\.json"/.test(cli) && !/fetch\([^)]*nusa-api/.test(cli), "satu-satunya fetch HTTP klien = mp/endpoint.json");
   const bh = fs.readFileSync(path.join(__dirname, "../firebase/scripts/build-hosting.sh"), "utf8");
   ok(/cp -r audio cloud world shop economy streak event hud/.test(bh) && /NUSA_MP_WS/.test(bh) && /backend: "cloud"/.test(bh) && /release: "publik"/.test(bh), "build-hosting mempertahankan folder & konfigurasi produksi + menambah multiplayer");
-  const act = fs.readFileSync(path.join(__dirname, "../firebase/scripts/aktifkan-multiplayer.sh"), "utf8");
+  const act = fs.readFileSync(path.join(__dirname, "../firebase/scripts/rilis.sh"), "utf8");
   ok(/merge-base --is-ancestor/.test(act) && /produksi/.test(act) && /\$\{?WORKER_ONLY|--worker-saja/.test(act) && !/wrangler@4 deploy[^\n]*nusa-api/.test(act), "skrip aktivasi: pagar cabang lama, build produksi, opsi worker-saja");
-  ok(/"ya"/.test(act) && /whoami/.test(act), "skrip aktivasi: konfirmasi eksplisit & memakai login Wrangler yang ada");
+  ok(/"ya"/.test(act) && /whoami/.test(act), "skrip rilis: konfirmasi eksplisit & memakai login Wrangler yang ada");
+  const wf = fs.readFileSync(path.join(__dirname, "../.github/workflows/deploy-nusa-island.yml"), "utf8");
+  ok(/^on:\s*\n\s+workflow_dispatch:/m.test(wf) && !/\n\s+(push|pull_request|schedule|pull_request_target):/.test(wf), "workflow rilis HANYA manual (tanpa push/PR/jadwal)");
+  ok(/environment:\s*production/.test(wf) && /needs:\s*cek/.test(wf) && /konfirmasi/.test(wf), "workflow: job deploy memakai Environment production (persetujuan) setelah cek & konfirmasi diketik");
+  ok(!/(AIza|-----BEGIN|api[_-]?token\s*[:=]\s*["'][A-Za-z0-9])/i.test(wf + act) && /secrets\.CLOUDFLARE_API_TOKEN/.test(wf) && /secrets\.FIREBASE_SERVICE_ACCOUNT/.test(wf), "tidak ada rahasia di repo; semua dari GitHub Secrets");
+  ok(!/\$\{\{\s*inputs\.konfirmasi\s*\}\}["']?\s*\]/.test(wf) && /KONF:/.test(wf), "input pengguna tidak disisipkan langsung ke shell");
+  ok(/nusa-multiplayer/.test(act) && !/wrangler@4 deploy[^\n]*nusa-api/.test(act) && /status nusa-api/i.test(act), "rilis hanya men-deploy nusa-multiplayer dan memantau nusa-api");
   console.log(`\nMultiplayer: ${pass} lulus, ${fail} gagal`); process.exit(fail ? 1 : 0);
 })();
