@@ -4,9 +4,10 @@
 //   node toko.js tutup                    kembali ke mode simulasi (toko tertutup untuk uang nyata)
 //   node toko.js status                   tampilkan mode, daftar uji, jumlah pesanan PAID nyata
 // CATATAN: "umum" saja TIDAK cukup membuka toko: Worker juga harus berkunci NUSA_PUBLIC_OPEN="ya" (scripts/buka-umum.sh mengerjakan keduanya).
-const admin = require("firebase-admin");
-admin.initializeApp({ projectId: "nusa-island-d2023" });
-const db = admin.firestore(), CFG = db.doc("shop_config/main"), [cmd, arg] = process.argv.slice(2);
+const { initializeApp } = require("firebase-admin/app");
+const { getFirestore } = require("firebase-admin/firestore");
+initializeApp({ projectId: "nusa-island-d2023" });
+const db = getFirestore(), CFG = db.doc("shop_config/main"), [cmd, arg] = process.argv.slice(2);
 const UID = /^[A-Za-z0-9_-]{6,128}$/;
 (async () => {
   const cur = ((await CFG.get()).data()) || {};
