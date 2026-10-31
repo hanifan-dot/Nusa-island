@@ -1,0 +1,31 @@
+{
+  "_catatan": "Daftar fitur yang WAJIB ikut di setiap rilis. Dibaca oleh firebase/scripts/cek-rilis.js (dijalankan di tombol GitHub dan rilis.sh). Menambah fitur baru = tambah entri di sini; menghapus fitur live HARUS disengaja lewat retired.",
+  "retired": [],
+  "features": [
+    { "id": "event", "nama": "Event Megalodon (banner 5 detik)", "files": ["event/core.js", "event/client.js", "event/ui.js", "event/draw.js", "event/event.css"],
+      "index": ["event/event.css", "event/core.js", "event/draw.js", "event/client.js", "event/ui.js"], "build_dirs": ["event"],
+      "markers": [["event/ui.js", "PILL_MS = 5000"], ["game.js", "NW.event.hook()"]] },
+    { "id": "hud", "nama": "HUD 4.1 (menu ☰, label, chat)", "files": ["hud/menu.js", "hud/menu.css", "mp/ui.js", "mp/mp.css"],
+      "index": ["hud/menu.css", "hud/menu.js", "mp/mp.css", "mp/ui.js"], "build_dirs": ["hud"], "markers": [["game.js", "NW.hudMenu.hook()"]] },
+    { "id": "qris", "nama": "Premium Shop QRIS nyata", "files": ["shop/shop.js", "shop/cloud.js", "shop/wallet.js", "shop/config.js", "shop/qris.png"],
+      "index": ["shop/shop.css", "shop/config.js", "shop/core.js", "shop/cloud.js", "shop/wallet.js", "shop/shop.js"], "build_dirs": ["shop"],
+      "markers": [["firebase/scripts/build-hosting.sh", "release: \"publik\""], ["firebase/scripts/build-hosting.sh", "backend: \"cloud\""]],
+      "post_build": [["shop/config.js", "backend: \"cloud\""], ["shop/config.js", "release: \"publik\""]] },
+    { "id": "ekonomi", "nama": "Ekonomi server & saldo", "files": ["economy/client.js", "economy/core.js", "economy/tables.js", "cloud/api.js"],
+      "index": ["economy/client.js", "cloud/api.js"], "build_dirs": ["economy"], "markers": [["economy/core.js", "ecoStreakClaim"]] },
+    { "id": "login7", "nama": "Login 7 Hari (versi server)", "files": ["streak/core.js", "streak/streak.js", "streak/ui.js", "streak/furniture.js", "streak/streak.css"],
+      "index": ["streak/streak.css", "streak/core.js", "streak/furniture.js", "streak/ui.js", "streak/streak.js"], "build_dirs": ["streak"], "markers": [["game.js", "NW.streak.hook()"]] },
+    { "id": "cloudsave", "nama": "Google Login & Cloud Save", "files": ["cloud/cloud.js", "cloud/core.js", "cloud/adapter-firebase.js", "cloud/ui.js", "cloud/config.js"],
+      "index": ["cloud/cloud.css", "cloud/config.js", "cloud/core.js", "cloud/adapter-firebase.js", "cloud/ui.js", "cloud/cloud.js"], "build_dirs": ["cloud"], "markers": [["game.js", "NW.cloud.hook()"]] },
+    { "id": "kedai", "nama": "Kedai Atuk Bahar", "files": ["world/kedai/kedai.js", "world/kedai/hidup.js", "world/kedai/games.js"],
+      "index": ["world/kedai/hidup.js", "world/kedai/kedai.js"], "build_dirs": ["world"], "markers": [] },
+    { "id": "rumah", "nama": "Rumahku", "files": ["world/home.js", "world/home-data.js", "world/house-draw.js"], "index": ["world/home-data.js", "world/home.js"], "build_dirs": ["world"], "markers": [] },
+    { "id": "multiplayer", "nama": "Dunia Bersama (multiplayer)", "files": ["mp/proto.js", "mp/client.js", "mp/ui.js", "mp/mp.css", "mp/room-core.js", "mp/lobby-core.js", "mp/jwt.js", "cf-multiplayer/src/index.js", "cf-multiplayer/wrangler.toml"],
+      "index": ["mp/proto.js", "mp/client.js"], "build_dirs": ["mp"], "markers": [["game.js", "NW.mp.hook()"], ["cf-multiplayer/wrangler.toml", "name = \"nusa-multiplayer\""]] }
+  ],
+  "protocol_contract": {
+    "_catatan": "Jenis pesan yang HARUS tetap dikenali server (tambahan baru diperbolehkan; mengubah/menghapus yang ini memutus klien yang sudah live).",
+    "client_to_server": ["hello", "h", "v", "p", "m", "c", "e", "f", "o"],
+    "server_to_client": ["w", "cnt", "j", "l", "s", "f", "c", "e", "k", "n", "x"]
+  }
+}

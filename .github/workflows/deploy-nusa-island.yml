@@ -1,7 +1,8 @@
 # NUSA ISLAND — tombol rilis manual "Deploy Nusa Island".
-# TIDAK pernah berjalan otomatis: hanya lewat GitHub → Actions → "Deploy Nusa Island" → Run workflow, dan job deploy menunggu
-# PERSETUJUAN pemilik (Environment "production" dengan Required reviewers). Rahasia hanya ada di Environment secrets (bukan di repo/chat).
-# Cara menyiapkan (sekali, ±5 menit): docs/RILIS-GITHUB.md
+# TIDAK pernah berjalan otomatis: hanya lewat GitHub → Actions → "Deploy Nusa Island" → Run workflow.
+# Pengaman berlapis: (1) hanya pemilik repo, (2) ketik "deploy", (3) cabang harus memuat produksi + semua fitur wajib + tidak menghilangkan
+# fitur yang sudah live, (4) job deploy menunggu PERSETUJUAN di Environment "production" (bila tersedia), (5) rahasia hanya di Environment.
+# Login Firebase: utama = OIDC/Workload Identity Federation (tanpa kunci); cadangan = secret FIREBASE_SERVICE_ACCOUNT. Panduan: docs/RILIS-GITHUB.md
 name: Deploy Nusa Island
 run-name: "Deploy Nusa Island (${{ inputs.target }}) dari ${{ github.ref_name }}"
 on:
@@ -26,10 +27,16 @@ jobs:
     name: Cek cepat (tanpa rahasia)
     runs-on: ubuntu-latest
     steps:
-      - name: Konfirmasi diketik benar
+      - name: Pemilik repo + konfirmasi
         env:
           KONF: ${{ inputs.konfirmasi }}
-        run: '[ "$KONF" = "deploy" ] || { echo "::error::Ketik persis: deploy"; exit 1; }'
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+          PRIVAT: ${{ github.event.repository.private }}
+        run: |
+          [ "$ACTOR" = "$OWNER" ] || { echo "::error::Hanya pemilik repo ($OWNER) yang boleh merilis."; exit 1; }
+          [ "$KONF" = "deploy" ] || { echo "::error::Ketik persis: deploy"; exit 1; }
+          if [ "$PRIVAT" = "true" ]; then echo "::warning::Repo privat: Required reviewers hanya ada di paket GitHub Pro/Team. Tanpa itu, pengaman = pemilik saja + ketik deploy + cek cabang."; fi
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-node@v4
@@ -40,33 +47,48 @@ jobs:
           git merge-base --is-ancestor origin/uji/gabungan-kedai-ekonomi HEAD || { echo "::error::Cabang ini tidak memuat uji/gabungan-kedai-ekonomi terbaru"; exit 1; }
       - name: Tes logika multiplayer
         run: node tests/unit-mp.js
+      - name: Fitur wajib lengkap + tidak menimpa situs live
+        run: node firebase/scripts/cek-rilis.js --live https://nusa-island-d2023.web.app --require-live
   deploy:
     name: Deploy (menunggu persetujuan pemilik)
     needs: cek
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
     env:
       NUSA_CI: "1"
       NUSA_CONFIRM: "ya"
       NUSA_TARGET: ${{ inputs.target }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GCP_WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
+      GCP_DEPLOY_SA: ${{ vars.GCP_DEPLOY_SA }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - name: Kredensial Firebase Hosting (hanya di runner ini)
-        if: ${{ inputs.target != 'server' }}
+      - name: Login Firebase tanpa kunci (OIDC)
+        id: oidc
+        if: ${{ inputs.target != 'server' && vars.GCP_WIF_PROVIDER != '' && vars.GCP_DEPLOY_SA != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+          create_credentials_file: true
+      - name: Login Firebase cadangan (kunci di Environment secret)
+        if: ${{ inputs.target != 'server' && steps.oidc.outcome != 'success' }}
         env:
           SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          [ -n "$SA" ] || { echo "::error::Secret FIREBASE_SERVICE_ACCOUNT belum diisi (docs/RILIS-GITHUB.md)"; exit 1; }
+          [ -n "$SA" ] || { echo "::error::Login Firebase belum diatur: isi variabel GCP_WIF_PROVIDER + GCP_DEPLOY_SA (disarankan) atau secret FIREBASE_SERVICE_ACCOUNT. Lihat docs/RILIS-GITHUB.md"; exit 1; }
           umask 077; printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
       - name: Rilis
         run: bash firebase/scripts/rilis.sh --ci
-      - name: Hapus kredensial
+      - name: Hapus kredensial cadangan
         if: always()
         run: rm -f "$RUNNER_TEMP/sa.json"

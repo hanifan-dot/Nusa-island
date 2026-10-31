@@ -1,35 +1,35 @@
-# Rilis tanpa Google Cloud Shell: tombol "Deploy Nusa Island" di GitHub
+# Rilis tanpa Cloud Shell: tombol "Deploy Nusa Island" di GitHub
 
-Setelah disiapkan SEKALI (±5 menit, semuanya lewat browser HP), setiap update cukup: **GitHub → Actions → Deploy Nusa Island → Run workflow → pilih cabang → ketik `deploy` → setujui**. Tidak ada Cloud Shell, tidak ada perintah.
+**Rilis lewat HP (setelah penyiapan sekali):** buka github.com di browser HP → repo → *Actions* → **Deploy Nusa Island** → *Run workflow* → pilih cabang & target → ketik `deploy` → *Run workflow* → buka notifikasi/halaman run → *Review deployments* → **Approve and deploy**. Selesai. (Bila tombol Run tak tampak di tampilan HP, pilih menu browser "Situs desktop". Persetujuan juga bisa lewat aplikasi GitHub Mobile; menjalankan workflow dari aplikasi itu belum saya pastikan — pakai browser.)
 
-## Yang dilakukan tombol ini (dan yang TIDAK)
-- Hanya berjalan bila kamu menekan **Run workflow** (`workflow_dispatch`). Tidak pernah otomatis pada push, PR, atau jadwal.
-- Tahap 1 "Cek cepat" (tanpa rahasia): konfirmasi `deploy` diketik benar, cabang memuat produksi terbaru (`uji/gabungan-kedai-ekonomi`), tes logika multiplayer lulus.
-- Tahap 2 "Deploy" memakai **Environment `production`**. Bila kamu menambahkan dirimu sebagai *Required reviewer* (langkah 3), tahap ini **menunggu persetujuanmu** dulu; rahasia baru bisa dibaca setelah kamu menyetujui.
-- `firebase/scripts/rilis.sh` (skrip yang sama dengan yang dulu dipakai di Cloud Shell) menjalankan pagar pengaman, men-deploy HANYA Worker `nusa-multiplayer` (target `semua`/`server`), membangun game mode `produksi` (QRIS, Worker ekonomi, Login 7 Hari, Cloud Save, Kedai, Event, Menu ☰), menayangkan ke Firebase Hosting (target `semua`/`game`), lalu memeriksa bahwa konfigurasi toko live tidak berubah.
-- TIDAK menyentuh Worker `nusa-api`, Firestore Rules, atau pembayaran. Tidak memakai Blaze.
-- Pilihan **target**: `semua` (server + game), `server` (hanya Worker multiplayer, game live tidak berubah), `game` (hanya Hosting).
+## Syarat agar tombol muncul
+GitHub hanya menampilkan **Run workflow** bila berkas workflow ada di **cabang default (`main`)**. Karena itu berkas ini dipasang lewat **PR terpisah ke `main`** yang hanya menambah `.github/workflows/deploy-nusa-island.yml`. Memasangnya TIDAK merilis apa pun (hanya `workflow_dispatch`). Saat dijalankan kamu memilih cabang rilis; GitHub memakai berkas workflow dari cabang itu. Bila yang dipilih `main`, workflow berhenti aman di "Cek cepat" (main tidak memuat cabang produksi).
 
-## Penyiapan satu kali (tindakan yang memang butuh kamu)
-Rahasia tidak boleh ditulis di repo atau chat, jadi 3 nilai ini harus kamu tempel sendiri ke GitHub. Login Wrangler di Cloud Shell tidak bisa dipakai GitHub, jadi token baru memang diperlukan sekali ini.
+## Pengaman berlapis
+1. Hanya pemilik repo (`github.actor == pemilik`) yang lolos; selain itu gagal.
+2. Wajib mengetik `deploy`.
+3. Cabang harus turunan `uji/gabungan-kedai-ekonomi` terbaru, tes multiplayer lulus.
+4. **Pemeriksaan versi** (`firebase/scripts/cek-rilis.js`, daftar di `firebase/release-manifest.json`): rilis DITOLAK bila kehilangan Event Megalodon (banner 5 dtk), HUD 4.1, toko QRIS (build harus mode produksi, apiBase terpasang), ekonomi server, Login 7 Hari, Cloud Save, Kedai, Rumahku, atau multiplayer; bila **situs live** memuat aset yang tak ada di calon rilis (artinya akan menimpa fitur live); atau bila kontrak pesan multiplayer berubah. Berjalan di Cek cepat DAN lagi pada hasil build sebelum tayang. Menghapus fitur live harus disengaja (daftar `retired`).
+5. Job Deploy memakai Environment `production` → menunggu persetujuanmu; rahasia/variabel hanya terbaca setelah itu.
+6. Tidak menyentuh Worker `nusa-api`, Rules, pembayaran; tidak memakai Blaze.
 
-1. **Cloudflare** (dashboard.cloudflare.com di browser HP): *My Profile → API Tokens → Create Token → template "Edit Cloudflare Workers" → Create* → salin token. **Account ID**: halaman utama akun → ⋮ di samping nama akun → *Copy account ID*.
-2. **Firebase** (console.firebase.google.com, bukan Google Cloud Console): proyek `nusa-island-d2023` → ⚙ *Project settings → Service accounts → Generate new private key* → berkas JSON terunduh; buka isinya dan salin SEMUA teks. Bila deploy Hosting nanti ditolak karena izin, di *Project settings → Users and permissions* beri akun layanan itu peran *Firebase Hosting Admin*.
-3. **GitHub** (repo `hanifan-dot/Nusa-island`): *Settings → Environments → New environment → `production`* → centang **Required reviewers** → pilih dirimu → Save. Di halaman environment yang sama, *Add environment secret* tiga kali: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `FIREBASE_SERVICE_ACCOUNT` (isi JSON dari langkah 2).
-   Untuk rilis `target=server` saja, dua secret Cloudflare sudah cukup.
+## Dukungan Required reviewers (sudah diperiksa)
+Repo ini **publik** (akun pribadi `hanifan-dot`): *Required reviewers* dan *Deployment branches* tersedia di semua paket, termasuk Free. Bila suatu saat repo **privat**, fitur itu hanya ada di GitHub Pro/Team; kamu TIDAK perlu membuatnya publik — pengaman 1–4 dan 6 tetap berlaku tanpa persetujuan (workflow menampilkan peringatan), jadi hindari memberi akses tulis ke orang lain. Saya tidak bisa membuat Environment/secret dari sini (API diblokir), jadi langkah di bawah dilakukan olehmu.
 
-Catatan jujur: workflow ini belum pernah dijalankan di GitHub sungguhan (tidak bisa dari lingkungan pengembangan). Berkasnya divalidasi sintaksnya dan `rilis.sh` diuji dengan alat palsu untuk mode CI; kegagalan pertama yang mungkin terjadi: izin akun layanan Firebase (lihat langkah 2) atau versi alat di runner. Aman diulang: tidak ada yang berubah di game live sebelum langkah "Tayangkan".
+## Penyiapan sekali (tidak bisa saya lakukan)
+**A. GitHub → Settings → Environments → New environment `production`:** centang *Required reviewers* (dirimu); *Deployment branches → Selected branches*: tambah `fitur/*` dan `uji/*`.
+**B. Cloudflare** (dashboard di HP): *My Profile → API Tokens → template "Edit Cloudflare Workers"* → salin token + Account ID. Tempel di Environment `production` → *Environment secrets*: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`. (Cloudflare tidak punya OIDC untuk ini; token tetap perlu, hanya di secret, tidak di chat/repo.)
+**C. Login Firebase — pilih salah satu:**
+- **Disarankan, tanpa kunci:** jalankan SEKALI di Cloud Shell: `bash <(curl -fsSL https://raw.githubusercontent.com/hanifan-dot/Nusa-island/main/firebase/scripts/siapkan-oidc.sh)` (setelah skrip ada di `main`; atau tempel isi `firebase/scripts/siapkan-oidc.sh`). Skrip tidak membuat kunci; hanya akun layanan `nusa-deploy` berperan Firebase Hosting Admin yang hanya bisa dipakai repo ini. Ia mencetak 2 nilai non-rahasia → tempel di *Environment variables*: `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA`. Setelah itu Cloud Shell tidak dipakai lagi.
+- **Cadangan tanpa Cloud Shell:** Firebase Console → Project settings → Service accounts → Generate new private key → tempel seluruh JSON ke secret `FIREBASE_SERVICE_ACCOUNT` (jangan kirim ke chat/repo; hapus kunci bila tak dipakai).
 
-## Cara memakai
-1. GitHub → *Actions* → **Deploy Nusa Island** → *Run workflow*.
-2. Pilih **cabang** (harus turunan produksi terbaru), **target**, ketik `deploy` → *Run workflow*.
-3. Tunggu notifikasi "Review deployments" → buka → *Approve and deploy*.
-4. Selesai: log menampilkan alamat server dan hasil pemeriksaan akhir.
+Rilis `target=server` hanya perlu langkah A dan B.
 
-## Keamanan
-- Rahasia hanya tersimpan sebagai *Environment secrets*; dibaca hanya oleh job deploy setelah persetujuan; kredensial Firebase ditulis ke berkas sementara runner dan dihapus di akhir; log GitHub menyamarkan nilai secret.
-- Setelah selesai, kamu bisa mencabut token Cloudflare / menghapus kunci akun layanan kapan saja; rilis berikutnya tinggal menempel yang baru.
-- Rollback: Firebase Console → Hosting → Riwayat rilis → Kembalikan. Matikan multiplayer darurat: Cloudflare → Workers → nusa-multiplayer → Variables → `MP_ENABLED = 0`.
+## Jujur soal verifikasi
+Workflow belum pernah dijalankan di GitHub sungguhan, dan OIDC/izin Firebase belum diuji terhadap proyek live. YAML divalidasi, `cek-rilis.js` diuji (21 kasus lolos/gagal), `rilis.sh` diuji dengan alat palsu. Kegagalan pertama yang mungkin: izin akun layanan atau nilai variabel OIDC; tidak ada yang berubah di game live sebelum langkah "Tayangkan".
+
+## Rollback & darurat
+Firebase Console → Hosting → Riwayat rilis → Kembalikan. Matikan multiplayer: Cloudflare → Workers → `nusa-multiplayer` → Variables → `MP_ENABLED = 0`.
 
 ## Koordinasi dengan WORKING 01
-Hanya ada SATU workflow rilis (`.github/workflows/deploy-nusa-island.yml`) dan SATU skrip (`firebase/scripts/rilis.sh`). Fitur lain (mis. kunjungan rumah) cukup menambah kode; jangan membuat workflow deploy kedua untuk Worker/Hosting yang sama (dua deploy berebut). Tidak ada workflow lain di repo saat ini.
+Satu workflow & satu skrip rilis; jangan buat workflow deploy kedua. Aturan lengkap: `docs/KOORDINASI-WORKING-01.md`.

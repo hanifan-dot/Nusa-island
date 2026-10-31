@@ -29,6 +29,8 @@ git merge-base --is-ancestor "origin/$PROD_BRANCH" HEAD || die "cabang ini TIDAK
 grep -q '^name = "nusa-multiplayer"$' cf-multiplayer/wrangler.toml || die "wrangler.toml tidak bernama nusa-multiplayer: dibatalkan agar Worker lain tidak tertimpa."
 node tests/unit-mp.js >/tmp/unit-mp.log 2>&1 || { tail -5 /tmp/unit-mp.log; die "tes logika multiplayer gagal: tidak menayangkan."; }
 tail -1 /tmp/unit-mp.log
+node firebase/scripts/cek-rilis.js >/tmp/cek-rilis.log 2>&1 || { cat /tmp/cek-rilis.log; die "pemeriksaan versi gagal: cabang ini kehilangan fitur wajib. Tidak menayangkan."; }
+tail -1 /tmp/cek-rilis.log
 HEAD_DESC="$(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse --short HEAD)"; echo "Cabang: $HEAD_DESC (memuat produksi $(git rev-parse --short "origin/$PROD_BRANCH")) · target: $TARGET"
 
 say "2/6 Alamat Worker ekonomi (nusa-api) dari situs live"
@@ -70,7 +72,8 @@ API_AFTER=$(code "$API/health"); [ "$API_BEFORE" = 000 ] || { [ "$API_AFTER" = "
 say "5/6 Build PRODUKSI (toko QRIS + Worker ekonomi + Dunia Bersama)"
 NUSA_API_BASE="$API" NUSA_MP_WS="wss://$MP_HOST" bash firebase/scripts/build-hosting.sh produksi
 grep -q "apiBase: \"$API\"" firebase/public/cloud/config.js || die "build tidak membawa alamat nusa-api: dibatalkan."
-for d in shop economy streak world cloud audio mp hud; do [ -d "firebase/public/$d" ] || die "folder $d hilang dari build: dibatalkan."; done
+node firebase/scripts/cek-rilis.js --build firebase/public --live "$SITE" || die "pemeriksaan build/situs live gagal: rilis ini akan menghilangkan fitur yang sudah live atau konfigurasi produksi tidak terpasang. Tidak menayangkan."
+for d in shop economy streak world cloud audio mp hud event; do [ -d "firebase/public/$d" ] || die "folder $d hilang dari build: dibatalkan."; done
 
 say "6/6 Tayangkan"
 echo "Akan menayangkan ke $SITE:  cabang $HEAD_DESC  ·  Worker ekonomi $API (tetap)  ·  multiplayer wss://$MP_HOST"
