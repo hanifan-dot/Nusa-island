@@ -333,7 +333,8 @@ function stepWake(dt) {
 // pose { x, y, a }, opt { style:{hull,trim,inner}, player, decor, moored, t }
 function drawVessel(c, pose, t, opt = {}) {
   const sp = opt.decor ? Object.assign({}, SPEC[1], { L: 1.05, B: 0.38, canopy: false }) : spec();
-  const hull = (opt.style && opt.style.hull) || sp.hull, trim = (opt.style && opt.style.trim) || sp.trim, inner = (opt.style && opt.style.inner) || sp.inner;
+  const ex = opt.player && NW.streak ? NW.streak.shipStyle() : null; // Kapal Perintis Eksklusif (hadiah Login Streak) mengganti warna kapal pemain
+  const hull = (opt.style && opt.style.hull) || (ex && ex.hull) || sp.hull, trim = (opt.style && opt.style.trim) || (ex && ex.trim) || sp.trim, inner = (opt.style && opt.style.inner) || (ex && ex.inner) || sp.inner;
   const f = fwd(pose.a), L = sp.L, Bm = sp.B, ph = pose.x * 1.3 + pose.y;
   const moving = !opt.decor && opt.player && Math.abs(B.v) > 20;
   const wk = NW.weather ? 1 + NW.weather.state.wind * 0.7 + NW.weather.state.rain * 0.3 : 1; // ombak sedikit lebih besar saat berangin/hujan (aman, tanpa kerusakan)

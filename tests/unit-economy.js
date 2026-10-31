@@ -12,7 +12,7 @@ const cat = (id, w, uid) => ({ opId: "c" + Math.random().toString(36).slice(2, 1
 let n = 0; const op = () => "op" + (++n) + "xxxxxxxx";
 (async () => {
   await t("tabel tidak basi terhadap data.js/home-data.js", () => { assert.deepStrictEqual(JSON.parse(JSON.stringify(build(path.join(__dirname, "..")))), JSON.parse(JSON.stringify(T))); });
-  await t("Functions lib sama dengan sumber", () => { for (const [a, b] of [["economy/core.js", "economy-core.js"], ["economy/tables.js", "economy-tables.js"], ["fishmath.js", "fishmath.js"]]) assert.ok(fs.readFileSync(path.join(__dirname, "../firebase/functions/lib", b), "utf8").endsWith(fs.readFileSync(path.join(__dirname, "..", a), "utf8")), b); });
+  await t("Functions lib sama dengan sumber", () => { for (const [a, b] of [["economy/core.js", "economy-core.js"], ["economy/tables.js", "economy-tables.js"], ["fishmath.js", "fishmath.js"], ["streak/core.js", "streak-core.js"]]) assert.ok(fs.readFileSync(path.join(__dirname, "../firebase/functions/lib", b), "utf8").endsWith(fs.readFileSync(path.join(__dirname, "..", a), "utf8")), b); });
   await t("harga server = harga game (priceMult/priceFor)", async () => { const { e } = mk(); await e.ecoInit(U, { money: 0 }); const f = T.FISH.find((x) => !x.protected && x.id === "nila"); const c = cat(f.id, f.wMax); now += 2000;
     await e.ecoCatch(U, c); const r = await e.ecoSell(U, { opId: op(), uids: [c.uid], day: 7 }); assert.equal(r.total, FM.priceFor(f, c.w, EC.priceMult(f.id, 7), 3)); });
   await t("klien tidak bisa memalsukan saldo: ecoInit dibatasi & sekali", async () => { const { e } = mk({ initCap: 1000 }); const a = await e.ecoInit(U, { money: 9e9, up: { rod: 99, boat: 2 }, homeLv: 99 });
@@ -73,5 +73,22 @@ let n = 0; const op = () => "op" + (++n) + "xxxxxxxx";
     const w = await cs.writeSave(auth, { data: JSON.stringify(save), baseRev: 0, opId: "w00000001", deviceId: "d" }); assert.ok(w.ok, JSON.stringify(w)); assert.ok(w.flags.some((f) => /eco-timpa:money/.test(f)));
     const l = await cs.loadSave(auth, {}); const d = JSON.parse(l.data); assert.equal(d.money, 700); assert.equal(d.up.rod, 0); assert.equal(l.eco, true); });
   await t("pembeli salah/ganda: dua akun tidak saling menyentuh", async () => { const { e } = mk(); await e.ecoInit(U, { money: 5000 }); await e.ecoInit(V, { money: 5000 }); await e.ecoBuy(U, { opId: op(), kind: "up", k: "rod", lv: 1 }); assert.equal((await e.ecoState(V)).own, 5000); });
+  // ---- Login Streak 7 Hari lewat server (ekonomi): hari = jam server WIB, koin ke dompet utama sekali ----
+  const SKC = require("../streak/core.js"), DAYMS = 86400000, mkS = () => mk({ streak: SKC, rng: () => 0.5 });
+  const jkt = (d, h) => d * DAYMS - 7 * 3600000 + (h || 0) * 3600000 + 1000;     // ms tepat setelah 00:00 WIB hari ke-d (+h jam)
+  await t("streak: klaim Hari 1 = +20 koin ke dompet utama; klaim lagi di hari yang sama = tidak ada tambahan", async () => { const { e } = mkS(); await e.ecoInit(U, { money: 0 }); const T0 = jkt(20000); const sv = now; now = T0;
+    const b0 = (await e.ecoState(U)).balance; const a = await e.ecoStreakClaim(U, { opId: op() }); assert.ok(a.ok); assert.equal(a.balance, b0 + 20); assert.equal(a.doc.total, 1);
+    const b = await e.ecoStreakClaim(U, { opId: op() }); assert.ok(b.already); assert.equal(b.balance, b0 + 20); now = sv; });
+  await t("streak: opId sama (ulang jaringan) & klaim paralel hanya sekali dikreditkan", async () => { const { e } = mkS(); await e.ecoInit(U, { money: 0 }); const sv = now; now = jkt(20001); const b0 = (await e.ecoState(U)).balance, id = op();
+    const rs = await Promise.all([e.ecoStreakClaim(U, { opId: id }), e.ecoStreakClaim(U, { opId: id }), e.ecoStreakClaim(U, { opId: op() }), e.ecoStreakClaim(U, { opId: op() })]);
+    assert.equal((await e.ecoState(U)).balance, b0 + 20); assert.equal(rs.filter((r) => r.ok && !r.already && !r.duplicate).length, 1); now = sv; });
+  await t("streak: hari berurutan naik, bolos 1 hari kembali ke Hari 1, hari ke-7 siklus 1 = kapal (tanpa koin)", async () => { const { e } = mkS(); await e.ecoInit(U, { money: 0 }); const sv = now; let d = 20100, last;
+    for (let i = 1; i <= 7; i++) { now = jkt(d++, i); last = await e.ecoStreakClaim(U, { opId: op() }); assert.equal(last.pos, i); }
+    assert.equal(last.doc.ship, true); assert.equal(last.reward.coin, undefined);
+    d += 1; now = jkt(d, 2); const r = await e.ecoStreakClaim(U, { opId: op() }); assert.equal(r.pos, 1); assert.equal(r.cycle, 2); now = sv; });
+  await t("streak: jam pindah ke hari lain hanya mengikuti jam SERVER; owned palsu/berlebih diabaikan; akun tanpa init ditolak", async () => { const { e } = mkS(); await assert.rejects(() => e.ecoStreakClaim(V, { opId: op() }), /belum diaktifkan/);
+    await e.ecoInit(U, { money: 0 }); const sv = now; now = jkt(20200); const r = await e.ecoStreakClaim(U, { opId: op(), owned: ["__proto__", 5, "rw_gongKecil"] }); assert.ok(r.ok);
+    const st = await e.ecoStreakState(U); assert.equal(st.doc.lastDay, 20200); assert.equal(st.now, now);
+    const { e: noSK } = mk(); await noSK.ecoInit(U, {}); await assert.rejects(() => noSK.ecoStreakClaim(U, { opId: op() }), /belum tersedia/); now = sv; });
   console.log(`unit economy: ${pass} lulus, ${fail} gagal`); process.exit(fail ? 1 : 0);
 })();

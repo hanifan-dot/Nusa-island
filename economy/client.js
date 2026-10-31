@@ -109,7 +109,7 @@ function buy(reason, grant, failCb) {
   })();
   return true;
 }
-NW.eco = { active, ensure, flush, onCatch, release, sell, drop, reward, mission, buy, balance: () => (st ? st.balance : 0), state: () => st, lastError: () => lastErr, _reset: () => { st = null; q = []; rq = []; inflight = null; } };
+NW.eco = { applyState: apply, active, ensure, flush, onCatch, release, sell, drop, reward, mission, buy, balance: () => (st ? st.balance : 0), state: () => st, lastError: () => lastErr, _reset: () => { st = null; q = []; rq = []; inflight = null; } };
 setInterval(() => { if (!document.hidden && live()) ensure().then(() => flush()); }, 45000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden && live()) ensure(); });
 setInterval(() => { if (!st && live() && !booting) ensure(); }, 2500);   // begitu login terdeteksi → aktifkan ekonomi server

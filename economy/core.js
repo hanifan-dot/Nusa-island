@@ -38,12 +38,14 @@
     const T = opts.tables, FM = opts.fishmath;
     if (!T || !FM) throw new Error("tables & fishmath wajib");
     const initCap = Number.isFinite(opts.initCap) ? opts.initCap : 20000;     // batas koin lama yang diakui SEKALI saat migrasi; 0 saat rilis
+    const SK = opts.streak || null;                                           // StreakCore (streak/core.js), opsional
+    const rng = opts.rng || (() => { try { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] / 4294967296; } catch (e) { return Math.random(); } });
     const FISH = Object.fromEntries(T.FISH.map((f) => [f.id, f]));
     const ECO = (uid) => `shop/economy/${uid}`, ENT = (uid) => `shop/entitlements/${uid}`;
     const uidOf = (a) => { if (!a || typeof a.uid !== "string" || !a.uid) throw E("unauthenticated", "Masuk dulu."); return a.uid; };
     const needOp = (p) => { if (!p || typeof p.opId !== "string" || !OP_RE.test(p.opId)) throw E("invalid-argument", "opId tidak valid."); return p.opId; };
     const fresh = () => ({ v: 1, init: false, bal: 0, up: { rod: 0, bait: 0, cooler: 0, boat: 0 }, homeLv: 1, cat: {}, claimed: {}, box: [], catches: [], missions: { day: 0, total: 0, n: 0, ids: [] },
-      ops: [], earned: 0, spent: 0, lastCatchAt: 0 });
+      ops: [], earned: 0, spent: 0, lastCatchAt: 0, streak: null, streakBait: 0 });
     const topupOf = (ent) => (ent && ent.wallet && ent.wallet.NYATA) || 0;
     const view = (eco, ent) => ({ init: eco.init, own: eco.bal, topup: topupOf(ent), balance: eco.bal + topupOf(ent), up: eco.up, homeLv: eco.homeLv, cat: eco.cat,
       box: eco.box.map((b) => b.u), claimed: Object.keys(eco.claimed) });
@@ -63,6 +65,7 @@
     }
     const entOf = async (t, uid) => (await t.get(ENT(uid))) || { products: {}, wallet: { SIMULASI: 0, NYATA: 0 }, owned: {} };
     const credit = (eco, n) => { eco.bal += n; eco.earned += n; };
+    const needSK = () => { if (!SK) throw E("failed-precondition", "Hadiah login belum tersedia di server ini."); };
 
     const api = {
       async ecoState(auth) {
@@ -215,6 +218,31 @@
           if (paid.top > 0) { ent.spends = ent.spends || []; ent.spends.push({ opId, amount: paid.top, reason: "eco:" + p.kind, at: clock() }); if (ent.spends.length > 100) ent.spends.splice(0, ent.spends.length - 100); await t.set(ENT(uid), ent); }
           await t.set(ECO(uid), remember(eco, opId, { price, paidOwn: paid.own, paidTop: paid.top }) && eco);
           return Object.assign({ ok: true, price, paidOwn: paid.own, paidTop: paid.top }, view(eco, ent));
+        });
+      },
+      // ---- Login Streak 7 Hari (buku klaim di dokumen ekonomi; hari = jam SERVER Asia/Jakarta; koin masuk dompet utama) ----
+      async ecoStreakState(auth) {
+        needSK(); const uid = uidOf(auth);
+        return db.tx(async (t) => { const eco = await getEco(t, uid), ent = await entOf(t, uid); return Object.assign({ now: clock(), doc: eco.streak, bait: eco.streakBait }, view(eco, ent)); });
+      },
+      // Klien tidak mengirim tanggal/hadiah. Server memilih hari, posisi, hadiah (dan perabot acak), lalu mengkredit koin SEKALI.
+      // p.owned = daftar id perabot hadiah yang sudah dimiliki di Rumahku (hanya untuk menghindari duplikat; id tak dikenal diabaikan).
+      async ecoStreakClaim(auth, p) {
+        needSK(); const uid = uidOf(auth), opId = needOp(p); p = p || {};
+        const owned = (Array.isArray(p.owned) ? p.owned : []).filter((x) => typeof x === "string" && SK.FURN_BY_ID[x]).slice(0, 40);
+        return db.tx(async (t) => {
+          const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco);
+          const prevOp = doneOp(eco, opId); if (prevOp) return Object.assign({ duplicate: true }, prevOp, { now: clock(), doc: eco.streak, bait: eco.streakBait }, view(eco, ent));
+          const now = clock(), prev = eco.streak && eco.streak.total > 0 ? eco.streak : null;
+          const plan = SK.planClaim(prev, now, { owned, rnd: rng });
+          if (!plan) return Object.assign({ ok: true, already: true }, { now, doc: eco.streak, bait: eco.streakBait }, view(eco, ent));
+          const next = Object.assign({}, plan.next, { at: now });
+          const chk = SK.validateTransition(prev, next, now); if (!chk.ok) throw E("internal", "Klaim tidak valid: " + chk.why);   // pagar pengaman: aturan yang sama dengan Rules
+          const rw = plan.reward;
+          eco.streak = next; if (rw.coin) credit(eco, rw.coin); if (rw.bait) eco.streakBait = Math.min(1e6, (eco.streakBait || 0) + rw.bait);
+          const r = { reward: rw, fid: plan.fid, cycle: plan.cycle, pos: plan.pos, reset: !!plan.reset };
+          await t.set(ECO(uid), remember(eco, opId, r) && eco);
+          return Object.assign({ ok: true }, r, { now, doc: eco.streak, bait: eco.streakBait }, view(eco, ent));
         });
       },
       // Dipakai writeSave/loadSave: nilai yang HARUS menimpa simpanan klien. null bila ekonomi belum aktif.

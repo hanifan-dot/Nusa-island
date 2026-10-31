@@ -9,7 +9,7 @@ cd "$(dirname "$0")/../.."
 MODE="${1:-uji}"
 rm -rf firebase/public && mkdir -p firebase/public
 cp index.html style.css game.js data.js fishmath.js firebase/public/
-cp -r audio cloud world shop economy firebase/public/
+cp -r audio cloud world shop economy streak firebase/public/
 if [ "$MODE" = "produksi" ]; then
   API="${NUSA_API_BASE:-}"
   [[ "$API" =~ ^https://[A-Za-z0-9.-]+$ ]] || { echo "GAGAL: isi NUSA_API_BASE=https://nusa-api.<akun>.workers.dev (https, tanpa garis miring akhir)"; exit 1; }

@@ -36,6 +36,7 @@
           auth.onAuthStateChanged(async (u) => { cur = await toUser(u).catch(() => null); cbs.forEach((f) => f(cur)); });
         },
         currentUser: () => cur,
+        rawFirestore: () => (fsdb && fb && auth && auth.currentUser ? { fb, db: fsdb, uid: auth.currentUser.uid } : null),   // dipakai streak/streak.js (buku klaim Login Streak)
         onAuth: (f) => cbs.push(f),
         async signInGoogle() {
           const fb = window.firebase, p = new fb.auth.GoogleAuthProvider(); p.setCustomParameters({ prompt: "select_account" });

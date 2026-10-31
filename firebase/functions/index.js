@@ -104,7 +104,7 @@ for (const n of ["createOrder", "cancelOrder", "claimPaid", "listOrders", "getEn
 // =====================================================================================================
 const ecoCore = require("./lib/economy-core");
 ecoApi = ecoCore.makeEconomyServer(shopDb, {
-  tables: require("./lib/economy-tables"), fishmath: require("./lib/fishmath"),
+  tables: require("./lib/economy-tables"), fishmath: require("./lib/fishmath"), streak: require("./lib/streak-core"),
   initCap: process.env.NUSA_ECO_INIT_CAP !== undefined ? Number(process.env.NUSA_ECO_INIT_CAP) : 20000,   // saat rilis resmi: NUSA_ECO_INIT_CAP=0
 });
 const ecoWrap = (name) => onCall({ enforceAppCheck: false }, async (req) => {
@@ -116,4 +116,4 @@ const ecoWrap = (name) => onCall({ enforceAppCheck: false }, async (req) => {
     console.error("eco:" + name, e.message); throw new HttpsError("internal", "Terjadi kesalahan server.");
   }
 });
-for (const n of ["ecoState", "ecoInit", "ecoCatch", "ecoSell", "ecoDrop", "ecoReward", "ecoMission", "ecoBuy"]) exports[n] = ecoWrap(n);
+for (const n of ["ecoState", "ecoInit", "ecoCatch", "ecoSell", "ecoDrop", "ecoReward", "ecoMission", "ecoBuy", "ecoStreakState", "ecoStreakClaim"]) exports[n] = ecoWrap(n);

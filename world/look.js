@@ -82,6 +82,7 @@ const RODS = [
 function syncNames() { RODS.forEach((r, i) => { r.name = UPGRADES.rod.levels[i]; }); }
 syncNames();
 function rodSpec(level) {
+  if (level === undefined && NW.streak && NW.streak.rodSpec) { const x = NW.streak.rodSpec(); if (x) return x; } // Joran Pelaut Eksklusif (hadiah Login Streak)
   const L = level === undefined ? S().up.rod : level;
   return RODS[Math.max(0, Math.min(RODS.length - 1, L | 0))];
 }
