@@ -18,7 +18,7 @@ let prefs = loadPrefs();
 const savePrefs = () => { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) {} };
 
 const R = { ws: null, state: "off", why: "", me: null, room: "", n: 0, cap: P.ROOM_CAP, players: new Map(), log: [], self: { bubble: null, emote: null }, typing: false,
-  tx: 0, rx: 0, lastProf: 0, profKey: "", gotWelcomeEver: false, listeners: [], retry: 0, nextTry: 0, lastSend: 0, lastHb: 0, sent: null, hiddenAt: 0, vis: false, endpoint: undefined, helloSent: false, gotWelcome: false };
+  house: null, fails: 0, kickedAt: {}, tx: 0, rx: 0, lastProf: 0, profKey: "", gotWelcomeEver: false, listeners: [], retry: 0, nextTry: 0, lastSend: 0, lastHb: 0, sent: null, hiddenAt: 0, vis: false, endpoint: undefined, helloSent: false, gotWelcome: false };
 const emit = () => R.listeners.forEach((f) => { try { f(); } catch (e) {} });
 const setState = (s, why) => { if (R.state !== s || (why !== undefined && why !== R.why)) { R.state = s; if (why !== undefined) R.why = why; emit(); } };
 const now = () => performance.now();
@@ -39,8 +39,17 @@ async function getToken() {
 }
 
 // ---------- keadaan lokal pemain ----------
+// Kunjungi Rumah Teman: bila sedang di Rumahku (sendiri atau rumah teman) target = ruang RUMAH (id publik dari NW.house, bukan input pemain mentah); selain itu Muara.
+const wantHouse = () => { try { return (NW.house && NW.house.roomWanted && NW.house.roomWanted()) || null; } catch (e) { return null; } };
+const gz = (x, y) => (R.house ? 0 : NW.groundZ ? NW.groundZ(x, y) : 0);
+const homeScene = () => (NW.home && NW.home.active ? NW.home.scene : null);
 function local() {
   const w = NW.world && NW.world.player, mode = N().mode(), a = NW.areas && NW.areas.cur;
+  if (R.house) {
+    if (!w) return { vis: false };
+    const sc = homeScene(), vis = !!sc && N().isStarted();
+    return { vis, x: w.x, y: w.y, d: w.dir | 0, f: (w.moving ? P.F.MOVING : 0) | (w.sit ? P.F.SIT : 0) | (sc === "room" ? P.F.IN : 0) };
+  }
   const fishing = mode === "fish" && N().fishFrom() === "dock";
   const inMuara = !!a && a.id === P.AREA && !(NW.home && NW.home.active) && !(NW.boat && NW.boat.on);
   const vis = !!w && inMuara && (mode === "world" || fishing) && N().isStarted();
@@ -66,8 +75,9 @@ async function connect() {
   try {
     if (R.endpoint === undefined) R.endpoint = await findEndpoint();
     if (!R.endpoint) { R.endpoint = undefined; R.nextTry = now() + 60000; return setState("off", "no-endpoint"); }
-    const token = await getToken();
-    const ws = new WebSocket(R.endpoint + "/ws", [P.SUBPROTOCOL, token]);
+    const token = await getToken(), target = R.house;
+    if (target !== wantHouse() || (target && (R.kickedAt[target] || 0) > now())) { setState("off", ""); return; }   // pindah ruang / dikeluarkan saat menunggu token
+    const ws = new WebSocket(R.endpoint + "/ws" + (target ? "?h=" + encodeURIComponent(target) : ""), [P.SUBPROTOCOL, token]);
     R.ws = ws; R.helloSent = false; R.gotWelcome = false;
     ws.onopen = () => { R.retry = 0; helloNow(); };
     ws.onmessage = (e) => { R.rx += (e.data || "").length; try { onMsg(JSON.parse(e.data)); } catch (err) { /* abaikan paket rusak */ } };
@@ -87,6 +97,8 @@ function onClose(ws, e) {
   if (R.ws !== ws) return;
   R.ws = null; R.players.clear(); R.me = null; R.vis = false; R.helloSent = false; R.gotWelcome = false; R.n = 0;
   const code = e && e.code;
+  if (code === 4010 && R.house) { R.kickedAt[R.house] = now() + P.HOUSE.KICK_MS; const h = R.house; setState("kicked", "Pemilik rumah mengeluarkanmu."); if (NW.house && NW.house.onKicked) NW.house.onKicked(h); return; }
+  if (R.house && !R.gotWelcomeEver && ++R.fails >= 2 && NW.house && NW.house.onRoomFail) NW.house.onRoomFail(R.house);    // tak bisa masuk ruang: minta server memastikan izin (privat/dikeluarkan)
   if (code === 4002) return setState("replaced", "Akunmu masuk dari perangkat lain.");
   if (code === 4005) return setState("blocked", "Koneksi ditutup karena terlalu banyak pesan tidak sah.");
   if (R.state === "off" && R.why === "keluar") return;
@@ -102,7 +114,7 @@ function upsert(row) {
   let p = R.players.get(id);
   if (!p) {
     const h = hash(id);
-    p = { id, name, rank, rod, tx: qx / P.Q, ty: qy / P.Q, d, f, bubble: null, emote: null, at: now(),
+    p = { id, name, rank, rod, owner: row[8] === 1, hid: row[9] || "", tx: qx / P.Q, ty: qy / P.Q, d, f, bubble: null, emote: null, at: now(),
       ch: { x: qx / P.Q, y: qy / P.Q, dir: d, walk: 0, moving: false, sit: false, rod: 0, seed: (h % 997) / 100, hold: null, rodSpec: NW.look ? NW.look.rodSpec(Math.max(0, Math.min(9, rod | 0))) : null,
         style: { shirt: SHIRTS[h % SHIRTS.length], pants: "#2b3a44", skin: SKINS[(h >> 3) % SKINS.length], hair: HAIR[(h >> 5) % HAIR.length], hat: "caping", collar: "#fff9ec" } } };
     R.players.set(id, p);
@@ -112,7 +124,7 @@ function upsert(row) {
 function addLog(name, text, mine) { R.log.push({ name, text, t: Date.now(), mine: !!mine }); if (R.log.length > 80) R.log.shift(); }
 function onMsg(m) {
   switch (m.t) {
-    case "w": R.me = m.me; R.room = m.room; R.n = m.n; R.cap = m.cap; R.players.clear(); for (const row of m.ps) upsert(row).ch.moving = false; R.gotWelcome = true; R.gotWelcomeEver = true; setState("online", ""); break;
+    case "w": R.me = m.me; R.room = m.room; R.n = m.n; R.cap = m.cap; R.players.clear(); for (const row of m.ps) upsert(row).ch.moving = false; R.gotWelcome = true; R.gotWelcomeEver = true; R.fails = 0; setState("online", ""); break;
     case "j": { if (m.p[0] === R.me) break; const p = upsert(m.p); p.ch.x = p.tx; p.ch.y = p.ty; R.n = R.players.size + 1; emit(); break; }
     case "l": R.players.delete(m.id); R.n = R.players.size + 1; emit(); break;
     case "s": for (const u of m.u) { const p = R.players.get(u[0]); if (p) { p.tx = u[1] / P.Q; p.ty = u[2] / P.Q; p.d = u[3]; p.f = u[4]; p.at = now(); } } break;
@@ -129,8 +141,17 @@ function onMsg(m) {
 }
 
 // ---------- loop jaringan (terpisah dari loop gambar; tetap jalan saat mode memancing) ----------
+function switchTarget(to) {
+  const ws = R.ws; R.ws = null; if (ws) { try { ws.close(1000, "pindah") } catch (e) {} }
+  R.players.clear(); R.me = null; R.vis = false; R.n = 0; R.helloSent = false; R.gotWelcome = false; R.gotWelcomeEver = false; R.sent = null; R.profKey = ""; R.lastProf = 0;
+  R.house = to; R.fails = 0; R.retry = 0; R.nextTry = 0; R.room = "";
+  if (!["replaced", "blocked"].includes(R.state)) { R.state = "off"; R.why = ""; }
+  emit();
+}
 function netTick() {
   const t = now();
+  const wh = wantHouse(); if (wh !== R.house) switchTarget(wh);
+  if (R.house && (R.kickedAt[R.house] || 0) > t && R.state === "kicked") return;
   if (!eligible()) { if (R.ws) disconnect("nonaktif"); else if (R.state !== "off" || R.why === "") setState("off", prefs.consent === null && user() ? "consent" : !user() ? "login" : !backendReady() ? "no-backend" : ""); return; }
   if (document.hidden) { if (!R.hiddenAt) R.hiddenAt = t; if (t - R.hiddenAt > 20000 && R.vis) { send({ t: "v", on: 0 }); R.vis = false; } if (t - R.hiddenAt > 90000 && R.ws) disconnect("tab-tersembunyi-lama"); return; }
   if (R.hiddenAt) { R.hiddenAt = 0; if (R.state === "off" && R.why === "tab-tersembunyi-lama") R.nextTry = 0; }
@@ -175,16 +196,23 @@ function layer(view, inView) {
   }
   return out;
 }
+// Ruang rumah: pemain lain di adegan (halaman/dalam) yang sama dengan kita. Hanya koneksi nyata; kosong bila tidak tersambung.
+function homeLayer(scene) {
+  const out = []; if (!R.house || !R.players.size || !R.vis) return out;
+  const inside = scene === "room";
+  for (const p of R.players.values()) if (!!(p.f & P.F.IN) === inside) out.push({ d: p.ch.x + p.ch.y, ch: p.ch, remote: p });
+  return out;
+}
 const DIRV = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
 function drawBobber(c, p) {
-  const v = DIRV[p.d & 7] || [0, 1], bx = p.ch.x + v[0] * 1.6, by = p.ch.y + v[1] * 1.6, g = NW.groundZ ? NW.groundZ(bx, by) : 0, q = NW.P(bx, by, Math.min(g, 0)), t = performance.now() / 1000;
+  const v = DIRV[p.d & 7] || [0, 1], bx = p.ch.x + v[0] * 1.6, by = p.ch.y + v[1] * 1.6, g = gz(bx, by), q = NW.P(bx, by, Math.min(g, 0)), t = performance.now() / 1000;
   c.save(); c.globalAlpha = 0.9; c.strokeStyle = "rgba(255,255,255,.55)"; c.lineWidth = 1; c.beginPath(); c.ellipse(q.x, q.y + 1, 7 + Math.sin(t * 2) * 1.2, 3, 0, 0, 7); c.stroke();
   c.fillStyle = "#e2574c"; c.beginPath(); c.arc(q.x, q.y - 2 + Math.sin(t * 3 + p.ch.seed) * 1.2, 3, 0, 7); c.fill(); c.fillStyle = "#fff"; c.fillRect(q.x - 3, q.y - 3, 6, 1.4); c.restore();
 }
 function titleOf(rank) { return NW.look && NW.look.titleName ? NW.look.titleName(rank) : null; }
 function drawTag(ctx, p, scale) {
-  const pb = NW.P(p.ch.x, p.ch.y, (NW.groundZ ? NW.groundZ(p.ch.x, p.ch.y) : 0) - (p.ch.sit ? 6 : 0));
-  NW.look.drawLabel(ctx, { name: p.name, title: titleOf(p.rank) }, pb.x, pb.y, scale, 0);
+  const pb = NW.P(p.ch.x, p.ch.y, gz(p.ch.x, p.ch.y) - (p.ch.sit ? 6 : 0));
+  NW.look.drawLabel(ctx, { name: p.name, title: p.owner ? "🏠 Pemilik" : titleOf(p.rank) }, pb.x, pb.y, scale, 0);
 }
 const BUBBLE_COLS = 20, BUBBLE_ROWS = 3;                   // bubble memotong pesan panjang (maks 3 baris × 20 huruf); panel obrolan tetap menampilkan lengkap
 function wrap(text, n) {
@@ -213,7 +241,7 @@ function drawBubbles(ctx, scale) {
   if (!R.vis && !R.self.bubble && !R.self.emote) return;
   const t = now(), placed = [];
   const one = (ch, o, info) => {
-    const pb = NW.P(ch.x, ch.y, (NW.groundZ ? NW.groundZ(ch.x, ch.y) : 0) - (ch.sit ? 6 : 0));
+    const pb = NW.P(ch.x, ch.y, gz(ch.x, ch.y) - (ch.sit ? 6 : 0));
     const topLabel = NW.look.labelTop(info, pb.y, scale, 0) - 5 * scale;          // tepat di atas label nama: tidak menumpuk
     if (o.bubble) {
       if (t > o.bubble.until) o.bubble = null;
@@ -229,12 +257,16 @@ function drawBubbles(ctx, scale) {
   };
   let myName = "Pemancing", myTitle = null; try { myName = NW.look.playerName(); myTitle = NW.look.currentTitle(); } catch (e) {}
   one(NW.world.player, R.self, { name: myName, title: myTitle });
-  for (const p of R.players.values()) if (p.bubble || p.emote) one(p.ch, p, { name: p.name, title: titleOf(p.rank) });
+  const sc = homeScene();
+  for (const p of R.players.values()) if ((p.bubble || p.emote) && (!R.house || !!(p.f & P.F.IN) === (sc === "room"))) one(p.ch, p, { name: p.name, title: p.owner ? "🏠 Pemilik" : titleOf(p.rank) });
 }
 
 // ---------- API untuk UI ----------
 function sendChat(text) { text = P.cleanChat(text); if (!text) return false; return send({ t: "c", m: text }); }
 function sendEmote(i) { return send({ t: "e", i }); }
+// pemilik rumah: keluarkan tamu (id ruang atau "*"); server menolak bila pengirim bukan pemilik. soft = tanpa larangan (dipakai saat rumah dijadikan privat)
+function eject(id, soft) { return send(soft ? { t: "k", id: String(id), soft: 1 } : { t: "k", id: String(id) }); }
+function clearKick(pid) { delete R.kickedAt[pid]; if (R.state === "kicked") { R.state = "off"; R.why = ""; } }
 function setPref(k, v) {
   prefs[k] = v; savePrefs();
   if (k === "low" && R.ws && R.gotWelcome) send({ t: "o", lo: v ? 1 : 0 });
@@ -243,8 +275,8 @@ function setPref(k, v) {
   emit();
 }
 function view() {
-  return { state: R.state, why: R.why, room: R.room, n: R.n, cap: R.cap, me: R.me, prefs: Object.assign({}, prefs), tx: R.tx, rx: R.rx, log: R.log.slice(-30), typing: R.typing,
-    players: [...R.players.values()].map((p) => ({ id: p.id, name: p.name, rank: p.rank, x: p.ch.x, y: p.ch.y, f: p.f })), online: R.state === "online" };
+  return { house: R.house, state: R.state, why: R.why, room: R.room, n: R.n, cap: R.cap, me: R.me, prefs: Object.assign({}, prefs), tx: R.tx, rx: R.rx, log: R.log.slice(-30), typing: R.typing,
+    players: [...R.players.values()].map((p) => ({ id: p.id, name: p.name, rank: p.rank, x: p.ch.x, y: p.ch.y, f: p.f, owner: !!p.owner, hid: p.hid || "" })), online: R.state === "online" };
 }
 function hook() {
   if (NW.mpUI) NW.mpUI.mount();
@@ -254,6 +286,6 @@ function hook() {
   if (NW.cloud && NW.cloud.onChange) NW.cloud.onChange(() => { if (!user() && R.ws) disconnect("logout"); emit(); });
 }
 
-NW.mp = { hook, update, layer, drawTag, drawBubbles, view, sendChat, sendEmote, setPref, onChange: (f) => R.listeners.push(f), eligible, EMOTES: P.EMOTES,
+NW.mp = { eject, clearKick, homeLayer, inHouse: () => !!R.house && R.vis && R.state === "online", hook, update, layer, drawTag, drawBubbles, view, sendChat, sendEmote, setPref, onChange: (f) => R.listeners.push(f), eligible, EMOTES: P.EMOTES,
   get typing() { return R.typing; }, set typing(v) { R.typing = !!v; }, hasChatPref: () => prefs.chat, _R: R, _prefs: () => prefs, _net: netTick };
 })();

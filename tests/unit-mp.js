@@ -179,7 +179,9 @@ const mv = (r, c, x, y, d = 2, f = 1) => r.room.message(c, JSON.stringify({ t: "
   // ---------- pemeriksaan statis berkas ----------
   const toml = fs.readFileSync(path.join(__dirname, "../cf-multiplayer/wrangler.toml"), "utf8"), src = fs.readFileSync(path.join(__dirname, "../cf-multiplayer/src/index.js"), "utf8");
   ok(/new_sqlite_classes\s*=\s*\["MuaraRoom", "Lobby"\]/.test(toml), "DO berbasis SQLite (wajib untuk paket gratis)");
-  ok(/^name = "nusa-multiplayer"$/m.test(toml) && !/nusa-api/.test(toml.replace(/#.*$/gm, "")), "Worker bernama nusa-multiplayer, terpisah dari nusa-api (komentar saja yang menyebut nusa-api)");
+  const tomlCode = toml.replace(/#.*$/gm, "");
+  ok(/^name = "nusa-multiplayer"$/m.test(toml) && (tomlCode.match(/nusa-api/g) || []).length === 1 && /\[\[services\]\]\s*binding = "API"\s*service = "nusa-api"/.test(tomlCode), "Worker bernama nusa-multiplayer, terpisah dari nusa-api (satu-satunya rujukan = service binding API untuk izin rumah teman; tidak men-deploy nusa-api)");
+  ok(/new_sqlite_classes\s*=\s*\["HouseRoom"\]/.test(tomlCode) && /tag = "v1"[\s\S]*tag = "v2"/.test(tomlCode), "migrasi v1 (Muara, Lobby) tidak diubah; HouseRoom ditambah di v2");
   ok(/keep_vars\s*=\s*true/.test(toml), "variabel dashboard (mis. daftar blokir) tidak tertimpa deploy");
   ok(src.includes("MP_BLOCKED_UIDS") && src.includes("lobby.assign"), "ada daftar blokir & pintu masuk berlimit");
   ok(!/new_classes/.test(toml), "tidak memakai KV-backed DO (hanya berbayar)");
@@ -192,7 +194,7 @@ const mv = (r, c, x, y, d = 2, f = 1) => r.room.message(c, JSON.stringify({ t: "
   ok(!/NusaApi|apiBase|shop_|economy|S\.money|\.money\b|entitlements|wallet|firestore/i.test(cli.replace(/\/\/.*$/gm, "")), "klien multiplayer tidak menyentuh ekonomi/toko/Worker nusa-api/Firestore/saldo");
   ok(/fetch\("mp\/endpoint\.json"/.test(cli) && !/fetch\([^)]*nusa-api/.test(cli), "satu-satunya fetch HTTP klien = mp/endpoint.json");
   const bh = fs.readFileSync(path.join(__dirname, "../firebase/scripts/build-hosting.sh"), "utf8");
-  ok(/cp -r audio cloud world shop economy streak event hud/.test(bh) && /NUSA_MP_WS/.test(bh) && /backend: "cloud"/.test(bh) && /release: "publik"/.test(bh), "build-hosting mempertahankan folder & konfigurasi produksi + menambah multiplayer");
+  ok(/cp -r audio cloud world shop economy streak event hud house/.test(bh) && /NUSA_MP_WS/.test(bh) && /backend: "cloud"/.test(bh) && /release: "publik"/.test(bh), "build-hosting mempertahankan folder & konfigurasi produksi + menambah multiplayer");
   const act = fs.readFileSync(path.join(__dirname, "../firebase/scripts/aktifkan-multiplayer.sh"), "utf8");
   ok(/merge-base --is-ancestor/.test(act) && /produksi/.test(act) && /\$\{?WORKER_ONLY|--worker-saja/.test(act) && !/wrangler@4 deploy[^\n]*nusa-api/.test(act), "skrip aktivasi: pagar cabang lama, build produksi, opsi worker-saja");
   ok(/"ya"/.test(act) && /whoami/.test(act), "skrip aktivasi: konfirmasi eksplisit & memakai login Wrangler yang ada");

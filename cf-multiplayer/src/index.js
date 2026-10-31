@@ -31,6 +31,7 @@ export default {
     if (String(env.MP_BLOCKED_UIDS || "").split(",").map((x) => x.trim()).includes(who.uid)) return json({ error: "blocked" }, 403, cors);   // saklar darurat per akun (variabel Cloudflare)
     // pintu masuk: pilih instance + batasi laju masuk per akun/IP/global (melindungi kuota gratis harian)
     const lobby = env.LOBBY.get(env.LOBBY.idFromName("lobby")), ip = request.headers.get("CF-Connecting-IP") || "";
+    if (url.searchParams.has("h")) return houseDoor(request, env, lobby, ip, who, offered[1], url.searchParams.get("h"), cors);   // Kunjungi Rumah Teman
     const exclude = [];
     for (let i = 0; i < Proto.MAX_ROOMS; i++) {
       const r = await lobby.assign(who.uid, ip, exclude);
@@ -48,6 +49,34 @@ export default {
   },
 };
 
+// ---- Kunjungi Rumah Teman: pintu masuk ruang rumah ----
+// Izin masuk BUKAN keputusan Worker ini maupun browser: ditanyakan ke nusa-api (service binding API) dengan token milik pengguna sendiri.
+// nusa-api memeriksa privasi/izin/larangan di data server dan menetapkan peran (pemilik/tamu), id publik, dan nama ruang. Browser hanya mengirim id publik pendek.
+async function houseDoor(request, env, lobby, ip, who, token, pidRaw, cors) {
+  if (env.HOUSE_ENABLED === "0") return json({ error: "disabled" }, 503, cors);
+  const pid = String(pidRaw || "").toUpperCase();
+  if (!/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/.test(pid)) return json({ error: "bad_house" }, 400, cors);
+  if (!env.API || typeof env.API.fetch !== "function") return json({ error: "house_unavailable" }, 503, cors);
+  const g = await lobby.gate(who.uid, ip);
+  if (g.error) return json({ error: g.error }, 429, { ...cors, "retry-after": "20" });
+  let res;
+  try { res = await env.API.fetch(new Request("https://nusa-api.internal/fn/homeAccess", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify({ data: { pid } }) })); }
+  catch (e) { return json({ error: "house_unavailable" }, 503, cors); }
+  if (res.status === 404) return json({ error: "not_found" }, 404, cors);
+  if (res.status === 403) return json({ error: "denied" }, 403, cors);
+  if (res.status === 429) return json({ error: "rate" }, 429, { ...cors, "retry-after": "20" });
+  if (!res.ok) return json({ error: "house_unavailable" }, 502, cors);
+  let a; try { a = (await res.json()).result; } catch (e) { a = null; }
+  if (!a || !a.ok || (a.role !== "owner" && a.role !== "visitor") || a.room !== "rumah-" + pid && a.role === "visitor" || !/^rumah-[A-Z2-9]{8}$/.test(a.room || "") || !/^[A-Z2-9]{8}$/.test(a.me || "")) return json({ error: "denied" }, 403, cors);
+  const stub = env.HOUSE.get(env.HOUSE.idFromName(a.room));
+  const h = new Headers(request.headers); h.set("Sec-WebSocket-Protocol", Proto.SUBPROTOCOL); h.set("x-nusa-uid", who.uid); h.set("x-nusa-room", a.room); h.set("x-nusa-role", a.role); h.set("x-nusa-hid", a.me);
+  const r = await stub.fetch(new Request(request.url, { headers: h }));
+  if (r.status === 101) return r;
+  if (r.status === 403) return json({ error: "denied" }, 403, cors);
+  if (r.status === 409) return json({ error: "full" }, 503, cors);
+  return json({ error: "room_error" }, 502, cors);
+}
+
 export class Lobby extends DurableObject {
   constructor(ctx, env) { super(ctx, env); this.core = new LobbyCore(); this.env = env; }
   async assign(uid, ip, exclude) {
@@ -55,6 +84,7 @@ export class Lobby extends DurableObject {
     if (r.kick) { try { await this.env.ROOM.get(this.env.ROOM.idFromName(Proto.AREA + "-" + r.kick)).kickUid(uid); } catch (e) {} this.core.left(r.kick, uid); }   // tutup sesi lama di instance lain
     return { room: r.room, error: r.error };
   }
+  async gate(uid, ip) { return this.core.gate(uid, ip); }                       // pembatas laju masuk rumah (terpisah dari Muara)
   async joined(k, uid) { this.core.joined(k, uid); }
   async left(k, uid) { this.core.left(k, uid); }
   async sync(k, uids) { this.core.sync(k, uids); }
@@ -65,8 +95,9 @@ export class MuaraRoom extends DurableObject {
     super(ctx, env);
     this.ctx = ctx; this.env = env; this.sockets = new Map(); this.nextConn = 1; this.roomName = "muara-1";
     this.room = new Room({
-      id: this.roomName,
+      id: this.roomName, ...this.roomOpts(),
       io: {
+        onEject: (q) => this.onEject(q),
         now: () => Date.now(),
         send: (c, o) => { const ws = this.sockets.get(c); if (ws) ws.send(JSON.stringify(o)); },
         close: (c, code, reason) => { const ws = this.sockets.get(c); if (ws) { try { ws.close(code, String(reason || "").slice(0, 100)); } catch (e) {} } this.sockets.delete(c); },
@@ -83,19 +114,24 @@ export class MuaraRoom extends DurableObject {
   async fetch(request) {
     const uid = request.headers.get("x-nusa-uid"), name = request.headers.get("x-nusa-room");
     if (!uid || !name || (request.headers.get("Upgrade") || "").toLowerCase() !== "websocket") return new Response("bad", { status: 400 });
+    const denied = await this.admit(request, uid); if (denied) return denied;
     this.roomName = name; this.room.id = name;
     if (this.room.full() && !this.room.byUid.has(uid)) { this.lobbyCall("sync", this.k(), [...this.room.byUid.keys()]); return new Response("full", { status: 409 }); }
     const pair = new WebSocketPair(); const [client, server] = Object.values(pair);
     this.ctx.acceptWebSocket(server);
     const conn = this.nextConn++;
     this.sockets.set(conn, server);
-    const r = this.room.join(conn, uid, {}, null);
+    const r = this.room.join(conn, uid, {}, null, this.joinExtra(request));
     if (!r.ok) { this.sockets.delete(conn); try { server.close(1013, "full"); } catch (e) {} return new Response("full", { status: 409 }); }
     server.serializeAttachment({ c: conn, room: name, s: this.room.snapshot(conn) });
     this.lobbyCall("joined", this.k(), uid);
     await this.schedule(Proto.TIMEOUT_MS / 3);
     return new Response(null, { status: 101, webSocket: client, headers: { "Sec-WebSocket-Protocol": Proto.SUBPROTOCOL } });
   }
+  roomOpts() { return {}; }                       // Muara: bawaan Room
+  onEject() {}
+  async admit() { return null; }
+  joinExtra() { return undefined; }
   k() { return parseInt(String(this.roomName).split("-")[1], 10) || 1; }
   lobbyCall(fn, ...args) { try { const l = this.env.LOBBY.get(this.env.LOBBY.idFromName("lobby")); this.ctx.waitUntil(l[fn](...args).catch(() => {})); } catch (e) {} }
   kickUid(uid) { const c = this.room.byUid.get(uid); if (c != null) this.room.kick(c, 4002, "Akunmu masuk dari perangkat lain."); }
@@ -121,4 +157,29 @@ export class MuaraRoom extends DurableObject {
     const t = Date.now() + ms, cur = await this.ctx.storage.getAlarm();
     if (cur == null || cur > t) await this.ctx.storage.setAlarm(t);
   }
+}
+
+// Satu DO = satu rumah ("rumah-<id publik>"). Hanya bisa dicapai lewat houseDoor() di atas (peran & id publik ditetapkan di sana, bukan oleh klien).
+export class HouseRoom extends MuaraRoom {
+  constructor(ctx, env) {
+    super(ctx, env);
+    this.bans = new Map();
+    ctx.blockConcurrencyWhile(async () => { const b = await ctx.storage.get("bans"); if (b) this.bans = new Map(Object.entries(b)); });
+  }
+  roomOpts() { return { kind: "house", cap: Proto.HOUSE.CAP }; }
+  lobbyCall() {}                                    // rumah tidak memakai lobi Muara
+  // Larangan di sisi ruang: berlaku seketika saat pemilik mengeluarkan tamu (lapisan kedua; lapisan pertama = homeKick/homeAccess di nusa-api)
+  onEject(q) {
+    if (!q.hid) return;
+    const now = Date.now(); for (const [k, t] of this.bans) if (t <= now) this.bans.delete(k);
+    this.bans.set(q.hid, now + Proto.HOUSE.KICK_MS);
+    this.ctx.waitUntil(this.ctx.storage.put("bans", Object.fromEntries(this.bans)).catch(() => {}));
+  }
+  async admit(request) {
+    const role = request.headers.get("x-nusa-role"), hid = request.headers.get("x-nusa-hid");
+    if (role !== "owner" && role !== "visitor") return new Response("bad", { status: 400 });
+    if (role === "visitor" && (this.bans.get(hid) || 0) > Date.now()) return new Response("denied", { status: 403 });
+    return null;
+  }
+  joinExtra(request) { return { role: request.headers.get("x-nusa-role"), hid: request.headers.get("x-nusa-hid") }; }
 }

@@ -8,7 +8,7 @@
 (function (root) {
 "use strict";
 const P = (typeof module !== "undefined" && module.exports) ? require("./proto.js") : root.NW.MPProto;
-const LIM = { perUid: 8, perIp: 30, global: 300, windowMs: 60000 };
+const LIM = { perUid: 8, perIp: 30, global: 300, houseUid: 12, houseIp: 40, houseGlobal: 400, windowMs: 60000 };
 
 class Lobby {
   constructor(opts) { this.cap = (opts && opts.cap) || P.ROOM_CAP; this.max = (opts && opts.max) || P.MAX_ROOMS; this.now = (opts && opts.now) || (() => Date.now()); this.occ = new Map(); this.hits = { uid: new Map(), ip: new Map(), all: [] }; }
@@ -30,6 +30,14 @@ class Lobby {
       return { room: k, kick: before && before !== k ? before : null };
     }
     return { error: "full" };
+  }
+  // pintu rumah: hanya pembatas laju (per akun / per IP / global); ruang rumah tidak dipilih lobi
+  gate(uid, ip) {
+    const now = this.now(); this.hits.house = this.hits.house || { uid: new Map(), ip: new Map(), all: [] };
+    const h = this.hits.house;
+    if (this.prune(h.all, now).length >= LIM.houseGlobal) return { error: "busy" };
+    if (!this.hit(h.uid, uid, LIM.houseUid, now) || !this.hit(h.ip, ip, LIM.houseIp, now)) return { error: "rate" };
+    h.all.push(now); return { ok: true };
   }
   joined(k, uid) { if (!this.occ.has(k)) this.occ.set(k, new Set()); this.occ.get(k).add(uid); for (const [j, s] of this.occ) if (j !== k) s.delete(uid); }
   left(k, uid) { const s = this.occ.get(k); if (s) { s.delete(uid); if (!s.size) this.occ.delete(k); } }

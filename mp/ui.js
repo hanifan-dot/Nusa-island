@@ -18,7 +18,8 @@ const WHY = {
 };
 
 function statusLine(v) {
-  if (v.state === "online") return `🟢 Tersambung · ${esc(v.room.replace("muara-", "Muara Kampung #"))} · ${v.n}/${v.cap} pemain`;
+  if (v.state === "online") return `🟢 Tersambung · ${v.room.indexOf("rumah-") === 0 ? "Rumah (ruang privat)" : esc(v.room.replace("muara-", "Muara Kampung #"))} · ${v.n}/${v.cap} pemain`;
+  if (v.state === "kicked") return "🔴 " + esc(v.why);
   if (v.state === "connecting") return "🟡 Menyambung…";
   if (v.state === "reconnecting") return "🟠 Terputus, menyambung ulang…";
   if (v.state === "replaced" || v.state === "blocked") return "🔴 " + esc(v.why);
@@ -86,7 +87,7 @@ function refresh() {
   const inp = $("mpInput"); if (inp) { inp.disabled = !v.online; inp.placeholder = v.online ? "Ketik pesan…" : "Tidak tersambung"; }
   // umpan singkat saat panel tertutup (5 pesan terakhir, 9 detik)
   const lg = $("mpLog"), cut = Date.now() - 9000, rec = !chatOpen && v.prefs.chat ? v.log.filter((l) => l.t > cut && l.name !== "Sistem").slice(-4) : [];
-  lg.innerHTML = rec.map((l) => `<div class="${l.mine ? "mine" : ""}"><b>${esc(l.name)}</b> ${esc(l.text)}</div>`).join(""); lg.classList.toggle("hidden", !rec.length);
+  lg.innerHTML = rec.map((l) => `<div class="${l.mine ? "mine" : ""}"><b>${esc(l.name)}</b> ${esc(l.text)}</div>`).join(""); lg.classList.toggle("hidden", !rec.length || !!(N().isPanelOpen && N().isPanelOpen()));   // umpan singkat tidak menutupi panel yang sedang terbuka
   if (chatOpen) { if (!raf) raf = requestAnimationFrame(() => { raf = 0; renderHist(false); }); }
   const ask = $("mpAsk");
   if (ask) ask.classList.toggle("hidden", !(loggedIn && v.prefs.consent === null && N().isStarted() && !askDismissed));

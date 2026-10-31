@@ -1506,6 +1506,7 @@ if (NW.toba) NW.toba.hook();               // Bumbu 2: cerita "Rahasia Tepian Da
 if (NW.selat) NW.selat.hook();             // Bumbu 2.4: cerita "Jejak Arus Selat"
 if (NW.boat) NW.boat.hook();               // Bumbu 2.4: tombol kapal & panel Peta Laut
 if (NW.cloud) NW.cloud.hook();             // Tahap 3: tombol Profil & akun
+if (NW.house) NW.house.hook();                 // Kunjungi Rumah Teman (tombol di Rumahku + panel cari); sebelum mp supaya ruang rumah sudah dikenali
 if (NW.mp) NW.mp.hook();                   // Tahap 4: Dunia Bersama (multiplayer Muara Kampung) — hanya aktif untuk akun Google yang menyetujui
 if (NW.streak) NW.streak.hook();           // Login Streak 7 Hari: tombol 🎁 & Kalender Hadiah (klaim hanya lewat server Firebase)
 if (NW.event) NW.event.hook();             // Event 5 Monster Legenda: jadwal dari jam server, monster mingguan, duel yang dinilai server

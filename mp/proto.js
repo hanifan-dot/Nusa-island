@@ -17,7 +17,9 @@ const TIMEOUT_MS = 45000;             // tanpa kabar selama ini = dianggap kelua
 const TICK_MS = 200;                  // siaran perubahan posisi ≤5 kali/detik
 const MAX_SPEED = 9;                  // tile/detik (jalan kaki ≈ 4–6); lebih dari ini ditahan server
 const CHAT_MAX = 80, NAME_MAX = 14;
-const F = { MOVING: 1, SIT: 2, FISH: 4, TP: 8 };   // bendera tampilan
+const F = { MOVING: 1, SIT: 2, FISH: 4, TP: 8, IN: 16 };   // bendera tampilan (IN = sedang di dalam rumah; hanya dipakai ruang rumah)
+// ---- Kunjungi Rumah Teman: satu instance = satu rumah (area "rumah"), terpisah total dari Muara ----
+const HOUSE = { AREA: "rumah", CAP: 12, MAP_W: 32, MAP_H: 32, KICK_CODE: 4010, KICK_MS: 60 * 60000 };
 const EMOTES = ["👋", "😂", "❤️", "🎣", "👍", "😴"];
 
 // ---- nama panggilan ----
@@ -47,7 +49,7 @@ const qz = (v) => Math.round(v * Q);
 const uq = (n) => n / Q;
 const clampInt = (v, a, b, d) => { v = Math.floor(Number(v)); return Number.isFinite(v) ? Math.max(a, Math.min(b, v)) : d; };
 
-const API = { VERSION, SUBPROTOCOL, AREA, MAP_W, MAP_H, Q, ROOM_CAP, MAX_ROOMS, TIMEOUT_MS, TICK_MS, MAX_SPEED, CHAT_MAX, NAME_MAX, F, EMOTES, cleanName, cleanChat, maskBad, qz, uq, clampInt };
+const API = { HOUSE, VERSION, SUBPROTOCOL, AREA, MAP_W, MAP_H, Q, ROOM_CAP, MAX_ROOMS, TIMEOUT_MS, TICK_MS, MAX_SPEED, CHAT_MAX, NAME_MAX, F, EMOTES, cleanName, cleanChat, maskBad, qz, uq, clampInt };
 if (typeof module !== "undefined" && module.exports) module.exports = API;
 else { root.NW = root.NW || {}; root.NW.MPProto = API; }
 })(typeof window !== "undefined" ? window : globalThis);
