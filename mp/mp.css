@@ -1,14 +1,27 @@
-/* NUSA ISLAND — Dunia Bersama. Ringan: tanpa animasi berulang. */
-.mp-dock { position: fixed; left: 8px; top: calc(env(safe-area-inset-top, 0px) + 48px); z-index: 12; display: flex; gap: 6px; pointer-events: auto; }
-.mp-dock.hidden, .mp-log.hidden, .mp-bar.hidden, .mp-ask.hidden, .mp-dock .hidden { display: none !important; }
-.mp-dock .chip { font-weight: 800; }
-.mp-dock #mpCount.on { box-shadow: 0 0 0 2px #2fb39a inset; } .mp-dock #mpCount.ask { box-shadow: 0 0 0 2px #f0b53a inset; }
-.mp-log { position: fixed; left: 8px; top: calc(env(safe-area-inset-top, 0px) + 92px); z-index: 11; max-width: min(68vw, 300px); font-size: 12px; pointer-events: none; display: flex; flex-direction: column; gap: 3px; }
-.mp-log > div { background: rgba(12, 40, 48, .62); color: #fff; padding: 3px 8px; border-radius: 9px; line-height: 1.25; word-break: break-word; }
-.mp-log > div.mine { background: rgba(31, 154, 143, .7); } .mp-log b { color: #ffe08a; margin-right: 4px; }
-.mp-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; padding: 8px 8px calc(env(safe-area-inset-bottom, 0px) + 8px); background: rgba(250, 244, 226, .97); border-top: 1px solid #d9c9a0; box-shadow: 0 -4px 16px rgba(0, 0, 0, .18); }
-.mp-emo { display: flex; gap: 6px; margin-bottom: 7px; overflow-x: auto; } .mp-emo button { font-size: 22px; background: #fff; border: 1px solid #e2d6b4; border-radius: 12px; padding: 4px 9px; }
-.mp-bar form { display: flex; gap: 6px; } .mp-bar input { flex: 1; min-width: 0; font-size: 16px; padding: 10px 12px; border-radius: 12px; border: 1px solid #cdbf94; background: #fff; }
+/* NUSA ISLAND — Dunia Bersama & obrolan. Ringan: tanpa animasi berulang, tanpa blur. */
+.mp-dock { position: fixed; left: 8px; top: calc(env(safe-area-inset-top, 0px) + 50px); z-index: 12; display: flex; gap: 6px; pointer-events: auto; }
+.mp-dock.hidden, .mp-log.hidden, .mp-chat.hidden, .mp-ask.hidden, .mp-dock .hidden, .mp-emo.hidden, .mp-unread.hidden { display: none !important; }
+.mp-dock .chip { font-weight: 800; position: relative; min-height: 36px; }
+.mp-dock #mpCount.on { box-shadow: 0 0 0 2px #2fb39a inset; } .mp-dock #mpCount.ask { box-shadow: 0 0 0 2px #f0b53a inset; } .mp-dock #mpChatBtn.open { background: #173f50; }
+.mp-unread { position: absolute; top: -5px; right: -4px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: #e2574c; color: #fff; font: 800 11px/17px system-ui; text-align: center; box-shadow: 0 0 0 2px #fff6e0; }
+/* umpan singkat saat panel tertutup: di atas joystick (tidak menabrak teks petunjuk di tengah atas) */
+.mp-log { position: fixed; left: 8px; bottom: calc(env(safe-area-inset-bottom, 0px) + 150px); z-index: 11; max-width: min(66vw, 280px); font-size: 12px; pointer-events: none; display: flex; flex-direction: column; gap: 3px; }
+.mp-log > div { background: rgba(12, 40, 48, .5); color: #fff; padding: 3px 8px; border-radius: 9px; line-height: 1.25; word-break: break-word; }
+.mp-log > div.mine { background: rgba(31, 154, 143, .6); } .mp-log b { color: #ffe08a; margin-right: 4px; }
+/* panel obrolan: kaca gelap semi-transparan di kiri atas (di luar jangkauan keyboard & joystick) */
+.mp-chat { position: fixed; left: 8px; top: calc(env(safe-area-inset-top, 0px) + 92px); z-index: 41; width: min(92vw, 350px); max-height: min(44vh, 320px); display: flex; flex-direction: column;
+  background: rgba(10, 32, 40, .66); border: 1px solid rgba(255, 255, 255, .16); border-radius: 16px; box-shadow: 0 8px 26px rgba(0, 0, 0, .3); color: #fff; overflow: hidden; }
+.mp-chat header { display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 12px; font-size: 14px; border-bottom: 1px solid rgba(255, 255, 255, .12); }
+.mp-chat header .mp-cc { flex: 1; font-size: 11.5px; opacity: .7; } .mp-chat header button { width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .12); color: #fff; font-size: 17px; }
+.mp-hist { flex: 1 1 auto; min-height: 84px; overflow-y: auto; overscroll-behavior: contain; padding: 6px 10px; font-size: 13.5px; line-height: 1.35; -webkit-overflow-scrolling: touch; }
+.mp-hist .m { margin: 3px 0; word-break: break-word; } .mp-hist .m b { margin-right: 6px; font-weight: 800; } .mp-hist .m.mine span { color: #d9fff4; }
+.mp-hist .mp-sys { margin: 6px 0; font-size: 12px; opacity: .7; font-style: italic; text-align: center; }
+.mp-emo { display: flex; gap: 6px; padding: 4px 10px; overflow-x: auto; } .mp-emo button { font-size: 22px; min-width: 44px; height: 40px; background: rgba(255, 255, 255, .14); border: 0; border-radius: 12px; }
+.mp-chat form { display: flex; gap: 6px; padding: 6px 8px 8px; border-top: 1px solid rgba(255, 255, 255, .12); }
+.mp-chat input { flex: 1; min-width: 0; height: 44px; font-size: 16px; padding: 0 12px; border-radius: 12px; border: 0; background: rgba(255, 255, 255, .92); color: #173f50; }
+.mp-chat input:disabled { opacity: .55; } .mp-send { height: 44px; padding: 0 16px; border: 0; border-radius: 12px; background: #f0b53a; color: #3b2a05; font: 800 14px system-ui; }
+body.mp-typing .joy { opacity: .2 !important; pointer-events: none; }
+@media (max-height: 460px) { .mp-chat { max-height: 62vh; top: calc(env(safe-area-inset-top, 0px) + 50px); left: 56px; } .mp-log { display: none; } }
 .mp-ask { position: fixed; left: 10px; right: 10px; bottom: calc(env(safe-area-inset-bottom, 0px) + 92px); z-index: 30; display: flex; gap: 10px; align-items: center; justify-content: space-between; background: #fffaf0; border: 2px solid #f0b53a; border-radius: 16px; padding: 10px 12px; font-size: 13px; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); }
 .mp-ask .muted { font-size: 11.5px; margin-top: 2px; } .mp-btns { display: flex; gap: 6px; flex-shrink: 0; }
 .mp .mp-stat { font-weight: 700; margin-bottom: 8px; } .mp .mp-note { background: #fff6dc; border: 1px solid #ecd48a; border-radius: 12px; padding: 10px; font-size: 13px; margin-bottom: 8px; } .mp .mp-note .mp-btns { margin-top: 8px; flex-wrap: wrap; }
@@ -16,4 +29,8 @@
 .mp .mp-row { display: flex; justify-content: space-between; gap: 8px; padding: 6px 8px; background: #f6fbf8; border: 1px solid #cfe6dc; border-radius: 10px; margin-bottom: 4px; font-size: 13px; } .mp .mp-row.me { background: #e2f6e8; }
 .mp .mp-sw { display: flex; gap: 10px; align-items: center; padding: 8px 2px; font-size: 14px; } .mp .mp-sw input { width: 20px; height: 20px; }
 .mp .mp-fine { font-size: 11.5px; margin-top: 8px; }
-body.mode-fish .mp-log { top: calc(env(safe-area-inset-top, 0px) + 92px); }
+
+body.mode-fish .mp-log { bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 92px); }
+/* teks petunjuk/banner tengah disembunyikan sementara saat menu atau obrolan terbuka supaya tulisan tidak bertumpuk */
+body.mp-chat-open #hint, body.mp-chat-open .banner, body.hm-open #hint, body.hm-open .banner { visibility: hidden; }
+.mp-chat input:focus { outline: 2px solid #1f9a8f; outline-offset: 0; }
