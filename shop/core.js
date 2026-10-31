@@ -39,7 +39,7 @@
   const baseCoins = (rupiah) => Math.round(rupiah / 1000 * COINS_PER_1000);
   for (const p of PACKAGES) { p.base = baseCoins(p.rupiah); p.bonus = p.coins - p.base; p.bonusPct = Math.round(p.bonus / p.base * 100); }
   const BY_ID = Object.fromEntries(PRODUCTS.concat(PACKAGES).map((p) => [p.id, p]));
-  const MERCHANT = { name: "Kotanusa, Pakaian", city: "Bengkalis", nmid: "ID1026622946899", note: "Nama merchant sesuai QRIS terdaftar" };
+  const MERCHANT = { name: "Kotanusa, Pakaian", note: "Nama merchant sesuai QRIS milik Owner (diperiksa ulang Owner sebelum aktivasi)" };
   const STATUS = ["PENDING", "PAID", "FAILED", "CANCELLED"];
   const fmtRp = (n) => "Rp" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   const isObj = (x) => x && typeof x === "object" && !Array.isArray(x);
@@ -127,10 +127,10 @@
           const rupiah = priceOf(prod, cfg, now), used = new Set();
           const cnt = (await t.get(CNT)) || { pending: {} };
           for (const [, c] of Object.entries(cnt.pending)) if (c.until > now) used.add(`${c.rupiah}:${c.code}`);
-          let code = 1 + Math.floor(rng() * 999), tries = 0; while (used.has(`${rupiah}:${code}`) && tries++ < 1000) code = (code % 999) + 1;
-          if (tries >= 1000) throw E("resource-exhausted", "Kode unik habis, coba lagi nanti.");
+          let code = 1 + Math.floor(rng() * 99), tries = 0; while (used.has(`${rupiah}:${code}`) && tries++ < 100) code = (code % 99) + 1;   // kode unik Rp1–99 (kecil agar tagihan tidak membengkak)
+          if (tries >= 100) throw E("resource-exhausted", "Kode unik habis, coba lagi nanti.");
           let orderId = rid(); while (await t.get(ORD(orderId))) orderId = rid();
-          const o = { orderId, uid, opId: p.opId, productId: prod.id, kind: isCoinPack(prod) ? "topup" : "produk", name: prod.name, rupiah, uniqueCode: code, payAmount: rupiah + code, coins: isCoinPack(prod) ? prod.coins : 0, bonus: isCoinPack(prod) ? prod.bonus : 0,
+          const o = { orderId, uid, opId: p.opId, productId: prod.id, kind: isCoinPack(prod) ? "topup" : "produk", name: isCoinPack(prod) ? "Top Up Paket " + prod.name : prod.name, rupiah, uniqueCode: code, payAmount: rupiah + code, coins: isCoinPack(prod) ? prod.coins : 0, bonus: isCoinPack(prod) ? prod.bonus : 0,
             status: "PENDING", env: env(), createdAt: now, expiresAt: now + cfg.orderTtlMs, events: [{ at: now, s: "PENDING", by: "pemain" }] };
           cnt.pending[orderId] = { rupiah, code, until: o.expiresAt };
           for (const k of Object.keys(cnt.pending)) if (cnt.pending[k].until <= now) delete cnt.pending[k];

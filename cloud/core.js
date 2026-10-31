@@ -54,7 +54,7 @@
     if (!isObj(save)) return false;
     const st = save.stats || {};
     return (st.casts > 0) || (st.caught > 0) || (Array.isArray(save.cooler) && save.cooler.length > 0) ||
-      (save.day > 1) || dexCount(save) > 0 || !!(isObj(save.kedai) && save.kedai.plays > 0) || (save.up && Object.values(save.up).some((v) => v > 0));
+      (save.day > 1) || dexCount(save) > 0 || !!(isObj(save.kedai) && save.kedai.plays > 0) || !!(isObj(save.shop) && isObj(save.shop.equip) && Object.keys(save.shop.equip).length > 0) || (save.up && Object.values(save.up).some((v) => v > 0));
   }
   function summarize(save) {
     save = isObj(save) ? save : {};
@@ -128,6 +128,11 @@
         }
         if (k.title !== undefined && !(k.title === 0 || (Number.isFinite(k.title) && k.title > 0))) errors.push("Gelar Kedai tidak valid");
       }
+    }
+    if (save.shop !== undefined) { // Tahap 3.5: HANYA pilihan kosmetik yang sedang dipakai. Hak milik/uang TIDAK disimpan di sini (ada di server toko).
+      const sh = save.shop;
+      if (!isObj(sh) || (sh.equip !== undefined && (!isObj(sh.equip) || Object.keys(sh.equip).length > 12 || Object.entries(sh.equip).some(([k, v]) => !ID_RE.test(k) || typeof v !== "string" || !ID_RE.test(v))))) errors.push("Data toko tidak valid");
+      else if (Object.keys(sh).some((k) => k !== "v" && k !== "equip")) errors.push("Data toko tidak valid");
     }
     if (errors.length === 0 && JSON.stringify(save).length > LIMITS.MAX_BYTES) errors.push("Data terlalu besar");
     return { ok: errors.length === 0, errors, flags };
