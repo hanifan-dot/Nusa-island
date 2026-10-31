@@ -188,5 +188,13 @@ const mv = (r, c, x, y, d = 2, f = 1) => r.room.message(c, JSON.stringify({ t: "
   ok(src.includes("acceptWebSocket") && src.includes("deserializeAttachment"), "memakai WebSocket Hibernation API");
   ok(src.includes("ALLOWED_ORIGINS") && src.includes("verifyFirebaseToken"), "origin & token diperiksa sebelum DO");
   ok(!/uid/.test(JSON.stringify([...src.matchAll(/send\([^)]*\)/g)].map((m) => m[0]))), "pengiriman tidak menyertakan uid");
+  const cli = fs.readFileSync(path.join(__dirname, "../mp/client.js"), "utf8") + fs.readFileSync(path.join(__dirname, "../mp/ui.js"), "utf8");
+  ok(!/NusaApi|apiBase|shop_|economy|S\.money|\.money\b|entitlements|wallet|firestore/i.test(cli.replace(/\/\/.*$/gm, "")), "klien multiplayer tidak menyentuh ekonomi/toko/Worker nusa-api/Firestore/saldo");
+  ok(/fetch\("mp\/endpoint\.json"/.test(cli) && !/fetch\([^)]*nusa-api/.test(cli), "satu-satunya fetch HTTP klien = mp/endpoint.json");
+  const bh = fs.readFileSync(path.join(__dirname, "../firebase/scripts/build-hosting.sh"), "utf8");
+  ok(/cp -r audio cloud world shop economy streak/.test(bh) && /NUSA_MP_WS/.test(bh) && /backend: "cloud"/.test(bh) && /release: "publik"/.test(bh), "build-hosting mempertahankan folder & konfigurasi produksi + menambah multiplayer");
+  const act = fs.readFileSync(path.join(__dirname, "../firebase/scripts/aktifkan-multiplayer.sh"), "utf8");
+  ok(/merge-base --is-ancestor/.test(act) && /produksi/.test(act) && /\$\{?WORKER_ONLY|--worker-saja/.test(act) && !/wrangler@4 deploy[^\n]*nusa-api/.test(act), "skrip aktivasi: pagar cabang lama, build produksi, opsi worker-saja");
+  ok(/"ya"/.test(act) && /whoami/.test(act), "skrip aktivasi: konfirmasi eksplisit & memakai login Wrangler yang ada");
   console.log(`\nMultiplayer: ${pass} lulus, ${fail} gagal`); process.exit(fail ? 1 : 0);
 })();

@@ -41,16 +41,25 @@ Berkas: `mp/proto.js` (protokol + pembersih nama/chat), `mp/room-core.js` (logik
 ## Kuota gratis Cloudflare (hitungan jujur)
 Paket Workers Free: Durable Objects 100 rb permintaan/hari (pesan masuk WebSocket dihitung 20:1; pesan keluar gratis) dan 13.000 GB-detik/hari ≈ **28 jam-instance aktif per hari**. Instance yang tidak ada gerakan/chat bisa hibernasi (tidak ditagih durasi); sapuan timeout hanya membangunkan ±sekian milidetik tiap 15 detik. Cukup untuk komunitas kecil (puluhan pemain, beberapa jam ramai per hari). Bila kuota habis, Cloudflare menolak operasi sampai 00:00 UTC: game tampil "tidak tersambung" dan permainan tunggal tetap normal; tidak ada biaya otomatis. Jika kelak ramai, naik ke Workers Paid ($5/bulan) tanpa mengubah kode. Saklar darurat: variabel `MP_ENABLED = "0"` di dashboard Cloudflare mematikan semuanya tanpa deploy.
 
-## Aktifkan (setelah kamu menyetujui rilis)
-Yang tidak bisa dilakukan dari luar akunmu hanya membuat token Cloudflare (sekali, ±1 menit):
-1. Dashboard Cloudflare → My Profile → API Tokens → **Create Token** → template **Edit Cloudflare Workers** → Continue → Create Token → salin.
-2. Di Cloud Shell, dari folder repo pada cabang ini, jalankan SATU perintah:
-   `bash firebase/scripts/aktifkan-multiplayer.sh`
-   (tempel token saat diminta). Skrip membuat alamat workers.dev bila belum ada, men-deploy Worker, mengecek `/health`, menulis `mp/endpoint.json`, dan (bila kamu jawab y) membangun + men-deploy game ke Firebase Hosting.
-3. Buka game dengan dua akun Google di Muara Kampung; ketuk "Ikut" pada kartu 👥.
-Tidak ada perubahan Firebase Console, Rules, Blaze, atau Authorized domains yang diperlukan (Auth tetap di domain game).
+## Integrasi dengan produksi (cabang `uji/gabungan-kedai-ekonomi`)
+Cabang `fitur/tahap-4-multiplayer-produksi` = produksi terbaru + Tahap 4. Yang ditambahkan ke file produksi hanya hook kecil bertanda "Dunia Bersama/Tahap 4" di `index.html`, `game.js`, `world/world.js`, `cloud/adapter-firebase.js` (satu fungsi `idToken`), dan `build-hosting.sh`. Premium Shop QRIS, Worker ekonomi `nusa-api`, Login 7 Hari, Cloud Save, ekonomi server, dan Kedai Atuk Bahar tidak diubah; klien multiplayer tidak memakai `NusaApi`, `apiBase`, saldo, toko, atau Firestore (dicek otomatis di `tests/unit-mp.js`).
+- **Worker terpisah:** `nusa-multiplayer` (nama, Durable Object, dan binding sendiri). `nusa-api` tidak pernah di-deploy ulang oleh skrip ini; statusnya dicek sebelum dan sesudah.
+- **`build-hosting.sh`:** semua folder (`shop`, `economy`, `streak`, …) dan mode `produksi` (apiBase, `backend: "cloud"`, `release: "publik"`, QRIS) tetap. Tambahan: folder `mp/` dan, bila `NUSA_MP_WS=wss://nusa-multiplayer.<akun>.workers.dev` diisi, `mp/endpoint.json`. Alamat `nusa-api` ditolak sebagai alamat multiplayer.
+- **Autentikasi:** token ID Firebase yang sama dengan Cloud Save/Rules (Google, email terverifikasi, project `nusa-island-d2023`) diverifikasi di Worker dengan kunci publik Google; tidak ada rahasia dan tidak ada panggilan ke `nusa-api`.
+
+## Perlindungan penyalahgunaan
+Sebelum token diverifikasi: Origin harus domain game, subprotocol & ukuran token dicek. Setelah itu: akun dalam daftar `MP_BLOCKED_UIDS` ditolak; **pintu masuk (lobby)** membatasi masuk ≤8/menit per akun, ≤30/menit per IP, ≤300/menit global (melindungi kuota gratis harian dari banjir sambungan) dan menutup sesi lama bila akun yang sama masuk ke instance lain. Di dalam instance: batas peta & kecepatan, laju pesan (token bucket), chat disaring (tautan/email/telepon/kata kasar), spam sama diabaikan, nama menyerupai staf ditolak, pelanggar berat ditendang. Memblokir pelaku: dashboard Cloudflare → Workers → nusa-multiplayer → Settings → Variables → `MP_BLOCKED_UIDS` = uid (tidak tertimpa deploy berikutnya).
+Batas jujur: belum ada tombol lapor/blokir per pemain di dalam game; penyaring kata bukan moderasi manusia; satu orang dengan banyak akun Google tetap dibatasi laju per IP.
+
+## Aktifkan (setelah kamu menyetujui rilis) — SATU perintah
+Di Cloud Shell, dari folder repo, pada cabang `fitur/tahap-4-multiplayer-produksi`:
+```
+git fetch origin && git checkout fitur/tahap-4-multiplayer-produksi && git pull && bash firebase/scripts/aktifkan-multiplayer.sh
+```
+Skrip: (1) menolak berjalan bila cabang tidak memuat produksi terbaru atau ada perubahan lokal; (2) membaca alamat `nusa-api` dari situs live; (3) memakai login Wrangler/Cloudflare yang sudah ada (token baru hanya diminta bila memang belum ada login sama sekali); (4) men-deploy HANYA `nusa-multiplayer` dan mengecek `/health`; (5) membangun game dengan mode `produksi`; (6) menayangkan ke Firebase Hosting hanya setelah kamu mengetik `ya`, lalu memeriksa bahwa konfigurasi toko live tidak berubah. `--worker-saja` mengaktifkan server tanpa menyentuh game live. Batal/rollback: Firebase Console → Hosting → Riwayat rilis → Kembalikan; matikan darurat: `MP_ENABLED = 0`.
+Skrip diuji dengan alat palsu (curl/npx/firebase) untuk alur normal, batal, cabang lama, pohon kotor, dan tanpa login Cloudflare; **belum dijalankan terhadap Cloudflare/Firebase asli**.
 
 ## Pengujian
-- `node tests/unit-mp.js` (82): pembersih nama/chat, logika instance (gabung, delta, kecepatan/teleport, kapasitas, satu sesi per akun, chat+rate limit, tersembunyi, timeout, anti-banjir, hemat data, pemulihan hibernasi), verifikasi JWT dengan kunci RSA buatan (aud/iss/exp/provider/email/tanda tangan palsu/alg none), pemeriksaan statis `wrangler.toml` & Worker.
+- `node tests/unit-mp.js` (102, termasuk lobby & pemeriksaan integrasi produksi): pembersih nama/chat, logika instance (gabung, delta, kecepatan/teleport, kapasitas, satu sesi per akun, chat+rate limit, tersembunyi, timeout, anti-banjir, hemat data, pemulihan hibernasi), verifikasi JWT dengan kunci RSA buatan (aud/iss/exp/provider/email/tanda tangan palsu/alg none), pemeriksaan statis `wrangler.toml` & Worker.
 - `python tests/browser/test_multiplayer.py` (42): beberapa browser sungguhan ↔ server uji lokal (`tests/dev/mp-dev-server.js`, logika instance sama, token `dev.<uid>` hanya di mode demo): persetujuan, tamu tidak tersambung, bertemu, berjalan real-time, label nama, chat tersaring & digema, spam dibatasi, duduk & memancing bersama, menghilang saat pindah area/keluar, sesi ganda, instance kapasitas 2, hemat data, sambung ulang setelah server mati, panel & pengaturan.
 - **Belum teruji:** Worker/Durable Object di runtime Cloudflare asli (kelas `MuaraRoom` hanya pembungkus tipis atas `room-core.js`; rawan salah ketik API Cloudflare yang baru ketahuan saat deploy pertama), verifikasi token dengan JWKS Google asli, Firebase Hosting, Android fisik, jaringan seluler, beban banyak pemain.
