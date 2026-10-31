@@ -243,7 +243,7 @@ with sync_playwright() as p:
     first = pg.inner_text("#dlgText")
     ok("V2 papan kenangan menunjukkan pencapaian", "Penerus Muara" in first, first[:70])
     close_dialog(pg)
-    ok("V3 data dunia publik tidak berubah (bangunan & objek peta sama)", ev(pg, "NW.buildings.length") == 5 and ev(pg, "NW.objects.length") == 104)  # Bumbu 2.4: +2 objek tetap (papan Rute Kapal & tiang tambat pantai)
+    ok("V3 data dunia publik tidak berubah (bangunan & objek peta sama)", ev(pg, "NW.buildings.length") == 7 and ev(pg, "NW.objects.length") == 90)  # Tahap 3.5: 5 bangunan lama + Kedai Atuk (Bumbu 3.1) + Nusa Premium; objek acak di halaman kedai/toko dibersihkan (104→90). # Bumbu 2.4: +2 objek tetap (papan Rute Kapal & tiang tambat pantai)
     # Joran warisan terlihat di rumah
     ev(pg, "NW.home.goPlot(NW.world.player,'door'); NW.home.goRoom(NW.world.player)"); time.sleep(0.5); pg.screenshot(path=OUT + "joran.png")
     ok("R1 rumah & akuarium tetap utuh setelah cerita", ev(pg, "window.__nusa.S.home.furniture.length") >= 3 and ev(pg, "NW.HD.inventoryReport(window.__nusa.S).total===NW.HD.inventoryReport(window.__nusa.S).unique"))

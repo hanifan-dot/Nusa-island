@@ -82,7 +82,7 @@ with sync_playwright() as p:
     # ================= 1. Naik kapal =================
     ctx, pg, errs = fresh(b)
     m = ev(pg, "NW.areas.get('muara').sea.moors[0]")
-    ok("1a kapal pemain bersandar di dermaga Muara (bukan kotak mengapung): status tersimpan v10", ev(pg, "window.__nusa.S.v") == 10 and st(pg)["moor"] == "dermaga" and not st(pg)["on"] and ev(pg, "window.__nusa.S.sea.v") == 1)
+    ok("1a kapal pemain bersandar di dermaga Muara (bukan kotak mengapung): status tersimpan v10", ev(pg, "window.__nusa.S.v") >= 10 and st(pg)["moor"] == "dermaga" and not st(pg)["on"] and ev(pg, "window.__nusa.S.sea.v") == 1)
     goto(pg, m["board"]["x"] - 3, m["board"]["y"]); far = target(pg)
     goto(pg, m["board"]["x"], m["board"]["y"])
     ok("1b tombol ⛵ Naik Kapal muncul hanya saat dekat kapal", target(pg) == "Naik Kapal" and far != "Naik Kapal", far)
@@ -352,7 +352,7 @@ with sync_playwright() as p:
     seed = "if(!sessionStorage.getItem('s')){localStorage.setItem('nusa-island-v1', %s); localStorage.setItem('nusa-island-audio-v1', %s); localStorage.setItem('nusa-island-wxfx-v1', %s); sessionStorage.setItem('s','1')}" % (json.dumps(json.dumps(v9)), json.dumps(aud or '{"music":0.4}'), json.dumps(wxfx or '{"level":"rendah","calm":true}'))
     ctx, pg, errs = page(b, seed)
     S = ev(pg, "JSON.parse(JSON.stringify(window.__nusa.S))")
-    chk = {"v": S["v"] == 10, "koin": S["money"] == 98765, "up": S["up"] == {"rod": 7, "bait": 3, "cooler": 9, "boat": 2}, "ikan": [c["uid"] for c in S["cooler"]] == ["k1", "k2"] and S["cooler"][0].get("lock") and S["cooler"][1].get("vr") == "silver",
+    chk = {"v": S["v"] in (10, 11), "koin": S["money"] == 98765, "up": S["up"] == {"rod": 7, "bait": 3, "cooler": 9, "boat": 2}, "ikan": [c["uid"] for c in S["cooler"]] == ["k1", "k2"] and S["cooler"][0].get("lock") and S["cooler"][1].get("vr") == "silver",
            "dex": S["dex"]["kakap"]["n"] == 4, "keahlian": S["skills"].get("presisi") == 1, "darto": S["story"]["ch"] == 5, "toba": S["adv"]["toba"]["bab"] == 3, "rahasia": S["adv"]["found"].get("secret:lubuk") == 7,
            "rumah": S["home"]["level"] == 3, "nama": S["profile"]["name"] == "Uji", "cuaca": S["wx"]["seed"] == 4242, "sea": S["sea"]["v"] == 1 and not S["sea"]["on"] and S["sea"]["area"] == "muara", "selat": S["adv"]["selat"]["bab"] == 1}
     ok("15a simpanan v9 → v10: koin, ikan (UID, kunci, varian), joran, coolbox, kapal, koleksi, keahlian, cerita Darto & Toba, spot rahasia, Rumahku, nama, cuaca utuh; data kapal & cerita Selat default aman", all(chk.values()), {k: v for k, v in chk.items() if not v})

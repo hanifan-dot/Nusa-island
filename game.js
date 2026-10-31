@@ -1448,7 +1448,7 @@ function loop(now) {
   if (MODE === "world") {
     G.t += dt;
     if (started) { NW.world.update(dt); if (NW.audioDirector) NW.audioDirector.frame(dt); }
-    if (!(NW.kedaiUI && NW.kedaiUI.isOpen())) NW.world.draw(ctx, G.t); // Kedai menutupi layar → dunia tidak digambar (hemat CPU/baterai HP)
+    if (!((NW.shopUI && NW.shopUI.isOpen()) || (NW.kedaiUI && NW.kedaiUI.isOpen()))) NW.world.draw(ctx, G.t); // Kedai/Toko menutupi layar → dunia tidak digambar (hemat CPU/baterai HP)
   } else {
     if (started) update(dt); else { G.t += dt; for (const c of clouds) c.x = (c.x + c.v * dt) % 1.2; }
     draw();
@@ -1460,7 +1460,7 @@ function loop(now) {
 window.Nusa = {
   get S() { return S; },
   mode: () => MODE, isStarted: () => started,
-  isPanelOpen: () => !$("panelWrap").classList.contains("hidden") || !$("catchWrap").classList.contains("hidden") || !$("shareWrap").classList.contains("hidden") || !!($("aqWrap") && !$("aqWrap").classList.contains("hidden")) || !!(NW.kedai && NW.kedai.isOpen()),
+  isPanelOpen: () => !$("panelWrap").classList.contains("hidden") || !$("catchWrap").classList.contains("hidden") || !$("shareWrap").classList.contains("hidden") || !!($("aqWrap") && !$("aqWrap").classList.contains("hidden")) || !!(NW.kedai && NW.kedai.isOpen()) || !!(NW.shopUI && NW.shopUI.isOpen()),
   openPanel, enterFishing, goWorld, travel, canSail, tickTime, darkness, goldenHour, isNight, marketTip, setHint, save, toast,
   coolerFull: () => S.cooler.length >= coolerCap(),
   sfx: (n, a) => { initAudio(); if (NW.audio && NW.audio.sfx(n, a)) return; if (SFX[n]) SFX[n](a); },

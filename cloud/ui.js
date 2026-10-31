@@ -149,6 +149,7 @@
           </div>
           <h4 class="prof-h">Gelar & pencapaian</h4><div class="prof-chips">${titles.map((t) => `<span>🎖️ ${esc(t)}</span>`).join("")}${awards.map((a) => `<span${a.name === "PENAKLUK ATUK BAHAR" ? ' class="prof-badge-goat"' : ""}>${esc(a.icon || "🏅")} ${esc(a.name)}</span>`).join("") || (titles.length ? "" : `<span class="muted">Belum ada — tangkap ikan pertamamu!</span>`)}</div>
           ${kedaiProfile(S)}
+          ${(NW.shop && NW.shop.owned().lencana_sultan && S.shop && S.shop.equip && S.shop.equip.lencana === 'lencana_sultan') ? '<div class="prof-note"><span class="prof-badge-goat">👑 SULTAN SAMUDRA</span> · Pemilik Gamepass Nelayan Sultan</div>' : ''}
           <h4 class="prof-h">Cloud Save</h4><div class="cloud-card" id="cloudCard">
             <div class="cs-row"><span class="dotc ${st}"></span><b id="csText">${esc(cloud.statusText())}</b></div>
             ${cloud.lastError ? `<p class="muted" id="csErr">${esc(cloud.lastError)}</p>` : ""}

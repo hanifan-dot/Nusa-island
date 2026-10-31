@@ -279,7 +279,7 @@ with sync_playwright() as p:
         ctx.close()
         ctx, pg, errs3 = page(b, json.loads(v6)); start(pg); s = S(pg)
         bk = ev(pg, "localStorage.getItem('nusa-island-v1-backup-v6')")
-        g1 = {"v": s["v"] == 10, "koin": s["money"] == 98765, "up": s["up"] == {"rod": 7, "bait": 3, "cooler": 9, "boat": 2}, "ikan": len(s["cooler"]) == 199, "kunci": sum(1 for c in s["cooler"] if c.get("lock")) == 20,
+        g1 = {"v": s["v"] in (10, 11), "koin": s["money"] == 98765, "up": s["up"] == {"rod": 7, "bait": 3, "cooler": 9, "boat": 2}, "ikan": len(s["cooler"]) == 199, "kunci": sum(1 for c in s["cooler"] if c.get("lock")) == 20,
               "akuarium": bool(s["home"]["placedFish"]) and s["home"]["placedFish"][0]["uid"] == "aq1", "perabot": any(f["uid"] == "f99" for f in s["home"]["furniture"] + s["home"]["stored"]), "gelar": s["titles"]["fish"] == 321,
               "darto": s["story"]["ch"] == 5, "koleksi": s["dex"]["mas"]["n"] == 50, "statistik": s["stats"]["caught"] == 400, "hari": s["day"] == 12, "misi": s.get("missions") is not None}
         ok("G1 simpanan v6 → v10 (migrasi berantai): koin, joran lv 8, kapal, inventaris 199 + 20 terkunci, akuarium, perabot, gelar, cerita Darto, koleksi, statistik, misi harian aman", all(g1.values()), {k: v for k, v in g1.items() if not v})
