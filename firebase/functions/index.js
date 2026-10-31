@@ -79,7 +79,7 @@ const shopDb = {
   },
 };
 const LIVE = process.env.NUSA_SHOP_LIVE === "1";
-const shop = shopCore.makeShopServer(shopDb, { realEnabled: LIVE });
+const shop = shopCore.makeShopServer(shopDb, { realEnabled: LIVE, publicOpen: process.env.NUSA_PUBLIC_OPEN === "ya" });
 const shopWrap = (name, publicOk) => onCall({ enforceAppCheck: false }, async (req) => {
   try {
     const a = authOf(req);

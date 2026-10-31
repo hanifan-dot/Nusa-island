@@ -65,7 +65,7 @@
   const isCoinPack = (p) => p && p.rupiah !== undefined;
 
   // ---------- server ----------
-  // db: { get(path)->obj|null, tx(fn(t))->result } dengan t.get/t.set (seperti cloud/core.js). opts: { clock, rng, realEnabled }
+  // db: { get(path)->obj|null, tx(fn(t))->result } dengan t.get/t.set (seperti cloud/core.js). opts: { clock, rng, realEnabled, publicOpen }
   function makeShopServer(db, opts) {
     opts = opts || {};
     const clock = opts.clock || (() => Date.now()), rng = opts.rng || Math.random, realEnabled = opts.realEnabled === true;
@@ -121,7 +121,10 @@
         return db.tx(async (t) => {
           const now = clock(), cfg = await cfgOf(t);
           if (cfg.mode === "nyata" && !realEnabled) throw E("failed-precondition", "Pembayaran nyata belum diaktifkan.");
-          if (cfg.mode === "nyata" && Array.isArray(cfg.pilot) && cfg.pilot.length && cfg.pilot.indexOf(uid) < 0) throw E("failed-precondition", "Toko sedang uji terbatas. Segera dibuka untuk semua pemain."); // uji uang asli terkendali: hanya UID di shop_config/main.pilot
+          // uji uang asli terkendali: hanya UID di shop_config/main.pilot. KUNCI KETIGA: bila backend dibuat dengan opts.publicOpen === false (Worker: NUSA_PUBLIC_OPEN != "ya"),
+          // daftar pilot KOSONG tidak berarti "terbuka untuk umum" — pembelian tetap ditolak untuk semua sampai Owner menyalakan kunci itu di server.
+          const pilot = Array.isArray(cfg.pilot) ? cfg.pilot : [];
+          if (cfg.mode === "nyata" && (pilot.length ? pilot.indexOf(uid) < 0 : opts.publicOpen === false)) throw E("failed-precondition", "Toko sedang uji terbatas. Segera dibuka untuk semua pemain.");
           if (cfg.disabled[prod.id]) throw E("failed-precondition", "Produk sedang dinonaktifkan.");
           const idx = await expireStale(t, uid, now), ent = (await t.get(ENT(uid))) || { products: {} };
           if (!isCoinPack(prod) && ent.products[prod.id]) throw E("already-exists", "Kamu sudah memiliki produk ini.");
