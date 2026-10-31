@@ -132,7 +132,8 @@
     if (save.shop !== undefined) { // Tahap 3.5: HANYA pilihan kosmetik yang sedang dipakai. Hak milik/uang TIDAK disimpan di sini (ada di server toko).
       const sh = save.shop;
       if (!isObj(sh) || (sh.equip !== undefined && (!isObj(sh.equip) || Object.keys(sh.equip).length > 12 || Object.entries(sh.equip).some(([k, v]) => !ID_RE.test(k) || typeof v !== "string" || !ID_RE.test(v))))) errors.push("Data toko tidak valid");
-      else if (Object.keys(sh).some((k) => k !== "v" && k !== "equip")) errors.push("Data toko tidak valid");
+      else if (Object.keys(sh).some((k) => k !== "v" && k !== "equip" && k !== "applied")) errors.push("Data toko tidak valid");
+      else if (sh.applied !== undefined && (!Array.isArray(sh.applied) || sh.applied.length > 40 || sh.applied.some((x) => typeof x !== "string" || !/^D-[a-z0-9-]{1,40}$/.test(x)))) errors.push("Data toko tidak valid");
     }
     if (errors.length === 0 && JSON.stringify(save).length > LIMITS.MAX_BYTES) errors.push("Data terlalu besar");
     return { ok: errors.length === 0, errors, flags };

@@ -8,6 +8,8 @@ window.NW = window.NW || {};
 const C = window.NusaShopCore;
 let root, st = null, raf = 0, lastT = 0;
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const CFG = window.NUSA_SHOP || {};
+const canBuy = () => (api().sim ? CFG.release !== "publik" : !!(st && st.cat && st.cat.live));  // beli hanya bila: simulasi build uji, atau server NYATA
 const api = () => NW.shopApi;
 const sfx = (n) => { try { window.Nusa.sfx(n); } catch (e) {} };
 const WIB = (ms) => new Date(ms).toLocaleString("id-ID", { timeZone: "Asia/Jakarta", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(/\./g, ".") + " WIB";
@@ -32,6 +34,7 @@ function onClick(e) {
   else if (a === "equip") NW.shop.toggleEquip(id).then(render);
   else if (a === "sim") act("simulatePayment");
   else if (a === "claim") act("claimPaid");
+  else if (a === "wa") waConfirm();
   else if (a === "cancel") act("cancelOrder");
   else if (a === "back") { st.view = null; render(); }
   else if (a === "order") { const o = st.orders.find((x) => x.orderId === id); if (o) { st.view = { order: o }; render(); } }
@@ -39,7 +42,7 @@ function onClick(e) {
 async function refresh() {
   const A = api(), [cat, ent, ord] = await Promise.all([A.getCatalog(), A.getEntitlements(), A.listOrders()]);
   st.cat = cat; st.ent = ent; st.orders = ord.orders; st.offset = cat.now - Date.now();
-  if (NW.shop) NW.shop.setOwned(ent);
+  if (NW.shop) { NW.shop.setOwned(ent); if (NW.shop.deliver) NW.shop.deliver(); }
 }
 async function open(tab) {
   build(); if (isOpen()) return;
@@ -48,7 +51,7 @@ async function open(tab) {
   try { await refresh(); } catch (e) { root.querySelector("#spBody").innerHTML = `<div class="sp-load">Toko belum bisa dibuka. Coba lagi nanti.</div>`; return; }
   render(); lastT = 0; cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
 }
-function close() { if (!isOpen()) return; root.classList.add("hidden"); document.body.classList.remove("sp-open"); cancelAnimationFrame(raf); if (window.Nusa) window.Nusa.save(); }
+function close() { if (!isOpen()) return; clearInterval(st && st.poll); root.classList.add("hidden"); document.body.classList.remove("sp-open"); cancelAnimationFrame(raf); if (window.Nusa) window.Nusa.save(); }
 const isOpen = () => !!(root && !root.classList.contains("hidden"));
 
 function priceBlock(it) {
@@ -71,22 +74,28 @@ function renderTabs() {
 function itemCard(it) {
   const owned = !!st.ent.products[it.id], eq = NW.shop.isEquipped(it.id);
   const stat = owned ? `<span class="sp-own">✅ Dimiliki (permanen)</span>` : `<span class="sp-no">Belum dimiliki</span>`;
-  const btn = owned ? `<button class="sp-btn${eq ? " on" : ""}" data-a="equip" data-id="${it.id}">${eq ? "✔ Sedang dipakai" : "Pakai"}</button>` : it.enabled ? `<button class="sp-btn buy" data-a="buy" data-id="${it.id}">Beli · ${C.fmtRp(it.price)}</button>` : `<button class="sp-btn" disabled>Sedang tidak tersedia</button>`;
+  const btn = owned ? `<button class="sp-btn${eq ? " on" : ""}" data-a="equip" data-id="${it.id}">${eq ? "✔ Sedang dipakai" : "Pakai"}</button>` : !canBuy() ? `<button class="sp-btn" disabled>Segera hadir</button>` : it.enabled ? `<button class="sp-btn buy" data-a="buy" data-id="${it.id}">Beli · ${C.fmtRp(it.price)}</button>` : `<button class="sp-btn" disabled>Sedang tidak tersedia</button>`;
   const perks = it.id === "gamepass_sultan" ? `<ul class="sp-perks"><li>👘 Kostum Sultan</li><li>🏅 Gelar “Sultan Samudra”</li><li>✨ Efek nama emas</li><li>🏮 Dekorasi rumah eksklusif</li><li>🎖️ Lencana profil Sultan</li></ul>` : "";
   return `<article class="sp-item${it.id === "gamepass_sultan" ? " big" : ""}"><canvas data-pv="${it.id}" width="240" height="150" aria-label="Pratinjau ${esc(it.name)}"></canvas><div class="sp-info"><h3>${esc(it.icon)} ${esc(it.name)}</h3><p>${esc(it.desc)}</p>${perks}<div class="sp-tag">Hanya kosmetik · tidak menambah kekuatan</div>${stat}${owned ? "" : priceBlock(it)}${btn}</div></article>`;
 }
 function packCard(p) {
   const base = p.base;
-  return `<article class="sp-item sp-pack"><canvas data-pv="${p.id}" width="240" height="150" aria-label="Pratinjau paket ${esc(p.name)}"></canvas><div class="sp-info"><h3>${esc(p.icon)} Paket ${esc(p.name)}</h3><div class="sp-coins">🪙 ${p.coins.toLocaleString("id-ID")} koin</div><div class="sp-price"><b>${C.fmtRp(p.rupiah)}</b></div><small>Dasar ${base.toLocaleString("id-ID")} koin (${st.cat.coinsPer1000} koin per Rp1.000) · ${p.bonus > 0 ? `<b>bonus +${p.bonus.toLocaleString("id-ID")} koin (+${p.bonusPct}%)</b>` : "<b>tanpa bonus (paket dasar)</b>"}</small><button class="sp-btn buy" data-a="buy" data-id="${p.id}"${p.enabled ? "" : " disabled"}>Beli · ${C.fmtRp(p.rupiah)}</button></div></article>`;
+  return `<article class="sp-item sp-pack"><canvas data-pv="${p.id}" width="240" height="150" aria-label="Pratinjau paket ${esc(p.name)}"></canvas><div class="sp-info"><h3>${esc(p.icon)} Paket ${esc(p.name)}</h3><div class="sp-coins">🪙 ${p.coins.toLocaleString("id-ID")} koin</div><div class="sp-price"><b>${C.fmtRp(p.rupiah)}</b></div><small>Dasar ${base.toLocaleString("id-ID")} koin (${st.cat.coinsPer1000} koin per Rp1.000) · ${p.bonus > 0 ? `<b>bonus +${p.bonus.toLocaleString("id-ID")} koin (+${p.bonusPct}%)</b>` : "<b>tanpa bonus (paket dasar)</b>"}</small><button class="sp-btn buy" data-a="buy" data-id="${p.id}"${p.enabled && canBuy() ? "" : " disabled"}>${canBuy() ? "Beli · " + C.fmtRp(p.rupiah) : "Segera hadir"}</button></div></article>`;
 }
 function stat(s) { return `<span class="sp-st ${s}">${s}</span>`; }
 function render() {
   if (!isOpen() || !st.cat) return;
   const cat = st.cat, sim = api().sim;
   root.querySelector("#spSub").textContent = st.cat.merchant.name;
-  root.querySelector("#spSim").innerHTML = sim ? `<b>MODE SIMULASI</b> — tidak ada uang sungguhan. Semua pesanan bertanda SIMULASI.${api().isGuest() ? " Kamu masuk sebagai tamu: pembelian simulasi hanya tersimpan di perangkat ini. Masuk dengan Google agar terikat akun." : ""}` : "";
+  root.querySelector("#spSim").innerHTML = !canBuy() ? `<b>SEGERA HADIR</b> — Premium Shop dibuka saat Nusa Island resmi dirilis. Kamu sudah bisa melihat-lihat isinya.` : !sim ? `Pembayaran lewat <b>QRIS resmi</b>. Pesananmu diperiksa & disetujui Owner sebelum item/koin diberikan.${api().isGuest() ? " <b>Masuk dengan Google</b> dulu agar pembelian terikat akunmu." : ""}` : sim ? `<b>MODE SIMULASI</b> — tidak ada uang sungguhan. Semua pesanan bertanda SIMULASI.${api().isGuest() ? " Kamu masuk sebagai tamu: pembelian simulasi hanya tersimpan di perangkat ini. Masuk dengan Google agar terikat akun." : ""}` : "";
   renderTabs(); const body = root.querySelector("#spBody");
-  if (st.view && st.view.order) { body.innerHTML = checkoutHtml(st.view.order); drawQR(); return; }
+  clearInterval(st.poll);
+  if (st.view && st.view.order) {
+    body.innerHTML = checkoutHtml(st.view.order); drawQR();
+    const im = body.querySelector("#spQrImg"); if (im) im.onerror = () => { im.style.display = "none"; const c = body.querySelector("#spQr"); if (c) c.style.display = "block"; };
+    if (st.view.order.env === "NYATA" && st.view.order.status === "PENDING") st.poll = setInterval(pollOrder, 8000);   // Owner menyetujui di dashboard → status berubah sendiri di sini
+    return;
+  }
   let h = "";
   if (st.tab === "riwayat") {
     h = st.orders.length ? st.orders.map((o) => `<button class="sp-ord" data-a="order" data-id="${esc(o.orderId)}"><span><b>${esc(o.name)}</b><small>${esc(o.orderId)} · ${new Date(o.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</small></span><span class="r"><b>${C.fmtRp(o.rupiah)}</b>${stat(o.status)}<em class="${o.env === "NYATA" ? "nyata" : "simulasi"}">${o.env}</em></span></button>`).join("") : `<div class="sp-load">Belum ada pesanan.</div>`;
@@ -105,13 +114,21 @@ function checkoutHtml(o) {
   const wallet = o.kind === "topup" ? `🪙 ${o.coins.toLocaleString("id-ID")} koin ${o.bonus ? "(termasuk bonus " + o.bonus.toLocaleString("id-ID") + ")" : ""}` : "";
   return `<div class="sp-co"><button class="sp-back" data-a="back">‹ Kembali</button><h3>${esc(o.name)}</h3>${wallet ? `<p>${wallet}</p>` : ""}
   <div class="sp-ordid">No. pesanan <b>${esc(o.orderId)}</b> ${stat(o.status)} <em class="${real ? "nyata" : "simulasi"}">${o.env}</em></div>
-  <div class="sp-pay"><div class="sp-qr"><canvas id="spQr" width="220" height="220" aria-label="Tempat kode QRIS"></canvas></div>
+  <div class="sp-pay"><div class="sp-qr">${real ? `<img id="spQrImg" src="${esc(CFG.qrisImage || "shop/qris.png")}" alt="QRIS resmi Nusa Island" width="220">` : ""}<canvas id="spQr" width="220" height="220" aria-label="Tempat kode QRIS"${real ? ' style="display:none"' : ""}></canvas></div>
   <div class="sp-amt"><small>Merchant</small><b>${esc(o.merchant)}</b><small>Total tagihan</small><b class="big">${C.fmtRp(o.payAmount)}</b><small>= ${C.fmtRp(o.rupiah)} + kode unik ${o.uniqueCode} (untuk mencocokkan pembayaranmu)</small></div></div>
   ${pend ? `<p class="sp-warn">${real ? "Bayar PERSIS sesuai nominal di atas. Item/koin diberikan setelah pembayaran DIVERIFIKASI oleh sistem toko — bukan dari tombol atau screenshot." : "Ini SIMULASI: tidak ada uang yang dibayar. QRIS asli baru dipasang setelah Owner menyetujui pengujian & keamanan."}</p>
-  ${!real ? `<button class="sp-btn buy" data-a="sim">🧪 Simulasi: anggap sudah dibayar</button>` : ""}
-  <button class="sp-btn" data-a="claim">Saya Sudah Bayar</button>${o.claimedAt ? `<small class="sp-note">Klaim tercatat, menunggu verifikasi. Status tetap PENDING sampai terverifikasi.</small>` : ""}
+  ${!real && api().simulatePayment ? `<button class="sp-btn buy" data-a="sim">🧪 Simulasi: anggap sudah dibayar</button>` : ""}
+  ${real ? `<button class="sp-btn buy" data-a="wa">💬 Konfirmasi via WhatsApp</button>` : `<button class="sp-btn" data-a="claim">Saya Sudah Bayar</button>`}${o.claimedAt ? `<small class="sp-note">Konfirmasi tercatat. Pesanan tetap PENDING sampai Owner memeriksa pembayaran masuk & menyetujui. Halaman ini diperbarui otomatis.</small>` : ""}
   <button class="sp-btn warn" data-a="cancel">Batalkan pesanan</button><small class="sp-note">Berlaku sampai ${WIB(o.expiresAt)}.</small>`
     : o.status === "PAID" ? `<p class="sp-ok">✅ Pembayaran tercatat${real ? "" : " (SIMULASI)"}. ${o.kind === "topup" ? "Koin masuk ke saldomu." : "Hak milik permanen sudah aktif di akunmu."}</p>` : `<p class="sp-warn">Pesanan ${o.status}${o.reason ? " (" + esc(o.reason) + ")" : ""}.</p>`}</div>`;
+}
+function waConfirm() {  // catat klaim (tidak memberi apa pun) lalu buka WhatsApp dengan pesan siap kirim — tanpa UID/data sensitif
+  const o = st.view && st.view.order; if (!o) return;
+  const nick = (window.Nusa && window.Nusa.S.profile && window.Nusa.S.profile.name) || o.nick || "";
+  const msg = `Halo, saya konfirmasi pembayaran Nusa Island.\nPesanan: ${o.orderId}\nNickname: ${nick}\nProduk: ${o.name}\nNominal: ${C.fmtRp(o.payAmount)}`;
+  const url = `https://wa.me/${CFG.whatsapp || "628967234059"}?text=${encodeURIComponent(msg)}`;
+  api().claimPaid({ orderId: o.orderId }).then(() => refresh()).then(() => { st.view = { order: st.orders.find((x) => x.orderId === o.orderId) || o }; render(); }).catch(() => {});
+  window.open(url, "_blank", "noopener");
 }
 function drawQR() { // BUKAN kode QRIS: hanya bingkai penanda tempat. Tidak ada QR palsu yang bisa dipindai.
   const cv = root.querySelector("#spQr"); if (!cv) return; const c = cv.getContext("2d"), w = cv.width;
@@ -119,9 +136,13 @@ function drawQR() { // BUKAN kode QRIS: hanya bingkai penanda tempat. Tidak ada 
   c.fillStyle = "#0e4a63"; c.textAlign = "center"; c.font = "800 22px system-ui"; c.fillText("QRIS", w / 2, w / 2 - 28); c.font = "600 13px system-ui"; c.fillStyle = "#555";
   ["Tempat QRIS resmi.", "Belum aktif:", "mode SIMULASI."].forEach((t, i) => c.fillText(t, w / 2, w / 2 + i * 20));
 }
+async function pollOrder() {
+  if (!isOpen() || !st.view || !st.view.order || st.busy) return;
+  try { await refresh(); const n = st.orders.find((x) => x.orderId === st.view.order.orderId); if (n && n.status !== st.view.order.status) { st.view = { order: n }; if (n.status === "PAID") sfx("kedai_menang"); render(); } } catch (e) {}
+}
 async function buy(id) {
   if (st.busy) return; st.busy = true;
-  try { const r = await api().createOrder({ productId: id, opId: "op-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7) }); await refresh(); st.view = { order: r.order }; sfx("click"); }
+  try { const nick = (window.Nusa && window.Nusa.S.profile && window.Nusa.S.profile.name) || ""; const r = await api().createOrder({ nick, productId: id, opId: "op-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7) }); await refresh(); st.view = { order: r.order }; sfx("click"); }
   catch (e) { toast(e.message || "Gagal membuat pesanan."); }
   st.busy = false; render();
 }
