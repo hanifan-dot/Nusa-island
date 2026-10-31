@@ -79,3 +79,8 @@ bukan langsung mode mancing (`test_bumbu2.py` K3). Raja Ampat & Laut Banda tetap
 Uji kontrol memakai pointer sungguhan pada joystick (mouse = pointer di Chromium) dan ketukan sentuh pada tombol kapal;
 belum diuji dengan jari di HP Android fisik.
 Bumbu 2.4.1 (Rahasia Ikan Mistis): `python tests/browser/test_bumbu241.py` dan bukti visual `python tests/visual_bumbu241.py <folder>`. Peluang ikan mistis diuji sebagai fungsi murni (NW.mystic.chance/pick) dan lewat 60.000 lemparan simulasi.
+
+## Tahap 3.5 — Nusa Premium (SIMULASI)
+- `node tests/unit-shop.js` — inti toko: matematika paket top up, promo 30 hari, alur pesanan, klaim palsu tidak memberi apa pun, isolasi UID, idempotensi (`providerRef`, ledger), nominal harus persis, kedaluwarsa, kode unik, fungsi Owner.
+- `python tests/browser/test_tahap35.py` — 10 area uji sesuai spesifikasi (bangunan & mahkota, kategori & pratinjau, harga & promo, tampilan bayar di 360/412/390 px, riwayat, klaim palsu, UID, login ulang, Cloud Save, performa-emulasi). Memakai `?shoptest=1` (alat Owner uji; tidak ada tanpa parameter itu).
+- Semua = SIMULASI. Chromium headless = emulasi, bukan Android fisik.

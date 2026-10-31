@@ -35,3 +35,8 @@ em.simulasi,em.nyata{font-style:normal;font-size:10px;font-weight:800;padding:2p
 .sp-warn{background:#3a2a08;border:1px solid #b8902f;border-radius:10px;padding:8px 10px;font-size:12px;margin:0;color:#ffe9a8}.sp-ok{background:#0b4a3a;border:1px solid #1f8f6b;border-radius:10px;padding:10px;margin:0}
 .sp-toast{display:none;position:absolute;left:12px;right:12px;bottom:14px;background:#06242f;border:1px solid #e8c25a;color:#fff;padding:10px 12px;border-radius:12px;font-size:13px;text-align:center}
 body.sp-open{overflow:hidden}
+/* ikon mahkota menambah satu tombol di HUD: biarkan kelompok kanan menyusut & membungkus agar tidak keluar layar */
+.hud-left{flex:0 0 auto}
+.hud-right{flex:1 1 0;min-width:0;flex-wrap:wrap;justify-content:flex-end;align-content:flex-start}
+.hud-right .icon-btn{padding:6px 7px}
+@media (max-width: 480px) { .hud{gap:4px} .hud-right{gap:3px} .hud-right .icon-btn{padding:5px 3px;font-size:14px;min-width:24px} .hud-right .chip.time{padding:5px 6px;gap:2px} .hud-left{gap:3px} .hud-left .chip{padding:5px 7px} }

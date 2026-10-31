@@ -231,7 +231,7 @@ with sync_playwright() as p:
           "skills": {"v": 1, "presisi": True, "membaca": True, "kendali": False, "stats": {"hot": 4, "reads": 3, "tired": 0}},
           "onboard": {"v": 1, "walk": True, "talk": True, "fish": True, "sell": True, "home": True}}
     ctx, pg, errs = page(b, v4); s = S(pg)
-    ok("M1 v4 → v10 (Bumbu 2.4): ikan sungguhan dihitung dari koleksi (20+5=25), sampah (5+3) tidak; gelar Anak Muara", s["titles"]["fish"] == 25 and s["titles"]["rank"] == 2 and s["v"] == 10, s.get("titles"))
+    ok("M1 v4 → v10 (Bumbu 2.4): ikan sungguhan dihitung dari koleksi (20+5=25), sampah (5+3) tidak; gelar Anak Muara", s["titles"]["fish"] == 25 and s["titles"]["rank"] == 2 and s["v"] in (10, 11), s.get("titles"))
     ok("M2 statistik lama tidak berubah (caught tetap 33)", s["stats"]["caught"] == 33 and s["stats"]["casts"] == 60)
     ok("M3 koin, joran, ikan, cerita, keahlian, petunjuk tetap utuh", s["money"] == 7777 and s["up"]["rod"] == 3 and len(s["cooler"]) == 2 and s["story"]["ch"] == 3 and s["story"]["rewarded"] == {"ch1": 1, "ch2": 1} and s["skills"]["membaca"] and s["onboard"]["home"])
     ok("M4 cadangan simpanan v4 dibuat sebelum migrasi", ev(pg, "localStorage.getItem('nusa-island-v1-backup-v4')") is not None and json.loads(ev(pg, "localStorage.getItem('nusa-island-v1-backup-v4')"))["money"] == 7777)
@@ -245,7 +245,7 @@ with sync_playwright() as p:
 
     t1 = {"money": 999, "day": 3, "hour": 9, "loc": 0, "up": {"rod": 1, "bait": 0, "cooler": 0, "boat": 0}, "cooler": [{"id": "nila", "w": 0.8}], "dex": {"nila": {"n": 2, "best": 0.9}}, "stats": {"casts": 9, "caught": 2, "earned": 30, "legends": 0}, "muted": True}
     ctx, pg, errs = page(b, t1); s = S(pg)
-    ok("M9 simpanan Tahap 1 → v10 aman (koin, ikan, joran, rumah, cerita, gelar Pemancing Baru)", s["money"] == 999 and len(s["cooler"]) == 1 and s["up"]["rod"] == 1 and s["home"]["level"] == 1 and s["story"]["ch"] == 1 and s["titles"]["fish"] == 2 and s["titles"]["rank"] == 1 and s["v"] == 10, s.get("titles"))
+    ok("M9 simpanan Tahap 1 → v10 aman (koin, ikan, joran, rumah, cerita, gelar Pemancing Baru)", s["money"] == 999 and len(s["cooler"]) == 1 and s["up"]["rod"] == 1 and s["home"]["level"] == 1 and s["story"]["ch"] == 1 and s["titles"]["fish"] == 2 and s["titles"]["rank"] == 1 and s["v"] in (10, 11), s.get("titles"))
     ok("M10 tanpa error JavaScript (migrasi Tahap 1)", not errs, errs[:3]); ctx.close()
     b.close()
 

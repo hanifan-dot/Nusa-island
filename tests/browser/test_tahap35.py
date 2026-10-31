@@ -58,6 +58,10 @@ with sync_playwright() as p:
         ev(pg, "[...document.querySelectorAll('#dlgOpts button')].find(x=>/Buka Toko/.test(x.textContent))?.click()"); time.sleep(0.8)
         ok("1g bangunan membuka katalog yang SAMA", ev(pg, "NW.shopUI.isOpen()") and ev(pg, "NW.shopUI._el().querySelector('#spBody').innerHTML.length") == cat1 or ev(pg, "NW.shopUI.isOpen()"))
         ok("1h tanpa error JavaScript", errs == [], errs); ctx.close()
+        for vw in [(360, 740), (390, 844), (412, 915), (480, 860)]:
+            ctx, pg, errs = fresh(b); pg.set_viewport_size({"width": vw[0], "height": vw[1]}); time.sleep(0.4)
+            r = ev(pg, "[...document.querySelectorAll('.hud-right > *, .hud-left > *')].filter(e=>{const r=e.getBoundingClientRect();return r.right>innerWidth||r.left<0}).map(e=>e.id)")
+            ok(f"1i HUD muat di layar {vw[0]}px (ikon mahkota tidak mendorong tombol keluar layar)", r == [], r); ctx.close()
 
         # ===== 2. Kategori & pratinjau =====
         ctx, pg, errs = fresh(b); ev(pg, "NW.shopUI.open()"); wait_for(pg, "!!NW.shopUI._state()&&!!NW.shopUI._state().cat")

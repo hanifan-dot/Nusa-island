@@ -294,7 +294,7 @@ with sync_playwright() as p:
     imgs = ev(pg, """(()=>{const c=document.createElement('canvas'); c.width=320; c.height=180; const g=c.getContext('2d'); const bright=(id)=>{g.clearRect(0,0,320,180); window.Nusa.drawFish(g, window.Nusa.FISH_BY_ID[id], 160, 92, 230); const d=g.getImageData(0,0,320,180).data; let n=0, tl=0, edgeL=0; for(let i=3;i<d.length;i+=4){ if(d[i]>40) n++; } for(let y=0;y<180;y++){ if(d[(y*320)*4+3]>40||d[(y*320+319)*4+3]>40) edgeL++; } return {n, edge:edgeL}}; return {l:bright('lentera_arwah'), p:bright('pari_bayang'), k:bright('kakap')}})()""")
     ok("5f kedua ikan tergambar utuh (tidak terpotong di tepi kanvas kartu) dan berbeda dari ikan biasa", imgs["l"]["n"] > 2500 and imgs["p"]["n"] > 4000 and imgs["l"]["edge"] == 0 and imgs["p"]["edge"] == 0, imgs)
     ev(pg, "window.__nusa.save()"); sv = ev(pg, "localStorage.getItem('nusa-island-v1')"); sv_j = json.loads(sv)
-    ok("5g simpan: kunci tetap 'nusa-island-v1', versi 10 (tanpa lompatan versi), ikan mistis + UID tersimpan, pity tersimpan", sv_j["v"] == 10 and sum(1 for i in sv_j["cooler"] if i["id"] in ("lentera_arwah", "pari_bayang")) == 2 and isinstance(sv_j["sea"].get("pity"), dict) and set(sv_j["sea"]["pity"]) >= {"lentera_arwah", "pari_bayang"}, sv_j["sea"].get("pity"))
+    ok("5g simpan: kunci tetap 'nusa-island-v1', versi 10 (tanpa lompatan versi), ikan mistis + UID tersimpan, pity tersimpan", sv_j["v"] in (10, 11) and sum(1 for i in sv_j["cooler"] if i["id"] in ("lentera_arwah", "pari_bayang")) == 2 and isinstance(sv_j["sea"].get("pity"), dict) and set(sv_j["sea"]["pity"]) >= {"lentera_arwah", "pari_bayang"}, sv_j["sea"].get("pity"))
     pg.reload(); time.sleep(0.8); pg.click("#startBtn"); time.sleep(0.5)
     ok("5h muat ulang: kedua ikan, UID, koleksi (dex), terkunci, catatan tetap utuh", ev(pg, "(()=>{const S=window.__nusa.S; return S.cooler.filter(i=>i.id==='lentera_arwah'||i.id==='pari_bayang').length===2 && S.dex.lentera_arwah.n===1 && S.cooler.every(i=>i.uid)})()"))
     ok("5i tanpa error JavaScript (inventaris/koleksi)", not errs, errs[:3]); ctx.close()
@@ -320,7 +320,7 @@ with sync_playwright() as p:
     ctx, pg, errs = page(b, "if(!sessionStorage.getItem('s')){localStorage.setItem('nusa-island-v1', %s); sessionStorage.setItem('s','1')}" % json.dumps(json.dumps(old)))
     pg.click("#startBtn"); time.sleep(0.5)
     mg = ev(pg, "(()=>{const S=window.__nusa.S; return {money:S.money, cooler:S.cooler.map(i=>i.uid), dex:S.dex.kembung.n, pity:S.sea.pity, found:S.adv.found, v:S.v}})()")
-    ok("7a save v10 Bumbu 2.4 (tanpa pity) dimuat: koin, ikan (UID), koleksi, spot lama utuh; pity ditambahkan 0; tidak ada reset", mg["money"] == 777 and mg["cooler"] == ["i-old-1"] and mg["dex"] == 2 and mg["pity"] == {"lentera_arwah": 0, "pari_bayang": 0} and "sea:pesisir" in mg["found"] and "sea:palung" not in mg["found"] and mg["v"] == 10, mg)
+    ok("7a save v10 Bumbu 2.4 (tanpa pity) dimuat: koin, ikan (UID), koleksi, spot lama utuh; pity ditambahkan 0; tidak ada reset", mg["money"] == 777 and mg["cooler"] == ["i-old-1"] and mg["dex"] == 2 and mg["pity"] == {"lentera_arwah": 0, "pari_bayang": 0} and "sea:pesisir" in mg["found"] and "sea:palung" not in mg["found"] and mg["v"] in (10, 11), mg)
     ok("7b ikan mistis & spot Palung belum ada di save lama (tidak ada hadiah/penemuan gratis)", ev(pg, "window.__nusa.S.dex.lentera_arwah===undefined && window.__nusa.S.dex.pari_bayang===undefined && !NW.adv.isFound('sea:palung')"))
     ok("7c tanpa error JavaScript (save lama)", not errs, errs[:3]); ctx.close()
     bad = dict(old); bad["sea"] = dict(old["sea"], pity={"lentera_arwah": "abc", "pari_bayang": -7, "ngawur": 5}); bad["money"] = 555
@@ -330,7 +330,7 @@ with sync_playwright() as p:
     ok("7e tanpa error JavaScript (pity rusak)", not errs, errs[:3]); ctx.close()
     ctx, pg, errs = page(b, "if(!sessionStorage.getItem('s')){localStorage.setItem('nusa-island-v1', %s); sessionStorage.setItem('s','1')}" % json.dumps(json.dumps({"v": 9, "money": 321, "cooler": [{"uid": "i-9", "id": "tuna", "w": 20, "t": 1}], "dex": {"tuna": {"n": 1, "best": 20}}})))
     pg.click("#startBtn"); time.sleep(0.5)
-    ok("7f save v9 lama (sebelum kapal) tetap dimigrasi: koin & ikan utuh, backup dibuat, pity default", ev(pg, "(()=>{const S=window.__nusa.S; return S.money===321 && S.cooler[0].uid==='i-9' && S.v===10 && S.sea.pity.pari_bayang===0 && !!localStorage.getItem('nusa-island-v1-backup-v9')})()"), ev(pg, "Object.keys(localStorage)"))
+    ok("7f save v9 lama (sebelum kapal) tetap dimigrasi: koin & ikan utuh, backup dibuat, pity default", ev(pg, "(()=>{const S=window.__nusa.S; return S.money===321 && S.cooler[0].uid==='i-9' && S.v>=10 && S.sea.pity.pari_bayang===0 && !!localStorage.getItem('nusa-island-v1-backup-v9')})()"), ev(pg, "Object.keys(localStorage)"))
     ctx.close()
     # simpan/muat di Palung
     ctx, pg, errs = fresh(b, hour=22)

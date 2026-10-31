@@ -50,7 +50,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 def _run_on(browser, cases, trials, tune, url, seed):
-    pg = browser.new_page(); pg.goto(url or "file://" + os.path.join(ROOT, "index.html")); time.sleep(0.6)
+    pg = browser.new_page(); pg.goto(url or "file://" + os.path.join(ROOT, "index.html") + "?cloud=off"); time.sleep(0.6)
     pg.evaluate("localStorage.clear()"); pg.reload(); time.sleep(0.6); pg.click("#startBtn"); time.sleep(0.3)
     pg.evaluate("window.__nusa.S.muted=true; window.Nusa.toast=()=>{}")
     if tune: pg.evaluate("t=>Object.assign(NW.FM.TUNE,t)", tune)

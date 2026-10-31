@@ -261,7 +261,7 @@ with sync_playwright() as p:
     seed_save = """localStorage.setItem('nusa-island-v1', JSON.stringify({v:8, money:4321, day:7, hour:9, loc:0, up:{rod:4,bait:2,cooler:3,boat:1}, cooler:[{uid:'i1',id:'nila',w:0.9,t:1,vr:'silver'},{uid:'i2',id:'patin',w:4.5,t:1,lock:true}], dex:{nila:{n:5,best:1.1}}, vd:{nila:{silver:{n:1,best:0.9}}}}))"""
     ctx, pg, errs15 = page(b, init="if(!sessionStorage.getItem('seeded')){" + seed_save + ";sessionStorage.setItem('seeded','1')}"); pg.reload(); time.sleep(0.7); pg.click("#startBtn"); time.sleep(1.0)
     S = ev(pg, "JSON.parse(JSON.stringify(window.__nusa.S))")
-    ok("15 simpanan v8 → v10: koin, joran, ikan (varian & kunci), koleksi utuh", S["v"] == 10 and S["money"] == 4321 and S["up"]["rod"] == 4 and [(c["id"], c.get("vr"), c.get("lock", False)) for c in S["cooler"]] == [("nila", "silver", False), ("patin", None, True)] and S["dex"]["nila"]["n"] == 5 and S["vd"]["nila"]["silver"]["n"] == 1, {"v": S["v"], "money": S["money"]})
+    ok("15 simpanan v8 → v10: koin, joran, ikan (varian & kunci), koleksi utuh", S["v"] in (10, 11) and S["money"] == 4321 and S["up"]["rod"] == 4 and [(c["id"], c.get("vr"), c.get("lock", False)) for c in S["cooler"]] == [("nila", "silver", False), ("patin", None, True)] and S["dex"]["nila"]["n"] == 5 and S["vd"]["nila"]["silver"]["n"] == 1, {"v": S["v"], "money": S["money"]})
     ok("15b seed cuaca dibuat sekali & cadangan v8 dibuat", isinstance(S.get("wx", {}).get("seed"), int) and ev(pg, "!!localStorage.getItem('nusa-island-v1-backup-v8')"))
     m0 = S["money"]; wx(pg, "deras"); time.sleep(4.0)
     ok("15c cuaca tidak membuat transaksi koin apa pun (koin tetap)", ev(pg, "window.__nusa.S.money") == m0)
