@@ -104,6 +104,7 @@ function migrate() {
   if (NW.secret) NW.secret.migrate(S);
   if (NW.weather) NW.weather.migrate(S); // Bumbu 2.3 (v9): benih cuaca tersimpan sekali; tidak ada koin/progres yang disentuh
   if (NW.kedai) NW.kedai.migrate(S);     // Bumbu 3.1 (v11): S.kedai — hanya merapikan/mengisi; tidak menambah koin atau gelar
+  if (NW.streak) NW.streak.migrate(S);   // Login Streak 7 Hari: S.streak (umpan hadiah, kepemilikan eksklusif) — hanya mengisi yang kosong
   if (NW.boat) NW.boat.migrate(S);       // Bumbu 2.4 (v10): kapal (S.sea) — nilai aman bila belum ada; tidak pernah mulai di laut tanpa kapal
   if (r.from === "2A") loadNote = "Rumahku diperbarui ke sistem 10 level. Semua perabot tetap ada.";
   S.v = SAVE_VERSION;
@@ -286,6 +287,7 @@ function luckNow() { // pengali hoki dari umpan & lemparan (dipakai pemilihan ik
   if (G.perfect) luck *= 1.25;
   luck *= 1 + 0.35 * clamp((G.target.z - 2) / 7, 0, 1); // lempar jauh = lebih hoki
   if (G.hotHit) luck *= 1.1; // Lemparan Presisi: bonus kecil
+  if (NW.streak) { if (G.streakBait) luck *= NW.streak.BAIT_LUCK; if (fishFrom === "sea") luck *= NW.streak.shipLuck(); } // hadiah Login Streak: Umpan Hadiah & Kapal Perintis
   return luck;
 }
 function chooseFish() {
@@ -358,6 +360,7 @@ function doCast() {
   G.fly = { t: 0, dur: 0.55 + p * 0.35, from: rodTip(), };
   G.phase = "flying"; G.bob.vis = true; G.bob.sink = 0;
   S.stats.casts++;
+  G.streakBait = NW.streak ? NW.streak.useBait() : false; // Umpan Hadiah (habis pakai) dipakai otomatis bila ada
   SFX.cast();
   if (G.perfect) { toast("Lemparan Sempurna! ✨ Lebih hoki", "good"); emit("perfect"); }
   updateHint();
@@ -370,7 +373,7 @@ function landBobber() {
   addRipple(G.bob.x, G.bob.z, 3); splashAt(G.bob.x, G.bob.z, 10);
   SFX.splash();
   G.phase = "waiting";
-  const sp = UPGRADES.bait.speed[upLvl("bait")];
+  const sp = UPGRADES.bait.speed[upLvl("bait")] * (G.streakBait ? NW.streak.BAIT_SPEED : 1);
   G.wxBite = NW.weather ? NW.weather.biteFactor() : 1; // cuaca: ±ringan (0,88–1,08) pada waktu tunggu SAJA; tidak menyentuh pemilihan ikan, varian, atau pertarungan
   G.biteTimer = rand(2.2, 7) / sp * G.wxBite;
   G.nibbles = [];
@@ -395,7 +398,7 @@ function triggerBite() {
 function startFight() {
   const { fish, w, wr } = G.pending;
   const pe = NW.FM.fightPower(fish, w, wr);                     // ikan ≤ 20 kg: sama persis seperti dulu
-  const rodCap = UPGRADES.rod.cap[upLvl("rod")], om = NW.FM.overloadMuls(w, rodCap);
+  const rodCap = UPGRADES.rod.cap[upLvl("rod")] * (NW.streak ? NW.streak.rodMul().cap : 1), om = NW.FM.overloadMuls(w, rodCap);
   G.fight = { fish, w, pe, big: NW.FM.bigness(w), weak: om.weak, riseMul: om.rise, reelMul: om.reel, T: 0.25, P: 0.18, surge: 0, surgeT: rand(0.8, 2), slack: 0, over: 0, fx: G.bob.x, fxT: G.bob.x, z0: G.bob.z,
     challenge: !!G.pending.challenge, quest: G.pending.quest || null, perfect: !!G.perfect, reads: 0, tired: 0, readWin: 0, readDone: true, tiredT: 0, tiredHold: 0, tiredDone: true, warn: false };
   $("tensionBar").classList.toggle("ideal", skill("kendali"));
@@ -558,7 +561,7 @@ function update(dt) {
 
 function updateFight(dt) {
   const F = G.fight; if (!F) return;
-  const lv = upLvl("rod"), str = UPGRADES.rod.strength[lv], reel = UPGRADES.rod.reel[lv] * F.reelMul; // reelMul < 1 hanya bila ikan jauh melebihi kapasitas joran
+  const lv = upLvl("rod"), rm = NW.streak ? NW.streak.rodMul() : { str: 1, reel: 1 }, str = UPGRADES.rod.strength[lv] * rm.str, reel = UPGRADES.rod.reel[lv] * rm.reel * F.reelMul; // reelMul < 1 hanya bila ikan jauh melebihi kapasitas joran
   const big = F.big; // 0 untuk ikan ≤ 20 kg → faktor ukuran di bawah sama dengan perilaku lama
   F.age = (F.age || 0) + dt;
   const pe = F.pe * NW.FM.fatigue(F.age); // ikan lelah seiring waktu: pertarungan raksasa tidak berlarut-larut
@@ -919,7 +922,7 @@ function drawBoat(dk) {
   const tip = rodTip();
   // bentuk, warna, gagang, reel, dan ornamen mengikuti joran aktif (NW.look.RODS, 10 tingkat)
   const mx = (hp.x + tip.x) / 2 + G.rodBend * 30 * U, my = (hp.y + tip.y) / 2 - 10 * U + G.rodBend * 10 * U;
-  NW.look.drawHeldRod(ctx, NW.look.rodSpec(upLvl("rod")), hp, { x: mx, y: my }, tip, { x: hp.x - Math.cos(G.rodAngle) * 30 * U, y: hp.y - Math.sin(G.rodAngle) * 30 * U }, U, night);
+  NW.look.drawHeldRod(ctx, NW.look.rodSpec(), hp, { x: mx, y: my }, tip, { x: hp.x - Math.cos(G.rodAngle) * 30 * U, y: hp.y - Math.sin(G.rodAngle) * 30 * U }, U, night);
 }
 
 // Tampilan depan dermaga Muara (saat mancing dari darat)
@@ -1486,6 +1489,7 @@ if (NW.toba) NW.toba.hook();               // Bumbu 2: cerita "Rahasia Tepian Da
 if (NW.selat) NW.selat.hook();             // Bumbu 2.4: cerita "Jejak Arus Selat"
 if (NW.boat) NW.boat.hook();               // Bumbu 2.4: tombol kapal & panel Peta Laut
 if (NW.cloud) NW.cloud.hook();             // Tahap 3: tombol Profil & akun
+if (NW.streak) NW.streak.hook();           // Login Streak 7 Hari: tombol 🎁 & Kalender Hadiah (klaim hanya lewat server Firebase)
 if (loadNote) setTimeout(() => toast(loadNote), 1200);
 save(); // simpan hasil migrasi (data lama sudah dicadangkan)
 resize(); buildScenery(); initAmbient(); refreshHUD(); applyMode();

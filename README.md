@@ -232,6 +232,11 @@ Ikan yang dilindungi otomatis dilepas lagi, dan pemain mendapat hadiah konservas
 - File: `index.html`, `style.css`, `data.js` (ikan, lokasi, upgrade), `game.js` (mesin game & mancing), `world/` (dunia jelajah: area, gambar, NPC, cerita, rumah).
 - Menambah ikan cukup lewat `data.js`.
 
+## Hadiah Login 7 Hari
+Tombol 🎁 di HUD membuka **Kalender Hadiah 7 Hari**. Klaim hanya lewat akun Google dan Firestore asli (hari dihitung server, zona Asia/Jakarta).
+Siklus 1 berakhir dengan Kapal Perintis Eksklusif, siklus 2 dengan Joran Pelaut Eksklusif, siklus 3+ dengan satu perabot acak untuk Rumahku.
+Detail, batasan keamanan, dan cara mengaktifkan: `docs/LOGIN-STREAK.md`. Kode di folder `streak/`.
+
 ## Online-kan dengan GitHub Pages
 Settings → Pages → Source: **Deploy from a branch** → Branch: `main` / root → Save.
 Game akan tersedia di `https://hanifan-dot.github.io/Nusa-island/`.
