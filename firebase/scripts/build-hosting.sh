@@ -10,6 +10,14 @@ MODE="${1:-uji}"
 rm -rf firebase/public && mkdir -p firebase/public
 cp index.html style.css game.js data.js fishmath.js firebase/public/
 cp -r audio cloud world shop economy streak firebase/public/
+# Tahap 4 (Dunia Bersama): klien multiplayer. Alamat server (Worker TERPISAH "nusa-multiplayer") hanya ditulis bila NUSA_MP_WS diisi,
+# mis. NUSA_MP_WS=wss://nusa-multiplayer.<akun>.workers.dev ; tanpa itu game tetap normal dan Dunia Bersama tampil "belum aktif".
+mkdir -p firebase/public/mp && cp mp/proto.js mp/client.js mp/ui.js mp/mp.css firebase/public/mp/
+if [ -n "${NUSA_MP_WS:-}" ]; then
+  [[ "$NUSA_MP_WS" =~ ^wss://nusa-multiplayer\.[A-Za-z0-9.-]+$ ]] || { echo "GAGAL: NUSA_MP_WS harus wss://nusa-multiplayer.<akun>.workers.dev (Worker multiplayer terpisah, BUKAN nusa-api)"; exit 1; }
+  printf '{ "ws": "%s" }\n' "$NUSA_MP_WS" > firebase/public/mp/endpoint.json
+  echo "Dunia Bersama → $NUSA_MP_WS"
+fi
 if [ "$MODE" = "produksi" ]; then
   API="${NUSA_API_BASE:-}"
   [[ "$API" =~ ^https://[A-Za-z0-9.-]+$ ]] || { echo "GAGAL: isi NUSA_API_BASE=https://nusa-api.<akun>.workers.dev (https, tanpa garis miring akhir)"; exit 1; }

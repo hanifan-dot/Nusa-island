@@ -1,0 +1,19 @@
+/* NUSA ISLAND — Dunia Bersama. Ringan: tanpa animasi berulang. */
+.mp-dock { position: fixed; left: 8px; top: calc(env(safe-area-inset-top, 0px) + 48px); z-index: 12; display: flex; gap: 6px; pointer-events: auto; }
+.mp-dock.hidden, .mp-log.hidden, .mp-bar.hidden, .mp-ask.hidden, .mp-dock .hidden { display: none !important; }
+.mp-dock .chip { font-weight: 800; }
+.mp-dock #mpCount.on { box-shadow: 0 0 0 2px #2fb39a inset; } .mp-dock #mpCount.ask { box-shadow: 0 0 0 2px #f0b53a inset; }
+.mp-log { position: fixed; left: 8px; top: calc(env(safe-area-inset-top, 0px) + 92px); z-index: 11; max-width: min(68vw, 300px); font-size: 12px; pointer-events: none; display: flex; flex-direction: column; gap: 3px; }
+.mp-log > div { background: rgba(12, 40, 48, .62); color: #fff; padding: 3px 8px; border-radius: 9px; line-height: 1.25; word-break: break-word; }
+.mp-log > div.mine { background: rgba(31, 154, 143, .7); } .mp-log b { color: #ffe08a; margin-right: 4px; }
+.mp-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; padding: 8px 8px calc(env(safe-area-inset-bottom, 0px) + 8px); background: rgba(250, 244, 226, .97); border-top: 1px solid #d9c9a0; box-shadow: 0 -4px 16px rgba(0, 0, 0, .18); }
+.mp-emo { display: flex; gap: 6px; margin-bottom: 7px; overflow-x: auto; } .mp-emo button { font-size: 22px; background: #fff; border: 1px solid #e2d6b4; border-radius: 12px; padding: 4px 9px; }
+.mp-bar form { display: flex; gap: 6px; } .mp-bar input { flex: 1; min-width: 0; font-size: 16px; padding: 10px 12px; border-radius: 12px; border: 1px solid #cdbf94; background: #fff; }
+.mp-ask { position: fixed; left: 10px; right: 10px; bottom: calc(env(safe-area-inset-bottom, 0px) + 92px); z-index: 30; display: flex; gap: 10px; align-items: center; justify-content: space-between; background: #fffaf0; border: 2px solid #f0b53a; border-radius: 16px; padding: 10px 12px; font-size: 13px; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); }
+.mp-ask .muted { font-size: 11.5px; margin-top: 2px; } .mp-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.mp .mp-stat { font-weight: 700; margin-bottom: 8px; } .mp .mp-note { background: #fff6dc; border: 1px solid #ecd48a; border-radius: 12px; padding: 10px; font-size: 13px; margin-bottom: 8px; } .mp .mp-note .mp-btns { margin-top: 8px; flex-wrap: wrap; }
+.mp .mp-h { margin: 12px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: #0f6d6a; }
+.mp .mp-row { display: flex; justify-content: space-between; gap: 8px; padding: 6px 8px; background: #f6fbf8; border: 1px solid #cfe6dc; border-radius: 10px; margin-bottom: 4px; font-size: 13px; } .mp .mp-row.me { background: #e2f6e8; }
+.mp .mp-sw { display: flex; gap: 10px; align-items: center; padding: 8px 2px; font-size: 14px; } .mp .mp-sw input { width: 20px; height: 20px; }
+.mp .mp-fine { font-size: 11.5px; margin-top: 8px; }
+body.mode-fish .mp-log { top: calc(env(safe-area-inset-top, 0px) + 92px); }
