@@ -3,7 +3,8 @@
 //
 //   export GOOGLE_APPLICATION_CREDENTIALS=/jalur/aman/di-luar-repo/service-account.json
 //   export OWNER_EMAIL="email-owner@contoh.com"          # dibaca dari lingkungan; email TIDAK disimpan di repo
-//   node set-owner.js --uid <FIREBASE_UID_OWNER>          # daftarkan
+//   node set-owner.js                                     # daftarkan (akun dicari lewat OWNER_EMAIL)
+//   node set-owner.js --uid <FIREBASE_UID_OWNER>          # atau daftarkan lewat UID
 //   node set-owner.js --uid <FIREBASE_UID_OWNER> --revoke # cabut
 //
 // Syarat sebelum claim dipasang (semua diperiksa lewat Firebase Admin SDK):
@@ -19,23 +20,25 @@ const flag = (n) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : n
 const revoke = args.includes("--revoke"), uid = flag("--uid"), email = process.env.OWNER_EMAIL;
 
 (async () => {
-  if (!uid || (!revoke && !email)) { console.error("Pakai: OWNER_EMAIL=... node set-owner.js --uid <UID> [--revoke]"); process.exit(2); }
+  if (!email && (!uid || !revoke)) { console.error("Pakai: OWNER_EMAIL=... node set-owner.js [--uid <UID>] [--revoke]"); process.exit(2); }
   admin.initializeApp();
-  const user = await admin.auth().getUser(uid);
+  // Akun dicari lewat UID bila diberikan, bila tidak lewat OWNER_EMAIL (dibaca dari lingkungan; tidak disimpan di repo).
+  const user = uid ? await admin.auth().getUser(uid) : await admin.auth().getUserByEmail(email);
+  const uid2 = user.uid;
   const claims = Object.assign({}, user.customClaims || {});
   if (revoke) {
     delete claims.role;
-    await admin.auth().setCustomUserClaims(uid, claims);
-    await admin.firestore().doc(`owners/${uid}`).set({ active: false, revokedAt: new Date().toISOString() }, { merge: true });
-    await admin.auth().revokeRefreshTokens(uid);
-    console.log("Owner dicabut untuk", uid); return;
+    await admin.auth().setCustomUserClaims(uid2, claims);
+    await admin.firestore().doc(`owners/${uid2}`).set({ active: false, revokedAt: new Date().toISOString() }, { merge: true });
+    await admin.auth().revokeRefreshTokens(uid2);
+    console.log("Owner dicabut untuk", uid2); return;
   }
   const google = user.providerData.some((p) => p.providerId === "google.com");
   if (!user.email || user.email.toLowerCase() !== email.toLowerCase()) throw new Error("Email akun tidak cocok dengan OWNER_EMAIL.");
   if (!user.emailVerified) throw new Error("Email belum terverifikasi.");
   if (!google) throw new Error("Akun bukan login Google.");
   claims.role = "owner";
-  await admin.auth().setCustomUserClaims(uid, claims);
-  await admin.firestore().doc(`owners/${uid}`).set({ active: true, registeredAt: new Date().toISOString() });   // tanpa email
-  console.log("Owner terdaftar untuk UID", uid, "(email tidak disimpan di Firestore)");
+  await admin.auth().setCustomUserClaims(uid2, claims);
+  await admin.firestore().doc(`owners/${uid2}`).set({ active: true, registeredAt: new Date().toISOString() });   // tanpa email
+  console.log("Owner terdaftar untuk UID", uid2, "(email tidak disimpan di Firestore)");
 })().catch((e) => { console.error("GAGAL:", e.message); process.exit(1); });
