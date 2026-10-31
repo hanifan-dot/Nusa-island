@@ -19,9 +19,9 @@ const mv = (r, c, x, y, f, d) => msg(r, c, { t: "m", x: P.qz(x), y: P.qz(y), d: 
   ok(w1 && w1.k === "house" && w1.own === 1 && w1.ps.length === 0, "pemilik: welcome house, own=1, tidak ada pemain palsu");
   r.room.join(2, "uidTamu", {}, null, { role: "visitor", hid: "TAMUPID2" }); hello(r, 2, "Sari", 6, 6);
   const w2 = r.to(2).find((o) => o.t === "w");
-  ok(w2.own === 0 && w2.ps.length === 1 && w2.ps[0][1] === "Budi" && w2.ps[0][8] === 1, "tamu melihat pemilik (baris menandai pemilik)");
+  ok(w2.own === 0 && w2.ps.length === 1 && w2.ps[0][1] === "Budi" && w2.ps[0][9] === 1, "tamu melihat pemilik (baris menandai pemilik)");
   const j = r.to(1).find((o) => o.t === "j");
-  ok(j && j.p[1] === "Sari" && j.p[8] === 0 && j.p[9] === "TAMUPID2", "pemilik melihat tamu + id publik tamu (bukan uid)");
+  ok(j && j.p[1] === "Sari" && j.p[9] === 0 && j.p[10] === "TAMUPID2", "pemilik melihat tamu + id publik tamu (bukan uid)");
   ok(!JSON.stringify(r.log).includes("uidOwner") && !JSON.stringify(r.log).includes("uidTamu"), "uid tidak pernah dikirim");
   r.log.length = 0; r.adv(300); mv(r, 2, 7, 6, 1); r.adv(250); r.room.tick();
   const s = r.to(1).find((o) => o.t === "s"); ok(s && s.u[0][1] === P.qz(7), "pemilik melihat tamu berjalan");
@@ -56,7 +56,7 @@ const mv = (r, c, x, y, f, d) => msg(r, c, { t: "m", x: P.qz(x), y: P.qz(y), d: 
   const m = new Room({ id: "muara-1", io: { now: () => 1, send() {}, close() {} } });
   m.join(1, "a", {}); m.join(2, "b", {}); m.message(1, JSON.stringify({ t: "hello", n: "A", x: 1, y: 1 })); m.message(2, JSON.stringify({ t: "hello", n: "B", x: 1, y: 1 }));
   m.message(1, JSON.stringify({ t: "k", id: "*" })); ok(m.players.size === 2, "ruang Muara: 'k' tidak mengeluarkan siapa pun");
-  ok(m.pub(m.players.get(1)).length === 8, "baris Muara tetap 8 kolom (tidak berubah)");
+  ok(m.pub(m.players.get(1)).length === 9, "baris Muara = kolom 4.2 (9, kolom ke-9 = pamer ikan), tanpa kolom rumah");
   const r = mk(2); r.room.join(1, "o", {}, null, { role: "owner", hid: "OOOOOOOO" }); r.room.join(2, "t", {}, null, { role: "visitor", hid: "TTTTTTT2" });
   ok(!r.room.join(3, "x", {}, null, { role: "visitor", hid: "XXXXXXX3" }).ok, "rumah penuh menolak");
   r.room.join(4, "t", {}, null, { role: "visitor", hid: "TTTTTTT2" }); ok(r.closed.some((c) => c[0] === 2 && c[1] === 4002), "satu sesi per akun");

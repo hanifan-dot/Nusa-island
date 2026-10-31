@@ -40,9 +40,9 @@ function onVisitChange() { syncUI(); if (N().currentPanel() === "visit") N().clo
 // ---------- panel ----------
 const rowHTML = (r, btn) => `<div class="vh-row"><div class="vh-ic">🏠</div><div class="grow"><b>${esc(r.name)}</b> <span class="vh-sid">${esc(r.sid)}</span>${r.priv ? ` <span class="vh-lock">🔒 Privat</span>` : ""}<div class="muted">Rumah level ${r.level | 0}</div></div>${btn}</div>`;
 function resultsHTML(list, mode) {
-  if (list === null) return `<div class="muted vh-hint">Ketik minimal 2 huruf nama pemain.</div>`;
+  if (list === null) return `<div class="muted vh-hint">Ketik minimal 2 huruf nama pemain, atau kode teman (8 huruf) untuk rumah privat.</div>`;
   if (!list.length) return `<div class="vh-none">Pemain tidak ditemukan</div>`;
-  return list.map((r) => rowHTML(r, mode === "allow" ? `<button class="btn small gold" data-allow="${r.pid}">Izinkan</button>` : `<button class="btn small gold" data-visit="${r.pid}">KUNJUNGI</button>`)).join("");
+  return list.map((r) => rowHTML(r, mode === "allow" ? `<button class="btn small gold" data-allow="${r.pid}">Izinkan</button>` : r.priv && !r.can ? `<span class="muted vh-ask">Minta izin pemilik</span>` : `<button class="btn small gold" data-visit="${r.pid}">KUNJUNGI</button>`)).join("");
 }
 function findHTML() {
   return `<div class="vh-find"><input id="vhQ" class="vh-in" type="search" inputmode="search" placeholder="Ketik nama pemain..." maxlength="14" autocomplete="off" autocapitalize="off" enterkeyhint="search" value="${esc(V.q)}">
@@ -55,16 +55,17 @@ function mineHTML() {
   if (!m) return `<div class="muted vh-hint">Memuat pengaturan…</div>`;
   const vis = NW.mp && NW.mp.view ? NW.mp.view() : null, here = vis && vis.house && vis.online && NW.home.active && !NW.home.visit ? vis.players.filter((p) => !p.owner) : [];
   return `<div class="vh-mine">
-    <div class="vh-id">ID rumahmu: <b>${esc(m.sid)}</b> <span class="muted">(dibagikan untuk membedakan nama yang sama)</span></div>
+    <div class="vh-id">ID rumahmu: <b>${esc(m.sid)}</b> <span class="muted">(membedakan nama yang sama)</span></div>
+    <div class="vh-id">Kode teman: <b>${esc(m.code || "")}</b> <span class="muted">(bagikan hanya ke teman yang kamu percaya; dengan kode ini rumah privatmu bisa ditemukan, tetapi tetap butuh izinmu)</span></div>
     ${m.registered ? "" : `<div class="vh-msg">Rumahmu belum tersinkron ke server (butuh login Google & Cloud Save ☁️). Simpan dulu, lalu buka lagi menu ini.</div>`}
     <div class="vh-sw"><button class="btn small ${m.privacy === "public" ? "gold" : ""}" data-priv="public">🌍 Publik</button><button class="btn small ${m.privacy === "private" ? "gold" : ""}" data-priv="private">🔒 Privat</button></div>
-    <div class="muted">${m.privacy === "public" ? "Semua pemain bisa mengunjungi rumahmu (hanya melihat)." : "Hanya teman yang kamu izinkan yang bisa masuk."}</div>
+    <div class="muted">${m.privacy === "public" ? "Rumahmu muncul di pencarian nama; semua pemain bisa berkunjung (hanya melihat)." : "Rumahmu TIDAK muncul di pencarian nama. Hanya teman yang kamu izinkan yang bisa masuk."}</div>
     ${V.mineMsg ? `<div class="vh-msg">${esc(V.mineMsg)}</div>` : ""}
     <h4 class="vh-h">Tamu di rumahmu sekarang</h4>
     ${here.length ? here.map((p) => `<div class="vh-row"><div class="vh-ic">🎣</div><div class="grow"><b>${esc(p.name)}</b></div><button class="btn small" data-kick="${esc(p.id)}" data-hid="${esc(p.hid)}">Keluarkan</button></div>`).join("") : `<div class="muted vh-hint">${vis && vis.house && vis.online ? "Belum ada tamu." : "Tamu terlihat bila kamu online di Rumahku (Dunia Bersama aktif)."}</div>`}
     ${m.privacy === "private" ? `<h4 class="vh-h">Teman yang diizinkan</h4>
       ${m.allow.length ? m.allow.map((a) => `<div class="vh-row"><div class="vh-ic">✅</div><div class="grow"><b>${esc(a.name)}</b> <span class="vh-sid">${esc(a.sid)}</span></div><button class="btn small" data-revoke="${a.pid}">Cabut</button></div>`).join("") : `<div class="muted vh-hint">Belum ada.</div>`}
-      <input id="vhA" class="vh-in" type="search" placeholder="Cari nama untuk diizinkan..." maxlength="14" autocomplete="off" autocapitalize="off" value="${esc(V.aq)}"><div id="vhAres" class="vh-res">${resultsHTML(V.ares, "allow")}</div>` : ""}
+      <input id="vhA" class="vh-in" type="search" placeholder="Nama atau kode teman..." maxlength="14" autocomplete="off" autocapitalize="off" value="${esc(V.aq)}"><div id="vhAres" class="vh-res">${resultsHTML(V.ares, "allow")}</div>` : ""}
   </div>`;
 }
 function panelHTML() {

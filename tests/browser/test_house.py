@@ -110,9 +110,20 @@ def main():
             r = subprocess.run(["node", "-e", f"""fetch('http://127.0.0.1:{PORT}/fn/writeSave',{{method:'POST',headers:{{'content-type':'application/json',authorization:'Bearer dev.uji-joko'}},body:JSON.stringify({{data:{{data:JSON.stringify({json.dumps(sv)}),baseRev:0,opId:'seed-joko-1',deviceId:'x'}}}})}}).then(r=>r.text()).then(t=>console.log(t))"""], capture_output=True, text=True)
             ok("0d akun uji kembar 'Budi' (level 1) tersimpan", '"ok":true' in r.stdout.replace(" ", ""), r.stdout[:120])
             pJ = ev_node("uji-joko")
+            # ---- 0e. BAWAAN PRIVAT: akun baru tidak muncul di pencarian nama; kode teman 8 huruf menemukan rumah privat; pemilik memilih Publik secara sukarela ----
+            ok("0e1 bawaan rumah = PRIVAT (pengaturan server)", api(A, "homeSettings")["ok"]["privacy"] == "private" and api(B, "homeSettings")["ok"]["privacy"] == "private")
+            ok("0e2 rumah privat TIDAK muncul di pencarian nama", api(B, "homeSearch", {"q": "budi"})["ok"]["results"] == [], api(B, "homeSearch", {"q": "budi"}))
+            rc = api(B, "homeSearch", {"q": pA})["ok"]["results"]
+            ok("0e3 kode teman menemukan rumah privat, ditandai privat & belum diizinkan", len(rc) == 1 and rc[0]["priv"] == 1 and rc[0]["can"] == 0 and rc[0]["pid"] == pA, rc)
+            ok("0e4 tamu ditolak masuk rumah privat bawaan (server)", api(B, "homeVisit", {"pid": pA}).get("err") == "permission-denied")
+            api(A, "homeSetPrivacy", {"mode": "public"}); api(B, "homeSetPrivacy", {"mode": "public"})
+            call_as("uji-joko", "homeSetPrivacy", {"mode": "public"})
+            ok("0e5 setelah pemilik memilih Publik → muncul di pencarian nama", len(api(B, "homeSearch", {"q": "budi"})["ok"]["results"]) == 2)
             before_A = api(A, "loadSave")["ok"]; before_A_data = before_A["data"]
 
             # ---------------- 1. tombol hanya di Rumahku ----------------
+            wait_for(B, "NW.mp.view().online", 10); ev(B, "NW.mp.joinRoom(3)")
+            ok("1z Multiplayer 4.2: Sari memilih server #3 sebelum berkunjung", wait_for(B, "NW.mp.view().online && NW.mp.view().roomNo===3", 10), V(B).get("roomNo"))
             time.sleep(0.5)
             ok("1a di luar Rumahku tombol 🏠 Kunjungi Rumah Teman TIDAK tampil", ev(B, "document.getElementById('visitBtn').classList.contains('hidden')"))
             enter_home(B)
@@ -204,7 +215,7 @@ def main():
             ev(B, "NW.home.goRoom(NW.world.player)"); time.sleep(0.8)
             ok("6g Sari di dalam rumah, Budi di halaman → tidak saling menggambar (adegan beda)", ev(A, "NW.mp.homeLayer('plot').length")==0 and ev(B, "NW.mp.homeLayer('room').length")==0 and ev(A, "NW.mp.homeLayer('room').length")==1)
             ev(A, "NW.home.goRoom(NW.world.player)"); time.sleep(0.8)
-            ok("6h keduanya di dalam rumah → saling terlihat", ev(A, "NW.mp.homeLayer('room').length")==1 and ev(B, "NW.mp.homeLayer('room').length")==1)
+            time.sleep(0.8); ok("6h keduanya di dalam rumah → saling terlihat", ev(A, "NW.mp.homeLayer('room').length")==1 and ev(B, "NW.mp.homeLayer('room').length")==1, (ev(A, "[...NW.mp._R.players.values()].map(q=>[q.f,q.ch.x,q.ch.y])"), ev(B, "[...NW.mp._R.players.values()].map(q=>[q.f,q.ch.x,q.ch.y])"), ev(A, "NW.home.scene"), ev(B, "NW.home.scene")))
             # chat & emoji
             ev(B, "NW.mp.sendChat('Halo Budi, rumahmu bagus!')"); time.sleep(0.7)
             ok("6i bubble chat Sari sampai ke Budi", any("Halo Budi" in l["text"] for l in V(A)["log"]), V(A)["log"][-2:])
@@ -230,7 +241,8 @@ def main():
             ev(B, "Nusa.closePanel()")
             rp = api(B, "homeVisit", {"pid": pA}); ok("8d rumah privat: Sari ditolak oleh server", rp.get("err") == "permission-denied" and "privat" in rp.get("msg", "").lower(), rp)
             ra = api(B, "homeVisit", {"pid": pA}); ok("8e akses ruang multiplayer juga ditolak (homeAccess)", api(B, "homeAccess", {"pid": pA}).get("err") == "permission-denied")
-            rs2 = api(B, "homeSearch", {"q": "budi"})["ok"]["results"]; ok("8f hasil pencarian menandai rumah privat 🔒", [r for r in rs2 if r["pid"] == pA][0]["priv"] == 1)
+            rs2 = api(B, "homeSearch", {"q": "budi"})["ok"]["results"]; ok("8f rumah privat TIDAK muncul di pencarian nama (hanya 'Budi' kedua yang publik)", [r["pid"] for r in rs2] == [pJ], rs2)
+            rs3 = api(B, "homeSearch", {"q": pA})["ok"]["results"]; ok("8f2 lewat kode teman: ditemukan, ditandai 🔒 privat, belum diizinkan", len(rs3) == 1 and rs3[0]["priv"] == 1 and rs3[0]["can"] == 0, rs3)
             rj = api(B, "homeVisit", {"pid": pJ}); ok("8g rumah 'Budi' kedua (publik) tetap bisa dikunjungi", rj.get("ok", {}).get("ok") is True, str(rj)[:100])
             # manipulasi JS: klien sengaja mengabaikan blokir lokal dan memaksa masuk dengan data palsu → hanya tampilan lokal; server menolak sambungan ruang
             ev(B, "NW.mp.clearKick(%s)" % json.dumps(pA))
@@ -242,7 +254,7 @@ def main():
             A.fill("#vhA", "Sari"); wait_for(A, "document.querySelector('#vhAres [data-allow]')", 6)
             shot(A, "7-izinkan-teman.png")
             A.click("#vhAres [data-allow]"); ok("8j Budi mengizinkan Sari lewat UI", wait_for(A, "document.getElementById('panelBody').textContent.includes('Cabut')", 6))
-            B.click("#visitBtn"); wait_for(B, "!!document.getElementById('vhQ')", 4); B.fill("#vhQ", "Budi"); wait_for(B, "document.querySelectorAll('#vhRes .vh-row').length>=2", 5)
+            B.click("#visitBtn"); wait_for(B, "!!document.getElementById('vhQ')", 4); B.fill("#vhQ", pA); wait_for(B, "document.querySelectorAll('#vhRes .vh-row').length>=1", 5)
             B.click(f"#vhRes [data-visit='{pA}']")
             ok("8k diizinkan → Sari boleh masuk rumah privat Budi dan tersambung", wait_for(B, "NW.home.visit && NW.home.visit.name==='Budi'", 8) and wait_for(B, "NW.mp.view().online && NW.mp.view().room==='rumah-%s'" % pA, 10))
             time.sleep(1.0)
@@ -255,9 +267,8 @@ def main():
             ok("9c rumah Sari sendiri utuh (level 1, data sama)", ev(B, "JSON.stringify(Nusa.S.home)") == own_home_json)
             kk = api(B, "homeVisit", {"pid": pA}); ok("9d Sari tidak bisa masuk lagi (dikeluarkan) — server menolak walau masih diizinkan", kk.get("err") == "permission-denied" and "dikeluarkan" in kk.get("msg", ""), kk)
             ok("9e akses ruang multiplayer juga ditolak", api(B, "homeAccess", {"pid": pA}).get("err") == "permission-denied")
-            B.click("#visitBtn"); wait_for(B, "!!document.getElementById('vhQ')", 4); B.fill("#vhQ", "Budi"); wait_for(B, "document.querySelectorAll('#vhRes .vh-row').length>=2", 5)
-            B.click(f"#vhRes [data-visit='{pA}']"); time.sleep(1.0)
-            ok("9f lewat UI pun ditolak dengan pesan jelas", "dikeluarkan" in ev(B, "document.getElementById('vhMsg').textContent") and not ev(B, "NW.home.visit"), ev(B, "document.getElementById('vhMsg').textContent"))
+            B.click("#visitBtn"); wait_for(B, "!!document.getElementById('vhQ')", 4); B.fill("#vhQ", pA); wait_for(B, "document.querySelectorAll('#vhRes .vh-row').length>=1", 5); time.sleep(0.3)
+            ok("9f lewat UI: rumah privat yang mengeluarkanmu tidak punya tombol KUNJUNGI ('Minta izin pemilik'), dan tidak ada yang masuk", "Minta izin pemilik" in res_text(B) and not ev(B, "!!document.querySelector('#vhRes [data-visit]')") and not ev(B, "NW.home.visit"), res_text(B))
             ev(B, "Nusa.closePanel()")
             ok("9g Budi tidak melihat Sari lagi (tidak ada hantu)", wait_for(A, "NW.mp.view().players.length===0", 6))
             ev(A, "Nusa.closePanel()")
@@ -268,6 +279,8 @@ def main():
             ok("10b rumah Sari tidak berubah", ev(B, "JSON.stringify(Nusa.S.home)") == own_home_json)
             ev(B, "NW.home.scene==='plot' && NW.home.interact({id:'p_gate'}, NW.world.player, NW.world.openDialog)"); time.sleep(1.2)
             ok("10c Sari keluar dari Rumahku → kembali ke Muara dan tersambung ke dunia Muara (bukan ruang rumah)", wait_for(B, "!NW.home.active && NW.mp.view().online && NW.mp.view().room.startsWith('muara-')", 12), V(B)["room"])
+            ok("10c2 Multiplayer 4.2: kembali ke server Muara #3 yang sama (pilihan server tidak hilang karena kunjungan rumah)", V(B)["roomNo"] == 3 and V(B)["room"] == "muara-3", (V(B)["roomNo"], V(B)["room"]))
+            ok("10c3 Multiplayer 4.2: jam dunia bersama aktif lagi di Muara", ev(B, "NW.mp.view().hour!=null"), ev(B, "NW.mp.view().hour"))
             errs = [e for lst in allerrs for e in lst if "Failed to load resource" not in e and "net::ERR" not in e and "WebSocket" not in e]
             ok("10d tidak ada galat JS di kedua klien", errs == [], errs[:4])
             b.close()

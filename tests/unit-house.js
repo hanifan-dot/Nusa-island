@@ -41,6 +41,18 @@ const wr = (srv, uid, s) => srv.writeSave(A(uid), { data: J(s), baseRev: 0, opId
   await wr(srv, "uid-sari", save("Sari", 5));
   await wr(srv, "uid-budi2", save("Budi", 1));       // nama kembar
   await wr(srv, "uid-pemula", save("Pemula", 1));
+  // BAWAAN = PRIVAT: akun baru tidak muncul di pencarian nama sampai pemilik memilih Publik
+  let r0 = await house.homeSearch(A("uid-sari"), { q: "budi" }); ok("bawaan privat: tidak ada di pencarian nama", r0.results.length === 0, r0);
+  ok("bawaan privat: pengaturan = private", (await house.homeSettings(A("uid-budi"))).privacy === "private");
+  await rej("bawaan privat: tamu ditolak masuk", house.homeVisit(A("uid-sari"), { pid: p1 }), "permission-denied");
+  await rej("bawaan privat: pintu multiplayer menolak", house.homeAccess(A("uid-sari"), { pid: p1 }), "permission-denied");
+  const code = (await house.homeSettings(A("uid-budi"))).code; ok("kode teman = 8 huruf milik sendiri", code === p1 && /^[A-Z2-9]{8}$/.test(code));
+  r0 = await house.homeSearch(A("uid-sari"), { q: code }); ok("kode teman menemukan rumah privat (ditandai privat, belum diizinkan)", r0.results.length === 1 && r0.results[0].priv === 1 && r0.results[0].can === 0 && r0.results[0].pid === p1 && !/uid-|rahasia|@/.test(J(r0)), r0);
+  r0 = await house.homeSearch(A("uid-sari"), { q: "#" + code.toLowerCase() }); ok("kode teman tak peka huruf & boleh pakai #", r0.results.length === 1);
+  r0 = await house.homeSearch(A("uid-sari"), { q: "ZZZZZZZZ" }); ok("kode salah -> kosong", r0.results.length === 0);
+  r0 = await house.homeSearch(A("uid-budi"), { q: code }); ok("kode sendiri tidak muncul", r0.results.length === 0);
+  for (const u of ["uid-budi", "uid-sari", "uid-budi2", "uid-pemula"]) await house.homeSetPrivacy(A(u), { mode: "public" });   // pemilik memilih Publik secara sukarela
+  r0 = await house.homeSearch(A("uid-sari"), { q: code }); ok("kode pada rumah publik: bisa dikunjungi (can=1)", r0.results.length === 1 && r0.results[0].can === 1 && r0.results[0].priv === 0);
   ok("homepub tersimpan untuk pemilik", !!db.m.get("homepub/" + p1));
   ok("simpanan memuat pubHash", !!JSON.parse(db.m.get("users/uid-budi/saves/current")).pubHash);
 
@@ -78,14 +90,16 @@ const wr = (srv, uid, s) => srv.writeSave(A(uid), { data: J(s), baseRev: 0, opId
   await rej("akses tanpa login", house.homeAccess(null, { pid: p1 }), "unauthenticated");
 
   // ---- privasi ----
-  let st = await house.homeSettings(A("uid-budi")); ok("pengaturan default publik", st.privacy === "public" && st.registered && st.pid === p1);
+  let st = await house.homeSettings(A("uid-budi")); ok("pengaturan setelah memilih Publik", st.privacy === "public" && st.registered && st.pid === p1);
   await rej("mode ngawur ditolak", house.homeSetPrivacy(A("uid-budi"), { mode: "admin" }), "invalid-argument");
   await house.homeSetPrivacy(A("uid-budi"), { mode: "private" });
   await rej("rumah privat: pengunjung ditolak (visit)", house.homeVisit(A("uid-sari"), { pid: p1 }), "permission-denied");
   await rej("rumah privat: pengunjung ditolak (access)", house.homeAccess(A("uid-sari"), { pid: p1 }), "permission-denied");
   ok("pemilik privat tetap masuk", (await house.homeAccess(A("uid-budi"), { pid: p1 })).role === "owner");
-  r = await house.homeSearch(A("uid-sari"), { q: "budi" }); ok("pencarian menandai privat", r.results.find((x) => x.pid === p1).priv === 1);
+  r = await house.homeSearch(A("uid-sari"), { q: "budi" }); ok("rumah privat TIDAK ada di hasil pencarian nama", !r.results.some((x) => x.pid === p1) && r.results.length === 1, r);
+  r = await house.homeSearch(A("uid-sari"), { q: p1 }); ok("kode: rumah privat ditemukan, ditandai privat", r.results.length === 1 && r.results[0].priv === 1 && r.results[0].can === 0);
   await house.homeAllow(A("uid-budi"), { pid: p2, on: true });
+  r = await house.homeSearch(A("uid-sari"), { q: p1 }); ok("diizinkan -> kode menandai can=1", r.results[0].can === 1);
   ok("diizinkan -> boleh masuk", (await house.homeVisit(A("uid-sari"), { pid: p1 })).ok);
   await rej("yang tidak diizinkan tetap ditolak", house.homeVisit(A("uid-pemula"), { pid: p1 }), "permission-denied");
   await house.homeAllow(A("uid-budi"), { pid: p2, on: false });

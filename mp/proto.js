@@ -21,6 +21,22 @@ const F = { MOVING: 1, SIT: 2, FISH: 4, TP: 8, IN: 16 };   // bendera tampilan (
 // ---- Kunjungi Rumah Teman: satu instance = satu rumah (area "rumah"), terpisah total dari Muara ----
 const HOUSE = { AREA: "rumah", CAP: 12, MAP_W: 32, MAP_H: 32, KICK_CODE: 4010, KICK_MS: 60 * 60000 };
 const EMOTES = ["👋", "😂", "❤️", "🎣", "👍", "😴"];
+// jam dunia bersama: fungsi murni dari waktu SERVER (ms). Konstanta HARUS sama dengan HOURS_PER_SEC di game.js (dijaga tes).
+const WORLD_HPS = 24 / 480;                 // 1 hari game = 8 menit nyata
+const WORLD_EPOCH_MS = Date.UTC(2026, 0, 1); // titik awal tetap; pukul 06:00 pada epoch
+const sharedHour = (serverMs) => ((((serverMs - WORLD_EPOCH_MS) / 1000) * WORLD_HPS + 6) % 24 + 24) % 24;
+// nomor server (ID) 1..MAX_ROOMS; mengembalikan null bila tidak sah
+const roomId = (v) => { if (v == null || v === "") return null; const s = String(v).trim(); if (!/^\d{1,3}$/.test(s)) return null; const n = parseInt(s, 10); return n >= 1 && n <= MAX_ROOMS ? n : null; };
+// status pamer ikan (HANYA tampilan): id spesies, berat (gram), kode varian. Tidak membawa uid/inventaris/harga.
+const VARIANTS = ["normal", "silver", "sunset", "pearl"];
+function cleanHold(m) {
+  if (!m || typeof m !== "object") return null;
+  const i = String(m.i == null ? "" : m.i);
+  if (!/^[a-z0-9_]{2,30}$/.test(i)) return null;
+  const w = Math.floor(Number(m.w)); if (!Number.isFinite(w) || w < 1 || w > 1000000) return null;   // gram; ikan terbesar < 1000 kg
+  const v = VARIANTS.includes(m.v) ? m.v : "normal";
+  return { i, w, v };
+}
 
 // ---- nama panggilan ----
 const RESERVED = /(admin|owner|moderator|petugas|developer|nusa ?island|pemilik|\bgm\b|official|resmi)/i;
@@ -49,7 +65,7 @@ const qz = (v) => Math.round(v * Q);
 const uq = (n) => n / Q;
 const clampInt = (v, a, b, d) => { v = Math.floor(Number(v)); return Number.isFinite(v) ? Math.max(a, Math.min(b, v)) : d; };
 
-const API = { HOUSE, VERSION, SUBPROTOCOL, AREA, MAP_W, MAP_H, Q, ROOM_CAP, MAX_ROOMS, TIMEOUT_MS, TICK_MS, MAX_SPEED, CHAT_MAX, NAME_MAX, F, EMOTES, cleanName, cleanChat, maskBad, qz, uq, clampInt };
+const API = { HOUSE, WORLD_HPS, WORLD_EPOCH_MS, sharedHour, roomId, VARIANTS, cleanHold, VERSION, SUBPROTOCOL, AREA, MAP_W, MAP_H, Q, ROOM_CAP, MAX_ROOMS, TIMEOUT_MS, TICK_MS, MAX_SPEED, CHAT_MAX, NAME_MAX, F, EMOTES, cleanName, cleanChat, maskBad, qz, uq, clampInt };
 if (typeof module !== "undefined" && module.exports) module.exports = API;
 else { root.NW = root.NW || {}; root.NW.MPProto = API; }
 })(typeof window !== "undefined" ? window : globalThis);

@@ -90,7 +90,7 @@
       const h = hashText(JSON.stringify(snap)); if (h === prevHash) return h;
       const pid = pidOf(uid), cur = await t.get(HP(pid));
       if (cur && cur.uid && cur.uid !== uid) return prevHash || null;           // tabrakan pid (hampir mustahil): jangan menimpa milik orang lain
-      const doc = Object.assign({ v: 1, pid, uid, privacy: "public", allow: [], bans: {} }, cur || {}, { uid, pid, name: snap.name, lname: normName(snap.name), level: snap.level, snap, updatedAt: clock() });
+      const doc = Object.assign({ v: 1, pid, uid, privacy: "private", allow: [], bans: {} }, cur || {}, { uid, pid, name: snap.name, lname: normName(snap.name), level: snap.level, snap, updatedAt: clock() });
       await t.set(HP(pid), doc);
       await indexPut(t, pid, snap.name, snap.level, privFlag(doc), cur && cur.lname);
       return h;
@@ -112,8 +112,14 @@
         const q = normQuery(p && p.q); if (Array.from(q).length < LIM.SEARCH_MIN) fail("invalid-argument", "Ketik minimal 2 huruf.");
         const me = pidOf(uid), d = await db.get(HI(bucketOf(q)));
         const out = [];
+        // KODE TEMAN (8 huruf, tidak bisa ditebak): satu-satunya jalan menemukan rumah PRIVAT. Hanya dibagikan sendiri oleh pemiliknya; pencarian nama tidak pernah memuat rumah privat.
+        const code = String((p && p.q) || "").trim().toUpperCase().replace(/^#/, "");
+        if (PID_RE.test(code) && code !== me) {
+          const cd = await db.get(HP(code));
+          if (cd && cd.snap) out.push({ pid: code, sid: shortId(code), name: String(cd.name), level: cd.level | 0, priv: cd.privacy === "private" ? 1 : 0, can: denial(cd, me) === null ? 1 : 0, exact: 2 });
+        }
         if (d && d.e) for (const [pid, v] of Object.entries(d.e)) {
-          if (pid === me || !Array.isArray(v)) continue;
+          if (pid === me || !Array.isArray(v) || v[2] || out.some((o) => o.pid === pid)) continue;   // rumah privat TIDAK masuk hasil pencarian nama
           if (normName(v[0]).startsWith(q)) out.push({ pid, sid: shortId(pid), name: String(v[0]), level: v[1] | 0, priv: v[2] ? 1 : 0, exact: normName(v[0]) === q ? 1 : 0 });
         }
         out.sort((a, b) => b.exact - a.exact || b.level - a.level || a.name.localeCompare(b.name) || (a.pid < b.pid ? -1 : 1));
@@ -140,7 +146,7 @@
       // Pengaturan milik pemanggil sendiri (privasi, daftar izin).
       async homeSettings(auth) {
         const uid = uidOf(auth), pid = pidOf(uid), d = await db.get(HP(pid)), now = clock();
-        return { pid, sid: shortId(pid), registered: !!(d && d.snap), privacy: (d && d.privacy) || "public", allow: ((d && d.allow) || []).map((a) => ({ pid: a.pid, sid: shortId(a.pid), name: a.name })),
+        return { pid, code: pid, sid: shortId(pid), registered: !!(d && d.snap), privacy: (d && d.privacy) || "private", allow: ((d && d.allow) || []).map((a) => ({ pid: a.pid, sid: shortId(a.pid), name: a.name })),
           banned: Object.entries((d && d.bans) || {}).filter(([, t]) => t > now).length };
       },
       async homeSetPrivacy(auth, p) {
@@ -148,7 +154,7 @@
         const mode = p && p.mode; if (mode !== "public" && mode !== "private") fail("invalid-argument", "Pilih publik atau privat.");
         const pid = pidOf(uid);
         return db.tx(async (t) => {
-          const cur = (await t.get(HP(pid))) || { v: 1, pid, uid, privacy: "public", allow: [], bans: {}, snap: null };
+          const cur = (await t.get(HP(pid))) || { v: 1, pid, uid, privacy: "private", allow: [], bans: {}, snap: null };
           if (cur.uid && cur.uid !== uid) fail("permission-denied", "Ditolak.");
           cur.privacy = mode; cur.uid = uid; await t.set(HP(pid), cur);
           if (cur.snap) await indexPut(t, pid, cur.name, cur.level, mode === "private" ? 1 : 0, cur.lname);
@@ -176,7 +182,7 @@
         const target = pidArg(p), me = pidOf(uid);
         if (target === me) fail("invalid-argument", "Itu dirimu sendiri.");
         return db.tx(async (t) => {
-          const cur = (await t.get(HP(me))) || { v: 1, pid: me, uid, privacy: "public", allow: [], bans: {}, snap: null }, now = clock();
+          const cur = (await t.get(HP(me))) || { v: 1, pid: me, uid, privacy: "private", allow: [], bans: {}, snap: null }, now = clock();
           if (cur.uid && cur.uid !== uid) fail("permission-denied", "Ditolak.");
           cur.uid = uid; cur.bans = cur.bans || {};
           for (const k of Object.keys(cur.bans)) if (cur.bans[k] <= now) delete cur.bans[k];
