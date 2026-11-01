@@ -174,6 +174,11 @@ const mv = (r, c, x, y, d = 2, f = 1) => r.room.message(c, JSON.stringify({ t: "
   ok(L.list("occupied64").open === 64, "server eksplisit tetap terlihat setelah dipakai");
   const Small = new Lobby({ cap: 2, max: 3, now, lim });
   ok(Small.list("small").open === 3 && Small.assign("no", "ip", [], { room: 4 }).error === "bad_room", "batas setiap lobby tetap ditegakkan");
+  const Full = new Lobby({ cap: 1, max: 64, now, lim });
+  for (let k = 1; k < 64; k++) Full.sync(k, ["player" + k]);
+  ok(Full.list("near-cap").open === 64 && Full.assign("last", "ip", [], {}).room === 64, "server 64 terbuka otomatis saat 1–63 penuh");
+  Full.sync(64, ["player64"]);
+  ok(Full.assign("overflow", "ip", [], {}).error === "full", "setelah 64 server penuh, koneksi baru ditolak dengan pesan penuh");
 }
 // ---------- Tahap 4.2: ID server, hitungan, jam dunia, pamer ikan ----------
 {
