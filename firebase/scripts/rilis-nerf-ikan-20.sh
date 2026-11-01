@@ -60,6 +60,9 @@ grep -Fq 'FISH_SALE_MULT = 0.8' firebase/public/fishmath.js || die "Nerf tidak m
 grep -Fq "apiBase: \"$API\"" firebase/public/cloud/config.js || die "Alamat API berubah."
 grep -Fq "$MPWS" firebase/public/mp/endpoint.json || die "Alamat multiplayer berubah."
 echo "OK preflight: QRIS tetap; Event, rumah, Dashboard, multiplayer tidak berubah."
+if command -v firebase >/dev/null; then FB=firebase; else FB="npx --yes firebase-tools"; fi
+$FB projects:list --json >"$TMP/firebase-projects.json" 2>"$TMP/firebase-login.log" || { tail -10 "$TMP/firebase-login.log"; die "Firebase CLI belum siap. Worker belum di-deploy."; }
+node -e 'const f=require("fs"),s=f.readFileSync(process.argv[1],"utf8");if(!s.includes("nusa-island-d2023"))process.exit(1)' "$TMP/firebase-projects.json" || die "Akses proyek Firebase nusa-island-d2023 tidak terdeteksi. Worker belum di-deploy."
 echo "== 4/6 Verifikasi konfigurasi Cloudflare produksi =="
 WR="npx --yes wrangler@4"
 TOKEN="${CLOUDFLARE_API_TOKEN:-}"
