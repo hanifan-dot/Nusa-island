@@ -17,6 +17,19 @@ class Lobby {
   where(uid, except) { for (const [k, s] of this.occ) if (k !== except && s.has(uid)) return k; return null; }
   size(k) { const s = this.occ.get(k); return s ? s.size : 0; }
   hasSpace(k, uid) { const s = this.occ.get(k); return (s ? s.size : 0) < this.cap || !!(s && s.has(uid)); }
+  // Ruang 1–12 selalu tersedia. Bila seluruh ruang yang terbuka penuh,
+  // tambah satu nomor berikutnya, tanpa membuat Durable Object kosong.
+  // Jangan sembunyikan nomor server tambahan yang masih ditempati pemain.
+  openMax() {
+    let n = Math.min(this.max, P.MIN_ROOMS || 12);
+    for (const [k, users] of this.occ) if (k > n && k <= this.max && users.size > 0) n = k;
+    if (n < this.max) {
+      let allFull = true;
+      for (let k = 1; k <= n; k++) if (this.hasSpace(k, null)) { allFull = false; break; }
+      if (allFull) n++;
+    }
+    return n;
+  }
   // opt = { room: 1..max | null, mode: "auto" | "random" }. Validasi nomor server SELALU di sini (server), bukan percaya klien.
   assign(uid, ip, exclude, opt) {
     opt = opt || {}; const now = this.now(), ex = new Set(exclude || []);
@@ -29,16 +42,17 @@ class Lobby {
     const before = this.where(uid);
     const ok = (k) => ({ room: k, kick: before && before !== k ? before : null });
     if (opt.room != null) {                                      // masuk dengan ID tertentu
-      const k = P.roomId(opt.room); if (k == null) return { error: "bad_room" };
+      const k = P.roomId(opt.room); if (k == null || k > this.max) return { error: "bad_room" };
       if (ex.has(k) || !this.hasSpace(k, uid)) return { error: "full", room: k };
       return ok(k);
     }
-    if (opt.mode === "random") {                                 // acak di antara server yang masih ada tempat (bukan server sekarang)
-      const c = []; for (let k = 1; k <= this.max; k++) if (!ex.has(k) && k !== before && this.hasSpace(k, uid)) c.push(k);
+    const opened = this.openMax();
+    if (opt.mode === "random") {                                 // acak hanya di antara server terbuka (bukan server sekarang)
+      const c = []; for (let k = 1; k <= opened; k++) if (!ex.has(k) && k !== before && this.hasSpace(k, uid)) c.push(k);
       if (!c.length) return { error: "full" };
       return ok(c[Math.min(c.length - 1, Math.floor(this.rnd() * c.length))]);
     }
-    for (let k = 1; k <= this.max; k++) { if (!ex.has(k) && this.hasSpace(k, uid)) return ok(k); }   // otomatis: server bernomor terkecil yang ada tempat (teman berkumpul)
+    for (let k = 1; k <= opened; k++) { if (!ex.has(k) && this.hasSpace(k, uid)) return ok(k); }   // otomatis: server bernomor terkecil yang ada tempat (teman berkumpul)
     return { error: "full" };
   }
   // pintu rumah: hanya pembatas laju (per akun / per IP / global); ruang rumah tidak dipilih lobi
@@ -60,7 +74,7 @@ class Lobby {
     return dups;
   }
   // daftar server untuk menu (hanya angka; tanpa nama/uid). Dibatasi laju per IP.
-  list(ip) { if (!this.hit(this.hits.list, ip, 30, this.now())) return { error: "rate" }; const rooms = []; for (let k = 1; k <= this.max; k++) rooms.push([k, this.size(k)]); return { rooms, cap: this.cap }; }
+  list(ip) { if (!this.hit(this.hits.list, ip, 30, this.now())) return { error: "rate" }; const rooms = []; const open = this.openMax(); for (let k = 1; k <= open; k++) rooms.push([k, this.size(k)]); return { rooms, cap: this.cap, open, max: this.max }; }
   stats() { return [...this.occ].map(([k, s]) => [k, s.size]); }
 }
 const API = { Lobby, LIM };
