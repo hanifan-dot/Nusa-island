@@ -153,10 +153,37 @@ const mv = (r, c, x, y, d = 2, f = 1) => r.room.message(c, JSON.stringify({ t: "
   const L6 = new Lobby({ cap: 2, max: 3, now: () => t }); L6.sync(1, ["p", "q"]); ok(L6.assign("z", "4.4.4.4").room === 2, "sync dari instance memulihkan hitungan setelah lobby tidur");
 }
 
+// ---------- Server bertambah otomatis ketika 12 ruang awal penuh ----------
+{
+  ok(P.MIN_ROOMS === 12 && P.MAX_ROOMS === 64 && P.roomId(64) === 64 && P.roomId(65) === null, "konfigurasi server otomatis 12 hingga 64");
+  const now = () => 1000, lim = { perUid: 10000, perIp: 10000, global: 10000 };
+  const L = new Lobby({ cap: 2, max: 64, now, lim });
+  ok(L.list("start").rooms.length === 12, "server awal tetap ID 1–12");
+  for (let k = 1; k <= 12; k++) L.sync(k, ["a" + k, "b" + k]);
+  ok(L.list("full12").open === 13, "server 13 dibuka saat 1–12 semuanya penuh");
+  ok(L.assign("new", "ip", [], {}).room === 13, "gabung otomatis ke server 13");
+  ok(L.assign("rand", "ip", [], { mode: "random" }).room === 13, "acak dapat server 13");
+  L.sync(13, ["a13", "b13"]);
+  ok(L.list("full13").open === 14, "server 14 dibuka sesudah server 13 penuh");
+  L.left(1, "a1");
+  ok(L.list("space1").open === 13, "server tambahan berisi tetap muncul walau server 1 kosong");
+  L.sync(13, []);
+  ok(L.list("empty13").open === 12, "server kosong tambahan boleh disembunyikan");
+  ok(L.assign("friend", "ip", [], { room: 64 }).room === 64, "teman boleh masuk dengan ID server eksplisit sampai 64");
+  L.sync(64, ["friend"]);
+  ok(L.list("occupied64").open === 64, "server eksplisit tetap terlihat setelah dipakai");
+  const Small = new Lobby({ cap: 2, max: 3, now, lim });
+  ok(Small.list("small").open === 3 && Small.assign("no", "ip", [], { room: 4 }).error === "bad_room", "batas setiap lobby tetap ditegakkan");
+  const Full = new Lobby({ cap: 1, max: 64, now, lim });
+  for (let k = 1; k < 64; k++) Full.sync(k, ["player" + k]);
+  ok(Full.list("near-cap").open === 64 && Full.assign("last", "ip", [], {}).room === 64, "server 64 terbuka otomatis saat 1–63 penuh");
+  Full.sync(64, ["player64"]);
+  ok(Full.assign("overflow", "ip", [], {}).error === "full", "setelah 64 server penuh, koneksi baru ditolak dengan pesan penuh");
+}
 // ---------- Tahap 4.2: ID server, hitungan, jam dunia, pamer ikan ----------
 {
   ok(P.roomId("3") === 3 && P.roomId(12) === 12 && P.roomId(" 7 ") === 7, "roomId angka sah");
-  for (const bad of ["0", "13", "99", "abc", "3x", "-1", "1e1", "3 OR 1=1", "", null, undefined, "٣", "03a", "1000"]) ok(P.roomId(bad) === null, "roomId menolak " + JSON.stringify(bad));
+  for (const bad of ["0", "65", "99", "abc", "3x", "-1", "1e1", "3 OR 1=1", "", null, undefined, "٣", "03a", "1000"]) ok(P.roomId(bad) === null, "roomId menolak " + JSON.stringify(bad));
   ok(P.roomId("03") === 3, "roomId '03' = 3");
   // lobby: pilih ID, acak, otomatis, penuh, validasi
   let t = 0; const L = new Lobby({ cap: 2, max: 12, now: () => t, rnd: () => 0.5, lim: { perUid: 1e9, perIp: 1e9, global: 1e9 } });

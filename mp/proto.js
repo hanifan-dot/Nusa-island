@@ -12,7 +12,8 @@ const AREA = "muara";                 // Tahap 4: dunia bersama hanya di Muara K
 const MAP_W = 40, MAP_H = 40;         // world/map.js (MW, MH)
 const Q = 20;                         // posisi dikirim sebagai bilangan bulat = tile × 20 (resolusi 0,05 tile)
 const ROOM_CAP = 16;                  // pemain per instance (ringan untuk HP Android)
-const MAX_ROOMS = 12;                 // instance Muara paling banyak → ≤192 pemain online
+const MIN_ROOMS = 12;                 // selalu buka 12 server pertama
+const MAX_ROOMS = 64;                 // batas aman awal: 64 × 16 = 1.024 tempat; uji beban sebelum menaikkan batas
 const TIMEOUT_MS = 45000;             // tanpa kabar selama ini = dianggap keluar (heartbeat klien tiap 15 dtk)
 const TICK_MS = 200;                  // siaran perubahan posisi ≤5 kali/detik
 const MAX_SPEED = 9;                  // tile/detik (jalan kaki ≈ 4–6); lebih dari ini ditahan server
@@ -65,7 +66,7 @@ const qz = (v) => Math.round(v * Q);
 const uq = (n) => n / Q;
 const clampInt = (v, a, b, d) => { v = Math.floor(Number(v)); return Number.isFinite(v) ? Math.max(a, Math.min(b, v)) : d; };
 
-const API = { HOUSE, WORLD_HPS, WORLD_EPOCH_MS, sharedHour, roomId, VARIANTS, cleanHold, VERSION, SUBPROTOCOL, AREA, MAP_W, MAP_H, Q, ROOM_CAP, MAX_ROOMS, TIMEOUT_MS, TICK_MS, MAX_SPEED, CHAT_MAX, NAME_MAX, F, EMOTES, cleanName, cleanChat, maskBad, qz, uq, clampInt };
+const API = { HOUSE, WORLD_HPS, WORLD_EPOCH_MS, sharedHour, roomId, VARIANTS, cleanHold, VERSION, SUBPROTOCOL, AREA, MAP_W, MAP_H, Q, ROOM_CAP, MIN_ROOMS, MAX_ROOMS, TIMEOUT_MS, TICK_MS, MAX_SPEED, CHAT_MAX, NAME_MAX, F, EMOTES, cleanName, cleanChat, maskBad, qz, uq, clampInt };
 if (typeof module !== "undefined" && module.exports) module.exports = API;
 else { root.NW = root.NW || {}; root.NW.MPProto = API; }
 })(typeof window !== "undefined" ? window : globalThis);

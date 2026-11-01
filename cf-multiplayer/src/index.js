@@ -39,7 +39,7 @@ export default {
     try { who = await Jwt.verifyFirebaseToken(offered[1], { projectId: env.FIREBASE_PROJECT_ID }); }
     catch (e) { return json({ error: "unauthorized" }, 401); }
     if (String(env.MP_BLOCKED_UIDS || "").split(",").map((x) => x.trim()).includes(who.uid)) return wsError("busy");   // saklar darurat per akun (variabel Cloudflare)
-    // pintu masuk: nomor server (ID 1..12) DIVALIDASI di sini; pilih instance + batasi laju masuk per akun/IP/global
+    // pintu masuk: ID 1–64 divalidasi; pemilihan otomatis membuka 13+ hanya jika semua ruang terbuka penuh
     const lobby = env.LOBBY.get(env.LOBBY.idFromName("lobby")), ip = request.headers.get("CF-Connecting-IP") || "";
     if (url.searchParams.has("h")) return houseDoor(request, env, lobby, ip, who, offered[1], url.searchParams.get("h"), cors);   // Kunjungi Rumah Teman
     const wantRaw = url.searchParams.get("room"), want = Proto.roomId(wantRaw);

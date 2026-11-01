@@ -169,8 +169,8 @@ def main():
             ok("8b R memilih ID 1 yang penuh → pesan jelas, tidak ada pemain ke-3 di server 1", wait_for(R1, "!!NW.mp.view().lastError && NW.mp.view().lastError.e==='full'", 6) and rooms(PORT2)[1] == 2, V(R1)["lastError"])
             ok("8c pesan penuh tampil di panel & R kembali ke server sebelumnya (tidak terlempar)", "penuh" in ev(R1, "document.getElementById('panelBody').innerText") and online(R1, 2, 8), (ev(R1, "document.getElementById('panelBody').innerText")[:200], V(R1)["roomNo"]))
             R1.screenshot(path=OUT + "05_server_penuh.png")
-            R1.fill("#svInput", "13"); R1.click("#svForm button[type=submit]"); time.sleep(0.4)
-            ok("8d ID salah (13) ditolak dengan pesan jelas; tetap di server 2", "1–12" in (V(R1)["lastError"] or {}).get("msg", "") and V(R1)["roomNo"] == 2 and V(R1)["online"])
+            R1.fill("#svInput", "65"); R1.click("#svForm button[type=submit]"); time.sleep(0.4)
+            ok("8d ID salah (65) ditolak dengan pesan jelas; tetap di server 2", "1–64" in (V(R1)["lastError"] or {}).get("msg", "") and V(R1)["roomNo"] == 2 and V(R1)["online"])
             # validasi di SERVER (bukan hanya UI)
             res = {q: raw(PORT2, "evil", q) for q in ["?room=99", "?room=abc", "?room=0", "?room=1%27%20OR%201=1"]}
             ok("8e server menolak ID palsu langsung via WebSocket (99/abc/0/injeksi) dengan kode 4007", all(r["code"] == 4007 and r["msgs"][0].get("e") == "bad_room" for r in res.values()), res)
