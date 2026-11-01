@@ -55,7 +55,7 @@ function panelHTML() {
     <div class="sv-actions">
       <button class="btn gold sv-big" data-act="mpRandom">🎲 Gabung Server Acak</button>
       <form class="sv-idform" id="svForm" autocomplete="off"><label for="svInput">🔢 Masuk dengan ID Server</label>
-        <div><input id="svInput" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="1–${12}" aria-label="ID server, angka 1 sampai 12"><button class="btn gold" type="submit">Masuk</button></div></form>
+        <div><input id="svInput" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="1–${window.NW.MPProto.MAX_ROOMS}" aria-label="ID server, angka 1 sampai 64"><button class="btn gold" type="submit">Masuk</button></div></form>
       ${v.manualLeave ? `<button class="btn" data-act="mpAuto">Gabung Otomatis</button>` : `<button class="btn" data-act="mpLeave" ${online || v.state === "connecting" || v.state === "reconnecting" ? "" : "disabled"}>🚪 Keluar Server</button>`}
     </div>
     <div class="mp-h-row"><h4 class="mp-h">Daftar server</h4><button class="btn small" data-act="mpRefresh">↻ Segarkan</button></div>
