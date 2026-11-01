@@ -5,6 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 die() { printf "GAGAL: %s\n" "$*" >&2; exit 1; }
 command -v node >/dev/null && command -v curl >/dev/null || die "Perlu node dan curl."
+[ "$(git rev-parse --abbrev-ref HEAD)" = "fitur/server-otomatis-64" ] || die "Harus pada branch fitur/server-otomatis-64; tidak akan menerbitkan cabang lama."
 
 echo "== Tes sebelum produksi =="
 for test in tests/unit-mp.js tests/unit-rilis.js tests/unit-house.js tests/unit-mp-house.js tests/unit-event.js; do
