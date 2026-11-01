@@ -7,7 +7,11 @@
   const C = () => window.NW.cloud;
   let uid = null, loaded = false, busy = false, error = "", gift = null;
   const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-  const owner = () => !!(C() && C().enabled && C().user && C().owner && C().owner.verified);
+  // Klaim client HANYA petunjuk untuk tampilkan kartu; izin ditentukan Worker
+  // melalui Google token + owners/{uid}.active (game Cloud Save tidak selalu punya ownerAccess).
+  const owner = () => !!(C() && C().enabled && C().user &&
+    ((C().user.claims && C().user.claims.role === "owner") ||
+      (C().owner && C().owner.verified === true)));
   const displayed = () => N() && N().currentPanel && N().currentPanel() === "inventory";
   function render() {
     if (!owner()) return "";
