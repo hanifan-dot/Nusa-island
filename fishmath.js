@@ -11,7 +11,8 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 // ---- Harga: berat > 100 kg dikompres supaya ikan raksasa tidak merusak ekonomi ----
 const FULL_PRICE_KG = 100, PRICE_EXP = 0.7;
 function effectiveKg(w) { return w <= FULL_PRICE_KG ? w : FULL_PRICE_KG + Math.pow(w - FULL_PRICE_KG, PRICE_EXP); }
-function priceFor(fish, w, mult, scale) { return Math.max(1, Math.round(fish.price * scale * effectiveKg(w) * mult)); }
+const FISH_SALE_MULT = 0.8; // -20% koin dari penjualan ikan; hadiah pelepasan ikan dilindungi tetap.
+function priceFor(fish, w, mult, scale) { return Math.max(1, Math.round(fish.price * scale * effectiveKg(w) * mult * FISH_SALE_MULT)); }
 
 // ---- Berat ikan: kecil paling sering; ekstrem sangat langka (hanya spesies tertentu) ----
 // Rentang biasa: wMin..wMax dengan kurva pangkat 2,3 (seperti dulu). Spesies yang punya xMax/xP
