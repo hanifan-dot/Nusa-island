@@ -7,7 +7,7 @@ const cloud = { enabled: true, user: { uid: "owner-test", claims: { role: "owner
   owner: { verified: false }, onChange: () => {} };
 const NW = { cloud, eventDraw: { icon: () => {} } };
 const window = { NW, NusaApi: { enabled: () => true, call: async (name, args, auth) => {
-  assert.equal(name, "ownerShowcaseClaim"); assert.deepEqual(args, {}); assert.equal(auth, true);
+  assert.equal(name, "ownerShowcaseClaim"); assert.equal(Object.keys(args).length, 0); assert.equal(auth, true);
   calls++;
   return { owned: true, newlyGranted: calls === 1,
     item: { id: "megalodon_20261101", quantity: 1, weightKg: 50000, nonSellable: true, locked: true } };
