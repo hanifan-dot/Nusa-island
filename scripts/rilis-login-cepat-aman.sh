@@ -70,17 +70,23 @@ files = sorted(x for x in root.rglob("*") if x.is_file() and x.relative_to(root)
 site = os.environ["SITE"].rstrip("/")
 def check(p):
     rel = p.relative_to(root).as_posix()
-    try:
-        req = urllib.request.Request(site + "/" + urllib.parse.quote(rel, safe="/"),
-            headers={"Cache-Control": "no-cache", "Pragma": "no-cache"})
-        with urllib.request.urlopen(req, timeout=25) as response:
-            remote = response.read()
-        if remote != p.read_bytes():
-            return rel + " (isi beda / LIVE diperbarui)"
-    except Exception as e:
-        return rel + " (" + str(e)[:130] + ")"
-    return None
-with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+    req = urllib.request.Request(site + "/" + urllib.parse.quote(rel, safe="/"),
+        headers={"Cache-Control": "no-cache", "Pragma": "no-cache"})
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(req, timeout=25) as response:
+                remote = response.read()
+            if remote != p.read_bytes():
+                return rel + " (isi beda / LIVE diperbarui)"
+            return None
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            if attempt == 3:
+                return rel + " (gagal akses setelah 4 kali: " + str(e)[:130] + ")"
+            time.sleep(2 * (attempt + 1))
+        except Exception as e:
+            return rel + " (" + str(e)[:130] + ")"
+    return rel + " (gagal tanpa hasil)"
+with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
     mismatches = [v for v in pool.map(check, files) if v]
 print(f"Dibandingkan {len(files)} aset. Berbeda/gagal: {len(mismatches)}")
 for x in mismatches[:15]: print(" - " + x, file=sys.stderr)
