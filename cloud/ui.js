@@ -43,20 +43,20 @@
             <p class="tag">Hidup di pulau, mancing keliling Nusantara 🎣</p>
             <div class="gate-load" id="gateLoad"><i></i><span>Memeriksa akun…</span></div>
             <div class="gate-actions hidden" id="gateActions">
-              <button class="btn big gate-google" id="gateGoogle">${GOOGLE_G}<span>Login dengan Google</span></button>
-              <button class="btn big ghost gate-guest" id="gateGuest">Main sebagai Tamu</button>
+              <button class="btn big gate-guest" id="gateGuest">🎣 MAIN SEKARANG <small>Tanpa daftar · coba game dulu</small></button>
+              <button class="btn big gate-google" id="gateGoogle">${GOOGLE_G}<span>Masuk dengan Google</span></button>
             </div>
             <p class="gate-msg" id="gateMsg" role="status" aria-live="polite"></p>
-            <p class="small gate-note">Login Google menyimpan progresmu di cloud dan bisa dipakai di HP lain.</p>
+            <p class="small gate-note">Main Sekarang menyimpan progres hanya di browser ini. Untuk menyimpan di cloud dan bermain lintas perangkat, hubungkan Google lewat Profil Nelayan.</p>
             ${cloud.demo ? `<p class="gate-demo">MODE DEMO — login & cloud hanya simulasi di browser ini</p>` : ""}
           </div>`;
         document.body.appendChild(gate);
         $("gateGoogle").addEventListener("click", onGoogle);
-        $("gateGuest").addEventListener("click", showGuestWarn);
+        $("gateGuest").addEventListener("click", () => { cloud.guest(); ui.hideGate(); });
         return gate;
       }
       const msg = (t) => { const m = $("gateMsg"); if (m) m.textContent = t || ""; };
-      const busy = (b) => { for (const id of ["gateGoogle", "gateGuest"]) { const el = $(id); if (el) el.disabled = !!b; } const s = document.querySelector("#gateGoogle span"); if (s) s.textContent = b ? "Menunggu Google…" : "Login dengan Google"; };
+      const busy = (b) => { for (const id of ["gateGoogle", "gateGuest"]) { const el = $(id); if (el) el.disabled = !!b; } const s = document.querySelector("#gateGoogle span"); if (s) s.textContent = b ? "Menunggu Google…" : "Masuk dengan Google"; };
       ui.showGate = (state, message) => {
         build(); clearTimeout(gateTimer); gate.classList.remove("hidden", "out");
         const loading = state === "loading";
