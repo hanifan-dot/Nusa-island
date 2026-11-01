@@ -12,7 +12,8 @@ const F = (id) => FISH.find((f) => f.id === id);
 
 // --- harga ---
 const m = F("marlin");
-ok("harga ≤ 100 kg = rumus lama", [1, 20, 80, 100].every((w) => FM.priceFor(m, w, 1, 3) === Math.round(m.price * 3 * w)));
+ok("nerf harga jual -20% (≤100 kg)", [1, 20, 80, 100].every((w) => FM.priceFor(m, w, 1, 3) === Math.round(m.price * 3 * w * 0.8)));
+ok("nerf -20% untuk seluruh spesies (tetap min 1 koin)", FISH.filter((f) => !f.protected).every((f) => [f.wMin, f.wMax].every((w) => FM.priceFor(f, w, 1.1, 3) === Math.max(1, Math.round(f.price * 3 * FM.effectiveKg(w) * 1.1 * 0.8)))));
 ok("harga > 100 kg dikompres tapi tetap naik", [150, 250, 400, 500].every((w, i, a) => !i || FM.priceFor(m, w, 1, 3) > FM.priceFor(m, a[i - 1], 1, 3)) && FM.priceFor(m, 500, 1, 3) < 0.4 * m.price * 3 * 500);
 ok("harga minimal 1 koin", FM.priceFor({ price: 0.001 }, 0.1, 0.7, 3) >= 1);
 ok("effectiveKg kontinu di 100 kg", FM.effectiveKg(100) === 100 && Math.abs(FM.effectiveKg(100.001) - 100.001) < 0.01);
