@@ -14,7 +14,7 @@ grep -Fq 'FISH_SALE_MULT = 0.8' fishmath.js || die "Rumus jual ikan -20% tidak a
 grep -Fq 'FISH_SALE_MULT = 0.8' firebase/functions/lib/fishmath.js || die "Fallback Functions belum disinkron."
 grep -Fq 'S.hour' game.js || die "Kode game tidak sesuai rilis yang diharapkan."
 grep -Fq 'HouseRoom' cf-multiplayer/src/index.js || die "Fitur rumah multiplayer tidak ada."
-grep -Fq '64' mp/lobby-core.js || die "Server otomatis 64 belum dibawa."
+grep -Fq 'const MAX_ROOMS = 64;' mp/proto.js || die "Server otomatis 64 belum dibawa."
 [ -s shop/qris.png ] || die "QRIS game hilang."
 SITE="https://nusa-island-d2023.web.app"
 PROJECT="nusa-island-d2023"
