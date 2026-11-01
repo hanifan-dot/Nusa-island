@@ -60,6 +60,7 @@ function panelHTML() {
     </div>
     <div class="mp-h-row"><h4 class="mp-h">Daftar server</h4><button class="btn small" data-act="mpRefresh">↻ Segarkan</button></div>
     <div class="sv-grid">${chips || `<div class="muted" style="grid-column:1/-1;padding:4px 2px">Ketuk ↻ Segarkan untuk melihat isi tiap server.</div>`}</div>
+    <div class="muted mp-fine">12 server awal; server 13 dan berikutnya muncul otomatis jika semua server terbuka penuh (maks. 64). Ketuk ↻ Segarkan untuk melihat server baru.</div>
     <h4 class="mp-h">Di server ini</h4><div class="mp-list">${online ? `<div class="mp-row me"><span>🧑‍🎣 Kamu</span><span class="muted">${v.n} online</span></div>${list || '<div class="muted" style="padding:6px 2px">Belum ada pemain lain yang terlihat. Pemain hanya tampil bila benar-benar online.</div>'}` : '<div class="muted" style="padding:6px 2px">Tidak tersambung.</div>'}</div>
     <h4 class="mp-h">Pengaturan</h4>
     <label class="mp-sw"><input type="checkbox" data-pref="on" ${p.on ? "checked" : ""}><span>Aktifkan Dunia Bersama</span></label>
