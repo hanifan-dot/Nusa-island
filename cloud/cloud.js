@@ -18,6 +18,8 @@
   const BAK_PREFIX = "nusa-island-v1-bak-", BAK_KEEP = 6;
   const WK = !!(window.NusaApi && window.NusaApi.enabled());   // mode Worker (kuota gratis Firestore 20.000 tulis/hari) → tulis & baca lebih jarang
   const PUSH_DELAY = WK ? 60000 : 6000, REMOTE_POLL = WK ? 300000 : 60000, CALL_TIMEOUT = 15000, SIM_COINS = 9e9;
+  const GUEST_REMIND_AFTER = 15 * 60000;  // hanya sekali per sesi tamu, tidak mengganggu pemain tiap 15 menit
+  let guestReminder = null;
   const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } };
   const lsDel = (k) => { try { localStorage.removeItem(k); } catch (e) {} };
@@ -275,7 +277,29 @@
     const res = await afterLogin(user);
     return { result: res, user };
   }
-  cloud.guest = () => { writeMeta({ mode: "guest", uid: null }); setStatus("guest", ""); };
+  // Tamu cepat = mode lokal yang SUDAH ADA, bukan akun Google/anonim server.
+  // Jangan mengarang Cloud Save atau memberi akses ke hadiah event / transaksi koin server.
+  function guestReminderOnce() {
+    clearTimeout(guestReminder);
+    const m = readMeta();
+    if (m.mode !== "guest" || m.guestReminded) return;
+    const since = Number.isFinite(m.guestSince) && m.guestSince > 0 ? m.guestSince : Date.now();
+    if (!m.guestSince) writeMeta({ guestSince: since });
+    const remind = () => {
+      if (cloud.user || cloud.status !== "guest") return;
+      if (typeof document !== "undefined" && document.hidden) { guestReminder = setTimeout(remind, 30000); return; }
+      writeMeta({ guestReminded: true });
+      toast("☁️ Hubungkan Google lewat Profil Nelayan agar progres bisa disimpan di cloud. Main tetap bisa dilanjutkan!", "good");
+    };
+    guestReminder = setTimeout(remind, Math.max(0, GUEST_REMIND_AFTER - (Date.now() - since)));
+  }
+  cloud.guest = () => {
+    const m = readMeta(), continuing = m.mode === "guest";
+    writeMeta({ mode: "guest", uid: null, guestSince: continuing && m.guestSince ? m.guestSince : Date.now(),
+      guestReminded: continuing && m.guestReminded === true });
+    setStatus("guest", "");
+    guestReminderOnce();
+  };
   cloud.logout = async () => {
     if (syncActive && dirty) { const r = await push(); if (r && r.error) { const okOut = cloud.ui && cloud.ui.confirm ? await cloud.ui.confirm("Ada perubahan yang belum tersinkron. Tetap logout? Progres tetap dicadangkan di perangkat ini.", "Tetap Logout") : true; if (!okOut) return false; } }
     const raw = localRaw(), uid = cloud.user && cloud.user.uid;
@@ -336,7 +360,7 @@
         if (sandbox) return bootSandbox(user);
         if (user) cloud.user = user;
         adapter.onAuth && adapter.onAuth((u) => { if (!u && cloud.user && syncActive) { syncActive = false; setStatus("auth", "Sesi login berakhir."); } });
-        if (meta.mode === "guest") { setStatus("guest"); cloud.ui && cloud.ui.hideGate(); if (user) verifyOwner(); return; }
+        if (meta.mode === "guest") { setStatus("guest"); cloud.ui && cloud.ui.hideGate(); guestReminderOnce(); if (user) verifyOwner(); return; }
         if (user && meta.mode === "google" && meta.uid === user.uid) {
           cloud.ui && cloud.ui.hideGate(); verifyOwner();
           await afterLogin(user); return;      // satu alur untuk semua kasus (sinkron / tarik dari perangkat lain / konflik / offline)
