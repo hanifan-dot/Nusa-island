@@ -1,0 +1,12 @@
+/* Koleksi Owner Megalodon 50 ton: bagian tersendiri, di luar Coolbox biasa. */
+.owner-fish-box { margin: 2px 0 16px; padding: 15px; border: 2px solid #d4aa53; border-radius: 17px;
+  background: linear-gradient(145deg, #123956, #092438 70%, #142d48); color: #f8f0d6;
+  box-shadow: 0 5px 20px rgba(8, 26, 45, .2); text-align: center; display: flex; align-items: center; flex-direction: column; gap: 8px; }
+.owner-fish-box .muted { color: #cde0e3; font-size: 12px; margin: 0 0 3px; }
+.owner-fish-box .owner-fish-tag { color: #ffe0a0; font-size: 11px; font-weight: 800; letter-spacing: 1px; }
+.owner-fish-box canvas { width: min(100%, 320px); height: auto; max-height: 142px; border-radius: 12px; }
+.owner-fish-box strong { font-size: 17px; line-height: 1.3; }
+.owner-fish-box .owner-fish-weight { color: #ffd372; font-size: 24px; font-weight: 900; }
+.owner-fish-box .owner-fish-ok { color: #baf7d9; font-size: 12px; margin: 0; }
+.owner-fish-box .owner-fish-error { color: #ffd3bd; font-size: 12px; margin: 0; }
+.owner-fish-box .btn { min-height: 40px; }

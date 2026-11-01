@@ -94,7 +94,7 @@ function capBar() {
 }
 function invHTML() {
   const cnt = S().cooler.length;
-  let h = `<div class="inv-head">${capBar()}
+  let h = `${NW.ownerShowcase ? NW.ownerShowcase.render() : ""}<div class="inv-head">${capBar()}
     <input id="invSearch" class="name-input" type="search" inputmode="search" placeholder="Cari ikan atau kelangkaan…" value="${esc(V.q)}" aria-label="Cari ikan" autocomplete="off">
     <div class="chips" role="group" aria-label="Urutkan">${SORTS.map(([k, n]) => `<button class="chip-b ${V.sort === k ? "on" : ""}" data-act="invSort" data-arg="${k}">${n}${V.sort === k ? (V.dir > 0 ? " ↓" : " ↑") : ""}</button>`).join("")}</div>
     <div class="chips" role="group" aria-label="Filter">${FILTERS.map(([k, n]) => `<button class="chip-b ${V.filter === k ? "on" : ""}" data-act="invFilter" data-arg="${k}">${n}</button>`).join("")}</div></div>`;
@@ -103,6 +103,7 @@ function invHTML() {
   return h;
 }
 function invAfter() {
+  if (NW.ownerShowcase) NW.ownerShowcase.after();
   refreshList();
   closeDetail();
 }
@@ -156,6 +157,7 @@ function closeDetail() { V.detail = null; closeSheet(); }
 function redrawDetail() { const it = S().cooler.find((x) => x.uid === V.detail); if (!it) return closeDetail(); const d = $("invDetail"); if (d) d.innerHTML = detailHTML(it); }
 
 function invAct(a, arg) {
+  if (NW.ownerShowcase && (a === "ownerFishRetry" || a === "ownerFishShare")) { NW.ownerShowcase.action(a); return; }
   if (a === "invSort") { if (V.sort === arg) V.dir = -V.dir; else { V.sort = arg; V.dir = 1; } N().sfx("click"); N().renderPanel(); }
   else if (a === "invFilter") { V.filter = arg; N().sfx("click"); N().renderPanel(); }
   else if (a === "invOpen") openDetail(arg);
