@@ -1514,6 +1514,7 @@ NW.life.hook(); NW.home.hook(); // Tahap 2A: misi harian & Rumahku
 NW.story.hook(isNewPlayer);     // Bumbu 1: cerita, keahlian, petunjuk pemain baru
 NW.look.hook();                 // Bumbu 1.1: gelar tangkapan & nama pemain lokal
 NW.inv.hook();                  // Bumbu 1.2: inventaris & pasar
+if (NW.ownerShowcase) NW.ownerShowcase.hook();  // 1 Megalodon pajangan khusus akun Owner; bukan ikan pasar
 NW.hold.hook();                 // Bumbu 1.2: pamer ikan
 NW.adv.hook(isNewPlayer);       // Bumbu 2: Buku Petualangan, penemuan tempat, perjalanan antardaerah
 if (NW.audioDirector) NW.audioDirector.hook(); // Bumbu 2.1: pengarah musik & suasana
