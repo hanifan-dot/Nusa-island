@@ -7,7 +7,9 @@ const css = fs.readFileSync('cloud/cloud.css', 'utf8');
 const source = fs.readFileSync('cloud/cloud.js', 'utf8');
 
 assert(ui.indexOf('id="gateGuest"') < ui.indexOf('id="gateGoogle"'), 'Main Sekarang harus jadi CTA pertama');
-assert.match(ui, /gateGuest"\)\.addEventListener\("click", \(\) => \{ cloud\.guest\(\); ui\.hideGate\(\); \}\);/);
+assert.match(ui, /if \(cloud\.meta\(\)\.mode === "guest"\) \{ cloud\.guest\(\); ui\.hideGate\(\); \}/, 'tamu lama bisa lanjut tanpa ulang peringatan');
+assert.match(ui, /else showGuestWarn\(\)/, 'pemain baru harus membaca peringatan terlebih dahulu');
+assert.match(ui, /Instagram lalu berganti ke Chrome/, 'risiko beda browser dijelaskan');
 assert.match(ui, /hanya di browser ini/);
 assert.match(css, /\.gate-guest \{/);
 
@@ -63,5 +65,5 @@ vm.runInNewContext(source, sandbox, { filename: 'cloud/cloud.js' });
   assert.equal(JSON.parse(store.getItem('nusa-auth-v1')).guestReminded, true);
   NW.cloud.guest();
   assert.equal(notifications.length, 1);
-  console.log('PASS: Main Sekarang satu ketukan, progres lokal aman, 0 panggilan backend, pengingat sekali 15 menit.');
+  console.log('PASS: guest warning first entry, return guest one tap, local progress safe, 0 backend calls, reminder once.');
 })().catch((e) => { console.error(e); process.exitCode = 1; });
