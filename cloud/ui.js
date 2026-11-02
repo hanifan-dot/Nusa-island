@@ -43,7 +43,7 @@
             <p class="tag">Hidup di pulau, mancing keliling Nusantara 🎣</p>
             <div class="gate-load" id="gateLoad"><i></i><span>Memeriksa akun…</span></div>
             <div class="gate-actions hidden" id="gateActions">
-              <button class="btn big gate-guest" id="gateGuest">🎣 MAIN SEKARANG <small>Tanpa daftar · coba game dulu</small></button>
+              <button class="btn big gate-guest" id="gateGuest">🎣 MAIN SEKARANG <small>Mode tamu · progres hanya di browser ini</small></button>
               <button class="btn big gate-google" id="gateGoogle">${GOOGLE_G}<span>Masuk dengan Google</span></button>
             </div>
             <p class="gate-msg" id="gateMsg" role="status" aria-live="polite"></p>
@@ -52,7 +52,12 @@
           </div>`;
         document.body.appendChild(gate);
         $("gateGoogle").addEventListener("click", onGoogle);
-        $("gateGuest").addEventListener("click", () => { cloud.guest(); ui.hideGate(); });
+        $("gateGuest").addEventListener("click", () => {
+          // Pengguna baru wajib membaca peringatan risiko data tamu. Tamu lama tetap bisa lanjut cepat.
+          // Jangan mulai sinkronisasi atau mengubah save tanpa persetujuan pemain.
+          if (cloud.meta().mode === "guest") { cloud.guest(); ui.hideGate(); }
+          else showGuestWarn();
+        });
         return gate;
       }
       const msg = (t) => { const m = $("gateMsg"); if (m) m.textContent = t || ""; };
@@ -87,8 +92,8 @@
           <button class="close gw-x" id="gwClose" aria-label="Tutup dan kembali ke halaman login">✕</button>
           <h3 id="gwTitle">⚠️ PERINGATAN DATA TAMU</h3>
           <p>Anda akan bermain tanpa akun Google. Progres permainan hanya tersimpan di perangkat ini.</p>
-          <p>Jika data browser terhapus, perangkat rusak, atau Anda mengganti HP, progres permainan berisiko hilang.</p>
-          <p><b>Kami menyarankan Login Google agar progres tersimpan di cloud.</b></p>
+          <p><b>PENTING:</b> Jika membuka dari Instagram lalu berganti ke Chrome, datanya bisa tampak mulai dari nol karena penyimpanan kedua browser terpisah. Jangan hapus data browser yang dipakai bermain.</p><p>Jika data browser terhapus atau Anda pindah perangkat, progres tamu dapat hilang.</p>
+          <p><b>Untuk melindungi hasil tangkapan, rumah, dan pembelian dari koin permainan, sambungkan Google di Profil Nelayan. Jangan berasumsi progres tamu otomatis tersimpan online.</b></p>
           <div class="cbtns"><button class="btn" id="gwContinue">Lanjut Main</button><button class="btn gold" id="gwBack">Kembali Login Google</button></div>
         </div>`;
         document.body.appendChild(w);
