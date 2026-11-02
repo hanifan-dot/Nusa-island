@@ -262,6 +262,14 @@
 
   // ---- publik: login / logout ----
   cloud.signInGoogle = async () => {
+    // INSIDEN 3 Nov: bermain sebagai tamu menghasilkan uang/upgrade lokal,
+    // tetapi ekonomi server tidak menerima migrasi nilai tamu tanpa snapshot tepercaya.
+    // JANGAN mengubah identitas sampai jalur migrasi aman tersedia.
+    const metaBefore = readMeta(), guestRaw = localRaw();
+    if (metaBefore.mode === "guest" && progressOf(guestRaw) && !sandbox) {
+      return { error: "guest-migration-paused",
+        message: "Demi keamanan progres ikan, koin, dan joran, penyambungan Google untuk tamu yang sudah bermain sementara ditunda. Tetap gunakan browser yang sama, jangan hapus datanya. Hubungi pengelola Nusa Island untuk bantuan." };
+    }
     try {
       const user = await adapter.signInGoogle();
       return await onUser(user, true);
