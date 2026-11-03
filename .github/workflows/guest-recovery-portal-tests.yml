@@ -20,6 +20,7 @@ jobs:
           node-version: '22'
       - name: Recovery portal and existing Cloud tests
         run: |
+          bash -n scripts/rilis-portal-pemulihan-saja.sh
           node tests/unit-recovery-portal.js
           node tests/unit-rescue-page.js
           node tests/unit-cloud.js
