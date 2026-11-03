@@ -37,6 +37,7 @@
     enabled, adapter, sandbox, demo: !!(adapter && adapter.isDemo),
     KEY: sandbox ? SBX_KEY : KEY,
     user: null, status: enabled ? "init" : "off", lastError: "", lastSyncAt: 0,
+    loginReady: false, // true hanya setelah alur pemilihan/unggah/pengambilan Cloud tuntas
     owner: { verified: false }, saveFrozen: false, ui: null, remoteNewer: false,
     SIM_COINS, listeners: [],
   };
@@ -44,7 +45,12 @@
   const metaKey = () => (sandbox ? SBX_META_KEY : META_KEY);
   const emitChange = () => cloud.listeners.forEach((f) => { try { f(); } catch (e) {} });
   cloud.onChange = (f) => cloud.listeners.push(f);
-  const setStatus = (s, err) => { cloud.status = s; if (err !== undefined) cloud.lastError = err; emitChange(); };
+  const setStatus = (s, err) => {
+    cloud.status = s;
+    if (s === "guest" || s === "auth" || s === "conflict") cloud.loginReady = false;
+    if (err !== undefined) cloud.lastError = err;
+    emitChange();
+  };
 
   // ---- meta (milik perangkat ini; tanpa email) ----
   function readMeta() {
@@ -178,7 +184,7 @@
   };
 
   function startSync() {
-    syncActive = true; setStatus("idle", "");
+    syncActive = true; cloud.loginReady = true; setStatus("idle", "");
     if (!listening) { listening = true; wire(); }
     push().then(checkRemote);
   }
@@ -219,6 +225,7 @@
 
   // ---- alur setelah login berhasil ----
   async function afterLogin(user) {
+    cloud.loginReady = false;
     cloud.user = user; const meta = readMeta();
     setStatus("syncing");
     let C;
@@ -367,7 +374,7 @@
         const user = adapter.currentUser(), meta = readMeta();
         if (sandbox) return bootSandbox(user);
         if (user) cloud.user = user;
-        adapter.onAuth && adapter.onAuth((u) => { if (!u && cloud.user && syncActive) { syncActive = false; setStatus("auth", "Sesi login berakhir."); } });
+        adapter.onAuth && adapter.onAuth((u) => { if (!u && cloud.user && syncActive) { syncActive = false; cloud.loginReady = false; setStatus("auth", "Sesi login berakhir."); } });
         if (meta.mode === "guest") { setStatus("guest"); cloud.ui && cloud.ui.hideGate(); guestReminderOnce(); if (user) verifyOwner(); return; }
         if (user && meta.mode === "google" && meta.uid === user.uid) {
           cloud.ui && cloud.ui.hideGate(); verifyOwner();
