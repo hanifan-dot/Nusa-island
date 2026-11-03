@@ -8,7 +8,7 @@ const vm = require('node:vm');
 const callbacks = [];
 let calls = 0;
 const save = { money: 1700, up: { rod: 2, bait: 0, cooler: 0, boat: 1 }, cooler: [] };
-const cloud = { enabled: true, user: { uid: 'google-u1' }, status: 'guest',
+const cloud = { enabled: true, loginReady: false, user: { uid: 'google-u1' }, status: 'guest',
   sandbox: false, meta: () => ({ mode: 'guest', uid: null }) };
 const NW = { cloud, shopApi: {
   live: true, sim: false, isGuest: () => false,
@@ -45,6 +45,7 @@ const next = () => new Promise(resolve => setImmediate(resolve));
   assert.equal(calls, 0, 'sinkronisasi login belum selesai, ekonomi harus menunggu');
 
   cloud.status = 'idle';
+  cloud.loginReady = true;
   cloud.meta = () => ({ mode: 'google', uid: 'other-uid' });
   tick.fn();
   await next();
@@ -54,5 +55,9 @@ const next = () => new Promise(resolve => setImmediate(resolve));
   tick.fn();
   await next();
   assert.equal(calls, 1, 'akun Google yang sinkron boleh membaca ekonomi');
+  cloud.status = 'syncing';
+  tick.fn();
+  await next();
+  assert.equal(calls, 2, 'sinkronisasi rutin setelah login tidak mematikan ekonomi server');
   console.log('PASS: ekonomi server ditahan selama mode tamu/sinkronisasi/UID salah.');
 })().catch(e => { console.error(e); process.exitCode = 1; });
