@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Ajukan Pemulihan — Nusa Island</title>
+<style>
+:root{font-family:system-ui;color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#08211e;color:#f2fff9;padding:18px}main{max-width:620px;margin:auto}
+h1{font-size:1.5rem}h2{font-size:1.07rem}.panel{padding:18px;margin:14px 0;background:#10362f;border:1px solid #287965;border-radius:14px}
+p,li{line-height:1.55}.muted{color:#c4e2d8}.warn{border-left:4px solid #f4a35c;padding:12px;background:#4a301c}
+button{background:#2ba983;color:#06271e;border:0;border-radius:10px;padding:14px 16px;font-size:1rem;font-weight:800;cursor:pointer;margin:6px 0;width:100%}
+button:disabled{opacity:.5;cursor:not-allowed}input[type=file]{display:block;width:100%;margin:14px 0;padding:10px;border:1px solid #72bca8;border-radius:8px}
+label{display:block;margin-top:12px}#result{white-space:pre-wrap;overflow-wrap:anywhere}.ok{color:#8ff3c7}
+</style>
+</head>
+<body><main>
+<h1>🎣 Selamatkan Progres Nusa Island</h1>
+<p>Halaman untuk meminta bantuan mengembalikan joran, kapal, ikan, dan progres lama.</p>
+<div class="warn">Jangan hapus data browser atau file cadangan. Halaman ini <b>tidak mereset game, tidak mengubah saldo, dan tidak langsung memulihkan data</b>.</div>
+<div class="panel">
+<h2>1. Masuk dengan akun Google yang dipakai di game</h2>
+<p id="who" class="muted">Memeriksa akun…</p>
+<button id="login">Masuk Google</button>
+</div>
+<div class="panel">
+<h2>2. Pilih file yang sudah disimpan</h2>
+<p>Tekan tombol di bawah, lalu pilih file cadangan Nusa Island yang didapat dari <b>Cadangan Nomor 2</b>.</p>
+<input id="file" type="file" accept=".json,application/json">
+<p id="preview" class="muted">Belum ada file dipilih.</p>
+</div>
+<div class="panel">
+<h2>3. Kirim permintaan bantuan</h2>
+<label><input id="consent" type="checkbox"> Saya setuju data progres dari file ini dikirim secara privat ke server Nusa Island untuk diperiksa Owner. Saya memahami file lokal bisa diubah sehingga saldo dan item harus diverifikasi sebelum dipulihkan.</label>
+<button id="submit" disabled>Kirim Permintaan Pemulihan</button>
+<p id="result" role="status" aria-live="polite">Tidak ada data yang dikirim sebelum kamu menekan tombol di atas.</p>
+</div>
+</main>
+<script src="/cloud/config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script>
+(function () {
+  'use strict';
+  const $=id=>document.getElementById(id);
+  let current=null,selected=null;
+  const status=(v)=>{ $('result').textContent=v; };
+  const state=()=>{ $('submit').disabled=!(current && selected && $('consent').checked); };
+  const fb=window.firebase, config=window.NUSA_FIREBASE||{};
+  const api=String(config.apiBase||'');
+  if(!fb || !config.apiKey || !/^https:\/\/nusa-api\.[\w-]+\.workers\.dev$/.test(api)){
+    $('who').textContent='Layanan pemulihan belum tersedia. Jangan hapus file cadangan.';
+    $('login').disabled=true; return;
+  }
+  if (!fb.apps.length)fb.initializeApp(config);
+  const auth=fb.auth();
+  auth.onAuthStateChanged(u=>{current=u;$('who').textContent=u?'Akun Google tersambung: '+(u.displayName||'Nelayan'):'Belum masuk Google';$('login').hidden=!!u;state();});
+  $('login').onclick=async()=>{
+    const provider=new fb.auth.GoogleAuthProvider();
+    provider.setCustomParameters({prompt:'select_account'});
+    try{await auth.signInWithPopup(provider);}
+    catch(e){
+      if(e.code==='auth/popup-blocked'||e.code==='auth/operation-not-supported-in-this-environment'){
+        $('who').textContent='Browser perlu membuka login Google. Setelah masuk, pilih lagi file cadangannya.';
+        await auth.signInWithRedirect(provider);
+      } else $('who').textContent='Login gagal. Coba lagi dengan akun Google yang sama di game.';
+    }
+  };
+  $('file').onchange=async()=>{
+    selected=null;
+    const file=$('file').files?.[0];
+    if(!file){state();return;}
+    if(file.size>450000||file.size<10){$('preview').textContent='Ukuran file tidak sesuai.';state();return;}
+    try{
+      const data=await file.text(), j=JSON.parse(data);
+      if(!j||typeof j!=='object'||Array.isArray(j)||!j.stats||!j.up)throw Error('invalid');
+      const caught=Number(j.stats.caught)||0, money=Number(j.money)||0;
+      if(!Number.isSafeInteger(money)||money<0||!Number.isSafeInteger(caught)||caught<=0)throw Error('invalid');
+      selected=data;
+      $('preview').textContent='File ditemukan: '+money.toLocaleString('id-ID')+' koin · '+caught.toLocaleString('id-ID')+' tangkapan · Joran level '+((Number(j.up.rod)||0)+1)+' · Kapal level '+((Number(j.up.boat)||0)+1)+'. Cocokkan dengan cadangan lama.';
+    }catch(e){$('preview').textContent='File belum terbaca. Pilih file cadangan Nusa Island yang benar.';}
+    state();
+  };
+  $('consent').onchange=state;
+  $('submit').onclick=async()=>{
+    if(!selected||!current||!$('consent').checked)return;
+    $('submit').disabled=true;status('Mengirim permintaan untuk diperiksa…');
+    try{
+      const idToken=await current.getIdToken();
+      const res=await fetch(api+'/fn/recoveryRequest',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+idToken},body:JSON.stringify({data:{data:selected}})});
+      const j=await res.json();
+      if(!res.ok||!j.result?.pending)throw Error(j.error?.message||'Tidak berhasil');
+      status('✅ Permintaan diterima. Progres belum otomatis kembali. Owner akan memeriksa. Jangan hapus file cadangan dan jangan sinkronkan game dulu.');
+    }catch(e){status('Permintaan belum terkirim: '+String(e.message).slice(0,140)+'. File cadangan tetap aman di HP.');state();}
+  };
+})();
+</script></body></html>
