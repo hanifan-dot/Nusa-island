@@ -13,7 +13,7 @@ git fetch -q origin "$B" || die "Tidak bisa mengecek baseline"
 git merge-base --is-ancestor "origin/$B" HEAD || die "Baseline telah berubah"
 while IFS= read -r p; do
   [ -z "$p" ] && continue
-  case "$p" in selamatkan-data.html|scripts/rilis-inspeksi-data.sh) ;; *) die "Perubahan selain halaman diagnosis: $p";; esac
+  case "$p" in selamatkan-data.html|scripts/rilis-inspeksi-data.sh|tests/unit-rescue-page.js) ;; *) die "Perubahan selain halaman diagnosis: $p";; esac
 done < <(git diff --name-only "origin/$B"...HEAD)
 
 echo "[1/5] Uji dan syntax"
@@ -23,6 +23,7 @@ const m=s.match(/<script>([\s\S]*?)<\/script>/);
 if(!m || !s.includes("connect-src") || !s.includes("nusa-island-v1")) process.exit(2);
 new vm.Script(m[1]); console.log("Halaman dapat diparsing.");
 ' || die "Syntax HTML/JS gagal"
+node tests/unit-rescue-page.js || die "Tes pemeriksa cadangan gagal"
 node tests/unit-cloud.js > /tmp/nusa-rescue.log 2>&1 || { tail -15 /tmp/nusa-rescue.log; die "Uji Cloud Save gagal"; }
 node tests/unit-owner-showcase.js > /tmp/nusa-rescue.log 2>&1 || { tail -15 /tmp/nusa-rescue.log; die "Uji Owner gagal"; }
 node firebase/scripts/cek-rilis.js || die "Manifest gagal"
