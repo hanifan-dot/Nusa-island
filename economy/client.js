@@ -12,13 +12,14 @@ const A = () => NW.shopApi;
 let st = null, busy = false, booting = false, q = [], rq = [], lastErr = "", inflight = null, timer = null;
 const schedule = (ms) => { if (timer) return; timer = setTimeout(() => { timer = null; flush(); }, ms); };
 const rid = () => "E" + Date.now().toString(36) + Math.floor(Math.random() * 1e9).toString(36) + Math.floor(Math.random() * 1e9).toString(36);
-// Ekonomi server hanya aktif setelah Cloud Save menyelesaikan proses login akun yang sama.
-// Hindari ecoInit saat pemain masih mode tamu / sedang memilih progres: nilai lokal dapat tertimpa server.
+// Ekonomi server baru boleh aktif ketika Cloud Save benar-benar menyelesaikan pemilihan
+// atau pengunggahan progres untuk UID yang sama. 'syncing' rutin setelah login sah BOLEH,
+// sehingga transaksi normal tidak jatuh ke fallback lokal saat jadwal Cloud Save berjalan.
 const live = () => {
   const a = A(), c = NW.cloud;
-  const verifiedSession = !!(c && c.enabled && c.user && c.meta &&
-    c.meta().mode === "google" && c.meta().uid === c.user.uid &&
-    (c.status === "idle" || c.status === "dirty") && !c.sandbox);
+  const verifiedSession = !!(c && c.enabled && c.loginReady === true &&
+    c.user && c.meta && c.meta().mode === "google" && c.meta().uid === c.user.uid &&
+    c.status !== "conflict" && !c.sandbox);
   return !!(a && a.live && !a.sim && !a.isGuest() && verifiedSession);
 };
 const active = () => !!(st && st.init && live());
