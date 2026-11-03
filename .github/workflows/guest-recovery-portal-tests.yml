@@ -1,0 +1,26 @@
+name: Recovery portal tests (no deploy)
+on:
+  push:
+    branches: [fitur/portal-pemulihan-20261103]
+  pull_request:
+    paths:
+      - ajukan-pemulihan.html
+      - firebase/scripts/build-hosting.sh
+      - tests/unit-recovery-portal.js
+permissions:
+  contents: read
+jobs:
+  test-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Recovery portal and existing Cloud tests
+        run: |
+          node tests/unit-recovery-portal.js
+          node tests/unit-rescue-page.js
+          node tests/unit-cloud.js
+          node firebase/scripts/cek-rilis.js
