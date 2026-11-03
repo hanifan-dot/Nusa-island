@@ -43,7 +43,7 @@
             <p class="tag">Hidup di pulau, mancing keliling Nusantara 🎣</p>
             <div class="gate-load" id="gateLoad"><i></i><span>Memeriksa akun…</span></div>
             <div class="gate-actions hidden" id="gateActions">
-              <button class="btn big gate-guest" id="gateGuest">🎣 MAIN SEKARANG <small>Tanpa daftar · coba game dulu</small></button>
+              <button class="btn big gate-guest" id="gateGuest">🎣 MAIN SEKARANG <small>Mode tamu · progres hanya di browser ini</small></button>
               <button class="btn big gate-google" id="gateGoogle">${GOOGLE_G}<span>Masuk dengan Google</span></button>
             </div>
             <p class="gate-msg" id="gateMsg" role="status" aria-live="polite"></p>
@@ -52,7 +52,12 @@
           </div>`;
         document.body.appendChild(gate);
         $("gateGoogle").addEventListener("click", onGoogle);
-        $("gateGuest").addEventListener("click", () => { cloud.guest(); ui.hideGate(); });
+        $("gateGuest").addEventListener("click", () => {
+          // Pengguna baru wajib membaca peringatan risiko data tamu. Tamu lama tetap bisa lanjut cepat.
+          // Jangan mulai sinkronisasi atau mengubah save tanpa persetujuan pemain.
+          if (cloud.meta().mode === "guest") { cloud.guest(); ui.hideGate(); }
+          else showGuestWarn();
+        });
         return gate;
       }
       const msg = (t) => { const m = $("gateMsg"); if (m) m.textContent = t || ""; };
@@ -87,8 +92,8 @@
           <button class="close gw-x" id="gwClose" aria-label="Tutup dan kembali ke halaman login">✕</button>
           <h3 id="gwTitle">⚠️ PERINGATAN DATA TAMU</h3>
           <p>Anda akan bermain tanpa akun Google. Progres permainan hanya tersimpan di perangkat ini.</p>
-          <p>Jika data browser terhapus, perangkat rusak, atau Anda mengganti HP, progres permainan berisiko hilang.</p>
-          <p><b>Kami menyarankan Login Google agar progres tersimpan di cloud.</b></p>
+          <p><b>PENTING:</b> Jika membuka dari Instagram lalu berganti ke Chrome, datanya bisa tampak mulai dari nol karena penyimpanan kedua browser terpisah. Jangan hapus data browser yang dipakai bermain.</p><p>Jika data browser terhapus atau Anda pindah perangkat, progres tamu dapat hilang.</p>
+          <p><b>Untuk melindungi hasil tangkapan, rumah, dan pembelian dari koin permainan, sambungkan Google di Profil Nelayan. Jangan berasumsi progres tamu otomatis tersimpan online.</b></p>
           <div class="cbtns"><button class="btn" id="gwContinue">Lanjut Main</button><button class="btn gold" id="gwBack">Kembali Login Google</button></div>
         </div>`;
         document.body.appendChild(w);
@@ -120,6 +125,51 @@
         document.body.appendChild(w);
       });
       ui.notice = (m) => { msg(m); };
+
+      // Pengecekan darurat, read-only: cari cadangan lokal yang sudah ada.
+      // Tidak melakukan login, sinkronisasi, restore, export, maupun penulisan data.
+      function inspectLocalBackups() {
+        if ($("backupInspect")) return;
+        const entries = [];
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key || !(key === "nusa-island-v1" || key.startsWith("nusa-island-v1-bak-") ||
+                key.startsWith("nusa-island-v1-backup-"))) continue;
+            const raw = localStorage.getItem(key);
+            if (!raw) continue;
+            let data;
+            try { data = JSON.parse(raw); } catch (e) { continue; }
+            if (!data || typeof data !== "object" || Array.isArray(data)) continue;
+            const picked = data.stats || {}, up = data.up || {};
+            const money = Number.isFinite(data.money) ? data.money : 0;
+            const caught = Number.isFinite(picked.caught) ? picked.caught : 0;
+            const rod = Number.isInteger(up.rod) ? up.rod + 1 : 1;
+            const cooler = Array.isArray(data.cooler) ? data.cooler : [];
+            const tuna = cooler.filter(x => x && typeof x.id === "string" && /tuna/i.test(x.id)).length;
+            entries.push({ isCurrent: key === "nusa-island-v1", money, caught, rod,
+              fish: cooler.length, tuna, time: Number((key.match(/-(\d{13})$/) || [])[1]) || null });
+          }
+        } catch (e) { /* data browser mungkin dibatasi */ }
+        entries.sort((a, b) => (a.isCurrent === b.isCurrent ? (b.time || 0) - (a.time || 0) : a.isCurrent ? -1 : 1));
+        const w = document.createElement("div");
+        w.id = "backupInspect"; w.className = "cmodal"; w.setAttribute("role", "dialog");
+        w.setAttribute("aria-modal", "true");
+        w.innerHTML = '<div class="cbox wide"><h3>🔎 Periksa Cadangan Progres</h3>' +
+          '<p>Hanya membaca penyimpanan browser ini. Tidak mengubah progres, saldo atau Cloud Save.</p>' +
+          (entries.length
+            ? entries.slice(0, 20).map((e, i) => '<div class="src-card"><b>' +
+                (e.isCurrent ? 'Progres saat ini' : 'Cadangan ' + i) + '</b><p>' +
+                (e.time ? new Date(e.time).toLocaleString("id-ID") + ' · ' : '') +
+                '🪙 ' + fmt(e.money) + ' · 🎣 ' + fmt(e.caught) + ' tangkapan · Joran Lv ' + fmt(e.rod) +
+                ' · 🐟 ' + fmt(e.fish) + ' ikan · Tuna di kotak: ' + fmt(e.tuna) +
+                '</p></div>').join("")
+            : '<p>Belum ditemukan data pada browser ini. Buka dari browser yang SAMA dengan saat bermain; Instagram dan Chrome memiliki penyimpanan terpisah.</p>') +
+          '<p class="muted">Jika ada cadangan yang cocok, foto layar ini untuk pengelola. Jangan hapus data browser atau menimpa Cloud Save. Pemulihan belum otomatis.</p>' +
+          '<button class="btn" data-close="1">Tutup</button></div>';
+        w.addEventListener("click", e => { if (e.target.closest('[data-close="1"]')) w.remove(); });
+        document.body.appendChild(w);
+      }
 
       // ---------- HUD, panel Profil, banner sandbox ----------
       function profHTML() {
@@ -160,6 +210,7 @@
               ${cloud.enabled && u && !cloud.sandbox ? `<button class="btn small" data-act="syncNow">🔄 Sinkronkan sekarang</button>` : ""}
               ${cloud.enabled && !u ? `<button class="btn small gold" data-act="login">${GOOGLE_G} Login dengan Google</button>` : ""}
               ${cloud.enabled && u ? `<button class="btn small ghost" data-act="logout">Logout</button>` : ""}
+              <button class="btn small ghost" data-act="inspectBackups">🔎 Periksa Cadangan Progres</button>
             </div>
             ${cloud.enabled && !u ? `<p class="muted">Sebagai tamu, progres hanya ada di perangkat ini. Login Google memindahkannya ke cloud tanpa menghapus apa pun.</p>` : ""}
           </div>`;
@@ -172,6 +223,7 @@
       async function act(a) {
         const N = window.Nusa;
         if (a === "login") { const r = await cloud.signInGoogle(); if (r.error) N.toast(r.message, "bad"); else if (["empty", "uploaded", "identical", "synced", "offline"].includes(r.result)) N.toast("Login berhasil ✅", "good"); }
+        else if (a === "inspectBackups") { inspectLocalBackups(); return; }
         else if (a === "logout") await cloud.logout();
         else if (a === "syncNow") { N.toast("Menyinkronkan…"); const r = await cloud.syncNow(); N.toast(r && r.error ? "Gagal: " + cloud.errText(r.e) : "Tersinkron ✅", r && r.error ? "bad" : "good"); }
         else if (a === "pullCloud") await cloud.pullRemote();

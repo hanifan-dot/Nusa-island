@@ -1,0 +1,39 @@
+name: Insiden Progres Tamu (Tes Saja)
+on:
+  push:
+    branches:
+      - fix/peringatan-data-tamu-20261103
+  pull_request:
+    paths:
+      - cloud/cloud.js
+      - cloud/ui.js
+      - economy/client.js
+      - tests/unit-guest-entry.js
+      - tests/unit-guest-economy-guard.js
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Periksa sintaks
+        run: |
+          node --check cloud/cloud.js
+          node --check cloud/ui.js
+          node --check economy/client.js
+          node --check game.js
+      - name: Tes regresi data Tamu
+        run: |
+          node tests/unit-guest-entry.js
+          node tests/unit-guest-economy-guard.js
+      - name: Tes Cloud Save, ekonomi, multiplayer
+        run: |
+          node tests/unit-cloud.js
+          node tests/unit-economy.js
+          node tests/unit-mp.js
