@@ -10,6 +10,11 @@ assert(ui.indexOf('id="gateGuest"') < ui.indexOf('id="gateGoogle"'), 'Main Sekar
 assert.match(ui, /if \(cloud\.meta\(\)\.mode === "guest"\) \{ cloud\.guest\(\); ui\.hideGate\(\); \}/, 'tamu lama bisa lanjut tanpa ulang peringatan');
 assert.match(ui, /else showGuestWarn\(\)/, 'pemain baru harus membaca peringatan terlebih dahulu');
 assert.match(ui, /Instagram lalu berganti ke Chrome/, 'risiko beda browser dijelaskan');
+assert.match(ui, /function inspectLocalBackups\(\)/, 'alat pengecekan cadangan lokal harus tersedia');
+assert.match(ui, /data-act="inspectBackups"/, 'tombol pengecekan cadangan harus ada di profil');
+assert.match(ui, /key\.startsWith\("nusa-island-v1-bak-"\)/, 'cadangan migrasi tamu harus bisa dibaca');
+assert.match(ui, /key\.startsWith\("nusa-island-v1-backup-"\)/, 'cadangan migrasi versi game harus bisa dibaca');
+assert.doesNotMatch(ui.slice(ui.indexOf('function inspectLocalBackups()'), ui.indexOf('function profHTML()')), /localStorage\.setItem\(|localStorage\.removeItem\(|cloud\.call\(/, 'pemeriksaan harus read-only');
 assert.match(ui, /hanya di browser ini/);
 assert.match(css, /\.gate-guest \{/);
 
