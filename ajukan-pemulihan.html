@@ -23,14 +23,16 @@ label{display:block;margin-top:12px}#result{white-space:pre-wrap;overflow-wrap:a
 <button id="login">Masuk Google</button>
 </div>
 <div class="panel">
-<h2>2. Pilih file yang sudah disimpan</h2>
-<p>Tekan tombol di bawah, lalu pilih file cadangan Nusa Island yang didapat dari <b>Cadangan Nomor 2</b>.</p>
+<h2>2. Pilih cadangan lama (tanpa perlu download)</h2>
+<p>Jika cadangan tersimpan di browser ini, pilih langsung di bawah. Pastikan <b>nomor, waktu, jumlah koin, tangkapan, dan level</b> sesuai bukti. Buka dari browser yang sama dengan saat bermain, jangan hapus data situs.</p>
+<div id="backups" class="muted" role="group" aria-label="Cadangan tersedia di browser ini">Memeriksa cadangan browser…</div>
+<p class="muted">Jika cadangan tidak muncul, kamu masih bisa memilih file JSON yang pernah disimpan:</p>
 <input id="file" type="file" accept=".json,application/json">
-<p id="preview" class="muted">Belum ada file dipilih.</p>
+<p id="preview" role="status" class="muted">Belum memilih cadangan.</p>
 </div>
 <div class="panel">
 <h2>3. Kirim permintaan bantuan</h2>
-<label><input id="consent" type="checkbox"> Saya setuju data progres dari file ini dikirim secara privat ke server Nusa Island untuk diperiksa Owner. Saya memahami file lokal bisa diubah sehingga saldo dan item harus diverifikasi sebelum dipulihkan.</label>
+<label><input id="consent" type="checkbox"> Saya setuju data progres dari cadangan yang saya pilih dikirim secara privat ke server Nusa Island untuk diperiksa Owner. Saya memahami file lokal bisa diubah sehingga saldo dan item harus diverifikasi sebelum dipulihkan.</label>
 <button id="submit" disabled>Kirim Permintaan Pemulihan</button>
 <p id="result" role="status" aria-live="polite">Tidak ada data yang dikirim sebelum kamu menekan tombol di atas.</p>
 </div>
@@ -65,20 +67,69 @@ label{display:block;margin-top:12px}#result{white-space:pre-wrap;overflow-wrap:a
       } else $('who').textContent='Login gagal. Coba lagi dengan akun Google yang sama di game.';
     }
   };
-  $('file').onchange=async()=>{
-    selected=null;
-    const file=$('file').files?.[0];
-    if(!file){state();return;}
-    if(file.size>450000||file.size<10){$('preview').textContent='Ukuran file tidak sesuai.';state();return;}
-    try{
-      const data=await file.text(), j=JSON.parse(data);
-      if(!j||typeof j!=='object'||Array.isArray(j)||!j.stats||!j.up)throw Error('invalid');
-      const caught=Number(j.stats.caught)||0, money=Number(j.money)||0;
-      if(!Number.isSafeInteger(money)||money<0||!Number.isSafeInteger(caught)||caught<=0)throw Error('invalid');
-      selected=data;
-      $('preview').textContent='File ditemukan: '+money.toLocaleString('id-ID')+' koin · '+caught.toLocaleString('id-ID')+' tangkapan · Joran level '+((Number(j.up.rod)||0)+1)+' · Kapal level '+((Number(j.up.boat)||0)+1)+'. Cocokkan dengan cadangan lama.';
-    }catch(e){$('preview').textContent='File belum terbaca. Pilih file cadangan Nusa Island yang benar.';}
+  // Membaca cadangan yang sudah ada di origin game ini; tidak menulis atau menghapus localStorage.
+  // Urutan nomor dibuat sama persis dengan halaman selamatkan-data.html.
+  function chooseCandidate(raw, label){
+    if(typeof raw!=='string'||raw.length<10||new Blob([raw]).size>450000)throw Error('ukuran');
+    const j=JSON.parse(raw);
+    if(!j||typeof j!=='object'||Array.isArray(j)||!j.stats||!j.up)throw Error('bentuk');
+    const caught=j.stats.caught, money=j.money;
+    if(!Number.isSafeInteger(money)||money<0||!Number.isSafeInteger(caught)||caught<=0)throw Error('angka');
+    selected=raw;
+    $('preview').textContent=label+': '+money.toLocaleString('id-ID')+' koin · '+caught.toLocaleString('id-ID')+
+      ' tangkapan · Joran level '+((Number(j.up.rod)||0)+1)+
+      ' · Kapal level '+((Number(j.up.boat)||0)+1)+
+      ' · '+(Array.isArray(j.cooler)?j.cooler.length:0)+' ikan coolbox · Hari ke-'+(Number(j.day)||1)+
+      '. Cocokkan semuanya dengan cadangan yang ingin dipulihkan.';
     state();
+  }
+  function showLocalBackups(){
+    const container=$('backups');
+    const rows=[];
+    try{
+      for(let i=0;i<localStorage.length;i++){
+        const key=localStorage.key(i);
+        if(!key || !/^nusa-island-v1(?:$|-(?:bak|backup)-)/.test(key))continue;
+        const raw=localStorage.getItem(key);
+        if(!raw)continue;
+        let parsed;
+        try{parsed=JSON.parse(raw);}catch(_){continue;}
+        if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))continue;
+        const match=key.match(/-(\\d{13})$/);
+        rows.push({key,raw,current:key==='nusa-island-v1',timestamp:match?Number(match[1]):0});
+      }
+    }catch(_){
+      container.textContent='Browser tidak mengizinkan membaca cadangan di sini. Jangan hapus data situs; gunakan browser tempat cadangan terlihat.';
+      return;
+    }
+    rows.sort((a,b)=>a.current===b.current?b.timestamp-a.timestamp:a.current?-1:1);
+    container.textContent='';
+    if(!rows.length){
+      container.textContent='Tidak ada cadangan di browser ini. Buka halaman ini lewat browser yang sama tempat cadangan nomor 2 terlihat.';
+      return;
+    }
+    rows.forEach((row,i)=>{
+      const label=row.current?'Simpanan sekarang':'Cadangan nomor '+i;
+      const b=document.createElement('button');
+      b.type='button';
+      b.textContent='Pilih '+label+(row.timestamp?' — '+new Date(row.timestamp).toLocaleString('id-ID'):'');
+      b.addEventListener('click',()=>{
+        selected=null;state();
+        try{chooseCandidate(row.raw,label);}
+        catch(_){$('preview').textContent=label+' tidak terbaca atau terlalu besar. Jangan hapus cadangan; hubungi Owner.';}
+      });
+      container.appendChild(b);
+    });
+  }
+  showLocalBackups();
+  $('file').onchange=async()=>{
+    selected=null;state();
+    const file=$('file').files?.[0];
+    if(!file)return;
+    try{
+      if(file.size>450000||file.size<10)throw Error('ukuran');
+      chooseCandidate(await file.text(),'File JSON');
+    }catch(_){$('preview').textContent='File tidak terbaca. Pilih cadangan asli Nusa Island yang benar.';}
   };
   $('consent').onchange=state;
   $('submit').onclick=async()=>{
