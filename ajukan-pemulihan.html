@@ -95,7 +95,7 @@ label{display:block;margin-top:12px}#result{white-space:pre-wrap;overflow-wrap:a
         let parsed;
         try{parsed=JSON.parse(raw);}catch(_){continue;}
         if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))continue;
-        const match=key.match(/-(\\d{13})$/);
+        const match=key.match(/-(\d{13})$/);
         rows.push({key,raw,current:key==='nusa-island-v1',timestamp:match?Number(match[1]):0});
       }
     }catch(_){
