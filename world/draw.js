@@ -644,10 +644,18 @@ function drawCharacter(c, ch, t) {
   const bob = moving ? Math.abs(Math.sin(ph)) * 2.2 : Math.sin(t * 2.2 + (ch.seed || 0)) * 0.6;
   const back = fy < -0.1, side = Math.abs(fx) > 0.9;
   const sc = st.scale || 1;
+  const AV = NW.avatarDraw, avLv = AV && (st.costume || st.head || st.acc) ? AV.lvFor(ch, t) : 0;     // Avatar & Fashion (kosmetik): kualitas efek 0..2
+  if (AV && st.costume && avLv) AV.drawGroundFx(c, ch, t, avLv, P);
   c.save(); c.translate(b.x, b.y); c.scale(sc, sc);
   // bayangan
   c.fillStyle = "rgba(15,35,30,.28)"; c.beginPath(); c.ellipse(1, 0, 10, 4, 0, 0, 7); c.fill();
   const y0 = -bob;
+  if (AV && st.costume) { // kostum hewan/eksklusif menggantikan seluruh badan; joran tetap tergambar agar memancing terlihat normal
+    AV.drawCostume(c, ch, t, y0, fx, fy, back, side, moving, ph, avLv);
+    if (ch.rod > 0) { const k = ch.rod; c.strokeStyle = ch.rodSpec ? ch.rodSpec.blank : "#c9a46a"; c.lineWidth = 2; c.beginPath(); c.moveTo(fx * 7, y0 - 14); c.lineTo(fx * (7 + 26 * k), y0 - 14 - 34 * k); c.stroke(); c.strokeStyle = "rgba(255,255,255,.7)"; c.lineWidth = 0.8; c.beginPath(); c.moveTo(fx * (7 + 26 * k), y0 - 14 - 34 * k); c.lineTo(fx * (9 + 30 * k), y0 - 4); c.stroke(); }
+    c.restore(); return;
+  }
+  if (AV && st.acc && !back) AV.drawWings(c, st, y0, fx, back, moving, t, avLv, false);
   // pamer ikan (Bumbu 1.2): lengan, ikan, dan ekspresi digambar modul NW.hold; tidak mengubah data apa pun
   const hd = ch.hold || null, HG = hd ? NW.hold.geom(hd, fx, fy, y0, t) : null;
   // joran tersandang (Bumbu 1.1): hanya bila tidak sedang memegang joran di tangan → tidak pernah ganda
@@ -684,6 +692,8 @@ function drawCharacter(c, ch, t) {
   if (!back && st.collar) { c.fillStyle = st.collar; c.beginPath(); c.moveTo(-3, y0 - 22); c.lineTo(0, y0 - 18); c.lineTo(3, y0 - 22); c.fill(); }
   if (st.sash) { c.strokeStyle = st.sash; c.lineWidth = 3; c.beginPath(); c.moveTo(-6, y0 - 22); c.lineTo(5.5, y0 - 10.5); c.stroke(); if (st.sashLine) { c.strokeStyle = st.sashLine; c.lineWidth = 0.7; c.beginPath(); c.moveTo(-6, y0 - 21); c.lineTo(5.5, y0 - 9.5); c.stroke(); } }
   if (st.pack && back) { c.fillStyle = st.pack; c.fillRect(-5.5, y0 - 21, 11, 11); c.fillStyle = shade(st.pack, -0.25); c.fillRect(-5.5, y0 - 13, 11, 2); c.fillStyle = shade(st.pack, 0.2); c.fillRect(-3.5, y0 - 19, 7, 3); }
+  if (AV && st.topId) AV.drawTop(c, st, y0, fx, back, t);
+  if (AV && st.pantsId) AV.drawPantsDetail(c, st, y0);
   // lengan depan
   if (hd) NW.hold.drawArms(c, hd, HG, st, fx, y0);
   else if (side) arm(fx * -1.5, armSwing); else arm(7.5, -armSwing);
@@ -766,6 +776,8 @@ function drawCharacter(c, ch, t) {
       c.strokeStyle = "#6b3a2a"; c.lineWidth = 0.9; c.beginPath(); c.arc(ex, hy + 3.6, 1.5, 0.2, Math.PI - 0.2); c.stroke();
     }
   }
+  if (AV && st.head) AV.drawHead(c, st, hy, fx, back, t, avLv);
+  if (AV && st.acc && back) AV.drawWings(c, st, y0, fx, back, moving, t, avLv, true);
   if (st.towel && !back) { c.fillStyle = st.towel; c.fillRect(-7.5, y0 - 23, 15, 3.2); }
   if (bk && back) NW.look.drawBackRod(c, bk, fx, y0, bkSway, true); // membelakangi kamera: joran di depan badan
   if (hd) { if (hd.p.up) NW.hold.drawFishBody(c, hd, HG); NW.hold.drawFx(c, hd, HG, y0, hy, t); } // ikan di atas kepala selalu paling depan
