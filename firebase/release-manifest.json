@@ -23,6 +23,9 @@
     { "id": "kunjungi-rumah", "nama": "Kunjungi Rumah Teman (cari nama, rumah asli, ruang rumah)", "files": ["house/core.js", "house/client.js", "house/house.css", "firebase/functions/lib/house-core.js"],
       "index": ["house/house.css", "house/core.js", "house/client.js"], "build_dirs": ["house"],
       "markers": [["game.js", "NW.house.hook()"], ["mp/room-core.js", "this.house = this.kind"], ["cf-multiplayer/src/index.js", "class HouseRoom"], ["cf-multiplayer/wrangler.toml", "HouseRoom"], ["house/core.js", "rumah privat TIDAK masuk hasil pencarian nama"]] },
+    { "id": "pulihkan-data", "nama": "Pulihkan Data (menu ☰, cari cadangan, permohonan ke Owner)", "files": ["recovery/core.js", "recovery/client.js", "recovery/recovery.css"],
+      "index": ["recovery/recovery.css", "recovery/core.js", "recovery/client.js"], "build_dirs": ["recovery"],
+      "markers": [["game.js", "NW.recovery.hook()"], ["hud/menu.js", "recoverBtn"], ["cloud/cloud.js", "cloud.restoreCloud"]] },
     { "id": "multiplayer", "nama": "Dunia Bersama (multiplayer)", "files": ["mp/proto.js", "mp/client.js", "mp/ui.js", "mp/mp.css", "mp/room-core.js", "mp/lobby-core.js", "mp/jwt.js", "cf-multiplayer/src/index.js", "cf-multiplayer/wrangler.toml"],
       "index": ["mp/proto.js", "mp/client.js"], "build_dirs": ["mp"], "markers": [["game.js", "NW.mp.hook()"], ["cf-multiplayer/wrangler.toml", "name = \"nusa-multiplayer\""]] }
   ],
