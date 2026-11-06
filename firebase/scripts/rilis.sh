@@ -73,7 +73,7 @@ say "5/6 Build PRODUKSI (toko QRIS + Worker ekonomi + Dunia Bersama)"
 NUSA_API_BASE="$API" NUSA_MP_WS="wss://$MP_HOST" bash firebase/scripts/build-hosting.sh produksi
 grep -q "apiBase: \"$API\"" firebase/public/cloud/config.js || die "build tidak membawa alamat nusa-api: dibatalkan."
 node firebase/scripts/cek-rilis.js --build firebase/public --live "$SITE" || die "pemeriksaan build/situs live gagal: rilis ini akan menghilangkan fitur yang sudah live atau konfigurasi produksi tidak terpasang. Tidak menayangkan."
-for d in shop economy streak world cloud audio mp hud event; do [ -d "firebase/public/$d" ] || die "folder $d hilang dari build: dibatalkan."; done
+for d in shop economy streak world cloud audio mp hud event avatar; do [ -d "firebase/public/$d" ] || die "folder $d hilang dari build: dibatalkan."; done
 
 say "6/6 Tayangkan"
 echo "Akan menayangkan ke $SITE:  cabang $HEAD_DESC  ·  Worker ekonomi $API (tetap)  ·  multiplayer wss://$MP_HOST"
