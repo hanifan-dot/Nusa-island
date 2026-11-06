@@ -40,6 +40,7 @@
     if (!T || !FM) throw new Error("tables & fishmath wajib");
     const initCap = Number.isFinite(opts.initCap) ? opts.initCap : 20000;     // batas koin lama yang diakui SEKALI saat migrasi; 0 saat rilis
     const SK = opts.streak || null;                                           // StreakCore (streak/core.js), opsional
+    const FC = opts.fashion || null;                                          // FashionCore (economy/fashion-core.js): katalog & harga avatar, opsional
     const EV = opts.event || null;                                            // EventCore (event/core.js): Event 5 Monster Legenda, opsional
     const rng = opts.rng || (() => { try { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] / 4294967296; } catch (e) { return Math.random(); } });
     // KEAMANAN MIGRASI: secara BAWAAN ecoInit TIDAK memakai angka dari browser sama sekali. Saldo/level/ikan lama diambil dari SNAPSHOT yang dibekukan
@@ -373,6 +374,47 @@
         });
       },
     });
+    // ===== AVATAR & FASHION (kosmetik murni). Katalog/harga dari FC (server); klien hanya kirim ID item. Kepemilikan terikat UID (eco.fash.own). =====
+    if (FC) {
+      const fashOf = (eco) => { const f = eco.fash = eco.fash || { own: {}, code: FC.DEFAULT_CODE, hist: [] }; return f; };
+      const fview = (eco, ent) => { const f = fashOf(eco); return Object.assign(view(eco, ent), { fashion: { own: Object.keys(f.own), code: f.code, hist: f.hist.slice(-10) } }); };
+      Object.assign(api, {
+        async ecoFashionState(auth) {
+          const uid = uidOf(auth);
+          return db.tx(async (t) => { const eco = await getEco(t, uid), ent = await entOf(t, uid); return Object.assign({ ok: true }, fview(eco, ent)); });
+        },
+        // Beli 1 item. Harga dari katalog server; idempoten (opId); tidak bisa beli dua kali; saldo tunggal (spendFrom).
+        async ecoFashionBuy(auth, p) {
+          const uid = uidOf(auth), opId = needOp(p); p = p || {};
+          const it = typeof p.id === "string" && Object.prototype.hasOwnProperty.call(FC.BY_ID, p.id) ? FC.BY_ID[p.id] : null;
+          if (!it) throw E("invalid-argument", "Item tidak dikenal.");
+          return db.tx(async (t) => {
+            const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco);
+            const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, fview(eco, ent));
+            const f = fashOf(eco);
+            if (it.price <= 0 || f.own[it.id]) throw E("failed-precondition", "Item ini sudah kamu miliki.");
+            const paid = spendFrom(eco, ent, it.price); f.own[it.id] = clock();
+            f.hist.push({ id: it.id, price: it.price, at: clock() }); if (f.hist.length > FC.HIST_MAX) f.hist.splice(0, f.hist.length - FC.HIST_MAX);
+            if (paid.top > 0) { ent.spends = ent.spends || []; ent.spends.push({ opId, amount: paid.top, reason: "fashion:" + it.id, at: clock() }); if (ent.spends.length > 100) ent.spends.splice(0, ent.spends.length - 100); await t.set(ENT(uid), ent); }
+            await t.set(ECO(uid), remember(eco, opId, { bought: it.id, price: it.price }) && eco);
+            return Object.assign({ ok: true, bought: it.id, price: it.price }, fview(eco, ent));
+          });
+        },
+        // Simpan penampilan: hanya item gratis atau yang dimiliki UID ini. Tidak memerlukan saldo.
+        async ecoFashionSave(auth, p) {
+          const uid = uidOf(auth), opId = needOp(p); p = p || {};
+          return db.tx(async (t) => {
+            const eco = await getEco(t, uid), ent = await entOf(t, uid);
+            const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, fview(eco, ent));
+            const f = fashOf(eco), v = FC.validate(p.code, new Set(Object.keys(f.own)));
+            if (!v.ok) throw E("failed-precondition", v.why);
+            f.code = v.code;
+            await t.set(ECO(uid), remember(eco, opId, { saved: true }) && eco);
+            return Object.assign({ ok: true, saved: true }, fview(eco, ent));
+          });
+        },
+      });
+    }
     return api;
   }
   // Menimpa simpanan klien dengan nilai server (dipanggil writeSave & loadSave). Mengembalikan simpanan baru + daftar perubahan.
