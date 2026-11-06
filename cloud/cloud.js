@@ -177,6 +177,36 @@
     return resolveConflict();
   };
 
+  // ---- Pulihkan Data (menu ☰): HANYA Cloud Save milik akun yang sedang login (identitas diverifikasi server) ----
+  // peek = baca saja. restoreCloud = cadangkan dulu → tulis → verifikasi → TIDAK memuat ulang sendiri (pemain menekan Refresh).
+  // Cadangan memakai awalan "-backup-pulih-" (BUKAN "-bak-") supaya tidak ikut dipangkas oleh stash() dan tetap terbaca halaman pemulihan.
+  cloud.peek = async () => {
+    if (!enabled || !cloud.user || sandbox) return { error: sandbox ? "sandbox" : "auth" };
+    try { return { ok: true, C: await call(ep().load, {}) }; } catch (e) { return { error: kindOf(e), message: cloud.errText(e) }; }
+  };
+  cloud.restoreCloud = async (expectHash) => {
+    if (!enabled || !cloud.user || sandbox) return { error: "auth" };
+    let C; try { C = await call(ep().load, {}); } catch (e) { return { error: kindOf(e), message: cloud.errText(e) }; }
+    if (!C || !C.exists || typeof C.data !== "string") return { error: "none" };
+    if (expectHash && hashOf(C.data) !== expectHash) return { error: "changed" };         // Cloud berubah sejak ditampilkan → batal
+    const raw = localRaw();
+    if (raw === C.data) return { error: "same" };
+    try { const a = JSON.parse(raw), b = JSON.parse(C.data), pk = (x) => [x.money, x.stats && x.stats.caught, x.up && x.up.rod, x.up && x.up.boat, x.day, (x.cooler || []).length, Object.keys(x.dex || {}).length].join("|");
+      if (pk(a) === pk(b) && ((a.home && a.home.level) || 1) === ((b.home && b.home.level) || 1)) return { error: "same" }; } catch (e) {}
+    if (raw) {
+      const bk = `nusa-island-v1-backup-pulih-${Date.now()}`;
+      if (!lsSet(bk, raw)) return { error: "backup" };                                  // tidak bisa mencadangkan → JANGAN menimpa
+      try { const ks = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith("nusa-island-v1-backup-pulih-")) ks.push(k); } ks.sort().slice(0, Math.max(0, ks.length - 3)).forEach(lsDel); } catch (e) {}
+    }
+    cloud.freeze();                                                                      // game.js tidak menulis ulang simpanan lokal sampai halaman dimuat ulang
+    clearTimeout(timer);
+    if (!lsSet(cloud.KEY, C.data)) { cloud.saveFrozen = false; return { error: "storage" }; }
+    writeMeta({ mode: "google", uid: cloud.user.uid, rev: C.rev, hash: hashOf(C.data) });
+    const okLocal = localRaw() === C.data && readMeta().rev === C.rev;                   // verifikasi baca-ulang
+    if (!okLocal) { if (raw) lsSet(cloud.KEY, raw); cloud.saveFrozen = false; return { error: "verify" }; }
+    return { ok: true, rev: C.rev, data: C.data, hash: hashOf(C.data) };
+  };
+
   function startSync() {
     syncActive = true; setStatus("idle", "");
     if (!listening) { listening = true; wire(); }
