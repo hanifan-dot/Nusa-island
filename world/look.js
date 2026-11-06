@@ -31,7 +31,7 @@ const titleName = (rank) => (rank > 0 ? TITLES[rank - 1].name : null);
 const isFish = (f) => !!f && f.rarity !== "sampah";
 
 // ---------- Data berversi ----------
-const TITLES_V = 1, PROFILE_V = 1, NAME_MAX = 14, NAME_DEFAULT = "Pemancing";
+const TITLES_V = 1, PROFILE_V = 1, NAME_MAX = 16, NAME_DEFAULT = "Pemancing";
 function cleanName(v) {
   const s = String(v == null ? "" : v).replace(/[\u0000-\u001f\u007f<>&"']/g, "").replace(/\s+/g, " ").trim();
   return Array.from(s).slice(0, NAME_MAX).join("");
@@ -52,6 +52,7 @@ function defaults() {
 const count = () => S().titles.fish;
 const rank = () => S().titles.rank;
 const playerName = () => S().profile.name;
+const isOfficial = () => !!(S().profile && S().profile.uname);   // diisi NW.username setelah server mengonfirmasi
 function currentTitle() { return titleName(rank()); }
 function nextGoal() { const r = rank(); return r < TITLES.length ? { name: TITLES[r].name, min: TITLES[r].min, left: TITLES[r].min - count() } : null; }
 
@@ -233,13 +234,15 @@ function panelSection() {
     <div>${t ? esc(t) : "Belum bergelar"}</div>
     <div class="muted">${g ? (n === 0 ? `Tangkap ikan pertamamu untuk gelar ${esc(g.name)}.` : `${n} ikan · ${g.left} lagi menuju ${esc(g.name)}`) : `${n} ikan · gelar tertinggi`}</div></div></div>
     <div class="row"><div class="grow">🎣 Joran aktif</div><b>${esc(UPGRADES.rod.levels[S().up.rod] || "")}</b></div>
-    <div class="row"><input id="pName" class="name-input" type="text" maxlength="${NAME_MAX}" value="${esc(playerName())}" aria-label="Nama pemain" autocomplete="off">
+    ${isOfficial() ? `<div class="row"><div class="grow">🔒 Nama permanen</div><b>${esc(playerName())}</b></div>
+    <p class="muted">Ini nama resmi akunmu dan tidak bisa diganti sendiri. Hanya ikan sungguhan yang dihitung untuk gelar, sampah tidak.</p>` : `<div class="row"><input id="pName" class="name-input" type="text" maxlength="${NAME_MAX}" value="${esc(playerName())}" aria-label="Nama pemain" autocomplete="off">
       <button class="btn small" data-act="saveName">Simpan nama</button></div>
-    <p class="muted">Nama hanya tersimpan di perangkat ini. Hanya ikan sungguhan yang dihitung untuk gelar, sampah tidak.</p>`;
+    <p class="muted">Nama hanya tersimpan di perangkat ini. Hanya ikan sungguhan yang dihitung untuk gelar, sampah tidak.</p>`}`;
   return h;
 }
 function act(a) {
   if (a !== "saveName") return false;
+  if (isOfficial()) { N().toast("Nama permanen tidak bisa diganti", "bad"); return true; }   // nama resmi akun (Nama Pemain Permanen)
   const el = document.getElementById("pName"), v = cleanName(el ? el.value : "");
   S().profile.name = v || NAME_DEFAULT; N().save(); N().toast("Nama disimpan", "good"); N().renderPanel();
   return true;

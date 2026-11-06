@@ -11,7 +11,7 @@ ok(P.cleanName("<script>x</script>").indexOf("<") < 0, "nama tanpa tag");
 eq(P.cleanName("Admin Nusa", "X"), "X", "nama menyerupai staf ditolak");
 eq(P.cleanName("OWNER", "X"), "X", "owner ditolak");
 eq(P.cleanName("anjing", "X"), "X", "nama kasar ditolak");
-ok(Array.from(P.cleanName("A".repeat(40))).length === 14, "nama maks 14");
+ok(Array.from(P.cleanName("A".repeat(40))).length === 16, "nama maks 16");
 eq(P.cleanName("", "Nelayan-1"), "Nelayan-1", "nama kosong → cadangan");
 eq(P.cleanChat("halo  semua"), "halo semua", "chat dirapikan");
 ok(!/https?|www|\.com/.test(P.cleanChat("buka http://x.com atau www.abc.id dan situs.com")), "tautan disamarkan");
