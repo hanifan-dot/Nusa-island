@@ -17,3 +17,4 @@
 .hm-bd { position: absolute; top: 5px; right: 5px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: #e2574c; color: #fff; font: 800 11px/18px var(--font, system-ui); }
 body.hm-open .joy { opacity: .25; }
 @media (max-height: 420px) { .hm { max-height: 86vh; } .hm-tile { min-height: 64px; } .hm-ic { font-size: 22px; } }
+.hm-ic svg { display: block; margin: 0 auto; }

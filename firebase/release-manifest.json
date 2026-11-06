@@ -29,6 +29,9 @@
     { "id": "nama-permanen", "nama": "Nama Pemain Permanen (username unik global)", "files": ["username/core.js", "username/client.js", "username/username.css"],
       "index": ["username/username.css", "username/core.js", "username/client.js"], "build_dirs": ["username"],
       "markers": [["game.js", "NW.username.hook()"], ["world/look.js", "isOfficial"], ["cloud/adapter-demo.js", "nameServer"]] },
+    { "id": "pilih-dunia", "nama": "Pilih Dunia Bermain (Multiplayer / Singleplayer, menu ☰)", "files": ["worldmode/client.js", "worldmode/worldmode.css"],
+      "index": ["worldmode/worldmode.css", "worldmode/client.js"], "build_dirs": ["worldmode"],
+      "markers": [["game.js", "NW.worldMode.hook()"], ["hud/menu.js", "worldBtn"]] },
     { "id": "multiplayer", "nama": "Dunia Bersama (multiplayer)", "files": ["mp/proto.js", "mp/client.js", "mp/ui.js", "mp/mp.css", "mp/room-core.js", "mp/lobby-core.js", "mp/jwt.js", "cf-multiplayer/src/index.js", "cf-multiplayer/wrangler.toml"],
       "index": ["mp/proto.js", "mp/client.js"], "build_dirs": ["mp"], "markers": [["game.js", "NW.mp.hook()"], ["cf-multiplayer/wrangler.toml", "name = \"nusa-multiplayer\""]] }
   ],

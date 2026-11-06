@@ -13,6 +13,7 @@ const $ = (id) => document.getElementById(id);
 const N = () => window.Nusa;
 // urutan & nama tampilan; tombol lain yang ditambahkan modul baru ikut otomatis (nama dari aria-label) di akhir
 const KNOWN = [
+  ["worldBtn", "Bermain di Dunia"],
   ["misiBtn", "Misi Harian"], ["streakBtn", "Hadiah Login 7 Hari"], ["evBtn", "Event Monster Legenda"], ["skillBtn", "Keahlian & Cerita"], ["advBtn", "Kompas & Petualangan"],
   ["dexBtn", "Koleksi Ikan"], ["crownBtn", "Nusa Premium"], ["acctBtn", "Profil & Akun"], ["recoverBtn", "Pulihkan Data"], ["serverBtn", "Server"], ["musicBtn", "Musik & Suara"], ["muteBtn", "Suara"],
 ];
@@ -59,7 +60,8 @@ function sync() {
   let any = false;
   for (const [b, t] of tiles) {
     const a = alertOf(b); if (a) any = true;
-    t.querySelector(".hm-ic").textContent = iconOf(b);
+    const icEl = t.querySelector(".hm-ic"), svg = b.querySelector("svg");   // tombol ber-SVG (tanpa emoji) → salin SVG ke ubin
+    if (svg) { if (!icEl.firstElementChild) icEl.innerHTML = svg.outerHTML; } else icEl.textContent = iconOf(b);
     t.querySelector(".hm-lb").textContent = b.id === "muteBtn" ? (iconOf(b) === "🔇" ? "Suara: mati" : "Suara: nyala") : labelOf(b);
     const bd = t.querySelector(".hm-bd"); bd.classList.toggle("hidden", !a); bd.textContent = a || "";
     t.classList.toggle("alert", !!a); t.setAttribute("aria-label", labelOf(b) + (a ? " (ada yang perlu diperhatikan)" : ""));
