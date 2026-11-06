@@ -376,7 +376,7 @@
     // ===== AVATAR & FASHION (kosmetik murni). Katalog/harga dari FC (server); klien hanya kirim ID item. Kepemilikan terikat UID (eco.fash.own). =====
     if (FC) {
       const fashOf = (eco) => { const f = eco.fash = eco.fash || { own: {}, code: FC.DEFAULT_CODE, hist: [] }; return f; };
-      const fview = (eco, ent) => { const f = fashOf(eco); return { fashion: { own: Object.keys(f.own), code: f.code, hist: f.hist.slice(-10) }, balance: eco.bal + topupOf(ent), own: eco.bal, topup: topupOf(ent) }; };
+      const fview = (eco, ent) => { const f = fashOf(eco); return Object.assign(view(eco, ent), { fashion: { own: Object.keys(f.own), code: f.code, hist: f.hist.slice(-10) } }); };
       Object.assign(api, {
         async ecoFashionState(auth) {
           const uid = uidOf(auth);
