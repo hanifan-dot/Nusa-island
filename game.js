@@ -1524,6 +1524,7 @@ if (NW.boat) NW.boat.hook();               // Bumbu 2.4: tombol kapal & panel Pe
 if (NW.cloud) NW.cloud.hook();             // Tahap 3: tombol Profil & akun
 if (NW.house) NW.house.hook();                 // Kunjungi Rumah Teman (tombol di Rumahku + panel cari); sebelum mp supaya ruang rumah sudah dikenali
 if (NW.recovery) NW.recovery.hook();        // 🔄 Pulihkan Data (ubin di menu ☰, dekat Profil & Akun)
+if (NW.worldMode) NW.worldMode.hook();       // Bermain di Dunia (ubin di menu ☰: pilih Multiplayer / Singleplayer)
 if (NW.username) NW.username.hook();        // Nama Pemain Permanen (modal pendaftaran setelah login)
 if (NW.mp) NW.mp.hook();                   // Tahap 4: Dunia Bersama (multiplayer Muara Kampung) — hanya aktif untuk akun Google yang menyetujui
 if (NW.streak) NW.streak.hook();           // Login Streak 7 Hari: tombol 🎁 & Kalender Hadiah (klaim hanya lewat server Firebase)
