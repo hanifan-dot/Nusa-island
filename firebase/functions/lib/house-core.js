@@ -13,7 +13,7 @@
   else root.NusaHouseCore = factory();
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
-  const LIM = { NAME_MAX: 14, SEARCH_MIN: 2, SEARCH_MAX: 8, ALLOW_MAX: 12, BAN_MAX: 20, BAN_MS: 60 * 60000, BUCKET_MAX: 3000, FURN_MAX: 60, FISH_MAX: 24, LEG_MAX: 200, COORD_MAX: 40 };
+  const LIM = { NAME_MAX: 16, SEARCH_MIN: 2, SEARCH_MAX: 8, ALLOW_MAX: 12, BAN_MAX: 20, BAN_MS: 60 * 60000, BUCKET_MAX: 3000, FURN_MAX: 60, FISH_MAX: 24, LEG_MAX: 200, COORD_MAX: 40 };
   const PID_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";             // 31 huruf/angka tanpa yang mirip (I, L, O, 0, 1)
   const PID_RE = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/;
   const TYPE_RE = /^[A-Za-z0-9_]{1,24}$/;

@@ -139,7 +139,7 @@
         const mode = !cloud.enabled ? "Mode lokal (Cloud Save belum diaktifkan)" : u ? "Akun Google" : st === "guest" ? "Mode tamu" : "Belum login";
         const avatar = u && u.photo ? `<img src="${esc(u.photo)}" alt="" referrerpolicy="no-referrer">` : "🧑‍🎣";
         const meta = cloud.meta();
-        let h = `<div class="prof-head"><div class="prof-av">${avatar}</div><div class="prof-id"><b id="profName">${esc(name)}</b>
+        let h = `<div class="prof-head"><div class="prof-av">${avatar}</div><div class="prof-id"><b id="profName">${esc(name)}</b>${S.profile && S.profile.uname ? " 🔒" : ""}
           <div class="muted">${mode}${cloud.demo ? " · DEMO" : ""}${cloud.owner.verified ? ` · <span class="owner-badge">👑 Owner</span>` : ""}</div></div></div>
           <div class="prof-grid">
             <div><small>Level</small><b>${rank}${cur ? " · " + esc(cur.name || cur) : ""}</b><div class="bar mini"><div class="bar-fill" style="width:${pct}%"></div></div><small>${goal ? `${goal.left} ikan lagi → ${esc(goal.name)}` : "Gelar tertinggi 🎉"}</small></div>

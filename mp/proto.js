@@ -17,7 +17,7 @@ const MAX_ROOMS = 64;                 // batas aman awal: 64 × 16 = 1.024 tempa
 const TIMEOUT_MS = 45000;             // tanpa kabar selama ini = dianggap keluar (heartbeat klien tiap 15 dtk)
 const TICK_MS = 200;                  // siaran perubahan posisi ≤5 kali/detik
 const MAX_SPEED = 9;                  // tile/detik (jalan kaki ≈ 4–6); lebih dari ini ditahan server
-const CHAT_MAX = 80, NAME_MAX = 14;
+const CHAT_MAX = 80, NAME_MAX = 16;
 const F = { MOVING: 1, SIT: 2, FISH: 4, TP: 8, IN: 16 };   // bendera tampilan (IN = sedang di dalam rumah; hanya dipakai ruang rumah)
 // ---- Kunjungi Rumah Teman: satu instance = satu rumah (area "rumah"), terpisah total dari Muara ----
 const HOUSE = { AREA: "rumah", CAP: 12, MAP_W: 32, MAP_H: 32, KICK_CODE: 4010, KICK_MS: 60 * 60000 };

@@ -25,6 +25,9 @@
           chain = run.catch(() => {}); return run; },
       };
       const server = Core.makeServer(raw);
+      // Nama Pemain Permanen: inti yang SAMA dengan Worker. Di mode demo fitur ini HANYA aktif bila window.__demoAskName=true (uji/pratinjau); selain itu
+      // fungsi name* dijawab "not-found" seperti server lama, sehingga alur demo & uji lama tidak terhalang modal.
+      const nameServer = window.NusaNameCore && window.__demoAskName === true ? window.NusaNameCore.makeNameServer(raw) : null;
       let offline = false, latency = 30, failNext = null, session = null; const cbs = [];
       const idOf = () => { try { return localStorage.getItem(SES_KEY); } catch (e) { return null; } };
       const userOf = (id) => { const a = ACCOUNTS[id]; return a ? { uid: a.uid, name: a.name, photo: null, emailVerified: true, provider: "google.com", claims: { role: (a.claims && a.claims.role) || null } } : null; };
@@ -52,12 +55,16 @@
           await new Promise((r) => setTimeout(r, latency));
           if (offline) throw Object.assign(new Error("offline"), { code: "unavailable", network: true });
           if (failNext) { const c = failNext; failNext = null; throw Object.assign(new Error("gagal (simulasi)"), { code: c }); }
+          if (nameServer && ["nameGet", "nameCheck", "nameClaim"].includes(name)) {
+            try { return JSON.parse(JSON.stringify(await nameServer[name](session ? tokenOf(session) : null, payload))); }
+            catch (e) { if (e && e.code) throw Object.assign(new Error(e.message), { code: "functions/" + e.code }); throw e; }
+          }
           if (!["loadSave", "writeSave", "listBackups", "restoreBackup", "ownerAccess", "ownerSandboxLoad", "ownerSandboxSave"].includes(name)) throw Object.assign(new Error("fungsi tidak ada"), { code: "not-found" });
           try { return JSON.parse(JSON.stringify(await server[name](session ? tokenOf(session) : null, payload))); }
           catch (e) { if (e && e.code) throw Object.assign(new Error(e.message), { code: "functions/" + e.code }); throw e; }
         },
       };
-      window.__demoCloud = { adapter, server, raw, accounts: ACCOUNTS, tokenOf, setOffline: (b) => { offline = !!b; }, setLatency: (ms) => { latency = ms; }, failNext: (c) => { failNext = c; }, db: read, wipe: () => { try { localStorage.removeItem(DB_KEY); localStorage.removeItem(SES_KEY); } catch (e) {} } };
+      window.__demoCloud = { adapter, server, nameServer, raw, accounts: ACCOUNTS, tokenOf, setOffline: (b) => { offline = !!b; }, setLatency: (ms) => { latency = ms; }, failNext: (c) => { failNext = c; }, db: read, wipe: () => { try { localStorage.removeItem(DB_KEY); localStorage.removeItem(SES_KEY); } catch (e) {} } };
       return adapter;
     },
   };

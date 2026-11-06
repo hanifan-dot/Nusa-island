@@ -26,6 +26,9 @@
     { "id": "pulihkan-data", "nama": "Pulihkan Data (menu ☰, cari cadangan, permohonan ke Owner)", "files": ["recovery/core.js", "recovery/client.js", "recovery/recovery.css"],
       "index": ["recovery/recovery.css", "recovery/core.js", "recovery/client.js"], "build_dirs": ["recovery"],
       "markers": [["game.js", "NW.recovery.hook()"], ["hud/menu.js", "recoverBtn"], ["cloud/cloud.js", "cloud.restoreCloud"]] },
+    { "id": "nama-permanen", "nama": "Nama Pemain Permanen (username unik global)", "files": ["username/core.js", "username/client.js", "username/username.css"],
+      "index": ["username/username.css", "username/core.js", "username/client.js"], "build_dirs": ["username"],
+      "markers": [["game.js", "NW.username.hook()"], ["world/look.js", "isOfficial"], ["cloud/adapter-demo.js", "nameServer"]] },
     { "id": "multiplayer", "nama": "Dunia Bersama (multiplayer)", "files": ["mp/proto.js", "mp/client.js", "mp/ui.js", "mp/mp.css", "mp/room-core.js", "mp/lobby-core.js", "mp/jwt.js", "cf-multiplayer/src/index.js", "cf-multiplayer/wrangler.toml"],
       "index": ["mp/proto.js", "mp/client.js"], "build_dirs": ["mp"], "markers": [["game.js", "NW.mp.hook()"], ["cf-multiplayer/wrangler.toml", "name = \"nusa-multiplayer\""]] }
   ],
