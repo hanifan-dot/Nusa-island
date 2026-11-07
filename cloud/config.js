@@ -13,3 +13,6 @@ window.NUSA_FIREBASE = {
   functionsRegion: "asia-southeast2",  // Jakarta; Firestore juga akan dibuat di asia-southeast2
   apiBase: ""                          // alamat Cloudflare Worker (tanpa Blaze), mis. "https://nusa-api.<akun>.workers.dev". Kosong = mode lama.
 };
+
+// Rumahku Sosial (undangan kunjungan, blokir, senyap): MATI sampai Owner menyetujui deploy backend Tahap 4 (fungsi homeInvite/homeInbox/homeRespond/homePrefs di nusa-api).
+window.NUSA_SOCIAL_HOME = false;

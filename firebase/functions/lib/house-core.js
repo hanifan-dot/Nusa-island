@@ -13,7 +13,8 @@
   else root.NusaHouseCore = factory();
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
-  const LIM = { NAME_MAX: 16, SEARCH_MIN: 2, SEARCH_MAX: 8, ALLOW_MAX: 12, BAN_MAX: 20, BAN_MS: 60 * 60000, BUCKET_MAX: 3000, FURN_MAX: 60, FISH_MAX: 24, LEG_MAX: 200, COORD_MAX: 40 };
+  const LIM = { NAME_MAX: 16, SEARCH_MIN: 2, SEARCH_MAX: 8, ALLOW_MAX: 12, BAN_MAX: 20, BAN_MS: 60 * 60000, BUCKET_MAX: 3000, FURN_MAX: 60, FISH_MAX: 24, LEG_MAX: 200, COORD_MAX: 40,
+    INV_TTL_MS: 5 * 60000, INV_MAX: 5, INV_COOL_MS: 60000, DECLINE_COOL_MS: 5 * 60000, GUEST_MS: 2 * 60 * 60000, BLOCK_MAX: 30 };
   const PID_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";             // 31 huruf/angka tanpa yang mirip (I, L, O, 0, 1)
   const PID_RE = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/;
   const TYPE_RE = /^[A-Za-z0-9_]{1,24}$/;
@@ -71,8 +72,9 @@
     const hits = new Map();
     const rate = (uid, key, max) => { const t = clock(), k = key + ":" + uid, w = (hits.get(k) || []).filter((x) => t - x < 60000); w.push(t); hits.set(k, w); if (hits.size > 4000) hits.clear(); if (w.length > max) fail("resource-exhausted", "Terlalu cepat. Coba lagi sebentar."); };
     const uidOf = (auth) => { if (!auth || typeof auth.uid !== "string" || !auth.uid) fail("unauthenticated", "Masuk dulu dengan akun Google."); return auth.uid; };
-    const HP = (pid) => `homepub/${pid}`, HI = (b) => `homeidx/${b}`;
+    const HP = (pid) => `homepub/${pid}`, HI = (b) => `homeidx/${b}`, HX = (pid) => `homeinbox/${pid}`;
     const pidArg = (p) => { const v = String((p && p.pid) || "").toUpperCase().replace(/^#/, ""); if (!PID_RE.test(v)) fail("invalid-argument", "ID rumah tidak valid."); return v; };
+    const LIM_INV_RATE = 8;
     const privFlag = (d) => (d.privacy === "private" ? 1 : 0);
 
     // ---- indeks nama (satu dokumen per 2 huruf pertama; pencarian = 1 baca) ----
@@ -101,7 +103,9 @@
       const now = clock();
       if (!doc) return "Pemain tidak ditemukan";
       if (doc.bans && doc.bans[myPid] > now) return "Kamu dikeluarkan dari rumah ini untuk sementara.";
-      if (doc.privacy === "private" && !(Array.isArray(doc.allow) && doc.allow.some((a) => a && a.pid === myPid))) return "Rumah ini privat. Hanya tamu yang diizinkan pemilik yang bisa masuk.";
+      if (Array.isArray(doc.blocks) && doc.blocks.some((b) => b && b.pid === myPid)) return "Kamu tidak bisa masuk rumah ini.";           // diblokir pemilik (pesan umum, tanpa membocorkan sebabnya)
+      const invited = doc.guests && doc.guests[myPid] > now;                                                                          // tamu yang undangannya DITERIMA (berlaku sementara)
+      if (doc.privacy === "private" && !invited && !(Array.isArray(doc.allow) && doc.allow.some((a) => a && a.pid === myPid))) return "Rumah ini privat. Hanya tamu yang diizinkan pemilik yang bisa masuk.";
       return null;
     }
 
@@ -147,7 +151,8 @@
       async homeSettings(auth) {
         const uid = uidOf(auth), pid = pidOf(uid), d = await db.get(HP(pid)), now = clock();
         return { pid, code: pid, sid: shortId(pid), registered: !!(d && d.snap), privacy: (d && d.privacy) || "private", allow: ((d && d.allow) || []).map((a) => ({ pid: a.pid, sid: shortId(a.pid), name: a.name })),
-          banned: Object.entries((d && d.bans) || {}).filter(([, t]) => t > now).length };
+          banned: Object.entries((d && d.bans) || {}).filter(([, t]) => t > now).length,
+          mute: !!(d && d.mute), blocks: ((d && d.blocks) || []).map((b) => ({ pid: b.pid, sid: shortId(b.pid), name: b.name })) };
       },
       async homeSetPrivacy(auth, p) {
         const uid = uidOf(auth); rate(uid, "w", 20);
@@ -187,9 +192,84 @@
           cur.uid = uid; cur.bans = cur.bans || {};
           for (const k of Object.keys(cur.bans)) if (cur.bans[k] <= now) delete cur.bans[k];
           const keys = Object.keys(cur.bans); if (keys.length >= LIM.BAN_MAX && !cur.bans[target]) delete cur.bans[keys.sort((a, b) => cur.bans[a] - cur.bans[b])[0]];
-          cur.bans[target] = now + LIM.BAN_MS; cur.allow = (cur.allow || []).filter((a) => a.pid !== target);
+          cur.bans[target] = now + LIM.BAN_MS; cur.allow = (cur.allow || []).filter((a) => a.pid !== target); if (cur.guests) delete cur.guests[target];
           await t.set(HP(me), cur);
           return { ok: true, until: cur.bans[target] };
+        });
+      },
+
+      // ===== LAPISAN SOSIAL (Tahap 4) — undangan, senyap, blokir. Semua keputusan di server; klien hanya mengirim ID publik (pid). =====
+      // Undang pemain (yang online di dunia bersama) ke rumah milik pemanggil. Hanya menulis: kotak masuk si tujuan (maks 5 undangan) — tanpa menyentuh koin/kolam/inventaris/save.
+      async homeInvite(auth, p) {
+        const uid = uidOf(auth); rate(uid, "i", LIM_INV_RATE);
+        const target = pidArg(p), me = pidOf(uid), now = clock();
+        if (target === me) fail("invalid-argument", "Itu dirimu sendiri.");
+        return db.tx(async (t) => {
+          const host = await t.get(HP(me)), tg = await t.get(HP(target));
+          if (!host || host.uid !== uid || !host.snap) fail("failed-precondition", "Simpan game dulu sampai tersinkron (tanda ☁️), lalu coba lagi.");
+          if (!(tg && tg.snap)) fail("not-found", "Pemain tidak ditemukan");
+          if ((host.blocks || []).some((b) => b.pid === target)) fail("failed-precondition", "Kamu memblokir pemain ini. Buka blokir dulu.");
+          if (host.bans && host.bans[target] > now) fail("failed-precondition", "Pemain ini baru kamu keluarkan. Tunggu sebentar.");
+          const box = (await t.get(HX(target))) || { v: 1, inv: [], cd: {} };
+          box.inv = (box.inv || []).filter((i) => i.exp > now); box.cd = box.cd || {};
+          for (const k of Object.keys(box.cd)) if (box.cd[k] <= now) delete box.cd[k];
+          if (box.cd[me] > now) return { ok: true, sent: false, wait: Math.ceil((box.cd[me] - now) / 1000) };      // cooldown anti-spam (per pengundang → tujuan)
+          if ((tg.blocks || []).some((b) => b.pid === me) || tg.mute) return { ok: true, sent: true, silent: true };     // diblokir/disenyapkan: tampak terkirim, tidak pernah sampai (tanpa membocorkan)
+          box.inv = box.inv.filter((i) => i.from !== me);                                                              // satu undangan aktif per pengundang
+          if (box.inv.length >= LIM.INV_MAX) return { ok: true, sent: false, wait: 30 };
+          box.inv.push({ id: hashText(me + ":" + now + ":" + target).slice(0, 10), from: me, name: host.name, at: now, exp: now + LIM.INV_TTL_MS });
+          box.cd[me] = now + LIM.INV_COOL_MS;
+          await t.set(HX(target), box);
+          return { ok: true, sent: true };
+        });
+      },
+      // Kotak masuk undangan milik pemanggil (1 baca). Mengembalikan hanya undangan yang masih berlaku.
+      async homeInbox(auth) {
+        const uid = uidOf(auth); rate(uid, "x", 30);
+        const me = pidOf(uid), now = clock(), box = await db.get(HX(me));
+        return { invites: ((box && box.inv) || []).filter((i) => i.exp > now).map((i) => ({ id: i.id, pid: i.from, sid: shortId(i.from), name: i.name, left: Math.ceil((i.exp - now) / 1000) })) };
+      },
+      // TERIMA / TOLAK. Terima → pengundang memberi izin masuk sementara (2 jam) ke rumahnya; pemanggil lalu memanggil homeVisit seperti biasa.
+      async homeRespond(auth, p) {
+        const uid = uidOf(auth); rate(uid, "r", 30);
+        const me = pidOf(uid), id = String((p && p.id) || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 16), accept = !!(p && p.accept === true), now = clock();
+        if (!id) fail("invalid-argument", "Undangan tidak valid.");
+        return db.tx(async (t) => {
+          const box = await t.get(HX(me)), inv = box && (box.inv || []).find((i) => i.id === id);
+          if (!inv || inv.exp <= now) fail("not-found", "Undangan sudah kedaluwarsa.");
+          box.inv = box.inv.filter((i) => i.id !== id); box.cd = box.cd || {};
+          if (!accept) { box.cd[inv.from] = now + LIM.DECLINE_COOL_MS; await t.set(HX(me), box); return { ok: true, accepted: false }; }       // ditolak: pengundang tidak bisa mengundang lagi sebentar
+          const host = await t.get(HP(inv.from));
+          if (!host || !host.snap) fail("not-found", "Pemain tidak ditemukan");
+          if ((host.blocks || []).some((b) => b.pid === me)) fail("permission-denied", "Kamu tidak bisa masuk rumah ini.");
+          if (host.bans && host.bans[me] > now) fail("permission-denied", "Kamu dikeluarkan dari rumah ini untuk sementara.");
+          host.guests = host.guests || {}; for (const k of Object.keys(host.guests)) if (host.guests[k] <= now) delete host.guests[k];
+          host.guests[me] = now + LIM.GUEST_MS; await t.set(HP(inv.from), host); await t.set(HX(me), box);
+          return { ok: true, accepted: true, pid: inv.from, name: host.name };
+        });
+      },
+      // Senyapkan undangan / blokir pemain. Hanya menulis dokumen milik pemanggil. { mute: true|false }  atau  { block: pid, on: true|false }
+      async homePrefs(auth, p) {
+        const uid = uidOf(auth); rate(uid, "w", 40);
+        const me = pidOf(uid), has = (k) => p && Object.prototype.hasOwnProperty.call(p, k);
+        if (!has("mute") && !has("block")) fail("invalid-argument", "Tidak ada yang diubah.");
+        const target = has("block") ? pidArg({ pid: p.block }) : null; if (target === me) fail("invalid-argument", "Itu dirimu sendiri.");
+        return db.tx(async (t) => {
+          const cur = (await t.get(HP(me))) || { v: 1, pid: me, uid, privacy: "private", allow: [], bans: {}, snap: null };
+          if (cur.uid && cur.uid !== uid) fail("permission-denied", "Ditolak.");
+          cur.uid = uid; let box = null;
+          if (has("mute")) cur.mute = p.mute === true;
+          if (target) {
+            cur.blocks = (cur.blocks || []).filter((b) => b.pid !== target);
+            if (p.on !== false) {
+              if (cur.blocks.length >= LIM.BLOCK_MAX) fail("resource-exhausted", `Daftar blokir penuh (maks ${LIM.BLOCK_MAX}).`);
+              const tg = await t.get(HP(target)); cur.blocks.push({ pid: target, name: (tg && tg.name) || "Pemain" });
+              cur.allow = (cur.allow || []).filter((a) => a.pid !== target); if (cur.guests) delete cur.guests[target];       // blokir mencabut izin & tamu
+              box = await t.get(HX(me)); if (box && box.inv) { box.inv = box.inv.filter((i) => i.from !== target); await t.set(HX(me), box); }
+            }
+          }
+          await t.set(HP(me), cur);
+          return { ok: true, mute: !!cur.mute, blocks: (cur.blocks || []).map((b) => ({ pid: b.pid, sid: shortId(b.pid), name: b.name })) };
         });
       },
     };
