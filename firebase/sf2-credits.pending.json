@@ -1,0 +1,16 @@
+{
+  "_catatan": "KREDIT KONTRIBUTOR — NONAKTIF. Nama akun publik TIDAK dikirim ke build dan TIDAK ditampilkan di game sampai Owner menyetujui. Setelah disetujui: ubah approved menjadi true dan salin entri ke konfigurasi server (shop_config/main.sf2.credits) — tidak perlu ubah kode. Berkas ini sengaja berada di firebase/ (bukan folder yang disalin ke hosting).",
+  "approved": false,
+  "credits": {
+    "sf2_leviathan": { "handles": ["@ambaleon_12", "@candra_elx", "@.milan24", "@dramond_12"] },
+    "sf2_mosasaurus": { "handles": ["@muh4m4d_1lh4m100", "@nizam39791"] },
+    "sf2_naga_palung": { "handles": ["@derr6789ten"], "_catatan": "Pengganti ORISINAL untuk usulan 'El Gran Maja' (tidak memakai karakter/karya berhak cipta tanpa izin). Owner memutuskan apakah nama/ide asli boleh dipakai." },
+    "sf2_kraken": { "handles": ["@inirichee15"] },
+    "sf2_orca": { "handles": ["@ilham.doss1"] },
+    "sf2_narwhal": { "handles": ["@jual.kurma_ajwa"] },
+    "sf2_buntal": { "handles": ["@fadila49218"] },
+    "sf2_tuna_sirip_biru": { "handles": ["@akb4r70"] },
+    "sf2_channa_marulioides": { "handles": ["@bayuwwnumber1"] },
+    "sf2_barramundi": { "handles": ["@hanzz_z410"] }
+  }
+}

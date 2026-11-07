@@ -1,0 +1,112 @@
+{
+ "baseline": {
+  "perRarity": {
+   "sampah": {
+    "n": 3,
+    "share": 0.07751937984496124,
+    "meanSale": 5,
+    "minSale": 1,
+    "maxSale": 11
+   },
+   "biasa": {
+    "n": 18,
+    "share": 0.5813953488372093,
+    "meanSale": 49,
+    "minSale": 7,
+    "maxSale": 282
+   },
+   "langka": {
+    "n": 11,
+    "share": 0.23255813953488372,
+    "meanSale": 726,
+    "minSale": 121,
+    "maxSale": 4380
+   },
+   "epik": {
+    "n": 8,
+    "share": 0.0872093023255814,
+    "meanSale": 1941,
+    "minSale": 942,
+    "maxSale": 4988
+   },
+   "legenda": {
+    "n": 8,
+    "share": 0.02131782945736434,
+    "meanSale": 7376,
+    "minSale": 1265,
+    "maxSale": 12478
+   }
+  },
+  "ev": 524
+ },
+ "fish": [
+  {
+   "id": "sf_tempe",
+   "rarity": "mythical",
+   "event": false,
+   "wMean": 0.63,
+   "price": 7400,
+   "chance": 0.001,
+   "dayCap": 1,
+   "saleMean": 12092,
+   "saleMin": 5728,
+   "saleMax": 26729,
+   "evPerCast": 12.09,
+   "perPlayerDayMax": 26729
+  },
+  {
+   "id": "sf_cupang_slayer",
+   "rarity": "epic",
+   "event": false,
+   "wMean": 0.16,
+   "price": 3800,
+   "chance": 0.003,
+   "dayCap": 2,
+   "saleMean": 1530,
+   "saleMin": 490,
+   "saleMax": 3922,
+   "evPerCast": 4.59,
+   "perPlayerDayMax": 7844
+  },
+  {
+   "id": "sf_prabowo",
+   "rarity": "mythical_event",
+   "event": true,
+   "wMean": 6.33,
+   "price": 750,
+   "chance": 0.003,
+   "dayCap": 2,
+   "saleMean": 12255,
+   "saleMin": 5805,
+   "saleMax": 27090,
+   "evPerCast": 36.77,
+   "perPlayerDayMax": 54180
+  },
+  {
+   "id": "sf_arapaima",
+   "rarity": "legendary",
+   "event": false,
+   "wMean": 108.48,
+   "price": 30,
+   "chance": 0.0012,
+   "dayCap": 1,
+   "saleMean": 8086,
+   "saleMin": 4644,
+   "saleMax": 9949,
+   "evPerCast": 9.7,
+   "perPlayerDayMax": 9949
+  }
+ ],
+ "evPermanent": 26.4,
+ "evEvent": 36.8,
+ "shareOfOld": {
+  "permanent": 5,
+  "withEvent": 12.1
+ },
+ "oneInEvery": {
+  "sf_tempe": 1000,
+  "sf_cupang_slayer": 333,
+  "sf_prabowo": 333,
+  "sf_arapaima": 833
+ }
+}

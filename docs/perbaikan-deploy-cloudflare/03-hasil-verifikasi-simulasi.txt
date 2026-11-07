@@ -1,0 +1,31 @@
+=== SIMULASI (Cloudflare TIRUAN lokal, token contoh palsu) — BUKAN produksi ===
+
+$ Kasus A — secret berakhiran baris-baru (diduga penyebab Error 9106)
+Bentuk token (tanpa menampilkan nilai): spasi/baris-baru=ya awalan-Bearer=no tanda-kutip=no awalan-NAMA=no karakter-valid=ya panjang-lazim-40=ya
+CATATAN: secret berisi karakter/awalan tambahan; skrip membersihkannya otomatis. Disarankan menyimpan ulang secret tanpa itu.
+OK: token valid dan aktif (jenis token pengguna).
+OK: akun benar dan izin Workers Scripts dapat dibaca untuk Worker nusa-api.
+KATEGORI: SIAP
+(kode keluar 0)
+
+$ Kasus B — token benar, izin Workers Scripts kurang
+Bentuk token (tanpa menampilkan nilai): spasi/baris-baru=no awalan-Bearer=no tanda-kutip=no awalan-NAMA=no karakter-valid=ya panjang-lazim-40=ya
+OK: token valid dan aktif (jenis token pengguna).
+KATEGORI: IZIN_KURANG
+Token valid dan akunnya benar, tetapi tidak boleh membaca Worker (HTTP 403, 10000: Authentication error). Tambahkan izin Account → Workers Scripts → Edit (atau Read) pada token.
+(kode keluar 13)
+
+$ Kasus C — token dicabut/tidak valid
+Bentuk token (tanpa menampilkan nilai): spasi/baris-baru=no awalan-Bearer=no tanda-kutip=no awalan-NAMA=no karakter-valid=ya panjang-lazim-40=ya
+Verifikasi token: /user/tokens/verify → HTTP 401 (1000: Invalid API Token); /accounts/…/tokens/verify → HTTP 401 (1000: Invalid API Token)
+KATEGORI: TOKEN_TIDAK_VALID
+Cloudflare menjawab token tidak valid/dicabut/bukan token API (kode 1000,1000). Buat token baru (template 'Edit Cloudflare Workers') hanya bila kategori ini muncul.
+(kode keluar 11)
+
+$ Kasus D — Account ID tidak cocok dengan token
+Bentuk token (tanpa menampilkan nilai): spasi/baris-baru=no awalan-Bearer=no tanda-kutip=no awalan-NAMA=no karakter-valid=ya panjang-lazim-40=ya
+OK: token valid dan aktif (jenis token pengguna).
+KATEGORI: ACCOUNT_ID_SALAH
+Token valid, tetapi Account ID di secret TIDAK ada di daftar akun yang dapat diakses token. Perbaiki secret CLOUDFLARE_ACCOUNT_ID.
+(kode keluar 14)
+
