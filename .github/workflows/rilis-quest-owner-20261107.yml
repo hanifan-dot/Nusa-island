@@ -144,14 +144,26 @@ jobs:
           grep -Fq "qoBagEquip" game/bag/bag.js
           for f in questowner/questowner.js questowner/ui.js questowner/questowner.css economy/quest-core.js firebase/functions/lib/quest-core.js; do test -s "game/$f" || { echo "::error::Berkas Quest Owner hilang: $f"; exit 1; }; done
           for t in unit-quest unit-streak unit-shop unit-rilis unit-sf-server unit-podium unit-house-social unit-fashion unit-pond; do node game/tests/$t.js; done
-          (cd game && node - <<'NODE'
-          const fs = require('node:fs');
-          for (const [src,dst] of [['economy/core.js','economy-core.js'],['economy/quest-core.js','quest-core.js'],['economy/aurora-core.js','aurora-core.js'],['economy/sf-core.js','sf-core.js'],['cloud/core.js','cloud-core.js']]) {
-            const exp = '// SALINAN OTOMATIS dari '+src+' — jangan diedit di sini (node firebase/scripts/sync-economy.js).\n'+fs.readFileSync(src,'utf8');
-            if (!fs.existsSync('firebase/functions/lib/'+dst) || fs.readFileSync('firebase/functions/lib/'+dst,'utf8') !== exp) { console.error('::error::Salinan Functions kedaluwarsa: '+dst); process.exitCode=1; } else console.log('OK '+dst);
+          node - <<'NODE'
+          const fs = require('node:fs'); const rd = (p) => fs.readFileSync(p, 'utf8'); let bad = 0;
+          const fail = (m) => { console.error('::error::' + m); bad++; };
+          // A. Functions lib dibuat sync-economy.js: header + isi sumber
+          for (const [src, dst] of [['economy/core.js','economy-core.js'],['economy/tables.js','economy-tables.js'],['fishmath.js','fishmath.js'],['streak/core.js','streak-core.js'],['economy/quest-core.js','quest-core.js'],['event/core.js','event-core.js'],['house/core.js','house-core.js'],['username/core.js','name-core.js'],['economy/pond-core.js','pond-core.js'],['economy/fashion-core.js','fashion-core.js'],['economy/aurora-core.js','aurora-core.js'],['economy/sf-core.js','sf-core.js']]) {
+            const exp = '// SALINAN OTOMATIS dari ' + src + ' — jangan diedit di sini (node firebase/scripts/sync-economy.js).\n' + rd('game/' + src);
+            if (!fs.existsSync('game/firebase/functions/lib/' + dst) || rd('game/firebase/functions/lib/' + dst) !== exp) fail('Salinan Functions kedaluwarsa: ' + dst); else console.log('OK functions/lib/' + dst);
           }
+          // B. toko: dibuat sync-shop.js (header sendiri)
+          const shopExp = '// SALINAN OTOMATIS dari shop/core.js — jangan diedit di sini (node firebase/scripts/sync-shop.js).\n' + rd('game/shop/core.js');
+          if (rd('game/firebase/functions/lib/shop-core.js') !== shopExp) fail('Salinan Functions kedaluwarsa: shop-core.js'); else console.log('OK functions/lib/shop-core.js');
+          // C. Cloud: SUMBER ada di functions/lib/core.js (tanpa header); cloud/core.js disalin mentah oleh sync-core.js. Tidak ada functions/lib/cloud-core.js.
+          if (rd('game/cloud/core.js') !== rd('game/firebase/functions/lib/core.js')) fail('cloud/core.js tidak identik dengan firebase/functions/lib/core.js'); else console.log('OK cloud/core.js == functions/lib/core.js');
+          // D. 13 vendor backend identik byte-per-byte dengan sumber game
+          for (const [src, dst] of [['economy/core.js','economy-core.cjs'],['economy/quest-core.js','quest-core.cjs'],['economy/aurora-core.js','aurora-core.cjs'],['economy/sf-core.js','sf-core.cjs'],['house/core.js','house-core.cjs'],['cloud/core.js','cloud-core.cjs'],['streak/core.js','streak-core.cjs'],['economy/pond-core.js','pond-core.cjs'],['economy/fashion-core.js','fashion-core.cjs'],['event/core.js','event-core.cjs'],['economy/tables.js','economy-tables.cjs'],['username/core.js','name-core.cjs'],['fishmath.js','fishmath.cjs']]) {
+            if (rd('game/' + src) !== rd('backend/server/vendor/' + dst)) fail('Vendor backend berbeda dari game: ' + dst); else console.log('OK vendor/' + dst);
+          }
+          if (bad) process.exit(1);
+          console.log('OK: semua salinan Functions + 13 vendor backend identik dengan sumber.');
           NODE
-          )
           (cd game && NUSA_API_BASE=https://nusa-api.contoh.workers.dev NUSA_MP_WS=wss://nusa-multiplayer.contoh.workers.dev bash firebase/scripts/build-hosting.sh produksi >/dev/null && node firebase/scripts/cek-rilis.js --build firebase/public --live https://nusa-island-d2023.web.app --require-live && for f in questowner/questowner.js questowner/ui.js questowner/questowner.css economy/quest-core.js bag/bag.js; do test -s "firebase/public/$f" || { echo "::error::Aset tidak masuk build Hosting: $f"; exit 1; }; done && grep -Fq "NW.quest" firebase/public/questowner/questowner.js && echo "OK: aset Quest Owner ada di build Hosting")
           grep -Fq "MAP_W = 40, MAP_H = 52" game/mp/proto.js
           node game/tests/unit-map-ext.js

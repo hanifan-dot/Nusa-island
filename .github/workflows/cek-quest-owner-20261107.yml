@@ -14,6 +14,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          path: wf
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
           repository: hanifan-dot/Nusa-island
           ref: 8d9afbf5cdfce45fcf1557bdb7f5e614e8dc26e2
           path: game
@@ -40,8 +44,43 @@ jobs:
           grep -Fq "quest: questCore" backend/worker/index.js
           grep -Fq "'ecoEquip'" backend/worker/index.js
           grep -Fq "plausKg" game/economy/core.js
-          cd game && node firebase/scripts/sync-economy.js >/dev/null
-          git -c core.fileMode=false diff --exit-code -- firebase/functions/lib 2>/dev/null || { echo "::error::Functions lib kedaluwarsa"; exit 1; }
+          node - <<'NODE'
+          const fs = require('node:fs'); const rd = (p) => fs.readFileSync(p, 'utf8'); let bad = 0;
+          const fail = (m) => { console.error('::error::' + m); bad++; };
+          // A. Functions lib dibuat sync-economy.js: header + isi sumber
+          for (const [src, dst] of [['economy/core.js','economy-core.js'],['economy/tables.js','economy-tables.js'],['fishmath.js','fishmath.js'],['streak/core.js','streak-core.js'],['economy/quest-core.js','quest-core.js'],['event/core.js','event-core.js'],['house/core.js','house-core.js'],['username/core.js','name-core.js'],['economy/pond-core.js','pond-core.js'],['economy/fashion-core.js','fashion-core.js'],['economy/aurora-core.js','aurora-core.js'],['economy/sf-core.js','sf-core.js']]) {
+            const exp = '// SALINAN OTOMATIS dari ' + src + ' — jangan diedit di sini (node firebase/scripts/sync-economy.js).\n' + rd('game/' + src);
+            if (!fs.existsSync('game/firebase/functions/lib/' + dst) || rd('game/firebase/functions/lib/' + dst) !== exp) fail('Salinan Functions kedaluwarsa: ' + dst); else console.log('OK functions/lib/' + dst);
+          }
+          // B. toko: dibuat sync-shop.js (header sendiri)
+          const shopExp = '// SALINAN OTOMATIS dari shop/core.js — jangan diedit di sini (node firebase/scripts/sync-shop.js).\n' + rd('game/shop/core.js');
+          if (rd('game/firebase/functions/lib/shop-core.js') !== shopExp) fail('Salinan Functions kedaluwarsa: shop-core.js'); else console.log('OK functions/lib/shop-core.js');
+          // C. Cloud: SUMBER ada di functions/lib/core.js (tanpa header); cloud/core.js disalin mentah oleh sync-core.js. Tidak ada functions/lib/cloud-core.js.
+          if (rd('game/cloud/core.js') !== rd('game/firebase/functions/lib/core.js')) fail('cloud/core.js tidak identik dengan firebase/functions/lib/core.js'); else console.log('OK cloud/core.js == functions/lib/core.js');
+          // D. 13 vendor backend identik byte-per-byte dengan sumber game
+          for (const [src, dst] of [['economy/core.js','economy-core.cjs'],['economy/quest-core.js','quest-core.cjs'],['economy/aurora-core.js','aurora-core.cjs'],['economy/sf-core.js','sf-core.cjs'],['house/core.js','house-core.cjs'],['cloud/core.js','cloud-core.cjs'],['streak/core.js','streak-core.cjs'],['economy/pond-core.js','pond-core.cjs'],['economy/fashion-core.js','fashion-core.cjs'],['event/core.js','event-core.cjs'],['economy/tables.js','economy-tables.cjs'],['username/core.js','name-core.cjs'],['fishmath.js','fishmath.cjs']]) {
+            if (rd('game/' + src) !== rd('backend/server/vendor/' + dst)) fail('Vendor backend berbeda dari game: ' + dst); else console.log('OK vendor/' + dst);
+          }
+          if (bad) process.exit(1);
+          console.log('OK: semua salinan Functions + 13 vendor backend identik dengan sumber.');
+          NODE
+      - name: Jalankan LANGKAH PEMERIKSAAN dari workflow RILIS yang sebenarnya (tanpa deploy)
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import yaml, subprocess, sys
+          y = yaml.safe_load(open('wf/.github/workflows/rilis-quest-owner-20261107.yml'))
+          steps = y['jobs']['cek']['steps']
+          wanted = ['Cek shell, vendor dan aset wajib', 'Regresi khusus update +40% (dilewati saat rollback)', 'Tes backend dan scan rahasia']
+          ran = 0
+          for st in steps:
+              if st.get('name') in wanted:
+                  print('=== menjalankan:', st['name'], flush=True)
+                  r = subprocess.run(['bash', '-eo', 'pipefail', '-c', st['run']], cwd='.')
+                  if r.returncode: sys.exit('GAGAL di langkah rilis: ' + st['name'])
+                  ran += 1
+          assert ran == len(wanted), 'langkah rilis tidak ditemukan semua: %d/%d' % (ran, len(wanted))
+          PY
       - name: Tes game (tanpa jaringan dan tanpa secret produksi)
         working-directory: game
         run: |
