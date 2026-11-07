@@ -36,7 +36,7 @@ def main():
             # ===== 1. HUD bersih =====
             ctxA, A, errs = page(b, "demo-a", "Budi", streak=True); wait_for(A, "NW.streak._state.loaded", 8); online(A)
             vis_icons = ev(A, "[...document.querySelectorAll('.hud-right > button')].filter(b=>{const c=getComputedStyle(b);return c.display!=='none'}).map(b=>b.id)")
-            ok("1a hanya SATU tombol menu yang terlihat di kanan atas (☰)", vis_icons == ["hudMenuBtn"], vis_icons)
+            ok("1a ikon lama tetap disatukan di ☰: hanya ☰ + tombol mandiri sah (Tas, Quest Owner) yang terlihat di kanan atas", "hudMenuBtn" in vis_icons and set(vis_icons) <= {"hudMenuBtn", "bagBtn", "questBtn"}, vis_icons)
             ok("1b saldo, coolbox, dan waktu tetap di HUD", vis(A, "#money") and vis(A, "#cooler") and vis(A, "#clock"))
             hr = rect(A, ".hud-right"); mb = rect(A, "#hudMenuBtn")
             ok("1c HUD kanan satu baris & tombol ☰ ≥ 36 px (nyaman disentuh)", hr["h"] < 50 and mb["w"] >= 36 and mb["h"] >= 34, (hr["h"], mb["w"], mb["h"]))

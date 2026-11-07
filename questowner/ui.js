@@ -29,12 +29,13 @@ function render() {
   else if (v.error) note = `<div class="qo-note warn">${v.error} <button class="btn small" data-act="qoRetry">Coba Lagi</button></div>`;
   else if (v.loading && !v.loaded) note = `<div class="qo-note dim">Memuat…</div>`;
   const done = v.allDone ? `<div class="qo-note ok">🎉 Semua quest selesai! Hadiahmu permanen. Panel ini akan hilang otomatis.</div>` : "";
-  return `<div class="qo"><div class="qo-hero"><div class="qo-palm">🌴</div><div><div class="qo-title">Quest Owner</div><div class="qo-sub">Misi spesial dari Owner Nusa Island. Selesaikan untuk hadiah permanen.</div></div></div>
+  return `<div class="qo"><div class="qo-hero"><div class="qo-palm">${NW.quest ? NW.quest.icon(46) : ""}</div><div><div class="qo-title">Quest Owner</div><div class="qo-sub">Misi spesial dari Owner Nusa Island. Selesaikan untuk hadiah permanen.</div></div></div>
     <div class="qo-prog"><div class="qo-progtxt"><b>${v.loaded ? v.done : 0}/${v.total}</b> selesai</div><div class="qo-bar"><i style="width:${v.loaded ? pct : 0}%"></i></div></div>
     ${note}${done}${v.items.map((it) => card(it, v)).join("")}
     <div class="qo-fine">Game tidak bisa memeriksa langsung apakah kamu sudah follow/join. Setelah membuka tautan dan kembali, hadiah bisa diklaim <b>sekali per akun</b>.</div></div>`;
 }
 function after(body) {
+  try { const pt = document.getElementById("panelTitle"); if (pt && NW.quest) pt.innerHTML = NW.quest.icon(24) + '<span class="qo-ptitle">Quest Owner</span>'; } catch (e) {}
   clearInterval(timer);
   timer = setInterval(() => {
     if (N().currentPanel() !== "questowner") { clearInterval(timer); return; }
@@ -51,7 +52,7 @@ async function act(a, arg) {
   if (a === "qoClaim") { N().sfx("click"); const p = K.claim(arg); N().renderPanel(); await p; N().renderPanel(); }
 }
 function register() {
-  N().registerPanel("questowner", { title: () => "🌴 Quest Owner", render, act, after });
+  N().registerPanel("questowner", { title: () => "Quest Owner", render, act, after });
   NW.quest.onChange(() => { if (N().currentPanel() === "questowner") N().renderPanel(); });
 }
 NW.questUI = { register, render };
