@@ -1,0 +1,2 @@
+{ "_catatan": "Kontrak protokol multiplayer yang sudah dipakai klien live. Penambahan jenis pesan BOLEH; mengubah/menghapus yang ada TIDAK. Diperiksa oleh firebase/scripts/cek-rilis.js (dari release-manifest.json protocol_contract).",
+  "versi": "nusa.v1" }
