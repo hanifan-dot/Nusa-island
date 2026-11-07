@@ -6,6 +6,7 @@ import { DurableObject } from "cloudflare:workers";
 import Proto from "../../mp/proto.js";
 import RoomMod from "../../mp/room-core.js";
 import Jwt from "../../mp/jwt.js";
+import HouseCore from "../../house/core.js";
 import LobbyMod from "../../mp/lobby-core.js";
 
 const { Room } = RoomMod;
@@ -157,7 +158,7 @@ export class MuaraRoom extends DurableObject {
   roomOpts() { return {}; }                       // Muara: bawaan Room
   onEject() {}
   async admit() { return null; }
-  joinExtra() { return undefined; }
+  joinExtra(request) { const u = request.headers.get("x-nusa-uid"); return u ? { hid: HouseCore.pidOf(u) } : undefined; }   // ID publik pemain (satu arah) untuk daftar online & undangan rumah
   k() { return parseInt(String(this.roomName).split("-")[1], 10) || 1; }
   memberSync(force) { const u = this.room.uids().sort(), sig = u.join("|"); if (force || sig !== this.sig) { this.sig = sig; this.lobbyCall("sync", this.k(), u); } }
   lobbyCall(fn, ...args) { try { const l = this.env.LOBBY.get(this.env.LOBBY.idFromName("lobby")); this.ctx.waitUntil(l[fn](...args).catch(() => {})); } catch (e) {} }

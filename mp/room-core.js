@@ -36,7 +36,7 @@ class Room {
   number() { return parseInt(String(this.id).split("-")[1], 10) || 1; }
   uids() { return [...this.byUid.keys()]; }
 
-  pub(p) { const r = [p.pid, p.name, p.rank, p.rod, P.qz(p.x), P.qz(p.y), p.d, p.f, p.hold ? [p.hold.i, p.hold.w, p.hold.v] : 0]; if (this.house) r.push(p.role === "owner" ? 1 : 0, p.hid || ""); return r; }
+  pub(p) { const r = [p.pid, p.name, p.rank, p.rod, P.qz(p.x), P.qz(p.y), p.d, p.f, p.hold ? [p.hold.i, p.hold.w, p.hold.v] : 0]; if (this.house) r.push(p.role === "owner" ? 1 : 0, p.hid || ""); else if (p.hid) r.push(0, p.hid); return r; }   // ID publik pemain (hash satu arah, tanpa uid) — dipakai daftar online & undangan rumah
   send(c, o) { try { this.io.send(c, o); } catch (e) { /* koneksi sudah mati: dibersihkan lewat leave() */ } }
   bcast(o, exceptConn) { for (const [c, p] of this.players) if (c !== exceptConn && p.vis) this.send(c, o); }
 
@@ -202,7 +202,7 @@ class Room {
   }
 
   // ---- pemulihan setelah Durable Object hibernasi ----
-  snapshot(conn) { const p = this.players.get(conn); if (!p) return null; const s = { pid: p.pid, uid: p.uid, n: p.name, r: p.rank, rd: p.rod, x: p.x, y: p.y, d: p.d, f: p.f, v: p.vis ? 1 : 0, l: p.last, lo: p.lo ? 1 : 0, hd: p.hold || null, oc: p.outfit || "" }; if (this.house) { s.ro = p.role; s.h = p.hid; } return s; }
+  snapshot(conn) { const p = this.players.get(conn); if (!p) return null; const s = { pid: p.pid, uid: p.uid, n: p.name, r: p.rank, rd: p.rod, x: p.x, y: p.y, d: p.d, f: p.f, v: p.vis ? 1 : 0, l: p.last, lo: p.lo ? 1 : 0, hd: p.hold || null, oc: p.outfit || "" }; if (this.house) s.ro = p.role; if (p.hid) s.h = p.hid; return s; }
   restore(conn, s) {
     const now = this.now();
     const r = this.join(conn, s.uid, { n: s.n, r: s.r, rd: s.rd }, { x: s.x, y: s.y }, { role: s.ro, hid: s.h }); if (!r.ok) return r;

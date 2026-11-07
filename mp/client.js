@@ -404,7 +404,7 @@ async function fetchRooms(force) {
 function view() {
   return { house: R.house, state: R.state, why: R.why, room: R.room, roomNo: R.roomNo, n: R.n, visible: R.vcount, cap: R.cap, me: R.me, prefs: Object.assign({}, prefs), tx: R.tx, rx: R.rx, log: R.log.slice(-30), typing: R.typing,
     lastError: R.lastError || null, manualLeave: R.manualLeave, rooms: R.rooms, pending: R.pending, clock: CK.have, hour: sharedHour(),
-    players: [...R.players.values()].map((p) => ({ id: p.id, name: p.name, rank: p.rank, x: p.ch.x, y: p.ch.y, f: p.f, owner: !!p.owner, hid: p.hid || "", holding: p.hold ? p.hold.i : null })), online: R.state === "online" };
+    players: [...R.players.values()].map((p) => ({ id: p.id, name: p.name, rank: p.rank, x: p.ch.x, y: p.ch.y, f: p.f, owner: !!p.owner, hid: p.hid || "", outfit: p.outfit || "", style: p.ch && p.ch.style, holding: p.hold ? p.hold.i : null })), online: R.state === "online" };
 }
 function hook() {
   if (NW.mpUI) NW.mpUI.mount();

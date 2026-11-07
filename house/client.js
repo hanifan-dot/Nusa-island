@@ -44,8 +44,12 @@ function resultsHTML(list, mode) {
   if (!list.length) return `<div class="vh-none">Pemain tidak ditemukan</div>`;
   return list.map((r) => rowHTML(r, mode === "allow" ? `<button class="btn small gold" data-allow="${r.pid}">Izinkan</button>` : r.priv && !r.can ? `<span class="muted vh-ask">Minta izin pemilik</span>` : `<button class="btn small gold" data-visit="${r.pid}">KUNJUNGI</button>`)).join("");
 }
+function pendHTML() {
+  const pd = V.pendInvite; if (!pd || pd.until < Date.now()) return "";
+  return `<div class="vh-row"><div class="vh-ic">💌</div><div class="grow"><b>${esc(pd.name)}</b><div class="muted">Undangan diterima</div></div><button class="btn small gold" data-visit="${esc(pd.pid)}">MASUK</button></div>`;
+}
 function findHTML() {
-  return `<div class="vh-find"><input id="vhQ" class="vh-in" type="search" inputmode="search" placeholder="Ketik nama pemain..." maxlength="14" autocomplete="off" autocapitalize="off" enterkeyhint="search" value="${esc(V.q)}">
+  return `<div class="vh-find">${pendHTML()}<input id="vhQ" class="vh-in" type="search" inputmode="search" placeholder="Ketik nama pemain..." maxlength="14" autocomplete="off" autocapitalize="off" enterkeyhint="search" value="${esc(V.q)}">
     <div id="vhMsg" class="vh-msg ${V.msg ? "" : "hidden"}">${esc(V.msg)}</div>
     <div id="vhRes" class="vh-res">${V.busy && V.res === null ? `<div class="muted vh-hint">Mencari…</div>` : resultsHTML(V.res, "visit")}</div>
     <p class="muted vh-fine">Hanya pemain yang benar-benar terdaftar. Kamu hanya bisa melihat-lihat; rumah teman tidak bisa diubah. Email & akun tidak ditampilkan.</p></div>`;

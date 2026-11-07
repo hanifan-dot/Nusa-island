@@ -24,3 +24,10 @@ body.editing .visit-btn, body.editing .visit-back, body.editing .visit-tag { dis
 .vh-msg { margin-top: 8px; background: #fff3d1; border-radius: 10px; padding: 8px 10px; font: 700 12px var(--font); }
 .vh-id { margin-bottom: 8px; } .vh-sw { display: flex; gap: 8px; margin: 8px 0; } .vh-h { margin: 14px 0 6px; font: 800 13px var(--font); }
 @media (max-width: 420px) { .visit-btn, .visit-back { font-size: 12px; padding: 8px 11px; } }
+
+/* Rumahku Sosial */
+.sc-av { width: 44px; height: 56px; flex: none; background: #f3ecd8; border-radius: 10px; }
+.inv-pop { position: fixed; z-index: 30; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 58px); width: min(360px, calc(100vw - 20px)); box-sizing: border-box;
+  background: #173f50; color: #fff9ec; border-radius: 16px; padding: 12px 14px; box-shadow: 0 6px 20px rgba(10, 35, 45, .45); display: flex; flex-direction: column; gap: 8px; }
+.inv-pop.hidden { display: none !important; } .inv-t { font: 600 14px var(--font); line-height: 1.35; } .inv-b { display: flex; gap: 8px; justify-content: flex-end; }
+.inv-pop .vh-sid { background: rgba(255, 255, 255, .18); color: #fff9ec; }
