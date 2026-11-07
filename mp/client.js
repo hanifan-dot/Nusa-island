@@ -156,6 +156,12 @@ function setHold(p, h) {                                      // h = [spesies, g
   p.holdKey = k; p.hold = { i: h[0], w: h[1], v: h[2] };
   p.ch.hold = NW.hold && NW.hold.remoteFrame ? NW.hold.remoteFrame(p.hold) : null;
 }
+// Penampilan pemain lain: kode kosmetik → gaya lokal. Item/kostum yang tak dikenal (versi game lain) jatuh ke tampilan dasar; tidak ada aset dari jaringan.
+function setOutfit(p, code) {
+  const A = NW.avatarDraw; if (!A) return; if (!p.baseStyle) p.baseStyle = p.ch.style;
+  const o = P.cleanOutfit(code); p.outfit = o || ""; p.ch.style = o ? A.styleFor(o, p.baseStyle) : p.baseStyle; p.ch._fxT0 = undefined; p.ch._tr = [];
+}
+NW.mp_setOutfitFor = setOutfit;
 function upsert(row) {
   const [id, name, rank, rod, qx, qy, d, f, hold] = row;
   let p = R.players.get(id);
@@ -175,6 +181,7 @@ function onMsg(m, ws) {
     case "w":
       R.me = m.me; R.room = m.room; R.n = m.n; R.vcount = m.v; R.cap = m.cap; R.players.clear();
       for (const row of m.ps) upsert(row).ch.moving = false;
+      if (m.ou && typeof m.ou === "object") for (const id of Object.keys(m.ou)) { const q = R.players.get(id); if (q) setOutfit(q, m.ou[id]); }
       R.gotWelcome = true; R.gotWelcomeEver = true; R.fails = 0; R.holdSent = undefined;
       if (m.k !== "house") { R.roomNo = m.rn || parseInt(String(m.room).split("-")[1], 10) || 0; R.resume = R.roomNo; R.pending = null; }   // ruang rumah TIDAK mengganti server Muara yang diingat
       clockSample(m.st, R.helloAt); setTimeout(() => { if (R.ws === ws) { R.hbSent = now(); send({ t: "h" }); } }, 600); setTimeout(() => { if (R.ws === ws) { R.hbSent = now(); send({ t: "h" }); } }, 2500);   // beberapa sampel awal → jam akurat
@@ -185,6 +192,7 @@ function onMsg(m, ws) {
     case "j": { if (m.p[0] === R.me) break; const p = upsert(m.p); p.ch.x = p.tx; p.ch.y = p.ty; emit(); break; }
     case "l": R.players.delete(m.id); emit(); break;
     case "f": { const p = R.players.get(m.id); if (p) setHold(p, m.h); break; }
+    case "a": { const p = R.players.get(m.id); if (p) setOutfit(p, m.o); break; }
     case "s": for (const u of m.u) { const p = R.players.get(u[0]); if (p) { p.tx = u[1] / P.Q; p.ty = u[2] / P.Q; p.d = u[3]; p.f = u[4]; p.at = now(); } } break;
     case "c": {
       const mine = m.id === R.me, p = mine ? null : R.players.get(m.id), name = mine ? profile().n : p ? p.name : "?";
@@ -224,7 +232,7 @@ function netTick() {
   }
   if (!R.gotWelcome) { if (!R.helloSent && L.vis) helloNow(); return; }
   if (!L.vis) { if (R.vis) { send({ t: "v", on: 0 }); R.vis = false; R.sent = null; R.holdSent = undefined; } if (t - R.lastSend > 15000) send({ t: "h" }); return; }
-  if (!R.vis) { R.helloAt = t; send({ t: "hello", ...(() => { const p = profile(); return { n: p.n, r: p.r, rd: p.rd }; })(), x: P.qz(L.x), y: P.qz(L.y), d: L.d, f: L.f }); R.vis = true; R.sent = { x: L.x, y: L.y, d: L.d, f: L.f }; R.holdSent = undefined; return; }
+  if (!R.vis) { R.helloAt = t; send({ t: "hello", ...(() => { const p = profile(); return { n: p.n, r: p.r, rd: p.rd }; })(), x: P.qz(L.x), y: P.qz(L.y), d: L.d, f: L.f }); R.vis = true; R.outSent = ""; R.sent = { x: L.x, y: L.y, d: L.d, f: L.f }; R.holdSent = undefined; return; }
   const S0 = R.sent || { x: -99, y: -99, d: -1, f: -1 }, interval = prefs.low ? 500 : 250;
   const dist = Math.hypot(L.x - S0.x, L.y - S0.y), changed = dist > 0.04 || L.d !== S0.d || L.f !== S0.f;
   if (changed && t - R.lastSend >= interval) {
@@ -235,6 +243,8 @@ function netTick() {
   const hk = L.f & P.F.FISH ? "" : holdKey();
   // juga dikirim ulang tiap 10 dtk selama memamerkan (idempoten; memulihkan bila ada paket terlewat)
   if ((hk !== R.holdSent && t - (R.holdAt || 0) > 800) || (hk && t - (R.holdAt || 0) > 10000)) { R.holdAt = t; R.holdSent = hk; if (hk) { const h = JSON.parse(hk); send({ t: "f", i: h.i, w: h.w, v: h.v }); } else send({ t: "f" }); }
+  // penampilan avatar: kirim saat berubah (setelah tampak) — hanya kode ID kosmetik
+  if (NW.avatar && (R.outWant || "") !== R.outSent && t - (R.outAt || 0) > 1500) { R.outAt = t; R.outSent = R.outWant || ""; send({ t: "a", o: R.outSent }); }
   if (t - R.lastHbAt > 15000 || !R.lastHbAt) { R.lastHbAt = t; if (t - R.lastSend > 3000) { R.hbSent = t; send({ t: "h" }); } }
   if (t - R.lastProf > 5000 || !R.lastProf) { R.lastProf = t; const p = profile(), k = p.n + "|" + p.r + "|" + p.rd; if (k !== R.profKey) { if (R.profKey) send({ t: "p", n: p.n, r: p.r, rd: p.rd }); R.profKey = k; } }
 }
@@ -404,6 +414,6 @@ function hook() {
   if (NW.cloud && NW.cloud.onChange) NW.cloud.onChange(() => { if (!user() && R.ws) disconnect("logout"); emit(); });
 }
 
-NW.mp = { eject, clearKick, homeLayer, inHouse: () => !!R.house && R.vis && R.state === "online", hook, update, layer, drawTag, drawBubbles, view, sendChat, sendEmote, setPref, joinRoom, joinRandom, joinAuto, leaveServer, fetchRooms, sharedHour, onChange: (f) => R.listeners.push(f), eligible, EMOTES: P.EMOTES, ERR,
+NW.mp = { sendOutfit: (c) => { R.outWant = typeof c === "string" ? c : ""; }, eject, clearKick, homeLayer, inHouse: () => !!R.house && R.vis && R.state === "online", hook, update, layer, drawTag, drawBubbles, view, sendChat, sendEmote, setPref, joinRoom, joinRandom, joinAuto, leaveServer, fetchRooms, sharedHour, onChange: (f) => R.listeners.push(f), eligible, EMOTES: P.EMOTES, ERR,
   get typing() { return R.typing; }, set typing(v) { R.typing = !!v; }, hasChatPref: () => prefs.chat, _R: R, _prefs: () => prefs, _net: netTick, _clock: CK, _serverNow: serverNow };
 })();
