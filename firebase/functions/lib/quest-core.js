@@ -52,10 +52,20 @@
   const eqOn = (doc) => !(doc && typeof doc === "object" && doc.eq === false);
   /** Batas angkat (kg) yang SERVER akui: 100 hanya bila dimiliki DAN dipakai; selain itu 0 (tidak ada manfaat). */
   const rodCap = (doc) => (rodOwned(doc) && eqOn(doc) ? ROD.capKg : 0);
+  /** Batas kewajaran berat tangkapan (kg) yang SERVER pakai. Hasil adu joran-vs-ikan terjadi di klien, jadi server tidak bisa membuktikan satu tangkapan;
+   *  yang bisa: menolak klaim yang mustahil bagi kemampuan joran TERVERIFIKASI. Kemampuan = max(joran upgrade reguler (level dari server) x 1,15 [maks Joran Pelaut],
+   *  100 kg bila Joran WhatsApp DIMILIKI [bukan sekadar terpasang: laporan tertunda saat dilepas tetap sah]). Pengali PLAUS (toleransi 2x + overload besar)
+   *  sengaja longgar supaya tangkapan sah joran mana pun, ikan lama, dan overload tidak ditolak. */
+  const ROD_CAP = [8, 18, 40, 80, 150, 200, 260, 330, 420, 500];          // cermin data.js UPGRADES.rod.cap (dijaga uji kesamaan)
+  const STREAK_CAP_MUL = 1.15, PLAUS = 20;
+  function plausKg(rodLv, doc) {
+    const lv = Math.max(0, Math.min(ROD_CAP.length - 1, Number.isInteger(rodLv) ? rodLv : 0));
+    return Math.max(ROD_CAP[lv] * STREAK_CAP_MUL, rodOwned(doc) ? ROD.capKg : 0) * PLAUS;
+  }
   function planEquip(doc, on) {
     if (typeof on !== "boolean") return { error: "bad_arg" };
     if (!rodOwned(doc)) return { notOwned: true };
     const next = Object.assign({}, doc); next.eq = on; return { ok: true, doc: next };
   }
-  return { MIN_AWAY_MS, QUESTS, IDS, isQuest, ROD, entry, status, claimedCount, allDone, planOpen, planClaim, planEquip, rodOwned, eqOn, rodCap, view };
+  return { MIN_AWAY_MS, QUESTS, IDS, isQuest, ROD, entry, status, claimedCount, allDone, planOpen, planClaim, planEquip, plausKg, ROD_CAP, PLAUS, rodOwned, eqOn, rodCap, view };
 });

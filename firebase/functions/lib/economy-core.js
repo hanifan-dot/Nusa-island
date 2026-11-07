@@ -184,12 +184,13 @@
           if (eco.catches.length + n > LIM.catchPerHour) throw E("resource-exhausted", "Batas tangkapan per jam tercapai.");
           for (let i = 0; i < n; i++) eco.catches.push(now);
           eco.lastCatchAt = now;
-          let reward = 0; const skipped = [], swaps = [], fin = []; let sfItem = [];
+          let reward = 0; const skipped = [], swaps = [], fin = [], capSkipped = []; let sfItem = [];
           const rolled = [];   // ikan biasa sah yang masuk kotak → tiap satu mendapat TEPAT satu kesempatan bonus SF (diundi SERVER)
           const bonus = !!(AU && AU.active(ent, eco));                                           // bonus HANYA bila server melihat kepemilikan NYATA di entitlement (bukan klaim klien)
           for (const it of items) {
             let f = FISH[it.id], w = Number(it.w);
             if (f.protected) { const r = Math.round(f.price * PRICE_SCALE * FM.effectiveKg(w) * 1.2); reward += r; credit(eco, r); fin.push(it); continue; }
+            if (QK && w > QK.plausKg(eco.up.rod, eco.quest)) { skipped.push(it.uid); capSkipped.push(it.uid); fin.push(it); continue; }   // mustahil bagi joran terverifikasi (Quest Owner: batas 100 kg ditegakkan server); tangkapan sah tidak tersentuh
             if (pondKnows(eco, it.uid)) { skipped.push(it.uid); fin.push(it); continue; }            // ikan yang sedang/pernah di kolam (mis. simpanan lama dipulihkan) tidak boleh masuk kotak lagi
             if (eco.box.some((b) => b.u === it.uid)) throw E("already-exists", "UID ikan sudah ada.");
             if (eco.box.length >= LIM.boxMax) throw E("resource-exhausted", "Kotak ikan penuh.");
@@ -205,7 +206,7 @@
           if (SFX && rolled.length) sfItem = sfRoll(eco, rolled, sfCfg, now);   // peluang SF tidak dipengaruhi Aurora / Megalodon / ikan lama
           lbCount(eco, fin, typeof skipped === "undefined" ? null : skipped, now);   // Podium Juara: sekali per paket, di transaksi yang sama
           await t.set(ECO(uid), remember(eco, opId, { reward, skipped, swaps, sfItem }) && eco);
-          return Object.assign({ ok: true, reward, skipped, swaps, sfItem }, view(eco, ent));
+          return Object.assign({ ok: true, reward, skipped, swaps, sfItem }, capSkipped.length ? { capSkipped } : {}, view(eco, ent));
         });
       },
       // Samudra Follower: daftar ikan yang AKTIF menurut persetujuan Owner (1 baca config). Terkunci/tidak ada config → {on:false, fish:[]}. Peluang = angka yang disetujui Owner (klien hanya melempar; server membatasi harian + ref).
