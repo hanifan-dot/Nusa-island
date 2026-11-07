@@ -1,0 +1,50 @@
+name: Cek Kandidat Samudra Follower V2 (tanpa deploy)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/cek-kandidat-sf2-20261107.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    name: Uji SF V2 + regresi + pemeriksaan rilis (TANPA deploy, TANPA secret)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/Nusa-island
+          ref: 3697ad4a24defe5df75681dde55528e7e04b93a0
+          path: game
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Salinan Firebase Functions lib harus sesuai sumber (tanpa diff setelah sinkron)
+        working-directory: game
+        run: |
+          node firebase/scripts/sync-economy.js
+          git diff --exit-code -- firebase/functions/lib
+      - name: Uji Samudra Follower V2 (server, Pity, peta, kompatibilitas Cloud Save)
+        working-directory: game
+        run: |
+          set -e
+          node tests/unit-sf2.js
+          node tests/unit-sf2-map.js
+          node tests/unit-sf.js
+          node tests/unit-sf-server.js
+      - name: Regresi inti
+        working-directory: game
+        run: |
+          set -e
+          for t in unit-economy unit-cloud unit-map-ext unit-aurora unit-mp unit-podium unit-house-social unit-mp-house unit-shop unit-fashion unit-pond unit-rilis unit-cf-auth; do node tests/$t.js; done
+      - name: Fitur wajib lengkap + tidak menimpa situs LIVE (pemeriksaan TIDAK dilonggarkan)
+        working-directory: game
+        run: node firebase/scripts/cek-rilis.js --live https://nusa-island-d2023.web.app --require-live
+      - name: Build hosting produksi tiruan dan periksa utuh
+        working-directory: game
+        run: |
+          NUSA_API_BASE=https://nusa-api.contoh.workers.dev NUSA_MP_WS=wss://nusa-multiplayer.contoh.workers.dev bash firebase/scripts/build-hosting.sh produksi
+          node firebase/scripts/cek-rilis.js --build firebase/public --live https://nusa-island-d2023.web.app --require-live
+          test -s firebase/public/sf2/sf2.js
+          ! ls firebase/public | grep -qi credits

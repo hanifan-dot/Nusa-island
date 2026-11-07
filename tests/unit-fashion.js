@@ -1,0 +1,43 @@
+// Uji katalog & transaksi Fashion (server): node tests/unit-fashion.js
+const assert = require("assert"), fs = require("fs");
+const EC = require("../economy/core.js"), FM = require("../fishmath.js"), T = require("../economy/tables.js"), F = require("../economy/fashion-core.js");
+let pass = 0, fail = 0; const t = async (n, f) => { try { await f(); pass++; } catch (e) { fail++; console.log("FAIL", n, "\n   ", e.stack.split("\n").slice(0, 3).join("\n    ")); } };
+function mkdb() { const m = new Map(); const rd = (p) => (m.has(p) ? JSON.parse(m.get(p)) : null); let q = Promise.resolve();
+  return { m, get: async (p) => rd(p), tx: (fn) => { const run = q.then(async () => { const buf = new Map(); const out = await fn({ get: async (p) => (buf.has(p) ? JSON.parse(buf.get(p)) : rd(p)), set: async (p, o) => { buf.set(p, JSON.stringify(o)); } }); for (const [k, v] of buf) m.set(k, v); return out; }); q = run.catch(() => {}); return run; } }; }
+let now = 1e12, n = 0; const op = () => "op" + (++n) + "xxxxxxxx";
+const mk = (money) => { const db = mkdb(); const e = EC.makeEconomyServer(db, { clock: () => now, tables: T, fishmath: FM, fashion: F, trustClientInit: true, initCap: 1e9 }); return { db, e, init: () => e.ecoInit(U, { money }) }; };
+const U = { uid: "u1" }, V = { uid: "u2" };
+const price = (id) => F.BY_ID[id].price;
+(async () => {
+  await t("katalog: harga persis sesuai spesifikasi", () => { const want = { t_polos: 0, t_basic: 25000, t_street: 45000, t_pantai: 75000, t_nelayan: 120000, t_hoodie: 225000, t_cyber: 350000, t_sultan: 800000, p_awal: 0, p_jeans: 35000, p_cargo: 90000, p_tactical: 140000, p_emas: 390000, h_kapten: 55000, h_koboi: 125000, h_mahkota: 450000, h_robot: 650000, a_sayap: 950000, c_kucing: 350000, c_capy: 650000, c_hiu: 900000, c_trex: 1200000, c_naga: 2500000, c_robot: 750000, c_raja: 1500000, c_hantu: 1800000, c_galaksi: 3500000 };
+    for (const [id, p] of Object.entries(want)) assert.equal(price(id), p, id); assert.equal(F.ITEMS.length, Object.keys(want).length); });
+  await t("ID unik; Hiu/T-Rex/Naga berbagi ID antara daftar hewan & Sultan", () => { const ids = F.ITEMS.map((i) => i.id); assert.equal(new Set(ids).size, ids.length);
+    for (const id of ["c_hiu", "c_trex", "c_naga"]) { assert.ok(F.ANIMAL.includes(id) && F.SULTAN.includes(id)); } assert.equal(F.SULTAN.length, 7); });
+  await t("beli item biasa: saldo berkurang sebesar harga katalog server", async () => { const { e, init } = mk(100000); await init(); const r = await e.ecoFashionBuy(U, { opId: op(), id: "t_street" });
+    assert.equal(r.price, 45000); assert.ok(r.fashion.own.includes("t_street")); assert.equal(r.balance, 100000 - 45000); });
+  await t("beli kostum Sultan", async () => { const { e, init } = mk(2000000); await init(); const r = await e.ecoFashionBuy(U, { opId: op(), id: "c_trex" }); assert.equal(r.balance, 800000); assert.equal(r.fashion.hist[0].id, "c_trex"); });
+  await t("saldo kurang → ditolak, tidak ada potongan & tidak dimiliki", async () => { const { e, init } = mk(1000); await init(); await assert.rejects(() => e.ecoFashionBuy(U, { opId: op(), id: "c_naga" }), /Koin tidak cukup/);
+    const s = await e.ecoFashionState(U); assert.equal(s.balance, 1000); assert.deepEqual(s.fashion.own, []); });
+  await t("klik ganda (opId sama) → sekali bayar; beli ulang (opId baru) ditolak", async () => { const { e, init } = mk(500000); await init(); const id = op();
+    const [a, b] = await Promise.all([e.ecoFashionBuy(U, { opId: id, id: "t_hoodie" }), e.ecoFashionBuy(U, { opId: id, id: "t_hoodie" })]);
+    assert.ok(a.duplicate || b.duplicate); assert.equal((await e.ecoFashionState(U)).balance, 500000 - 225000);
+    await assert.rejects(() => e.ecoFashionBuy(U, { opId: op(), id: "t_hoodie" }), /sudah/); assert.equal((await e.ecoFashionState(U)).balance, 275000); });
+  await t("harga/saldo dari klien diabaikan; ID asing & item gratis ditolak", async () => { const { e, init } = mk(100000); await init();
+    const r = await e.ecoFashionBuy(U, { opId: op(), id: "t_basic", price: 1, balance: 9e9 }); assert.equal(r.price, 25000); assert.equal(r.balance, 75000);
+    await assert.rejects(() => e.ecoFashionBuy(U, { opId: op(), id: "c_palsu" }), /tidak dikenal/); await assert.rejects(() => e.ecoFashionBuy(U, { opId: op(), id: "__proto__" }), /tidak dikenal/);
+    await assert.rejects(() => e.ecoFashionBuy(U, { opId: op(), id: "t_polos" }), /sudah/); });
+  await t("simpan penampilan: butuh kepemilikan; milik UID lain tidak berlaku", async () => { const A = mk(1e6); await A.init(); await A.e.ecoFashionBuy(U, { opId: op(), id: "c_kucing" });
+    await assert.rejects(() => A.e.ecoFashionSave(U, { opId: op(), code: "c:c_naga:0|s:x:0|r:x:0" }), /belum memiliki/);
+    const r = await A.e.ecoFashionSave(U, { opId: op(), code: "t:t_polos:2|p:p_awal:1|c:c_kucing:1|s:x:2|r:x:3" }); assert.equal(r.fashion.code, "t:t_polos:2|p:p_awal:1|c:c_kucing:1|s:x:2|r:x:3");
+    await A.e.ecoInit(V, { money: 0 }); await assert.rejects(() => A.e.ecoFashionSave(V, { opId: op(), code: "c:c_kucing:0" }), /belum memiliki/);
+    await assert.rejects(() => A.e.ecoFashionSave(U, { opId: op(), code: "t:t_polos:9" }), /Warna/); await assert.rejects(() => A.e.ecoFashionSave(U, { opId: op(), code: "p:t_polos:0" }), /tidak dikenal/); });
+  await t("persisten: state baca ulang (login ulang) tetap; saldo top-up dipakai lewat satu dompet", async () => { const { e, db, init } = mk(0); await init();
+    db.m.set("shop/entitlements/u1", JSON.stringify({ products: {}, owned: {}, wallet: { SIMULASI: 0, NYATA: 100000 } }));
+    const r = await e.ecoFashionBuy(U, { opId: op(), id: "h_kapten" }); assert.equal(r.price, 55000); assert.equal(r.balance, 100000 + EC.LIM.start - 55000); assert.equal(r.topup, 100000 - (55000 - EC.LIM.start)); assert.equal(r.own, 0);
+    const s = await e.ecoFashionState(U); assert.ok(s.fashion.own.includes("h_kapten")); });
+  await t("akun belum init tidak bisa membeli", async () => { const { e } = mk(0); await assert.rejects(() => e.ecoFashionBuy(U, { opId: op(), id: "t_basic" }), /belum diaktifkan/); });
+  await t("resolve: item tak dikenal jatuh ke default; kode rusak ditolak", () => { const r = F.resolve("c:zzz:0|t:t_street:1"); assert.equal(r.c, null); assert.equal(r.t.it.id, "t_street");
+    assert.equal(F.decode("t:a:1|t:b:1"), null); assert.equal(F.decode("x".repeat(300)), null); assert.equal(F.resolve("sampah").t.it.id, "t_polos"); });
+  await t("salinan Functions sinkron", () => { assert.equal(fs.readFileSync(__dirname + "/../firebase/functions/lib/fashion-core.js", "utf8").split("\n").slice(1).join("\n"), fs.readFileSync(__dirname + "/../economy/fashion-core.js", "utf8")); });
+  console.log(`unit-fashion: ${pass} lulus, ${fail} gagal`); process.exit(fail ? 1 : 0);
+})();
