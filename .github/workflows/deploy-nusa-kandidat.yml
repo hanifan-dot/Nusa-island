@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
-          ref: 35225b14baa922d88f67896a1cded036e3f46c99
+          ref: 9a88ae6691820628327581f745772bc6767c7f4d
           fetch-depth: 0
           path: game
       - uses: actions/checkout@v4
@@ -81,7 +81,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       NUSA_GAME_DIR: ${{ github.workspace }}/game
       NUSA_BACKEND_DIR: ${{ github.workspace }}/backend
-      NUSA_GAME_SHA: 35225b14baa922d88f67896a1cded036e3f46c99
+      NUSA_GAME_SHA: 9a88ae6691820628327581f745772bc6767c7f4d
       NUSA_BACKEND_SHA: 44eebd3a0f9caaa92161a21f7725c548f0b71084
       NUSA_CONFIRM: "ya"
     steps:
@@ -96,7 +96,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
-          ref: 35225b14baa922d88f67896a1cded036e3f46c99
+          ref: 9a88ae6691820628327581f745772bc6767c7f4d
           fetch-depth: 0
           path: game
       - uses: actions/checkout@v4
