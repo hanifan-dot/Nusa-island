@@ -117,6 +117,8 @@
     return true;
   }
 
+  // Kompatibilitas: klien lama menulis S.shop.aurSeen (kunci tak dikenal validator lama). Salinan KIRIMAN dibersihkan; data lokal TIDAK diubah/dihapus.
+  function compatRaw(raw) { try { const o = JSON.parse(raw); if (o && o.shop && typeof o.shop === "object" && "aurSeen" in o.shop) { delete o.shop.aurSeen; return JSON.stringify(o); } } catch (e) {} return raw; }
   async function push(opts) {
     opts = opts || {};
     if (!syncActive || !cloud.user) return { skipped: true };
@@ -129,7 +131,7 @@
     setStatus("syncing");
     inflight = (async () => {
       try {
-        const r = await call(ep().write, { data: raw, baseRev: meta.rev, opId: newOp(), deviceId: meta.deviceId, confirmOverwrite: !!opts.confirm || sandbox });
+        const r = await call(ep().write, { data: compatRaw(raw), baseRev: meta.rev, opId: newOp(), deviceId: meta.deviceId, confirmOverwrite: !!opts.confirm || sandbox });
         if (r.conflict) { setStatus("conflict", ""); cloud.remoteInfo = r; return { conflict: true, r }; }
         writeMeta({ rev: r.rev, hash: h }); dirty = localRaw() !== raw; cloud.lastSyncAt = Date.now(); retryN = 0; cloud.remoteNewer = false;
         setStatus(dirty ? "dirty" : "idle", "");
