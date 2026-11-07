@@ -25,6 +25,14 @@ jobs:
         run: |
           [ "$ACTOR" = "$OWNER" ] || exit 1
           [ "$CONFIRM" = "deploy" ] || exit 1
+      - name: Verifikasi akses baca repository backend privat
+        env:
+          NUSA_BACKEND_READ_TOKEN: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+        run: |
+          if [ -z "$NUSA_BACKEND_READ_TOKEN" ]; then
+            echo "::error::Akses repo backend privat belum terhubung. Tambahkan GitHub Actions repository secret NUSA_BACKEND_READ_TOKEN (fine-grained PAT, Contents: Read, hanya repo nusa-island-control-center) ke repo Nusa-island."
+            exit 1
+          fi
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
@@ -35,6 +43,8 @@ jobs:
         with:
           repository: hanifan-dot/nusa-island-control-center
           ref: 44eebd3a0f9caaa92161a21f7725c548f0b71084
+          token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+          persist-credentials: false
           path: backend
       - uses: actions/setup-node@v4
         with:
@@ -75,6 +85,14 @@ jobs:
       NUSA_BACKEND_SHA: 44eebd3a0f9caaa92161a21f7725c548f0b71084
       NUSA_CONFIRM: "ya"
     steps:
+      - name: Verifikasi akses baca repository backend privat
+        env:
+          NUSA_BACKEND_READ_TOKEN: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+        run: |
+          if [ -z "$NUSA_BACKEND_READ_TOKEN" ]; then
+            echo "::error::Akses repo backend privat belum terhubung. Tambahkan GitHub Actions repository secret NUSA_BACKEND_READ_TOKEN (fine-grained PAT, Contents: Read, hanya repo nusa-island-control-center) ke repo Nusa-island."
+            exit 1
+          fi
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
@@ -85,6 +103,8 @@ jobs:
         with:
           repository: hanifan-dot/nusa-island-control-center
           ref: 44eebd3a0f9caaa92161a21f7725c548f0b71084
+          token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+          persist-credentials: false
           path: backend
       - uses: actions/setup-node@v4
         with:
