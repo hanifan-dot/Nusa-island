@@ -13,7 +13,8 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 const user = () => (NW.cloud && NW.cloud.user) || null;
 const POLL_MS = 20000;
 const S = { on: false, tab: "online", inv: [], ans: [], prefs: null, msg: "", sent: {}, seen: new Set(), pend: null, timer: 0, busy: false, ready: false, cool: {} };
-const wanted = () => window.NUSA_SOCIAL_HOME === true;
+let srvOn = false;   // saklar Owner dari server (gameFlags): membuka fitur TANPA deploy ulang. Bawaan MATI.
+const wanted = () => window.NUSA_SOCIAL_HOME === true || srvOn;
 const canApi = () => !!(wanted() && window.NusaApi && window.NusaApi.enabled() && user());
 const api = (name, data) => window.NusaApi.call(name, data || {}, true);
 const errText = (e) => (e && e.message) || "Jaringan bermasalah. Coba lagi.";
@@ -165,5 +166,17 @@ function hook() {
   setInterval(() => { if (!S.on) start(); }, 5000); start();
 }
 NW.social = { hook, start, _S: S, _poll: pollNow };
-window.addEventListener("load", () => setTimeout(hook, 900));
+// Boot: flag statis (uji/pratinjau) ATAU saklar Owner dari server. Server juga menutup fungsinya sendiri (404) saat saklar MATI.
+let hooked = false;
+function boot() {
+  const run = () => { if (hooked) return; hooked = true; hook(); };
+  if (wanted()) return run();
+  const t = setInterval(async () => {
+    if (hooked) return clearInterval(t);
+    if (!(window.NusaApi && window.NusaApi.enabled() && user())) return;
+    clearInterval(t);
+    try { const r = await window.NusaApi.call("gameFlags", {}, true); if (r && r.socialHome === true) { srvOn = true; run(); } } catch (e) { /* server lama/mati: fitur tetap tersembunyi */ }
+  }, 3000);
+}
+window.addEventListener("load", () => setTimeout(boot, 900));
 })();
