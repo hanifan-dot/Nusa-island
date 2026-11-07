@@ -204,7 +204,7 @@ jobs:
             printf '%s' "$CFG" | grep -q "NUSA_SOCIAL_HOME = false" || { echo "::error::Flag statis Rumahku Sosial tidak MATI"; exit 1; }
             R=$(curl -fsS --retry 3 "$NUSA_API_BASE/api/release-status") || { echo "::error::release-status tidak terjangkau"; exit 1; }
             echo "release-status: $R"
-            printf '%s' "$R" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const r=JSON.parse(d);if(r.ok!==true)process.exit(1);if(r.features.leaderboard||r.features.socialHome||r.sf.on||r.sf.eventOn){console.error("::error::Ada fitur NYALA di server sebelum Owner membukanya (atau Owner sudah membukanya sebelumnya): periksa");process.exit(1)}})' || exit 1
+            printf '%s' "$R" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{const outer=JSON.parse(d),r=outer&&outer.data&&typeof outer.data==="object"?outer.data:outer;if(outer.ok!==true||r.ok!==true||!r.features||!r.sf||["leaderboard","socialHome"].some(k=>typeof r.features[k]!=="boolean")||["on","eventOn"].some(k=>typeof r.sf[k]!=="boolean")){console.error("::error::Format release-status tidak valid");process.exitCode=1;return;}if(r.features.leaderboard||r.features.socialHome||r.sf.on||r.sf.eventOn){console.error("::error::Ada fitur NYALA di server sebelum Owner membukanya: periksa");process.exitCode=1;}}catch(e){console.error("::error::release-status bukan JSON valid");process.exitCode=1;}})' || exit 1
             echo "OK: API sehat; status server: semua fitur baru MATI."
           else
             echo "Rollback: API sehat. Pemeriksaan release-status dilewati (backend lama tak punya endpoint itu)."
