@@ -39,6 +39,7 @@
     const T = opts.tables, FM = opts.fishmath;
     if (!T || !FM) throw new Error("tables & fishmath wajib");
     const initCap = Number.isFinite(opts.initCap) ? opts.initCap : 20000;     // batas koin lama yang diakui SEKALI saat migrasi; 0 saat rilis
+    const QK = opts.quest || null;                                            // QuestCore (economy/quest-core.js): Quest Owner, opsional (tanpa ini ecoQuest* menolak)
     const SK = opts.streak || null;                                           // StreakCore (streak/core.js), opsional
     const PC = opts.pond || null;                                             // PondCore (economy/pond-core.js): Kolam Ikan Rumahku, opsional (tanpa ini ecoPond* menolak)
     const AU = opts.aurora || null;                                           // AuroraCore (economy/aurora-core.js): bonus peluang Gamepass Pancing Aurora, opsional (tanpa ini tidak ada bonus)
@@ -54,10 +55,11 @@
     const uidOf = (a) => { if (!a || typeof a.uid !== "string" || !a.uid) throw E("unauthenticated", "Masuk dulu."); return a.uid; };
     const needOp = (p) => { if (!p || typeof p.opId !== "string" || !OP_RE.test(p.opId)) throw E("invalid-argument", "opId tidak valid."); return p.opId; };
     const fresh = () => ({ v: 1, init: false, bal: 0, up: { rod: 0, bait: 0, cooler: 0, boat: 0 }, homeLv: 1, cat: {}, claimed: {}, box: [], catches: [], missions: { day: 0, total: 0, n: 0, ids: [] },
-      ops: [], earned: 0, spent: 0, lastCatchAt: 0, streak: null, streakBait: 0, ev: {}, troph: {} });
+      ops: [], earned: 0, spent: 0, lastCatchAt: 0, quest: null, streak: null, streakBait: 0, ev: {}, troph: {} });
     const topupOf = (ent) => (ent && ent.wallet && ent.wallet.NYATA) || 0;
     const view = (eco, ent) => ({ init: eco.init, own: eco.bal, topup: topupOf(ent), balance: eco.bal + topupOf(ent), up: eco.up, homeLv: eco.homeLv, cat: eco.cat,
       box: eco.box.map((b) => b.u), claimed: Object.keys(eco.claimed), troph: eco.troph || {},
+      ...(QK ? { qo: QK.view(eco.quest) } : {}),
       ...(AU ? { aur: { own: AU.ownsAny(ent), live: AU.active(ent, eco), eq: AU.equipOn(eco), n: (eco.aur && eco.aur.n) || 0, up: (eco.aur && eco.aur.up) || 0 } } : {}) });
     const doneOp = (eco, id) => { const o = eco.ops.find((x) => x.id === id); return o ? o.r : null; };
     const remember = (eco, id, r) => { eco.ops.push({ id, r }); if (eco.ops.length > LIM.ops) eco.ops.splice(0, eco.ops.length - LIM.ops); return r; };
@@ -119,6 +121,7 @@
       return { own, top };
     }
     const entOf = async (t, uid) => (await t.get(ENT(uid))) || { products: {}, wallet: { SIMULASI: 0, NYATA: 0 }, owned: {} };
+    const needQK = () => { if (!QK) throw E("failed-precondition", "Quest Owner belum aktif di server."); };
     const credit = (eco, n) => { eco.bal += n; eco.earned += n; };
     const needSK = () => { if (!SK) throw E("failed-precondition", "Hadiah login belum tersedia di server ini."); };
 
@@ -434,6 +437,51 @@
           const r = { reward: rw, fid: plan.fid, cycle: plan.cycle, pos: plan.pos, reset: !!plan.reset };
           await t.set(ECO(uid), remember(eco, opId, r) && eco);
           return Object.assign({ ok: true }, r, { now, doc: eco.streak, bait: eco.streakBait }, view(eco, ent));
+        });
+      },
+      // ---- Quest Owner (follow Instagram / join WhatsApp). Buku di dokumen ekonomi; waktu = jam SERVER. Hadiah SEKALI per akun. ----
+      async ecoQuestState(auth) {
+        needQK(); const uid = uidOf(auth);
+        return db.tx(async (t) => { const eco = await getEco(t, uid), ent = await entOf(t, uid); return Object.assign({ now: clock(), doc: QK.view(eco.quest) }, view(eco, ent)); });
+      },
+      async ecoQuestOpen(auth, p) {
+        needQK(); const uid = uidOf(auth); p = p || {}; const q = typeof p.q === "string" ? p.q : "";
+        if (!QK.isQuest(q)) throw E("invalid-argument", "Quest tidak dikenal.");
+        return db.tx(async (t) => {
+          const eco = await getEco(t, uid), ent = await entOf(t, uid), now = clock();
+          const pl = QK.planOpen(eco.quest, q, now);
+          if (pl.ok && pl.firstOpen) { eco.quest = pl.doc; await t.set(ECO(uid), eco); }
+          return Object.assign({ ok: true, already: !!pl.already, now, doc: QK.view(eco.quest) }, view(eco, ent));
+        });
+      },
+      // Klien hanya mengirim id quest + opId. Server memutuskan boleh/tidak, menaruh koin ke dompet utama, dan mengunci klaim selamanya.
+      async ecoQuestClaim(auth, p) {
+        needQK(); const uid = uidOf(auth), opId = needOp(p); p = p || {}; const q = typeof p.q === "string" ? p.q : "";
+        if (!QK.isQuest(q)) throw E("invalid-argument", "Quest tidak dikenal.");
+        return db.tx(async (t) => {
+          const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco);
+          const prevOp = doneOp(eco, opId); if (prevOp) return Object.assign({ duplicate: true }, prevOp, { now: clock(), doc: QK.view(eco.quest) }, view(eco, ent));
+          const now = clock(), pl = QK.planClaim(eco.quest, q, now);
+          if (pl.already) return Object.assign({ ok: true, already: true, now, doc: QK.view(eco.quest) }, view(eco, ent));
+          if (pl.notOpened) throw E("failed-precondition", "Buka tautannya dulu, lalu kembali ke game.");
+          if (pl.wait) throw E("failed-precondition", "Belum bisa diklaim. Tunggu " + Math.ceil(pl.wait / 1000) + " detik lagi setelah kembali dari tautan.");
+          eco.quest = pl.doc; if (pl.reward.coin) credit(eco, pl.reward.coin);
+          const r = { q, reward: pl.reward };
+          await t.set(ECO(uid), remember(eco, opId, r) && eco);
+          return Object.assign({ ok: true }, r, { now, doc: QK.view(eco.quest) }, view(eco, ent));
+        });
+      },
+      // Pakai/Lepaskan Joran WhatsApp (Tas). Status SAH di server; hanya pemilik (quest wa sudah diklaim). Hak milik tidak pernah dihapus.
+      async ecoQuestEquip(auth, p) {
+        needQK(); const uid = uidOf(auth), opId = needOp(p); p = p || {};
+        if (typeof p.on !== "boolean") throw E("invalid-argument", "Perlengkapan tidak dikenal.");
+        return db.tx(async (t) => {
+          const eco = await getEco(t, uid), ent = await entOf(t, uid);
+          const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, { now: clock(), doc: QK.view(eco.quest) }, view(eco, ent));
+          const pl = QK.planEquip(eco.quest, p.on);
+          if (pl.notOwned) throw E("failed-precondition", "Joran WhatsApp belum dimiliki. Selesaikan quest WhatsApp dulu.");
+          eco.quest = pl.doc; await t.set(ECO(uid), remember(eco, opId, { eq: p.on }) && eco);
+          return Object.assign({ ok: true, eq: p.on }, { now: clock(), doc: QK.view(eco.quest) }, view(eco, ent));
         });
       },
       // Dipakai writeSave/loadSave: nilai yang HARUS menimpa simpanan klien. null bila ekonomi belum aktif.
