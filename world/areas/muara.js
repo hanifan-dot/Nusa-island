@@ -92,6 +92,7 @@ function interact(t, api) {
   if (t.story) return NW.story.interact(t, openDialog);
   if (t.id === "boat" || t.id === "rute") return N().openPanel("map"); // Bumbu 2.4: papan 🧭 Rute Kapal = perjalanan cepat lama (kapal sendiri lewat ⛵ Naik Kapal)
   if (t.id === "board") return N().openPanel("missions");
+  if (t.id === "podium") return NW.podium && NW.podium.open();   // Podium Juara (leaderboard fisik)
   if (t.id === "home") return NW.home.enter(api.player);
   if (t.id === "pasar") {
     const n = npcs[1], open = !n.hidden && n.cur.act === "stall" && n.arrived;
@@ -175,6 +176,7 @@ function drawUnder(c, t, view, inView) { // perahu layar jauh di timur
   c.fillStyle = "#e2574c"; c.beginPath(); c.moveTo(p.x - 4, p.y - 6 + bob); c.lineTo(p.x - 4, p.y - 30 + bob); c.lineTo(p.x - 16, p.y - 8 + bob); c.fill();
 }
 function drawOver(c, t, dk) {
+  if (NW.podium && NW.podium.drawOver) NW.podium.drawOver(c, t);
   const dika = npcs[2]; if (!dika.hidden && dika.arrived && dika.cur.act === "kite") NW.drawKite(c, dika, t);
   for (const bf of butterflies) if (dk < 0.5) NW.drawButterfly(c, bf, t);
 }

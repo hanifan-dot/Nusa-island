@@ -9,7 +9,7 @@ cd "$(dirname "$0")/../.."
 MODE="${1:-uji}"
 rm -rf firebase/public && mkdir -p firebase/public
 cp index.html style.css game.js data.js fishmath.js selamatkan-data.html ajukan-pemulihan.html firebase/public/
-cp -r audio cloud world shop economy streak event hud house recovery username worldmode firebase/public/
+cp -r audio cloud world shop economy streak event hud house recovery username worldmode podium firebase/public/
 # Tahap 4 (Dunia Bersama): klien multiplayer. Alamat server (Worker TERPISAH "nusa-multiplayer") hanya ditulis bila NUSA_MP_WS diisi,
 # mis. NUSA_MP_WS=wss://nusa-multiplayer.<akun>.workers.dev ; tanpa itu game tetap normal dan Dunia Bersama tampil "belum aktif".
 mkdir -p firebase/public/mp && cp mp/proto.js mp/client.js mp/ui.js mp/mp.css firebase/public/mp/
