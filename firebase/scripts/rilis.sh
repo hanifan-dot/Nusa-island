@@ -16,6 +16,10 @@ case "$TARGET" in semua|server|game) ;; *) echo "GAGAL: --target harus semua, se
 PROJECT="${FIREBASE_PROJECT:-nusa-island-d2023}"; SITE="${NUSA_SITE:-https://${PROJECT}.web.app}"; PROD_BRANCH="${NUSA_PROD_BRANCH:-uji/gabungan-kedai-ekonomi}"
 say() { printf '\n== %s\n' "$*"; }
 die() { printf '\nGAGAL: %s\n' "$*" >&2; exit 1; }
+# Kandidat akhir membutuhkan backend nusa-api baru. Jangan lewati tahap backend.
+if [ -f docs/RILIS-AKHIR-20261107.md ] && [ "${NUSA_API_DEPLOYED:-}" != "ya" ]; then
+  die "Jalur lama tidak memperbarui nusa-api. Gunakan workflow Deploy Kandidat Terpadu (backend dulu)."
+fi
 code() { curl -s -o /dev/null -w '%{http_code}' -m 12 "$1" 2>/dev/null || echo 000; }
 command -v node >/dev/null && command -v npm >/dev/null && command -v curl >/dev/null && command -v git >/dev/null || die "butuh node, npm, curl, git."
 DO_SERVER=0; DO_GAME=0; [ "$TARGET" != game ] && DO_SERVER=1; [ "$TARGET" != server ] && DO_GAME=1
