@@ -45,7 +45,11 @@
       "index": ["podium/podium.css", "podium/core.js", "podium/client.js"], "build_dirs": ["podium"],
       "markers": [["game.js", "NW.podium.hook()"], ["world/areas/muara.js", "NW.podium"]] },
     { "id": "multiplayer", "nama": "Dunia Bersama (multiplayer)", "files": ["mp/proto.js", "mp/client.js", "mp/ui.js", "mp/mp.css", "mp/room-core.js", "mp/lobby-core.js", "mp/jwt.js", "cf-multiplayer/src/index.js", "cf-multiplayer/wrangler.toml"],
-      "index": ["mp/proto.js", "mp/client.js"], "build_dirs": ["mp"], "markers": [["game.js", "NW.mp.hook()"], ["cf-multiplayer/wrangler.toml", "name = \"nusa-multiplayer\""]] }
+      "index": ["mp/proto.js", "mp/client.js"], "build_dirs": ["mp"], "markers": [["game.js", "NW.mp.hook()"], ["cf-multiplayer/wrangler.toml", "name = \"nusa-multiplayer\""]] },
+    { "id": "quest-owner", "nama": "Quest Owner (Instagram + WhatsApp)",
+      "files": ["economy/quest-core.js", "questowner/questowner.js", "questowner/ui.js", "questowner/questowner.css", "firebase/functions/lib/quest-core.js"],
+      "index": ["economy/quest-core.js", "questowner/questowner.js", "questowner/ui.js"], "build_dirs": ["questowner"],
+      "markers": [["game.js", "NW.quest.hook()"], ["firebase/functions/index.js", "ecoQuestEquip"], ["firebase/functions/index.js", "require(\"./lib/quest-core\")"], ["bag/bag.js", "qoBagEquip"]] }
   ],
   "protocol_contract": {
     "_catatan": "Jenis pesan yang HARUS tetap dikenali server (tambahan baru diperbolehkan; mengubah/menghapus yang ini memutus klien yang sudah live).",
