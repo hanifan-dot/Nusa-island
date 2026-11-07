@@ -104,6 +104,7 @@ function migrate() {
   if (NW.secret) NW.secret.migrate(S);
   if (NW.weather) NW.weather.migrate(S); // Bumbu 2.3 (v9): benih cuaca tersimpan sekali; tidak ada koin/progres yang disentuh
   if (NW.kedai) NW.kedai.migrate(S);     // Bumbu 3.1 (v11): S.kedai — hanya merapikan/mengisi; tidak menambah koin atau gelar
+  if (NW.quest) NW.quest.migrate(S);     // Quest Owner: S.questOwner (salinan kepemilikan Joran WhatsApp + status selesai) — hanya mengisi yang kosong
   if (NW.streak) NW.streak.migrate(S);   // Login Streak 7 Hari: S.streak (umpan hadiah, kepemilikan eksklusif) — hanya mengisi yang kosong
   if (NW.boat) NW.boat.migrate(S);       // Bumbu 2.4 (v10): kapal (S.sea) — nilai aman bila belum ada; tidak pernah mulai di laut tanpa kapal
   if (r.from === "2A") loadNote = "Rumahku diperbarui ke sistem 10 level. Semua perabot tetap ada.";
@@ -364,7 +365,7 @@ function doCast() {
   G.phase = "flying"; G.bob.vis = true; G.bob.sink = 0;
   S.stats.casts++;
   G.streakBait = NW.streak ? NW.streak.useBait() : false; // Umpan Hadiah (habis pakai) dipakai otomatis bila ada
-  SFX.cast(); if (NW.aurora) NW.aurora.event("cast", rodTip());
+  SFX.cast(); if (NW.aurora) NW.aurora.event("cast", rodTip()); if (NW.quest) NW.quest.event("cast", rodTip());
   if (G.perfect) { toast("Lemparan Sempurna! ✨ Lebih hoki", "good"); emit("perfect"); }
   updateHint();
 }
@@ -374,7 +375,7 @@ function landBobber() {
   G.hotHit = !!((skill("presisi") || G.spotId) && G.hot && Math.abs(G.target.z - G.hot.z) < 0.75 && Math.abs(G.target.x - G.hot.x) < 0.5);
   emit("cast", { perfect: G.perfect, hit: G.hotHit });
   addRipple(G.bob.x, G.bob.z, 3); splashAt(G.bob.x, G.bob.z, 10);
-  SFX.splash(); if (NW.aurora) NW.aurora.event("land", bobberScreen());
+  SFX.splash(); if (NW.aurora) NW.aurora.event("land", bobberScreen()); if (NW.quest) NW.quest.event("land", bobberScreen());
   G.phase = "waiting";
   const sp = UPGRADES.bait.speed[upLvl("bait")] * (G.streakBait ? NW.streak.BAIT_SPEED : 1);
   G.wxBite = NW.weather ? NW.weather.biteFactor() : 1; // cuaca: ±ringan (0,88–1,08) pada waktu tunggu SAJA; tidak menyentuh pemilihan ikan, varian, atau pertarungan
@@ -394,7 +395,7 @@ function triggerBite() {
   const locId = LOCATIONS[S.loc].id;
   G.pending = (NW.story && NW.story.challengeFish(G.perfect, locId)) || (NW.adv && NW.adv.challengeFish(G.perfect, locId)) || chooseFish();
   G.phase = "bite"; G.biteWindow = 0.95 + upLvl("bait") * 0.05;
-  G.bob.sink = 1; addRipple(G.bob.x, G.bob.z, 2); splashAt(G.bob.x, G.bob.z, 6); if (NW.aurora) NW.aurora.event("bite", bobberScreen());
+  G.bob.sink = 1; addRipple(G.bob.x, G.bob.z, 2); splashAt(G.bob.x, G.bob.z, 6); if (NW.aurora) NW.aurora.event("bite", bobberScreen()); if (NW.quest) NW.quest.event("bite", bobberScreen());
   SFX.bite();
   if (navigator.vibrate) try { navigator.vibrate(60); } catch (_) {}
   updateHint();
@@ -402,7 +403,7 @@ function triggerBite() {
 function startFight() {
   const { fish, w, wr } = G.pending;
   const pe = NW.FM.fightPower(fish, w, wr);                     // ikan ≤ 20 kg: sama persis seperti dulu
-  const rodCap = UPGRADES.rod.cap[upLvl("rod")] * (NW.streak ? NW.streak.rodMul().cap : 1), om = NW.FM.overloadMuls(w, rodCap);
+  const rodCap = Math.max(UPGRADES.rod.cap[upLvl("rod")] * (NW.streak ? NW.streak.rodMul().cap : 1), NW.quest ? NW.quest.capFloor() : 0), om = NW.FM.overloadMuls(w, rodCap);
   G.fight = { fish, w, pe, big: NW.FM.bigness(w), weak: om.weak, riseMul: om.rise, reelMul: om.reel, T: 0.25, P: 0.18, surge: 0, surgeT: rand(0.8, 2), slack: 0, over: 0, fx: G.bob.x, fxT: G.bob.x, z0: G.bob.z,
     challenge: !!G.pending.challenge, quest: G.pending.quest || null, perfect: !!G.perfect, reads: 0, tired: 0, readWin: 0, readDone: true, tiredT: 0, tiredHold: 0, tiredDone: true, warn: false };
   $("tensionBar").classList.toggle("ideal", skill("kendali"));
@@ -433,7 +434,7 @@ function endFight(result) {
 }
 function startReelBack() {
   G.phase = "reeling";
-  G.reelBack = { t: 0, x: G.bob.x, z: G.bob.z }; if (NW.aurora) NW.aurora.event("reel", bobberScreen());
+  G.reelBack = { t: 0, x: G.bob.x, z: G.bob.z }; if (NW.aurora) NW.aurora.event("reel", bobberScreen()); if (NW.quest) NW.quest.event("reel", bobberScreen());
   G.shadow = null;
   updateHint();
 }
@@ -781,6 +782,7 @@ function draw() {
   drawBoat(dk);
   drawLineAndBobber();
   if (NW.aurora) NW.aurora.drawParticles(ctx);
+  if (NW.quest) NW.quest.drawParticles(ctx);
 
   // cipratan
   ctx.fillStyle = "rgba(235,248,255,.9)";
@@ -948,6 +950,7 @@ function drawBoat(dk) {
   // bentuk, warna, gagang, reel, dan ornamen mengikuti joran aktif (NW.look.RODS, 10 tingkat)
   const mx = (hp.x + tip.x) / 2 + G.rodBend * 30 * U, my = (hp.y + tip.y) / 2 - 10 * U + G.rodBend * 10 * U;
   NW.look.drawHeldRod(ctx, NW.look.rodSpec(), hp, { x: mx, y: my }, tip, { x: hp.x - Math.cos(G.rodAngle) * 30 * U, y: hp.y - Math.sin(G.rodAngle) * 30 * U }, U, night);
+  if (NW.quest && NW.quest.visualOn()) NW.quest.rodFx(ctx, tip, U);   // Joran WhatsApp: cahaya & percikan hijau
   if (NW.aurora && NW.aurora.equipped()) NW.aurora.rodFx(ctx, tip, U);   // cahaya aurora, bintang, petir kecil di ujung pancing (Gamepass)
 }
 
@@ -1327,7 +1330,7 @@ function trendHTML(id) {
 // Katalog joran Toko Pak Bono: pratinjau, nama, harga, kemampuan, deskripsi, dan status tiap joran.
 function rodShopHTML() {
   const U2 = UPGRADES.rod, lv = upLvl("rod"), n = U2.levels.length;
-  let h = `<div class="rod-head"><div class="ic">🎣</div><div class="grow"><b>Joran</b><div class="muted">Dipakai sekarang: <b>${U2.levels[lv]}</b> · ikan hingga ${U2.cap[lv]} kg</div></div></div><div class="rod-list">`;
+  let h = (NW.quest ? NW.quest.rodRowHTML() : "") + `<div class="rod-head"><div class="ic">🎣</div><div class="grow"><b>Joran</b><div class="muted">Dipakai sekarang: <b>${U2.levels[lv]}</b> · ikan hingga ${U2.cap[lv]} kg</div></div></div><div class="rod-list">`;
   for (let i = 0; i < n; i++) {
     const cur = i === lv, owned = i < lv, next = i === lv + 1, cost = U2.cost[i];
     const st = cur ? `<span class="rod-tag on">✔ Dipakai</span>` : owned ? `<span class="rod-tag">Sudah dilewati</span>` : next ? "" : `<span class="rod-tag lock">🔒 Beli yang sebelumnya dulu</span>`;
@@ -1533,6 +1536,7 @@ if (NW.worldMode) NW.worldMode.hook();       // Bermain di Dunia (ubin di menu �
 if (NW.podium) NW.podium.hook();          // Podium Juara fisik di Muara (data hanya dari server)
 if (NW.username) NW.username.hook();        // Nama Pemain Permanen (modal pendaftaran setelah login)
 if (NW.mp) NW.mp.hook();                   // Tahap 4: Dunia Bersama (multiplayer Muara Kampung) — hanya aktif untuk akun Google yang menyetujui
+if (NW.quest) NW.quest.hook();            // Quest Owner: tombol 🌴 & panel (klaim hanya lewat server ekonomi)
 if (NW.streak) NW.streak.hook();           // Login Streak 7 Hari: tombol 🎁 & Kalender Hadiah (klaim hanya lewat server Firebase)
 if (NW.event) NW.event.hook();             // Event 5 Monster Legenda: jadwal dari jam server, monster mingguan, duel yang dinilai server
 if (NW.hudMenu) NW.hudMenu.hook();         // Tahap 4.1: menu utama ☰ (menyatukan ikon HUD kanan atas; tombol asli tetap dimiliki modulnya) — SETELAH modul yang membuat tombol
