@@ -11,7 +11,7 @@ let now = 1e12; const mk = (EC) => { const db = mkdb(); return { db, e: EC.makeE
 const U = { uid: "user1" }; let k = 0; const op = () => "op" + String(++k).padStart(8, "0"), fid = () => "fish" + String(++k).padStart(8, "0");
 const ids = T.FISH.filter((f) => !f.protected).map((f) => f.id), prot = T.FISH.find((f) => f.protected);
 const wOf = (id) => T.FISH.find((f) => f.id === id).wMin;
-const lbOf = (db) => (JSON.parse(db.m.get("shop/economy/user1") || "{}").lb) || null;
+const lbOf = (db) => { const d = JSON.parse(db.m.get("shop/economy/user1") || "{}"); return d.lbc === undefined ? null : { c: d.lbc, n: d.lbn, sp: d.lbs, t: d.lbt }; };
 (async () => {
   await t("tangkapan tunggal & paket dihitung tepat; spesies berbeda dihitung", async () => { const { e, db } = mk(NEW); await e.ecoInit(U, {});
     now += 2000; await e.ecoCatch(U, { opId: op(), id: ids[0], w: wOf(ids[0]), uid: fid() });
@@ -32,16 +32,16 @@ const lbOf = (db) => (JSON.parse(db.m.get("shop/economy/user1") || "{}").lb) || 
   await t("ikan dilindungi (protected) dihitung sebagai tangkapan; menjual ikan TIDAK mereset statistik", async () => { const { e, db } = mk(NEW); await e.ecoInit(U, {}); now += 2000;
     const f1 = fid(); await e.ecoCatch(U, { opId: op(), id: ids[0], w: wOf(ids[0]), uid: f1 }); now += 2000; await e.ecoCatch(U, { opId: op(), id: prot.id, w: prot.wMin });
     assert.equal(lbOf(db).c, 2); await e.ecoSell(U, { opId: op(), uids: [f1], day: 3 }); assert.equal(lbOf(db).c, 2); assert.equal(lbOf(db).n, 2); });
-  await t("dokumen lama tanpa `lb` mulai dari 0 dan tetap utuh; `lb` tidak ikut respons ke klien", async () => { const { e, db } = mk(NEW); await e.ecoInit(U, {}); assert.equal(lbOf(db), null); now += 2000;
-    const r = await e.ecoCatch(U, { opId: op(), id: ids[0], w: wOf(ids[0]), uid: fid() }); assert.ok(!("lb" in r)); assert.ok(!JSON.stringify(r).includes('"sp"')); assert.equal(lbOf(db).c, 1);
-    assert.ok(!JSON.stringify(await e.ecoState(U)).includes('"lb"')); });
-  if (OLD) await t("REGRESI: saldo, kotak, reward, ops & seluruh dokumen ekonomi identik dengan inti lama (kecuali `lb`)", async () => {
+  await t("dokumen lama tanpa `lb` mulai dari 0 dan tetap utuh; kolom lb* tidak ikut respons ke klien", async () => { const { e, db } = mk(NEW); await e.ecoInit(U, {}); assert.equal(lbOf(db), null); now += 2000;
+    const r = await e.ecoCatch(U, { opId: op(), id: ids[0], w: wOf(ids[0]), uid: fid() });  assert.ok(!/lbc|lbs|lbn/.test(JSON.stringify(r))); assert.equal(lbOf(db).c, 1);
+    assert.ok(!/lbc|lbs|lbn/.test(JSON.stringify(await e.ecoState(U)))); });
+  if (OLD) await t("REGRESI: saldo, kotak, reward, ops & seluruh dokumen ekonomi identik dengan inti lama (kecuali kolom lb*)", async () => {
     const A = mk(OLD), B = mk(NEW), run = async (s) => { now = 1e12; await s.e.ecoInit(U, {}); k = 0; const out = [];
       for (let i = 0; i < 6; i++) { now += 2000; out.push(await s.e.ecoCatch(U, { opId: "opR" + i + "xxxxxxxx", id: ids[i % 3], w: wOf(ids[i % 3]), uid: "fR" + i + "xxxxxxxx" }).catch((x) => x.message)); }
       now += 30000; out.push(await s.e.ecoCatch(U, { opId: "opRPxxxxxxxx", id: prot.id, w: prot.wMin }));
       out.push(await s.e.ecoSell(U, { opId: "opRSxxxxxxxx", uids: ["fR0xxxxxxxx", "fR1xxxxxxxx"], day: 3 })); return JSON.stringify(out); };
     const ra = await run(A), rb = await run(B); assert.equal(ra, rb, "respons API identik");
-    const da = JSON.parse(A.db.m.get("shop/economy/user1")), db = JSON.parse(B.db.m.get("shop/economy/user1")); const lb = db.lb; delete db.lb; assert.deepStrictEqual(db, da); assert.ok(lb && lb.c === 7); });
+    const da = JSON.parse(A.db.m.get("shop/economy/user1")), db = JSON.parse(B.db.m.get("shop/economy/user1")); const lb = { c: db.lbc }; for (const kk of ["lbc", "lbn", "lbt", "lbs"]) delete db[kk]; assert.deepStrictEqual(db, da); assert.ok(lb && lb.c === 7); });
   await t("Functions lib sama dengan sumber (salinan tidak basi)", () => { const root = path.join(__dirname, ".."); assert.equal(fs.readFileSync(path.join(root, "firebase/functions/lib/economy-core.js"), "utf8").split("\n").slice(1).join("\n"), fs.readFileSync(path.join(root, "economy/core.js"), "utf8")); });
   console.log(`\n${n} uji lulus`);
 })();
