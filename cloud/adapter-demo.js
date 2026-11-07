@@ -55,6 +55,8 @@
           await new Promise((r) => setTimeout(r, latency));
           if (offline) throw Object.assign(new Error("offline"), { code: "unavailable", network: true });
           if (failNext) { const c = failNext; failNext = null; throw Object.assign(new Error("gagal (simulasi)"), { code: c }); }
+          // Podium Juara: HANYA untuk uji/pratinjau. Demo tidak punya server peringkat → tanpa window.__demoLeaderboard dijawab "not-found" seperti server lama.
+          if (name === "leaderboardTop") { const lb = window.__demoLeaderboard; if (lb === undefined) throw Object.assign(new Error("tidak ada"), { code: "functions/not-found" }); return JSON.parse(JSON.stringify(typeof lb === "function" ? lb(payload, session) : lb)); }
           if (nameServer && ["nameGet", "nameCheck", "nameClaim"].includes(name)) {
             try { return JSON.parse(JSON.stringify(await nameServer[name](session ? tokenOf(session) : null, payload))); }
             catch (e) { if (e && e.code) throw Object.assign(new Error(e.message), { code: "functions/" + e.code }); throw e; }
