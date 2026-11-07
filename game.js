@@ -1378,7 +1378,7 @@ function variantRow(f) {
   }).join("")}</div>`;
 }
 function dexHTML() {
-  const tabs = [...LOCATIONS.map((l) => ({ id: l.id, name: l.short })), { id: "*", name: "Lain-lain" }];
+  const tabs = [...LOCATIONS.map((l) => ({ id: l.id, name: l.short })), { id: "*", name: "Lain-lain" }, ...(NW.sf && NW.sf.on() ? [{ id: "sf", name: "🌊 Samudra Follower" }] : [])];
   if (!dexTab) dexTab = LOCATIONS[S.loc].id;
   const totalAll = FISH.length, gotAll = FISH.filter((f) => S.dex[f.id]).length;
   const vc = NW.variants ? NW.variants.counts(S) : null;
@@ -1386,7 +1386,8 @@ function dexHTML() {
     ${vc ? `<div class="muted">✨ Varian ditemukan: Sisik Perak ${vc.silver} · Corak Senja ${vc.sunset} · Mutiara Nusantara ${vc.pearl} spesies</div>` : ""}
     <div class="progress-line"><div style="width:${(gotAll / totalAll) * 100}%"></div></div>
     <div class="dex-tabs">${tabs.map((t) => `<button data-act="tab" data-arg="${t.id}" class="${t.id === dexTab ? "on" : ""}">${t.name}</button>`).join("")}</div>
-    <div class="dex-grid">`;
+    ${dexTab === "sf" && NW.sf ? NW.sf.gridHTML() : `<div class="dex-grid">`}`;
+  if (dexTab === "sf") return h;
   for (const f of FISH.filter((f) => f.loc === dexTab)) {
     const rec = S.dex[f.id], R = RARITY[f.rarity];
     const timeTag = f.night === true ? "🌙 malam" : f.night === false ? "☀️ siang" : "";
