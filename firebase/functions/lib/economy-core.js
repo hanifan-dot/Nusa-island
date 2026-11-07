@@ -40,6 +40,7 @@
     if (!T || !FM) throw new Error("tables & fishmath wajib");
     const initCap = Number.isFinite(opts.initCap) ? opts.initCap : 20000;     // batas koin lama yang diakui SEKALI saat migrasi; 0 saat rilis
     const SK = opts.streak || null;                                           // StreakCore (streak/core.js), opsional
+    const PC = opts.pond || null;                                             // PondCore (economy/pond-core.js): Kolam Ikan Rumahku, opsional (tanpa ini ecoPond* menolak)
     const EV = opts.event || null;                                            // EventCore (event/core.js): Event 5 Monster Legenda, opsional
     const rng = opts.rng || (() => { try { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] / 4294967296; } catch (e) { return Math.random(); } });
     // KEAMANAN MIGRASI: secara BAWAAN ecoInit TIDAK memakai angka dari browser sama sekali. Saldo/level/ikan lama diambil dari SNAPSHOT yang dibekukan
@@ -59,6 +60,13 @@
     const getEco = async (t, uid) => Object.assign(fresh(), (await t.get(ECO(uid))) || {});
     const needInit = (eco) => { if (!eco.init) throw E("failed-precondition", "Ekonomi belum diaktifkan untuk akun ini."); };
     const maxKg = (f) => f.xMax || f.wMax;
+
+    // ---- Kolam Ikan (pond-core.js): data kolam dipegang server di dokumen ekonomi (eco.pond) ----
+    const pondKnows = (eco, u) => !!(eco.pond && ((eco.pond.fish || []).some((f) => f.u === u) || (eco.pond.hist || []).some((f) => f.u === u)));
+    const needPC = () => { if (!PC) throw E("unimplemented", "Kolam ikan belum diaktifkan di server."); return PC; };
+    const pondOf = (eco) => { if (!eco.pond || !eco.pond.lv) eco.pond = PC.fresh(); return eco.pond; };
+    const metaOk = (m) => ({ vr: typeof m.vr === "string" && /^[a-z0-9_]{1,24}$/.test(m.vr) ? m.vr : null, t: Number.isFinite(m.t) && m.t >= 0 && m.t < 1e15 ? Math.floor(m.t) : 0 });
+    const uidList = (a, max) => { if (!Array.isArray(a) || !a.length || a.length > max || a.some((u) => typeof u !== "string" || !UID_RE.test(u)) || new Set(a).size !== a.length) throw E("invalid-argument", "Daftar ikan tidak valid."); return a; };
 
     // Belanja dari SATU dompet: koin bermain dulu, sisanya koin Top Up. Mengembalikan rincian; melempar bila tidak cukup.
     function spendFrom(eco, ent, amt) {
@@ -129,16 +137,17 @@
           eco.catches = eco.catches.filter((x) => now - x < HOUR);
           if (eco.catches.length + n > LIM.catchPerHour) throw E("resource-exhausted", "Batas tangkapan per jam tercapai.");
           for (let i = 0; i < n; i++) eco.catches.push(now); eco.lastCatchAt = now;
-          let reward = 0;
+          let reward = 0; const skipped = [];
           for (const it of items) {
             const f = FISH[it.id], w = Number(it.w);
             if (f.protected) { const r = Math.round(f.price * PRICE_SCALE * FM.effectiveKg(w) * 1.2); reward += r; credit(eco, r); continue; }
+            if (pondKnows(eco, it.uid)) { skipped.push(it.uid); continue; }            // ikan yang sedang/pernah di kolam (mis. simpanan lama dipulihkan) tidak boleh masuk kotak lagi
             if (eco.box.some((b) => b.u === it.uid)) throw E("already-exists", "UID ikan sudah ada.");
             if (eco.box.length >= LIM.boxMax) throw E("resource-exhausted", "Kotak ikan penuh.");
             eco.box.push({ u: it.uid, id: f.id, w: Math.round(w * 100) / 100 });
           }
-          await t.set(ECO(uid), remember(eco, opId, { reward }) && eco);
-          return Object.assign({ ok: true, reward }, view(eco, ent));
+          await t.set(ECO(uid), remember(eco, opId, { reward, skipped }) && eco);
+          return Object.assign({ ok: true, reward, skipped }, view(eco, ent));
         });
       },
       // Jual ikan: harga dihitung server dari kotak server. Ikan yang tidak ada di kotak diabaikan (dilaporkan sebagai "unknown").
@@ -169,6 +178,113 @@
           const drop = new Set(p.uids); eco.box = eco.box.filter((b) => !drop.has(b.u));
           await t.set(ECO(uid), remember(eco, opId, { ok: true }) && eco);
           return Object.assign({ ok: true }, view(eco, ent));
+        });
+      },
+      // ---- Kolam Ikan Rumahku. Waktu = jam SERVER; klien tidak pernah mengirim kenyang/waktu/harga/berat. Semua ikan masuk/keluar kolam atomik
+      //      dengan kotak ikan server (satu transaksi), sehingga ikan tidak bisa ada di dua tempat atau dijual saat berada di kolam. ----
+      // pondTx: pagar bersama (login, ekonomi aktif, opId idempoten, kematian diproses idempoten pada tiap operasi). fn mengembalikan {extra, rec, ent}.
+      async ecoPondState(auth, p) {
+        needPC(); const uid = uidOf(auth); p = p || {};
+        return db.tx(async (t) => {
+          const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco); const now = clock(), pd = pondOf(eco);
+          const died = PC.sweep(pd, now); let dirty = died.length > 0;
+          const seen = new Set(Array.isArray(p.seen) ? p.seen.filter((u) => typeof u === "string").slice(0, 60) : []), got = new Set(Array.isArray(p.got) ? p.got.filter((u) => typeof u === "string").slice(0, 60) : []);
+          for (const h of pd.hist) if (!h.seen && seen.has(h.u)) { h.seen = true; dirty = true; }
+          if (pd.limbo.some((f) => got.has(f.u))) { pd.limbo = pd.limbo.filter((f) => !got.has(f.u)); dirty = true; }
+          if (dirty) await t.set(ECO(uid), eco);                       // hanya tulis bila berubah (hemat kuota tulis Firestore)
+          return Object.assign({ ok: true, died: died.map((d) => d.u), pond: PC.viewOf(pd, now) }, view(eco, ent));
+        });
+      },
+      async ecoPondPut(auth, p) {
+        needPC(); const uid = uidOf(auth), opId = needOp(p); p = p || {};
+        const items = Array.isArray(p.items) ? p.items : [];
+        if (!items.length || items.length > 10) throw E("invalid-argument", "Pilih 1–10 ikan.");
+        const us = uidList(items.map((x) => x && x.u), 10);
+        return db.tx(async (t) => {
+          const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco); const now = clock(), pd = pondOf(eco);
+          const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, { pond: PC.viewOf(pd, now) }, view(eco, ent));
+          PC.sweep(pd, now);
+          if (pd.fish.length + us.length > PC.MAX_FISH) throw E("failed-precondition", "Kolam sudah terlalu padat (maks " + PC.MAX_FISH + " ekor).");
+          let kg = PC.usedKg(pd);
+          for (let i = 0; i < us.length; i++) {
+            const b = eco.box.find((x) => x.u === us[i]);
+            if (!b) throw E("failed-precondition", "Ikan tidak ada di kotak ikanmu (mungkin sudah dijual/dipindah).");
+            if (!PC.rarityOk(FISH[b.id])) throw E("failed-precondition", "Sampah tidak boleh dimasukkan ke kolam.");
+            kg += b.w;
+          }
+          if (kg > PC.capOf(pd) + 1e-9) throw E("failed-precondition", "Kapasitas kolam tidak cukup (" + PC.capOf(pd) + " KG).");
+          for (let i = 0; i < us.length; i++) {
+            const k = eco.box.findIndex((x) => x.u === us[i]), b = eco.box[k], m = metaOk(items[i]);
+            eco.box.splice(k, 1); pd.fish.push({ u: b.u, id: b.id, w: b.w, vr: m.vr, t: m.t, s0: 100, t0: now });
+          }
+          await t.set(ECO(uid), remember(eco, opId, { put: us }) && eco);
+          return Object.assign({ ok: true, put: us, pond: PC.viewOf(pd, now) }, view(eco, ent));
+        });
+      },
+      async ecoPondTake(auth, p) {
+        needPC(); const uid = uidOf(auth), opId = needOp(p); p = p || {}; const us = uidList(p.uids, 10);
+        return db.tx(async (t) => {
+          const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco); const now = clock(), pd = pondOf(eco);
+          const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, { pond: PC.viewOf(pd, now) }, view(eco, ent));
+          PC.sweep(pd, now);
+          const fish = us.map((u) => pd.fish.find((f) => f.u === u));
+          if (fish.some((f) => !f)) { throw E("failed-precondition", "Ikan sudah tidak ada di kolam."); }
+          if (eco.box.length + us.length > LIM.boxMax) throw E("resource-exhausted", "Kotak ikan penuh.");
+          const out = fish.map((f) => ({ u: f.u, id: f.id, w: f.w, vr: f.vr || null, t: f.t || 0 }));
+          pd.fish = pd.fish.filter((f) => !us.includes(f.u));
+          for (const f of out) { eco.box.push({ u: f.u, id: f.id, w: f.w }); pd.limbo.push(f); }
+          if (pd.limbo.length > PC.LIMBO_MAX) pd.limbo.splice(0, pd.limbo.length - PC.LIMBO_MAX);
+          await t.set(ECO(uid), remember(eco, opId, { took: out }) && eco);
+          return Object.assign({ ok: true, took: out, pond: PC.viewOf(pd, now) }, view(eco, ent));
+        });
+      },
+      async ecoPondFeed(auth, p) {
+        needPC(); const uid = uidOf(auth), opId = needOp(p); p = p || {};
+        if (typeof p.kind !== "string" || !Object.prototype.hasOwnProperty.call(PC.FEED, p.kind)) throw E("invalid-argument", "Jenis pakan tidak dikenal.");
+        return db.tx(async (t) => {
+          const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco); const now = clock(), pd = pondOf(eco);
+          const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, { pond: PC.viewOf(pd, now) }, view(eco, ent));
+          const died = PC.sweep(pd, now);
+          const fail = (m) => { throw E("failed-precondition", m); };      // transaksi dibatalkan; kematian diproses ulang idempoten (waktu mati tetap t0+s0×6j) pada operasi berikutnya
+          if (!pd.fish.length) return fail("Kolam kosong, belum ada ikan yang diberi makan.");
+          if ((pd.feed[p.kind] || 0) < 1) return fail("Stok " + PC.FEED[p.kind].name + " habis. Beli di Toko Kolam.");
+          if (!PC.applyFeed(pd, p.kind, now)) return fail("Semua ikan sudah kenyang 100%. Pakan tidak terpakai.");
+          pd.feed[p.kind]--;
+          await t.set(ECO(uid), remember(eco, opId, { fed: p.kind }) && eco);
+          return Object.assign({ ok: true, fed: p.kind, died: died.map((d) => d.u), pond: PC.viewOf(pd, now) }, view(eco, ent));
+        });
+      },
+      async ecoPondBuy(auth, p) {
+        needPC(); const uid = uidOf(auth), opId = needOp(p); p = p || {};
+        const kind = p.item, isFeed = typeof kind === "string" && Object.prototype.hasOwnProperty.call(PC.FEED, kind), isGear = typeof kind === "string" && Object.prototype.hasOwnProperty.call(PC.GEAR, kind);
+        const qty = Number(p.qty);
+        if (!isFeed && !isGear) throw E("invalid-argument", "Barang tidak dikenal.");
+        if (!Number.isInteger(qty) || qty < 1 || qty > 99) throw E("invalid-argument", "Jumlah harus 1–99.");
+        return db.tx(async (t) => {
+          const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco); const now = clock(), pd = pondOf(eco);
+          const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, { pond: PC.viewOf(pd, now) }, view(eco, ent));
+          const died = PC.sweep(pd, now); let price;
+          if (isFeed) { if ((pd.feed[kind] || 0) + qty > PC.STOCK_MAX) throw E("failed-precondition", "Stok terlalu banyak."); price = PC.FEED[kind].price * qty; }
+          else { const G = PC.GEAR[kind]; if ((pd.gear[kind] || 0) + qty > G.max) throw E("failed-precondition", G.name + " maksimal " + G.max + "."); price = G.price * qty; }
+          const paid = spendFrom(eco, ent, price);
+          if (isFeed) pd.feed[kind] = (pd.feed[kind] || 0) + qty; else pd.gear[kind] = (pd.gear[kind] || 0) + qty;
+          if (paid.top > 0) { ent.spends = ent.spends || []; ent.spends.push({ opId, amount: paid.top, reason: "eco:pond", at: clock() }); if (ent.spends.length > 100) ent.spends.splice(0, ent.spends.length - 100); await t.set(ENT(uid), ent); }
+          await t.set(ECO(uid), remember(eco, opId, { price, item: kind, qty }) && eco);
+          return Object.assign({ ok: true, price, item: kind, qty, died: died.map((d) => d.u), pond: PC.viewOf(pd, now) }, view(eco, ent));
+        });
+      },
+      async ecoPondUpgrade(auth, p) {
+        needPC(); const uid = uidOf(auth), opId = needOp(p); p = p || {};
+        return db.tx(async (t) => {
+          const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco); const now = clock(), pd = pondOf(eco);
+          const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, { pond: PC.viewOf(pd, now) }, view(eco, ent));
+          const died = PC.sweep(pd, now), next = pd.lv + 1;
+          if (next > PC.MAX_LV) throw E("failed-precondition", "Kolam sudah level maksimum.");
+          if (p.lv !== next) throw E("failed-precondition", "Level tujuan tidak sesuai (klik basi).");
+          const price = PC.LEVELS[next].cost, paid = spendFrom(eco, ent, price); pd.lv = next;
+          if (paid.top > 0) { ent.spends = ent.spends || []; ent.spends.push({ opId, amount: paid.top, reason: "eco:pondup", at: clock() }); if (ent.spends.length > 100) ent.spends.splice(0, ent.spends.length - 100); await t.set(ENT(uid), ent); }
+          await t.set(ECO(uid), remember(eco, opId, { price, lv: next }) && eco);
+          return Object.assign({ ok: true, price, died: died.map((d) => d.u), pond: PC.viewOf(pd, now) }, view(eco, ent));
         });
       },
       // Hadiah tetap cerita/area: sekali per kunci, nilai dari tabel server.
