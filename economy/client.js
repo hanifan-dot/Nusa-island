@@ -31,13 +31,13 @@ async function ensure() {
   try {
     let v = await call("ecoState", {});
     if (!v.init) {
-      const S = N().S, fish = (S.cooler || []).concat((S.home && S.home.placedFish) || []).filter((x) => x && x.uid).map((x) => ({ uid: x.uid, id: x.id, w: x.w }));
+      const S = N().S, fish = (S.cooler || []).concat((S.home && S.home.placedFish) || []).filter((x) => x && x.uid && !(NW.sf && NW.sf.isSF(x.id))).map((x) => ({ uid: x.uid, id: x.id, w: x.w }));
       v = await call("ecoInit", { money: S.money, up: S.up, homeLv: S.home && S.home.level, cooler: fish });
     }
     apply(v); await flush();
     // ikan di coolbox yang belum tercatat server (mis. tangkapan saat offline) dilaporkan ulang — tetap kena batas laju server
     const have = new Set(st.box || []);
-    for (const it of N().S.cooler || []) if (it && it.uid && !have.has(it.uid) && !q.some((x) => x.uid === it.uid)) q.push({ id: it.id, w: it.w, uid: it.uid });
+    for (const it of N().S.cooler || []) if (it && it.uid && !(NW.sf && NW.sf.isSF(it.id)) && !have.has(it.uid) && !q.some((x) => x.uid === it.uid)) q.push({ id: it.id, w: it.w, uid: it.uid });
     await flush();
   } catch (e) { lastErr = (e && e.message) || "gagal"; }
   finally { booting = false; }
@@ -109,7 +109,10 @@ function buy(reason, grant, failCb) {
   })();
   return true;
 }
-NW.eco = { applyState: apply, active, ensure, flush, onCatch, release, sell, drop, reward, mission, buy, balance: () => (st ? st.balance : 0), state: () => st, lastError: () => lastErr, _reset: () => { st = null; q = []; rq = []; inflight = null; } };
+// ---- Samudra Follower: daftar aktif (disetujui Owner) & tangkapan spesial. Server-dulu: ikan baru masuk coolbox SETELAH server menjawab ok. ----
+async function sfInfo() { if (!active()) return { on: false, fish: [] }; return call("ecoSfInfo", {}); }
+async function sfCatch(item) { await flush(); const r = await call("ecoCatch", { opId: rid(), id: item.id, w: item.w, uid: item.uid, ref: item.ref }); apply(r); return r; }
+NW.eco = { applyState: apply, sfInfo, sfCatch, active, ensure, flush, onCatch, release, sell, drop, reward, mission, buy, balance: () => (st ? st.balance : 0), state: () => st, lastError: () => lastErr, _reset: () => { st = null; q = []; rq = []; inflight = null; } };
 setInterval(() => { if (!document.hidden && live()) ensure().then(() => flush()); }, 45000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden && live()) ensure(); });
 setInterval(() => { if (!st && live() && !booting) ensure(); }, 2500);   // begitu login terdeteksi → aktifkan ekonomi server

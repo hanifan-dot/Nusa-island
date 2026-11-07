@@ -58,3 +58,36 @@ Ikan lama rata-rata ≈524 koin/pendaratan; tambahan permanen ≈5%, saat event 
 Server tidak bisa melihat pemain memancing; yang dijamin: nilai sesuai persetujuan Owner, berat resmi, laju & batas harian, tanpa duplikasi. **Klien belum melempar bonus SF** — game belum memanggil ecoCatch untuk ikan SF (sengaja; tahap berikut setelah Owner setuju). Owner perlu alat menulis `shop/config.sf` (belum ada UI; sekarang lewat dokumen config).
 
 Tes: `node tests/unit-sf-server.js` (20), unit-economy/cloud/event/pond/rilis/leaderboard-stats, cek-rilis.
+
+---
+
+## Tahap 9 — Integrasi selesai (TERKUNCI sampai Owner setuju)
+
+**Sudah terintegrasi:** memancing (bonus setelah ikan biasa mendarat; peluang ikan lama & Megalodon tidak berubah), kotak pancing/inventaris, koleksi (Samudra Follower), kartu tangkapan asli, dan penjualan. Server (`ecoCatch`/`ecoSell`/`ecoSfInfo`) memvalidasi ID, berat (±1%), harga (dikunci saat tangkap), batas harian, `ref` ke ikan biasa nyata (sekali pakai), idempoten per `opId`. Ikan Prabowo hanya jika `sf.eventOn=true`. Kredit pengusul tetap di keempat ikan. Tidak masuk akuarium/kolam/pamer/Podium.
+
+### USULAN nilai final (BELUM AKTIF — menunggu persetujuan Owner)
+| Ikan | Rarity | Berat | Harga/kg | Peluang | Batas/hari |
+|---|---|---|---|---|---|
+| Ikan Tempe | Mythical | 0,3–1,4 kg | 7.400 | 0,10% | 1 |
+| Cupang Slayer | Epic | 0,05–0,4 kg | 3.800 | 0,30% | 2 |
+| Ikan Prabowo | Mythical Event | 3–14 kg | 750 | 0,30% | 2 (hanya event) |
+| Arapaima Gigas | Legendary | 60–220 kg | 30 | 0,12% | 1 |
+
+Dampak ± +5% ekonomi (±12% saat event) dibanding ±524 koin/pendaratan.
+
+Untuk mengaktifkan (Owner), tulis ke `shop/config` (Worker: `shop_config/main`):
+```json
+{"sf":{"on":true,"eventOn":false,"fish":{
+ "sf_tempe":{"price":7400,"chance":0.001,"dayCap":1,"approvedBy":"owner","approvedAt":0},
+ "sf_cupang_slayer":{"price":3800,"chance":0.003,"dayCap":2,"approvedBy":"owner","approvedAt":0},
+ "sf_prabowo":{"price":750,"chance":0.003,"dayCap":2,"approvedBy":"owner","approvedAt":0},
+ "sf_arapaima":{"price":30,"chance":0.0012,"dayCap":1,"approvedBy":"owner","approvedAt":0}}}}
+```
+(isi `approvedAt` dengan timestamp; sesuaikan id dengan katalog `sf/`.)
+
+### Masih menghalangi rilis
+1. Persetujuan Owner atas tabel di atas + penulisan `sf` ke config (belum ada UI Owner).
+2. Sakelar event Prabowo (`sf.eventOn`) oleh Owner.
+3. Belum diuji di Firebase/Cloudflare nyata (sandbox tanpa jaringan) dan belum di Android.
+4. Server tidak bisa memverifikasi undian acak klien; dibatasi `ref` sekali pakai + batas harian (≤4/hari total).
+5. Kecil: `cloud/core.js` dexCount menghitung id SF di ringkasan simpanan.

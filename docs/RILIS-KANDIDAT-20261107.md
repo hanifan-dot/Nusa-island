@@ -43,3 +43,7 @@ Tidak ada perubahan Firestore Rules, mode toko, atau data produksi.
 
 ## Bukti
 Screenshot nyata: `docs/rumahku-sosial/` (7: daftar online, permintaan izin ke pemilik, jawaban diterima + MASUK, tamu di rumah, pemilik melihat tamu, keluarkan, senyap), `docs/samudra-follower/` (koleksi, 4 detail ikan, kartu tangkapan, layar kecil; laporan ekonomi 8–11).
+
+
+## Pembaruan Samudra Follower (Tahap 9)
+Jalur klien+server SF sudah terintegrasi (memancing, kotak, koleksi, kartu, jual) namun **tetap TERKUNCI** sampai Owner menulis `shop/config.sf`. Lihat `docs/SAMUDRA-FOLLOWER.md` bagian Tahap 9 untuk usulan nilai dan penghalang rilis.

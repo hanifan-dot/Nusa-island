@@ -21,7 +21,7 @@ def main():
         b = p.chromium.launch()
         ctx, A, e1 = page(b); dex(A)
         ok("A1 default MATI: tidak ada tab Samudra Follower", ev(A, "NW.sf.mode()==='off' && ![...document.querySelectorAll('.dex-tabs button')].some(x=>/Samudra/.test(x.textContent))"))
-        ok("A2 default MATI: tidak ada ikan sf di FISH/ekonomi", ev(A, "!Nusa.FISH_BY_ID['sf_tempe'] && !Object.keys(Nusa.FISH_BY_ID).some(k=>k.startsWith('sf_'))"))
+        ok("A2 default MATI: ikan sf hanya tabel pencarian (sf:true), tidak ada di kolam tangkap/ekonomi lama", ev(A, "Object.keys(Nusa.FISH_BY_ID).filter(k=>k.startsWith('sf_')).every(k=>Nusa.FISH_BY_ID[k].sf===true) && Object.keys(Nusa.FISH_BY_ID).filter(k=>!k.startsWith('sf_')).length>=48"))
         ctx.close()
         ctx, pg, e2 = page(b, "&sf=preview"); dex(pg)
         before = ev(pg, "localStorage.getItem('nusa-island-v1')")

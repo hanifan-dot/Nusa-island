@@ -148,13 +148,19 @@
         return db.tx(async (t) => {
           const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco);
           const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, view(eco, ent));
-          const now = clock(), n = items.length;
+          const now = clock(), n = items.length, sfOnly = !!SFX && items.every((it) => SFX.isSF(it.id));
+          if (sfOnly) { // tangkapan spesial = BONUS atas satu pendaratan ikan biasa yang sungguh ada di kotak server (ref), sekali pakai; dibatasi harian — tidak memakai jatah laju ikan biasa
+            const it = items[0], sfs = eco.sf && typeof eco.sf === "object" ? eco.sf : (eco.sf = {}), refs = Array.isArray(sfs.refs) ? sfs.refs : (sfs.refs = []);
+            if (typeof it.ref !== "string" || !UID_RE.test(it.ref) || refs.includes(it.ref) || !eco.box.some((b) => b.u === it.ref && !SFX.isSF(b.id))) throw E("failed-precondition", "Tangkapan spesial tidak valid.");
+            refs.push(it.ref); if (refs.length > 30) refs.splice(0, refs.length - 30);
+          } else {
           // jeda rata-rata ≥ catchGapMs antar tangkapan: paket n ikan harus terpisah ≥ (n-1)×jeda dari kiriman sebelumnya
           if (now - eco.lastCatchAt < (n - 1) * LIM.catchGapMs || (n === 1 && now - eco.lastCatchAt < LIM.catchGapMs)) throw E("resource-exhausted", "Tangkapan terlalu cepat.");
           eco.catches = eco.catches.filter((x) => now - x < HOUR);
           if (eco.catches.length + n > LIM.catchPerHour) throw E("resource-exhausted", "Batas tangkapan per jam tercapai.");
-          for (let i = 0; i < n; i++) eco.catches.push(now); eco.lastCatchAt = now;
-          let reward = 0; const skipped = [];
+          }
+          if (!sfOnly) { for (let i = 0; i < n; i++) eco.catches.push(now); eco.lastCatchAt = now; }
+          let reward = 0; const skipped = [], sfItem = [];
           for (const it of items) {
             const f = FISH[it.id] || sfR[it.uid].fish, w = Number(it.w);
             if (f.sf) {
@@ -162,7 +168,7 @@
               if (eco.box.some((b) => b.u === it.uid)) throw E("already-exists", "UID ikan sudah ada.");
               if (eco.box.length >= LIM.boxMax) throw E("resource-exhausted", "Kotak ikan penuh.");
               if (!SFX.takeDaily(eco.sf && typeof eco.sf === "object" ? eco.sf : (eco.sf = {}), f.id, sfR[it.uid].dayCap, now)) throw E("resource-exhausted", "Batas harian ikan spesial tercapai.");
-              eco.box.push({ u: it.uid, id: f.id, w: Math.round(w * 100) / 100, sp: f.price });   // sp = harga/kg yang disetujui Owner saat tangkap (dikunci di sisi server)
+              eco.box.push({ u: it.uid, id: f.id, w: Math.round(w * 100) / 100, sp: f.price }); sfItem.push({ uid: it.uid, id: f.id, w: Math.round(w * 100) / 100, sp: f.price });   // sp = harga/kg yang disetujui Owner saat tangkap (dikunci di sisi server)
               continue;
             }
             if (f.protected) { const r = Math.round(f.price * PRICE_SCALE * FM.effectiveKg(w) * 1.2); reward += r; credit(eco, r); continue; }
@@ -172,9 +178,17 @@
             eco.box.push({ u: it.uid, id: f.id, w: Math.round(w * 100) / 100 });
           }
           lbCount(eco, items, typeof skipped === "undefined" ? null : skipped, now);   // Podium Juara: sekali per paket, di transaksi yang sama
-          await t.set(ECO(uid), remember(eco, opId, { reward, skipped }) && eco);
-          return Object.assign({ ok: true, reward, skipped }, view(eco, ent));
+          await t.set(ECO(uid), remember(eco, opId, { reward, skipped, sfItem }) && eco);
+          return Object.assign({ ok: true, reward, skipped, sfItem }, view(eco, ent));
         });
+      },
+      // Samudra Follower: daftar ikan yang AKTIF menurut persetujuan Owner (1 baca config). Terkunci/tidak ada config → {on:false, fish:[]}. Peluang = angka yang disetujui Owner (klien hanya melempar; server membatasi harian + ref).
+      async ecoSfInfo(auth) {
+        uidOf(auth);
+        if (!SFX) return { on: false, fish: [] };
+        const st = SFX.status((await db.get("shop/config")) || {}), fish = [];
+        for (const id of SFX.IDS) if (st[id].ok) fish.push({ id, chance: st[id].chance });
+        return { on: fish.length > 0, fish };
       },
       // Jual ikan: harga dihitung server dari kotak server. Ikan yang tidak ada di kotak diabaikan (dilaporkan sebagai "unknown").
       async ecoSell(auth, p) {
