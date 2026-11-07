@@ -14,7 +14,7 @@ const N = () => window.Nusa;
 // urutan & nama tampilan; tombol lain yang ditambahkan modul baru ikut otomatis (nama dari aria-label) di akhir
 const KNOWN = [
   ["worldBtn", "Bermain di Dunia"],
-  ["misiBtn", "Misi Harian"], ["questBtn", "Quest Owner"], ["streakBtn", "Hadiah Login 7 Hari"], ["evBtn", "Event Monster Legenda"], ["skillBtn", "Keahlian & Cerita"], ["advBtn", "Kompas & Petualangan"],
+  ["misiBtn", "Misi Harian"], ["streakBtn", "Hadiah Login 7 Hari"], ["evBtn", "Event Monster Legenda"], ["skillBtn", "Keahlian & Cerita"], ["advBtn", "Kompas & Petualangan"],
   ["dexBtn", "Koleksi Ikan"], ["crownBtn", "Nusa Premium"], ["avatarBtn", "Edit Avatar & Fashion"], ["friendsBtn", "Teman Online & Undangan"], ["acctBtn", "Profil & Akun"], ["recoverBtn", "Pulihkan Data"], ["serverBtn", "Server"], ["musicBtn", "Musik & Suara"], ["muteBtn", "Suara"],
 ];
 const ORDER = KNOWN.map((k) => k[0]), LABEL = Object.fromEntries(KNOWN);

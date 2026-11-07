@@ -174,6 +174,22 @@ function rodAccent(c, bez, nrm, U, night) {
   c.restore();
 }
 
+// ---------- ikon SVG gulungan misi emas + bintang (pengganti emoji) ----------
+let iconSeq = 0;
+function icon(size) {
+  const k = "qoi" + (++iconSeq), n = size || 24;
+  return `<svg class="qo-ico" viewBox="0 0 32 32" width="${n}" height="${n}" aria-hidden="true" focusable="false"><defs>
+<linearGradient id="${k}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff2b8"/><stop offset=".55" stop-color="#f5c542"/><stop offset="1" stop-color="#b9831a"/></linearGradient>
+<linearGradient id="${k}p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffbe6"/><stop offset="1" stop-color="#f0dca0"/></linearGradient>
+<radialGradient id="${k}s" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#fff9d6"/><stop offset="1" stop-color="#e8a317"/></radialGradient></defs>
+<rect x="7" y="6.5" width="18" height="19" rx="2" fill="url(#${k}p)" stroke="#b9831a" stroke-width="1"/>
+<rect x="4" y="4.2" width="24" height="4.6" rx="2.3" fill="url(#${k}g)" stroke="#8a5a0e" stroke-width=".9"/>
+<rect x="4" y="23.2" width="24" height="4.6" rx="2.3" fill="url(#${k}g)" stroke="#8a5a0e" stroke-width=".9"/>
+<circle cx="4.9" cy="6.5" r="1.1" fill="#8a5a0e" opacity=".55"/><circle cx="27.1" cy="6.5" r="1.1" fill="#8a5a0e" opacity=".55"/><circle cx="4.9" cy="25.5" r="1.1" fill="#8a5a0e" opacity=".55"/><circle cx="27.1" cy="25.5" r="1.1" fill="#8a5a0e" opacity=".55"/>
+<path d="M16 9.6l1.9 3.9 4.3.6-3.1 3 .75 4.2L16 19.2l-3.85 2.1.75-4.2-3.1-3 4.3-.6z" fill="url(#${k}s)" stroke="#a8700f" stroke-width=".8" stroke-linejoin="round"/>
+<path d="M10.5 11.2h2M19.5 11.2h2" stroke="#c9a24a" stroke-width=".9" stroke-linecap="round" opacity=".7"/></svg>`;
+}
+
 // ---------- lencana & tombol HUD ----------
 function badge() {
   const btn = document.getElementById("questBtn"); if (!btn) return;
@@ -182,14 +198,18 @@ function badge() {
   btn.classList.toggle("hidden", finished);                         // semua selesai: tombol hilang; data & hadiah tetap
   const b = document.getElementById("questBadge"); if (b) b.classList.toggle("hidden", finished || (v.loaded && v.done >= v.total));
   btn.setAttribute("data-progress", v.loaded ? v.done + "/" + v.total : "");
+  const pg = document.getElementById("questProg"); if (pg) { const txt = v.loaded ? v.done + "/" + v.total : "0/" + v.total; if (pg.textContent !== txt) pg.textContent = txt; }
+  btn.setAttribute("aria-label", "Quest Owner: progres " + (v.loaded ? v.done : 0) + " dari " + v.total);
 }
 function hook() {
   migrate(S());
   const dex = document.getElementById("dexBtn"), hr = document.querySelector(".hud-right");
   if (hr && !document.getElementById("questBtn")) {
-    const b = document.createElement("button"); b.className = "chip icon-btn misi qo-btn"; b.id = "questBtn"; b.setAttribute("aria-label", "Quest Owner: hadiah spesial");
-    b.innerHTML = `🌴<span id="questBadge" class="badge story">!</span>`;
-    hr.insertBefore(b, document.getElementById("streakBtn") || dex || null);
+    // Tombol HUD mandiri (BUKAN .icon-btn → tidak ikut disembunyikan/ditarik ke menu ☰): berdampingan dengan ☰ di kanan atas
+    const b = document.createElement("button"); b.type = "button"; b.className = "chip qo-btn qo-hud"; b.id = "questBtn"; b.setAttribute("aria-label", "Quest Owner: hadiah spesial");
+    b.innerHTML = `${icon(24)}<span id="questProg" class="qo-prog">0/2</span><span id="questBadge" class="badge story qo-dot">!</span>`;
+    const menuBtn = document.getElementById("hudMenuBtn");
+    if (menuBtn && menuBtn.parentNode === hr) hr.insertBefore(b, menuBtn); else hr.appendChild(b);
     b.addEventListener("click", () => { sfx("click"); N().openPanel("questowner"); });
   }
   if (NW.questUI) NW.questUI.register();
@@ -212,6 +232,6 @@ document.addEventListener("click", (e) => {
   e.preventDefault(); sfx("click"); Promise.resolve(setEquip(b.getAttribute("data-qo-equip") === "1")).then(() => { try { N().renderPanel(); } catch (x) {} });
 });
 
-NW.quest = { _particles: () => P.length, Core: Q, SPEC, migrate, hook, view, refresh, open, claim, access, setEquip, rodOwned, rodOn, rodSpec, capFloor, visualOn, event, drawParticles, rodFx, rodAccent, rodRowHTML, bagCard,
+NW.quest = { icon, _particles: () => P.length, Core: Q, SPEC, migrate, hook, view, refresh, open, claim, access, setEquip, rodOwned, rodOn, rodSpec, capFloor, visualOn, event, drawParticles, rodFx, rodAccent, rodRowHTML, bagCard,
   onChange: (f) => R.listeners.push(f), _state: R };
 })();
