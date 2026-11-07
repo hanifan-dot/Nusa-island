@@ -1,0 +1,63 @@
+name: Cek Kandidat Quest Owner (tanpa deploy)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/rilis-quest-owner-20261107.yml'
+      - '.github/workflows/cek-quest-owner-20261107.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    name: Uji pasangan SHA Quest Owner (game 8d9afbf + backend 65b131e)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/Nusa-island
+          ref: 8d9afbf5cdfce45fcf1557bdb7f5e614e8dc26e2
+          path: game
+          persist-credentials: false
+      - name: Akses baca backend privat
+        env:
+          T: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+        run: '[ -n "$T" ] || { echo "::error::NUSA_BACKEND_READ_TOKEN belum ada"; exit 1; }'
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/nusa-island-control-center
+          ref: 65b131e25f6af388171ac432626ff1bd385924a1
+          token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+          persist-credentials: false
+          path: backend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Vendor backend identik dengan game, Functions lib sinkron, penanda Quest Owner
+        run: |
+          set -euo pipefail
+          for p in economy/core.js:economy-core.cjs economy/quest-core.js:quest-core.cjs economy/aurora-core.js:aurora-core.cjs economy/sf-core.js:sf-core.cjs house/core.js:house-core.cjs cloud/core.js:cloud-core.cjs streak/core.js:streak-core.cjs economy/pond-core.js:pond-core.cjs economy/fashion-core.js:fashion-core.cjs event/core.js:event-core.cjs economy/tables.js:economy-tables.cjs username/core.js:name-core.cjs fishmath.js:fishmath.cjs; do cmp "game/${p%%:*}" "backend/server/vendor/${p##*:}"; done
+          for fn in ecoQuestState ecoQuestOpen ecoQuestClaim ecoQuestEquip; do grep -Fq "'$fn'" backend/worker/index.js; grep -Fq "async $fn(auth" backend/server/vendor/economy-core.cjs; done
+          grep -Fq "quest: questCore" backend/worker/index.js
+          grep -Fq "'ecoEquip'" backend/worker/index.js
+          grep -Fq "plausKg" game/economy/core.js
+          cd game && node firebase/scripts/sync-economy.js >/dev/null
+          git -c core.fileMode=false diff --exit-code -- firebase/functions/lib 2>/dev/null || { echo "::error::Functions lib kedaluwarsa"; exit 1; }
+      - name: Tes game (tanpa jaringan dan tanpa secret produksi)
+        working-directory: game
+        run: |
+          set -e
+          node firebase/scripts/cek-rilis.js
+          for t in unit-quest unit-economy unit-aurora unit-cloud unit-streak unit-shop unit-fashion unit-pond unit-sf-server unit-podium unit-house-social unit-mp-house unit-map-ext unit-mp unit-cf-auth unit-rilis; do node tests/$t.js; done
+      - name: Build Hosting produksi tiruan memuat aset Quest Owner
+        working-directory: game
+        run: |
+          NUSA_API_BASE=https://nusa-api.contoh.workers.dev NUSA_MP_WS=wss://nusa-multiplayer.contoh.workers.dev bash firebase/scripts/build-hosting.sh produksi
+          node firebase/scripts/cek-rilis.js --build firebase/public --live https://nusa-island-d2023.web.app --require-live
+          for f in questowner/questowner.js questowner/ui.js questowner/questowner.css economy/quest-core.js bag/bag.js; do test -s "firebase/public/$f"; done
+          grep -Fq "NW.quest" firebase/public/questowner/questowner.js
+      - name: Tes backend dan scan rahasia (tanpa kredensial produksi)
+        working-directory: backend
+        run: |
+          npm install --no-package-lock --no-audit --no-fund
+          npm test
+          npm run scan:secrets
