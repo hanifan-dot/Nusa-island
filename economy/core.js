@@ -43,6 +43,7 @@
     const AU = opts.aurora || null;                                           // AuroraCore (economy/aurora-core.js): bonus peluang Gamepass Pancing Aurora, opsional (tanpa ini tidak ada bonus)
     const FC = opts.fashion || null;                                          // FashionCore (economy/fashion-core.js): katalog & harga avatar, opsional
     const SFX = opts.sf || null;                                              // SFCore (economy/sf-core.js): Samudra Follower, opsional & TERKUNCI sampai Owner menyetujui nilai di shop/config.sf
+    const SF2 = opts.sf2 || null;                                             // SF2Core (economy/sf2-core.js): Samudra Follower V2 (pulau, Pity, katalog), opsional (tanpa ini ecoSf2* menolak)
     const EV = opts.event || null;                                            // EventCore (event/core.js): Event 5 Monster Legenda, opsional
     const rng = opts.rng || (() => { try { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] / 4294967296; } catch (e) { return Math.random(); } });
     // KEAMANAN MIGRASI: secara BAWAAN ecoInit TIDAK memakai angka dari browser sama sekali. Saldo/level/ikan lama diambil dari SNAPSHOT yang dibekukan
@@ -73,7 +74,7 @@
     const needInit = (eco) => { if (!eco.init) throw E("failed-precondition", "Ekonomi belum diaktifkan untuk akun ini."); };
     const maxKg = (f) => f.xMax || f.wMax;
     // Harga jual ikan SF: harga/kg terkunci saat tangkap (b.sp, ditulis server), tanpa pengali harian. Entri tanpa sp valid → tidak bernilai (1 koin), bukan crash.
-    const sfSale = (b) => (SFX && SFX.isSF(b.id) && Number.isFinite(b.sp) && b.sp > 0 ? FM.priceFor({ price: b.sp }, b.w, 1, PRICE_SCALE) : 1);
+    const sfSale = (b) => (((SFX && SFX.isSF(b.id)) || (SF2 && SF2.isSpecies(b.id))) && Number.isFinite(b.sp) && b.sp > 0 ? FM.priceFor({ price: b.sp }, b.w, 1, PRICE_SCALE) : 1);
     // Acak tepercaya milik SERVER (bukan JavaScript browser). Bisa diganti lewat opts.rand (hanya untuk tes deterministik).
     const secureRand = () => {
       const g = typeof globalThis !== "undefined" && globalThis.crypto && globalThis.crypto.getRandomValues ? globalThis.crypto : null;
@@ -211,6 +212,58 @@
         const st = SFX.status((await db.get("shop/config")) || {}), fish = [];
         for (const id of SFX.IDS) if (st[id].ok) fish.push({ id, chance: st[id].chance });
         return { on: fish.length > 0, fish };
+      },
+      // ===== SAMUDRA FOLLOWER V2 (pulau): semua keputusan di SERVER. Klien hanya mengirim spot (habitat) + opId; rarity/spesies/berat/harga/Pity/Penemu Pertama diputuskan di sini.
+      async ecoSf2Info(auth) {
+        const uid = uidOf(auth); if (!SF2) return { on: false };
+        const cfg = (await db.get("shop/config")) || {}, eco = Object.assign(fresh(), (await db.get(ECO(uid))) || {}), fm = ((await db.get("sf2/firsts")) || {}).m || {};
+        if (SF2.isOff(cfg)) return { on: false, off: true, cv: SF2.CATALOG_VERSION };
+        const s2 = eco.sf2 || {}, have = SF2.unlockCount(Object.assign({}, eco, { sf2: Object.assign({}, s2, { base: Math.max(s2.base || 0, eco.box.length) }) }), cfg, clock());
+        const p = Math.min(SF2.PITY_MAX - 1, s2.p || 0), o = SF2.odds(p), firsts = {};
+        for (const id of Object.keys(fm)) firsts[id] = { mine: fm[id].u === uid };
+        return { on: true, init: !!eco.init, need: SF2.UNLOCK_CATCHES, have, unlocked: have >= SF2.UNLOCK_CATCHES, pity: p, pityMax: SF2.PITY_MAX, band: SF2.band(p),
+          odds: { epic: SF2.pct(o.epic), mythic: SF2.pct(o.mythic), common: SF2.pct(o.common), uncommon: SF2.pct(o.uncommon), rare: SF2.pct(o.rare), guaranteed: o.guaranteed },
+          caught: s2.n || 0, disc: s2.d || {}, firsts, mine: s2.f || {}, cv: SF2.CATALOG_VERSION };
+      },
+      async ecoSf2Catch(auth, p) {
+        const uid = uidOf(auth), opId = needOp(p); if (!SF2) throw E("unimplemented", "Samudra Follower V2 belum aktif di server.");
+        if (!p || typeof p.spot !== "string" || !SF2.HABITATS.includes(p.spot)) throw E("invalid-argument", "Spot memancing tidak valid.");
+        return db.tx(async (t) => {
+          const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco);
+          const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, view(eco, ent));
+          const cfg = (await t.get("shop/config")) || {}, firsts = (await t.get("sf2/firsts")) || { m: {} }; firsts.m = firsts.m || {};
+          if (SF2.isOff(cfg)) throw E("failed-precondition", "Samudra Follower belum dibuka.");
+          const now = clock(), s2 = eco.sf2 && typeof eco.sf2 === "object" ? eco.sf2 : (eco.sf2 = { p: 0, n: 0, base: 0, d: {}, f: {}, h: [] });
+          s2.d = s2.d || {}; s2.f = s2.f || {}; s2.h = Array.isArray(s2.h) ? s2.h : []; s2.p = Math.min(SF2.PITY_MAX - 1, Math.max(0, Math.floor(s2.p || 0)));
+          s2.base = Math.max(s2.base || 0, eco.box.length);   // ratchet monoton (simpanan lama yang dimigrasi server); hanya naik
+          const have = SF2.unlockCount(eco, cfg, now);
+          if (have < SF2.UNLOCK_CATCHES) throw E("failed-precondition", "Samudra Follower terkunci. Tangkap " + SF2.UNLOCK_CATCHES + " ikan untuk membuka perjalanan! (" + have + "/" + SF2.UNLOCK_CATCHES + ")");
+          if (now - eco.lastCatchAt < LIM.catchGapMs) throw E("resource-exhausted", "Tangkapan terlalu cepat.");
+          s2.h = s2.h.filter((x) => now - x < HOUR); if (s2.h.length >= SF2.LIM.perHour) throw E("resource-exhausted", "Batas tangkapan pulau per jam tercapai.");
+          if (eco.box.length >= LIM.boxMax) throw E("resource-exhausted", "Kotak ikan penuh.");   // dicek SEBELUM undian: tidak bisa mengulang undian dengan sengaja memenuhi kotak
+          const r1 = rand(), r2 = rand(), r3 = rand(), r4 = rand(); if (!(r1 < 1 && r2 < 1 && r3 < 1 && r4 < 1)) throw E("unavailable", "Pengacak server tidak tersedia. Coba lagi.");   // gagal-tertutup
+          const pBefore = s2.p, o = SF2.odds(pBefore), rarity = SF2.rollRarity(pBefore, r1), sp = SF2.pickSpecies(p.spot, rarity, r2);
+          if (!sp) throw E("internal", "Katalog spot kosong.");
+          const w = SF2.weightFor(sp, r3), cv = SF2.coinValue(sp, w); s2.p = SF2.nextPity(pBefore, rarity); s2.n = (s2.n || 0) + 1; s2.h.push(now);
+          for (let i = 0; i < 1; i++) { eco.catches = eco.catches.filter((x) => now - x < HOUR); eco.catches.push(now); }
+          eco.lastCatchAt = now;
+          const d = s2.d[sp.id] || (s2.d[sp.id] = { n: 0, b: 0, t: now }), isNew = d.n === 0; d.n++; d.b = Math.max(d.b, w);
+          let first = false;
+          if (isNew && sp.community && !firsts.m[sp.id]) { firsts.m[sp.id] = { u: uid, t: now }; s2.f[sp.id] = now; first = true; await t.set("sf2/firsts", firsts); }   // atomik: transaksi; satu-satunya pemenang per spesies
+          let item = null;
+          if (!sp.obs) {
+            const su = "s2" + Math.floor(rand() * 4294967296).toString(36) + Math.floor(rand() * 4294967296).toString(36);
+            if (eco.box.some((b) => b.u === su)) throw E("aborted", "Coba lagi.");
+            let spk = cv / (FM.priceFor({ price: 1e6 }, w, 1, PRICE_SCALE) / 1e6);
+            for (let k = 0; k < 4 && FM.priceFor({ price: spk }, w, 1, PRICE_SCALE) !== cv; k++) spk *= cv / FM.priceFor({ price: spk }, w, 1, PRICE_SCALE);
+            spk = Math.round(spk * 1e6) / 1e6;
+            item = { uid: su, id: sp.id, w, sp: spk }; eco.box.push({ u: su, id: sp.id, w, sp: spk });
+          }
+          const res = { ok: true, fish: { id: sp.id, rarity, w, uid: item ? item.uid : null, sp: item ? item.sp : 0, value: item ? FM.priceFor({ price: item.sp }, w, 1, PRICE_SCALE) : 0, obs: !!sp.obs }, isNew, first,
+            pity: s2.p, pityBefore: pBefore, mythic: rarity === "mythic", guaranteed: !!o.guaranteed, caught: s2.n, band: SF2.band(s2.p) };
+          await t.set(ECO(uid), remember(eco, opId, res) && eco);
+          return Object.assign({}, res, view(eco, ent));
+        });
       },
       // Jual ikan: harga dihitung server dari kotak server. Ikan yang tidak ada di kotak diabaikan (dilaporkan sebagai "unknown").
       async ecoSell(auth, p) {
