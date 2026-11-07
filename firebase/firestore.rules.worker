@@ -1,0 +1,10 @@
+rules_version = '2';
+// NUSA ISLAND — MODE WORKER (tanpa Blaze): SEMUA akses Firestore dari klien DITOLAK.
+// Semua baca/tulis lewat Cloudflare Worker (akun layanan, Admin-level, tidak terikat aturan ini). Ini yang membuat koin/upgrade/pesanan
+// tidak bisa diubah dari browser: tidak ada jalur tulis dari klien sama sekali. Terapkan: firebase deploy --only firestore:rules (gratis di Spark).
+// Pasang HANYA setelah game memakai apiBase (cloud/config.js) — kalau klien masih mode lama, Cloud Save-nya akan berhenti bekerja.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} { allow read, write: if false; }
+  }
+}

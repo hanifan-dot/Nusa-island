@@ -2,11 +2,27 @@
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=overlays-content">
 <meta name="theme-color" content="#173f50">
 <meta name="description" content="Nusa Island — game mancing 2.5D keliling Nusantara. Tangkap ikan khas tiap pulau, jual di pasar, upgrade kapal, dan buru ikan legenda.">
 <title>Nusa Island — Mancing Nusantara</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="sf/sf.css">
+<link rel="stylesheet" href="cloud/cloud.css">
+<link rel="stylesheet" href="world/owner-showcase.css">
+<link rel="stylesheet" href="shop/shop.css">
+<link rel="stylesheet" href="streak/streak.css">
+<link rel="stylesheet" href="questowner/questowner.css">
+<link rel="stylesheet" href="mp/mp.css">
+<link rel="stylesheet" href="hud/menu.css">
+<link rel="stylesheet" href="event/event.css">
+<link rel="stylesheet" href="house/house.css">
+<link rel="stylesheet" href="recovery/recovery.css">
+<link rel="stylesheet" href="username/username.css">
+<link rel="stylesheet" href="podium/podium.css">
+<link rel="stylesheet" href="worldmode/worldmode.css">
+<link rel="stylesheet" href="pond/pond.css">
+<link rel="stylesheet" href="avatar/avatar.css">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -19,7 +35,13 @@
   </div>
   <div class="hud-right">
     <div class="chip loc"><span id="locName">Muara Kampung</span></div>
-    <div class="chip time"><span id="clockIcon">☀️</span><b id="clock">06:00</b><small id="dayLabel">Hari 1</small></div>
+    <div class="chip time"><span id="clockIcon">☀️</span><b id="clock">06:00</b><small id="dayLabel">Hari 1</small><span id="timeNote" class="time-note"></span></div>
+    <button class="chip icon-btn misi" id="avatarBtn" aria-label="Edit avatar">🧥</button>
+    <button class="chip icon-btn misi hidden" id="friendsBtn" aria-label="Teman online dan undangan">👥<span class="badge hidden" id="friendsBadge">0</span></button>
+    <button class="chip icon-btn misi" id="skillBtn" aria-label="Keahlian & cerita">🎯<span id="skillBadge" class="badge story hidden">!</span></button>
+    <button class="chip icon-btn misi" id="misiBtn" aria-label="Misi harian">📋<span id="misiBadge" class="badge hidden">0</span></button>
+    <button class="chip icon-btn" id="dexBtn" aria-label="Koleksi ikan">📖</button>
+    <button class="chip icon-btn" id="musicBtn" aria-label="Pengaturan musik & suara">🎵</button>
     <button class="chip icon-btn" id="muteBtn" aria-label="Suara">🔊</button>
   </div>
 </header>
@@ -32,19 +54,72 @@
 <div id="powerMeter" class="meter power hidden">
   <div class="meter-sweet"></div>
   <div class="meter-fill" id="powerFill"></div>
+  <div class="meter-target" id="powerTarget"></div>
 </div>
 
-<div id="fightUI" class="fight hidden">
+<div id="fightUI" class="fight hidden" role="status" aria-live="off">
   <div class="fight-name" id="fightName">???</div>
-  <div class="bar-label">Tegangan senar</div>
-  <div class="bar tension" id="tensionBar"><div class="zone-danger"></div><div class="bar-fill" id="tensionFill"></div></div>
-  <div class="bar-label">Jarak ikan</div>
-  <div class="bar progress"><div class="bar-fill" id="progressFill"></div></div>
+  <div class="fight-row" aria-label="Tegangan senar"><span class="bar-label">🧵 Tegangan</span><div class="bar tension" id="tensionBar"><div class="zone-danger"></div><div class="bar-fill" id="tensionFill"></div></div></div>
+  <div class="fight-row" aria-label="Jarak ikan"><span class="bar-label">🐟 Jarak</span><div class="bar progress"><div class="bar-fill" id="progressFill"></div></div></div>
   <div class="fight-tip" id="fightTip">Tahan = gulung · Lepas = kendurkan</div>
 </div>
 
-<!-- Navigasi bawah -->
+<!-- Kontrol dunia pulau -->
+<div id="joy" class="joy" aria-hidden="true"><div id="joyKnob" class="joy-knob"></div></div>
+<button id="actBtn" class="act-btn hidden" aria-label="Interaksi"></button>
+<div id="banner" class="banner"></div>
+<div id="dlg" class="dlg hidden" role="dialog" aria-live="polite">
+  <div class="dlg-avatar" id="dlgAvatar">💬</div>
+  <div class="dlg-main">
+    <div class="dlg-head"><b id="dlgName">Nama</b><small id="dlgRole"></small></div>
+    <p id="dlgText"></p>
+    <div class="dlg-opts" id="dlgOpts"></div>
+    <div class="dlg-more" id="dlgMore">Ketuk untuk lanjut ▾</div>
+  </div>
+</div>
+<div id="fade" class="fade"></div>
+
+<!-- Rumahku: Mode Tata Ruang -->
+<button id="layoutBtn" class="layout-btn hidden" aria-label="Tata ruang">🛠️ Tata Ruang</button>
+<!-- Kunjungi Rumah Teman -->
+<button id="visitBtn" class="visit-btn hidden" aria-label="Kunjungi rumah teman">🏠 Kunjungi Rumah Teman</button>
+<button id="visitBack" class="visit-back hidden" aria-label="Kembali ke rumah saya">⬅ Kembali ke Rumah Saya</button>
+<div id="visitTag" class="visit-tag hidden" aria-live="polite"></div>
+<div id="invPop" class="inv-pop hidden" role="alertdialog" aria-live="assertive"></div>
+<div id="layoutBar" class="layout-bar hidden">
+  <div class="lb-row"><b id="lbTitle">Ketuk & geser perabot</b>
+    <button class="btn small" id="lbRotate">↻ Putar</button>
+    <button class="btn small ghost" id="lbStore">📦 Gudang</button>
+    <button class="btn small gold" id="lbDone">✔ Selesai</button></div>
+  <div class="lb-stored" id="lbStored"></div>
+</div>
+
+<!-- Menu akuarium -->
+<div id="aqWrap" class="aq-wrap hidden" role="dialog" aria-modal="true" aria-label="Akuarium">
+  <div class="aq-panel">
+    <header class="aq-head">
+      <div><b id="aqTitle">Akuarium</b> <span id="aqCap" class="aq-cap">0/3</span><div class="aq-water" id="aqWater"></div></div>
+      <button class="close" id="aqClose" aria-label="Tutup">✕</button>
+    </header>
+    <div class="aq-body">
+      <div class="aq-left">
+        <div class="aq-tank" id="aqTank"><canvas id="aqCanvas"></canvas><div class="aq-drop">Lepas di sini 💧</div></div>
+        <div class="aq-shown" id="aqShown"></div>
+        <div class="aq-rule muted" id="aqRule"></div>
+      </div>
+      <div class="aq-right">
+        <div class="aq-side-head"><b>Ikan di coolbox</b> <span class="muted">🧊 <span id="aqCoolCount">0/8</span></span></div>
+        <p class="aq-tip">Geser ikan ke akuarium untuk memamerkannya</p>
+        <div class="aq-list" id="aqList"></div>
+      </div>
+    </div>
+    <div class="aq-actions" id="aqActions"></div>
+  </div>
+</div>
+
+<!-- Navigasi bawah (mode mancing). Pasar/Toko/Peta kini didatangi langsung di pulau -->
 <nav class="nav">
+  <button id="landBtn"><span>🏝️</span>Ke Darat</button>
   <button data-panel="market"><span>🏪</span>Pasar</button>
   <button data-panel="shop"><span>🛠️</span>Toko</button>
   <button data-panel="dex"><span>📖</span>Koleksi</button>
@@ -66,6 +141,7 @@
 <div id="catchWrap" class="catch-wrap hidden">
   <div class="catch-card" id="catchCard">
     <div class="catch-rarity" id="catchRarity">Langka</div>
+    <div class="catch-var hidden" id="catchVar"></div>
     <canvas id="catchArt" width="320" height="180"></canvas>
     <h3 id="catchName">Ikan</h3>
     <div class="catch-weight" id="catchWeight">0 kg</div>
@@ -75,6 +151,16 @@
       <button class="btn ghost" id="shareBtn">📸 Simpan Kartu</button>
       <button class="btn" id="catchOk">Lanjut Mancing</button>
     </div>
+    <div class="catch-actions2"><button class="btn small ghost hidden" id="catchHold">🙌 Pamerkan di tangan</button><button class="btn small ghost hidden" id="catchSkip">Lewati ⏭</button></div>
+  </div>
+</div>
+
+<!-- Kartu untuk disimpan manual (bila unduhan diblokir) -->
+<div id="shareWrap" class="share-wrap hidden">
+  <div class="share-card">
+    <img id="shareImg" alt="Kartu tangkapan Nusa Island">
+    <p>Di HP: tekan lama gambar lalu pilih <b>Simpan gambar</b>. Di laptop: klik kanan → Simpan gambar.</p>
+    <button class="btn" id="shareClose">Tutup</button>
   </div>
 </div>
 
@@ -82,13 +168,111 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <div class="logo">NUSA<br><span>ISLAND</span></div>
-    <p class="tag">Mancing keliling Nusantara 🎣</p>
+    <p class="tag">Hidup di pulau, mancing keliling Nusantara 🎣</p>
     <button class="btn big" id="startBtn">Mulai Mancing</button>
     <p class="small">Dari kreator Kota Nusa</p>
   </div>
 </div>
 
 <script src="data.js"></script>
+<script src="fishmath.js"></script>
+<script src="world/areas.js"></script>
+<script src="world/variants.js"></script>
+<script src="world/map.js"></script>
+<script src="world/draw.js"></script>
+<script src="world/life.js"></script>
+<script src="world/home-data.js"></script>
+<script src="world/house-draw.js"></script>
+<script src="world/home.js"></script>
+<script src="world/aquarium.js"></script>
+<script src="world/look.js"></script>
+<script src="world/inventory.js"></script>
+<script src="world/hold.js"></script>
+<script src="world/story.js"></script>
+<script src="world/adventure.js"></script>
+<script src="world/areas/muara.js"></script>
+<script src="world/areas/toba-map.js"></script>
+<script src="world/areas/toba-draw.js"></script>
+<script src="world/areas/toba.js"></script>
+<script src="world/areas/selat-map.js"></script>
+<script src="world/areas/selat.js"></script>
+<script src="world/areas/laut.js"></script>
+<script src="world/sea.js"></script>
+<script src="world/mistik.js"></script>
+<script src="sf/catalog.js"></script>
+<script src="sf/draw.js"></script>
+<script src="sf/ui.js"></script>
+<script src="sf/play.js"></script>
+<script src="world/boat.js"></script>
+<script src="world/secret.js"></script>
+<script src="world/weather.js"></script>
+<script src="world/kedai/engines.js"></script>
+<script src="world/kedai/hidup.js"></script>
+<script src="world/kedai/data.js"></script>
+<script src="world/kedai/art.js"></script>
+<script src="world/kedai/games.js"></script>
+<script src="world/kedai/ui.js"></script>
+<script src="world/kedai/kedai.js"></script>
+<script src="shop/config.js"></script>
+<script src="shop/core.js"></script>
+<script src="shop/sim.js"></script>
+<script src="shop/cloud.js"></script>
+<script src="shop/art.js"></script>
+<script src="shop/ui.js"></script>
+<script src="shop/shop.js"></script>
+<script src="shop/wallet.js"></script>
+<script src="economy/client.js"></script>
+<script src="aurora/aurora.js"></script>
+<script src="event/core.js"></script>
+<script src="event/draw.js"></script>
+<script src="event/client.js"></script>
+<script src="event/ui.js"></script>
+<script src="world/world.js"></script>
+<script src="streak/core.js"></script>
+<script src="streak/furniture.js"></script>
+<script src="streak/ui.js"></script>
+<script src="streak/streak.js"></script>
+<script src="economy/quest-core.js"></script>
+<script src="questowner/questowner.js"></script>
+<script src="questowner/ui.js"></script>
+<script src="mp/proto.js"></script>
+<script src="mp/ui.js"></script>
+<script src="mp/client.js"></script>
+<script src="house/core.js"></script>
+<script src="house/client.js"></script>
+<script src="house/social.js"></script>
+<script src="economy/pond-core.js"></script>
+<script src="pond/draw.js"></script>
+<script src="pond/client.js"></script>
+<script src="pond/ui.js"></script>
+<script src="economy/fashion-core.js"></script>
+<script src="avatar/draw.js"></script>
+<script src="avatar/client.js"></script>
+<script src="avatar/ui.js"></script>
+<script src="hud/menu.js"></script>
+<script src="audio/synth.js"></script>
+<script src="audio/music.js"></script>
+<script src="audio/ambient.js"></script>
+<script src="audio/sfx.js"></script>
+<script src="audio/manager.js"></script>
+<script src="audio/triggers.js"></script>
+<script src="audio/panel.js"></script>
+<!-- Tahap 3: akun & Cloud Save. Non-aktif total bila cloud/config.js kosong (kecuali ?cloud=demo). -->
+<script src="cloud/config.js"></script>
+<script src="cloud/api.js"></script>
+<script src="cloud/core.js"></script>
+<script src="username/core.js"></script>
+<script src="cloud/adapter-demo.js"></script>
+<script src="cloud/adapter-firebase.js"></script>
+<script src="cloud/ui.js"></script>
+<script src="cloud/cloud.js"></script>
+<script src="recovery/core.js"></script>
+<script src="recovery/client.js"></script>
+<script src="username/client.js"></script>
+<script src="podium/core.js"></script>
+<script src="podium/client.js"></script>
+<script src="worldmode/client.js"></script>
+<script src="world/owner-showcase.js"></script>
 <script src="game.js"></script>
 </body>
 </html>
