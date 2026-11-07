@@ -7,7 +7,6 @@ for key in NUSA_GAME_DIR NUSA_BACKEND_DIR NUSA_GAME_SHA NUSA_BACKEND_SHA NUSA_AP
   [ -n "$(printenv "$key" 2>/dev/null || true)" ] || die "Variabel $key belum tersedia."
 done
 [ "$NUSA_CONFIRM" = "ya" ] || die "Perlu konfirmasi deployment Owner."
-[[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[a-fA-F0-9]{32}$ ]] || die "Cloudflare Account ID tidak valid."
 [[ "$NUSA_API_BASE" =~ ^https://nusa-api\.[A-Za-z0-9-]+\.workers\.dev$ ]] || die "Alamat nusa-api tidak sesuai."
 [ "$(git -C "$NUSA_GAME_DIR" rev-parse HEAD)" = "$NUSA_GAME_SHA" ] || die "Commit game berubah; hentikan."
 [ "$(git -C "$NUSA_BACKEND_DIR" rev-parse HEAD)" = "$NUSA_BACKEND_SHA" ] || die "Commit backend berubah; hentikan."
@@ -21,6 +20,11 @@ for pair in 'economy/core.js:economy-core.cjs' 'house/core.js:house-core.cjs' 'e
 done
 [ -s "$NUSA_GAME_DIR/shop/qris.png" ] || die "QRIS produksi tidak ditemukan."
 command -v curl >/dev/null && command -v node >/dev/null && command -v npx >/dev/null || die "Perlu curl, node dan npx."
+
+# Autentikasi Cloudflare READ-ONLY lebih dulu (/user/tokens/verify atau token akun, lalu izin+akun). Membedakan token rusak/tidak valid/
+# kedaluwarsa, izin kurang, Account ID salah, Worker tidak ada, jaringan. Token dibersihkan (spasi/baris-baru/awalan Bearer) dan diekspor bersih.
+# shellcheck source=cf-auth-check.sh
+. "$(dirname "${BASH_SOURCE[0]}")/cf-auth-check.sh" || die "Autentikasi Cloudflare gagal (lihat KATEGORI di atas). Belum menyentuh produksi."
 
 # Baca konfigurasi produksi sebelum melakukan perubahan. Jangan cetak nilai atau token ke log.
 TMP=$(mktemp -d)
@@ -54,7 +58,7 @@ try {
   console.error('Cloudflare API HTTP ' + process.env.CF_HTTP_STATUS + ' — respons bukan JSON yang dapat dibaca.');
 }
 NODE
-    die "$label: gagal membaca Worker nusa-api. Verifikasi Account ID sama dengan akun nusa-api dan scope Workers Scripts Edit; jangan ulang deploy sampai penyebab teridentifikasi."
+    die "$label: gagal membaca Worker nusa-api padahal pemeriksaan autentikasi lolos (lihat kode error di atas). Jangan ulang deploy sampai penyebab teridentifikasi."
   fi
 }
 cf_read_settings "$TMP/before.json" "Sebelum deploy"

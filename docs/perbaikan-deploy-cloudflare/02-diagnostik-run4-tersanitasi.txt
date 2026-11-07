@@ -1,0 +1,3 @@
+Cloudflare API HTTP 400 — 9106: Authentication failed (status: 400)
+GAGAL RILIS API: Sebelum deploy: gagal membaca Worker nusa-api. Verifikasi Account ID sama dengan akun nusa-api dan scope Workers Scripts Edit; jangan ulang deploy sampai penyebab teridentifikasi.
+##[error]Process completed with exit code 1.

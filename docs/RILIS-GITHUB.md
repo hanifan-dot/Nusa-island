@@ -33,3 +33,23 @@ Firebase Console → Hosting → Riwayat rilis → Kembalikan. Matikan multiplay
 
 ## Koordinasi dengan WORKING 01
 Satu workflow & satu skrip rilis; jangan buat workflow deploy kedua. Aturan lengkap: `docs/KOORDINASI-WORKING-01.md`.
+
+## Perbaikan Error Cloudflare 9106 (deploy kandidat terpadu)
+**Gejala (run #2–#4):** `Cloudflare API HTTP 400 — 9106: Authentication failed` pada pembacaan pengaturan Worker `nusa-api`, sebelum ada perubahan produksi. (Kode sebenarnya **9106**, bukan 9016.)
+
+**Arti:** 9106 = Cloudflare tidak menerima header `Authorization` (hilang/cacat), HTTP 400. Ini **bukan** "token ditolak karena izin" (itu 403/10000) dan bukan "token dicabut" (401/1000). Jadi yang salah hampir pasti **bentuk nilai secret** `CLOUDFLARE_API_TOKEN`, bukan izin. Pengujian lokal: nilai berakhiran baris baru membuat curl mengirim header cacat (`Authorization: Bearer TOKEN\n`); awalan `Bearer ` atau tanda kutip membuat token ganda/salah. Penyebab pasti pada secret Anda **tidak bisa dibaca dari luar** (nilai tidak pernah terlihat), karena itu skrip kini mengklasifikasikannya sendiri.
+
+**Perubahan:** `firebase/scripts/cf-auth-check.sh` (read-only) dijalankan sebelum deploy: membersihkan spasi/baris baru/`Bearer `/kutip/`NAMA=` dari secret, memeriksa `/user/tokens/verify` (lalu `/accounts/ID/tokens/verify` untuk token akun), lalu membaca Worker untuk memisahkan penyebab. Hanya KATEGORI + kode Cloudflare yang disamarkan yang dicetak; token memakai berkas konfigurasi curl (tidak muncul di daftar proses) dan `::add-mask::`.
+
+| Kategori | Arti | Tindakan Owner |
+|---|---|---|
+| `TOKEN_FORMAT_RUSAK` (10) | header/format cacat | simpan ulang secret persis dari dasbor (tanpa spasi/baris baru) |
+| `TOKEN_TIDAK_VALID` (11) | dicabut/bukan token API | baru di sini buat token baru (template *Edit Cloudflare Workers*) |
+| `TOKEN_KEDALUWARSA` (12) | status expired | perpanjang/buat ulang |
+| `IZIN_KURANG` (13) | akun benar, izin kurang | tambah Account → Workers Scripts → Edit |
+| `IZIN_KURANG_ATAU_ACCOUNT_SALAH` (13) | tak bisa dibedakan | cocokkan Account ID, lalu izin |
+| `ACCOUNT_ID_SALAH` (14) | ID tak ada di akun token | perbaiki secret `CLOUDFLARE_ACCOUNT_ID` |
+| `WORKER_TIDAK_DITEMUKAN` (15) | `nusa-api` tak ada di akun itu | cek Account ID |
+| `JARINGAN` (16) / `ACCOUNT_ID_FORMAT` (17) / `SECRET_KOSONG` (18) / `SKRIP` (19) | — | ulang / perbaiki secret |
+
+Pengaman produksi tidak diubah: pin SHA, pembekuan `[vars]`, `--keep-vars`, verifikasi binding sebelum/sesudah, QRIS, vendor, Hosting hanya setelah API sukses, rollback `wrangler rollback`/`hosting:rollback`.

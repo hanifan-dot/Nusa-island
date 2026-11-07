@@ -1,0 +1,21 @@
+  ok  token bersih valid → SIAP
+  ok  token + baris baru (LF) di ujung → dibersihkan, SIAP, tak bocor
+  ok  token + CRLF + spasi → SIAP
+  ok  token berawalan 'Bearer ' → dibersihkan, SIAP
+  ok  token dikutip "…" → SIAP
+  ok  token berawalan NAMA=… → SIAP
+  ok  token akun (bukan pengguna): /user gagal, /accounts/ID/tokens/verify sukses → SIAP
+  ok  token berisi karakter terlarang di tengah → TOKEN_FORMAT_RUSAK (10)
+  ok  Cloudflare membalas 400/9106 untuk token berbentuk benar → TOKEN_FORMAT_RUSAK (10)
+  ok  token dicabut/tak valid (401/1000) → TOKEN_TIDAK_VALID (11), bukan 'izin kurang'
+  ok  token kedaluwarsa → 12
+  ok  izin kurang: settings 403, /accounts memuat akun → IZIN_KURANG (13)
+  ok  Account ID salah PASTI: settings 403, /accounts tanpa akun itu → ACCOUNT_ID_SALAH (14)
+  ok  403 dan daftar akun tertutup → IZIN_KURANG_ATAU_ACCOUNT_SALAH (13), jujur ambigu
+  ok  Worker tak ada → WORKER_TIDAK_DITEMUKAN (15)
+  ok  Account ID bentuk salah → 17
+  ok  secret kosong → 18
+  ok  di-source dari deploy: token bersih terekspor, deploy lanjut
+  ok  di-source: kegagalan autentikasi menghentikan deploy (kode 13)
+  ok  jaringan mati → JARINGAN (16)
+unit cf-auth: 20 lulus, 0 gagal
