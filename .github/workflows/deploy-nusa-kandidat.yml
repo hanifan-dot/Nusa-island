@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/nusa-island-control-center
-          ref: 44eebd3a0f9caaa92161a21f7725c548f0b71084
+          ref: 6726ca031324af5dd76e7cd8e045c9dfd78b63b2
           token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
           persist-credentials: false
           path: backend
@@ -83,7 +83,7 @@ jobs:
       NUSA_GAME_DIR: ${{ github.workspace }}/game
       NUSA_BACKEND_DIR: ${{ github.workspace }}/backend
       NUSA_GAME_SHA: 3cc759d9eb3ccac160346ca2bc3bd63711a9faef
-      NUSA_BACKEND_SHA: 44eebd3a0f9caaa92161a21f7725c548f0b71084
+      NUSA_BACKEND_SHA: 6726ca031324af5dd76e7cd8e045c9dfd78b63b2
       NUSA_CONFIRM: "ya"
     steps:
       - name: Verifikasi akses baca repository backend privat
@@ -103,7 +103,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/nusa-island-control-center
-          ref: 44eebd3a0f9caaa92161a21f7725c548f0b71084
+          ref: 6726ca031324af5dd76e7cd8e045c9dfd78b63b2
           token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
           persist-credentials: false
           path: backend
