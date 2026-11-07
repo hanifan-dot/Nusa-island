@@ -19,6 +19,11 @@ const ownerTok = { role: "owner" };
 (async () => {
   // ---- validateSave ----
   ok("v1 save sah", core.validateSave(save()).ok);
+  // HOTFIX: shop.aurSeen (penanda klien lama Aurora) — kompatibel hanya bila bernilai 1; kunci/nilai lain tetap ditolak.
+  ok("h1 shop lama {v,equip,aurSeen:1} sah", core.validateSave(save({ shop: { v: 1, equip: { joran: "pancing_aurora" }, aurSeen: 1 } })).ok);
+  ok("h2 shop.aurSeen bukan 1 ditolak", !core.validateSave(save({ shop: { v: 1, equip: {}, aurSeen: 2 } })).ok && !core.validateSave(save({ shop: { v: 1, equip: {}, aurSeen: "1" } })).ok);
+  ok("h3 kunci asing di shop tetap ditolak (validasi tidak dilonggarkan)", !core.validateSave(save({ shop: { v: 1, equip: {}, money: 9 } })).ok && !core.validateSave(save({ shop: { v: 1, owned: { x: 1 } } })).ok);
+  ok("h4 equip ID tak sah tetap ditolak", !core.validateSave(save({ shop: { v: 1, equip: { joran: "A B" } } })).ok);
   ok("v2 koin negatif ditolak", !core.validateSave(save({ money: -1 })).ok);
   ok("v3 koin NaN/Infinity ditolak", !core.validateSave(save({ money: NaN })).ok && !core.validateSave(save({ money: Infinity })).ok);
   ok("v4 koin di atas batas ekonomi ditolak (1e9+1)", !core.validateSave(save({ money: 1e9 + 1 })).ok);
