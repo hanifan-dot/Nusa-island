@@ -117,6 +117,10 @@ jobs:
           cmp game/house/core.js backend/server/vendor/house-core.cjs
           cmp game/economy/sf-core.js backend/server/vendor/sf-core.cjs
           cmp game/economy/aurora-core.js backend/server/vendor/aurora-core.cjs
+          (cd game && node firebase/scripts/cek-rilis.js && node tests/unit-mp.js && node tests/unit-cf-auth.js)
+      - name: Regresi khusus update +40% (dilewati saat rollback)
+        if: ${{ needs.pin.outputs.mode == 'deploy' }}
+        run: |
           cmp game/economy/core.js backend/server/vendor/economy-core.cjs
           cmp game/cloud/core.js backend/server/vendor/cloud-core.cjs
           grep -Fq "async ecoSfInfo(auth)" game/economy/core.js
@@ -130,7 +134,6 @@ jobs:
           node game/tests/unit-cloud.js
           node game/tests/unit-economy.js
           node game/tests/unit-aurora.js
-          (cd game && node firebase/scripts/cek-rilis.js && node tests/unit-mp.js && node tests/unit-cf-auth.js)
       - name: Tes backend dan scan rahasia
         run: |
           cd backend
@@ -265,9 +268,9 @@ jobs:
             echo "OK: aset Tas + NUSA STYLE + world MH=52 live."
           fi
           echo "OK: API sehat; fitur yang ON sebelum deploy tetap ON; pengaman toko tidak berubah. Konfigurasi Owner di Firestore tidak disentuh."
-      # ROLLBACK (hanya nusa-api + dashboard, Hosting tidak disentuh): Run workflow -> mode=rollback, target=api-dashboard,
-      #   backend_sha=7a3aa82a54a55656e080669fae52aff1f0b39170, game_sha=6419c91d2caf866b967bc6d5d17dbf1e1ccd8cd9, konfirmasi=deploy.
-      #   Snapshot ON/OFF tetap dibandingkan; variabel/secret produksi dipertahankan oleh deploy-api-kandidat.sh (--keep-vars). Lihat docs/RILIS-CONTROL-CENTER-V2.md di repo backend.
+      # ROLLBACK: mode=rollback, target=api-dashboard+hosting, multiplayer=ya,
+      #   backend_sha=d2602614e71917f9495fa8273dee9c134a0063d1, game_sha=27d6f4e51c7b3ee4a958a848cc98eedb3f91260b, konfirmasi=deploy.
+      #   API, Multiplayer dan Hosting kembali ke versi hotfix terakhir; flag dan secret dijaga.
       - name: Bersihkan kredensial sementara
         if: always()
         run: rm -f "$RUNNER_TEMP/nusa-sa.json"
