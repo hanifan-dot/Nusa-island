@@ -1,0 +1,35 @@
+PASS  A1 tombol Edit Avatar ada di HUD & menu ☰ mengenalinya
+PASS  A2 menu Edit Avatar terbuka (panel + pratinjau + kategori)
+PASS  A3 COBA GRATIS item berbayar: pratinjau berubah, koin TIDAK berkurang
+PASS  A4 simpan item yang belum dimiliki ditolak (tamu)
+PASS  A5 item GRATIS (Kaos Polos warna 3) tersimpan lokal & tampil di karakter
+PASS  A6 tamu tidak bisa membeli (pesan jujur, tidak ada panggilan server)
+PASS  A7 pemain tamu tanpa kostum: tampilan bawaan tidak dipaksa topi caping hilang
+PASS  A8 tanpa error halaman  []
+PASS  B0 status toko = ready (server mendukung)
+PASS  B1 konfirmasi pembelian menampilkan nama + harga
+PASS  B2 beli item biasa: saldo -45.000, tercatat dimiliki, pesan sukses  [8955000, 9000000]
+PASS  B3 beli lagi item yang sama: ditolak, tidak ada potongan
+PASS  B4 beli kostum Sultan T-Rex: saldo -1.200.000 & pesan 'Kostum telah masuk ke lemari pakaianmu.'  🎉 PEMBELIAN BERHASIL! Kostum telah masuk ke lemari pakaianmu.
+PASS  B5 permintaan ganda (opId sama) → hanya sekali dibayar  [False, True]
+PASS  B5b saldo hanya berkurang 120.000 untuk Jaket Nelayan
+PASS  B6a beli Naga Petir 2.500.000: saldo berkurang tepat  [5135000, 7635000]
+PASS  B7 simpan penampilan: kode tersimpan & dipakai karakter
+PASS  B6 saldo kurang → pesan 'Koin kamu belum cukup', saldo & kepemilikan tidak berubah  ['🪙 Koin kamu belum cukup untuk membeli item ini!', 100]
+PASS  B8 muat ulang + login ulang: kostum Naga Petir & kepemilikan tetap, koin utuh  ['t:t_polos:2|p:p_awal:0|c:c_naga:0|s:x:0|r:x:0', 5135000, 5135000]
+PASS  B9 UID lain tidak memiliki item UID pertama
+PASS  B10 manipulasi: simpan kostum milik UID lain ditolak server  Kamu belum memiliki Naga Petir.
+PASS  B11 manipulasi: kode lokal berisi kostum yang tak dimiliki → tidak dirender (jatuh ke bawaan)
+PASS  B12 harga & saldo dari klien diabaikan server
+PASS  C1 Worker lama: status 'unsupported', pembelian terkunci tanpa memotong koin
+PASS  D1 semua 27 item × 8 arah × diam/jalan (+joran) tergambar tanpa error  {'n': 432, 'bad': []}
+PASS  D2 kostum dipakai tidak mengubah posisi/tabrakan pemain (hanya gambar)
+PASS  D3 tidak ada error saat berjalan dengan kostum di game yang berjalan  []
+PASS  D4 memancing tetap tersedia (fungsi mulai memancing & joran tergambar dengan kostum)
+PASS  D5 pemain lain: kostum dari kode ID tampil di karakter mereka
+PASS  D6 kostum tak dikenal (versi game lain) → fallback tampilan dasar, tanpa crash
+PASS  D7 kode rusak ditolak → tampilan dasar
+PASS  D8 8 pemain berefek berkumpul: hanya 3 pertama berefek (hemat), sisanya 0  [1, 1, 1, 0, 0, 0, 0, 0]
+PASS  D9 mode efek 'Mati' tersimpan & dihormati
+PASS  D10 biaya gambar kostum paling berat < 3 ms/bingkai (headless CPU)  0.02
+PASS  E1 pemain lama tanpa data avatar: gaya karakter identik (caping, warna asli)

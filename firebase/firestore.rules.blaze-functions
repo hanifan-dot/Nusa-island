@@ -1,0 +1,32 @@
+rules_version = '2';
+// NUSA ISLAND — Tahap 3. Prinsip: tolak semuanya, buka seminimal mungkin.
+//  - Pemain hanya boleh MEMBACA save miliknya sendiri (UID dari token terverifikasi).
+//  - TIDAK ADA tulis dari klien: semua perubahan lewat Cloud Functions (Admin SDK melewati rules)
+//    yang memvalidasi data dan memeriksa konflik/rev.
+//  - Cadangan, registri Owner, dan sandbox Owner tertutup total dari klien (hanya fungsi server).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/saves/{doc} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+    match /users/{uid}/backups/{doc} { allow read, write: if false; }
+    // Premium Shop (Tahap 3.6): seluruh koleksi shop_* TERTUTUP dari klien; semua baca/tulis lewat Cloud Functions (Admin SDK).
+    match /shop/{doc=**} { allow read, write: if false; }
+    match /shop_orders/{doc} { allow read, write: if false; }
+    match /shop_userOrders/{doc} { allow read, write: if false; }
+    match /shop_entitlements/{doc} { allow read, write: if false; }
+    match /shop_ledger/{doc} { allow read, write: if false; }
+    match /shop_refs/{doc} { allow read, write: if false; }
+    // Ekonomi server + sisa koleksi toko (semua hanya Admin SDK: Cloud Functions & server dashboard)
+    match /shop_economy/{doc} { allow read, write: if false; }
+    match /shop_user_orders/{doc} { allow read, write: if false; }
+    match /shop_config/{doc} { allow read, write: if false; }
+    match /shop_audit/{doc} { allow read, write: if false; }
+    match /shop_counters/{doc} { allow read, write: if false; }
+    match /shop_claims/{doc} { allow read, write: if false; }
+    match /owners/{doc} { allow read, write: if false; }
+    match /ownerSandbox/{doc=**} { allow read, write: if false; }
+    match /{document=**} { allow read, write: if false; }
+  }
+}
