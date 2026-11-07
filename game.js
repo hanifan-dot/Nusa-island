@@ -393,7 +393,7 @@ function landBobber() {
 }
 function triggerBite() {
   const locId = LOCATIONS[S.loc].id;
-  G.pending = (NW.story && NW.story.challengeFish(G.perfect, locId)) || (NW.adv && NW.adv.challengeFish(G.perfect, locId)) || chooseFish();
+  G.pending = (NW.sf2 && NW.sf2.active() && NW.sf2.pendingFish()) || (NW.story && NW.story.challengeFish(G.perfect, locId)) || (NW.adv && NW.adv.challengeFish(G.perfect, locId)) || chooseFish();   // Samudra Follower V2: di pulau, hasil asli diundi server saat mendarat
   G.phase = "bite"; G.biteWindow = 0.95 + upLvl("bait") * 0.05;
   G.bob.sink = 1; addRipple(G.bob.x, G.bob.z, 2); splashAt(G.bob.x, G.bob.z, 6); if (NW.aurora) NW.aurora.event("bite", bobberScreen()); if (NW.quest) NW.quest.event("bite", bobberScreen());
   SFX.bite();
@@ -439,7 +439,8 @@ function startReelBack() {
   updateHint();
 }
 function landFish(fish, w) {
-  if (G.phase === "result") return; // satu tangkapan = satu hasil (tidak ada roll varian / jingle ganda)
+  if (G.phase === "result") return;
+  if (fish.sf2pending && NW.sf2 && G.pending && G.pending.sf2) { G.phase = "result"; G.bob.vis = false; G.shadow = null; const pend = G.pending; setNavLocked(true); NW.sf2.land(pend, SF2HOST); return; }   // Samudra Follower V2: server mengundi rarity/spesies/Pity // satu tangkapan = satu hasil (tidak ada roll varian / jingle ganda)
   G.phase = "result"; G.bob.vis = false; G.shadow = null;
   const rec = S.dex[fish.id] || { n: 0, best: 0 };
   const isNew = rec.n === 0, isRecord = !isNew && w > rec.best;
@@ -471,6 +472,10 @@ function landFish(fish, w) {
   showCatchCard(fish, w, { isNew, isRecord, reward, vr, giant, uid: item && item.uid, locked: !!(item && item.lock) });
 }
 
+const SF2HOST = {   // jembatan kecil untuk sf2/sf2.js (tanpa membuka G ke luar)
+  show(fish, w, info, after) { showCatchCard(fish, w, info); if (after) after(); },
+  fail() { setNavLocked(false); G.phase = "idle"; G.bob.vis = false; G.shadow = null; updateHint(); },
+};
 // ---------- Update ----------
 let last = performance.now(), started = false, saveT = 0;
 // waktu berjalan (dipakai mode mancing & mode pulau)
@@ -1318,6 +1323,7 @@ $("panelBody").addEventListener("click", (e) => {
   const act = el.dataset.act, arg = el.dataset.arg;
   if (act === "buy") buy(arg, el.dataset.lv === undefined ? undefined : +el.dataset.lv);
   if (act === "tab") { dexTab = arg; SFX.click(); renderPanel(); }
+  if ((act === "sf2f" || act === "sf2p" || act === "sf2o") && NW.sf2) { SFX.click(); const r = NW.sf2.act(act, arg); if (r === "render") renderPanel(); }
   if (act === "go") travel(+arg);
   if (act === "audio" && NW.audioPanel) { closePanel(); NW.audioPanel.open(); }
   if (extraPanels[currentPanel] && extraPanels[currentPanel].act) extraPanels[currentPanel].act(act, arg, el);
@@ -1385,7 +1391,7 @@ function variantRow(f) {
   }).join("")}</div>`;
 }
 function dexHTML() {
-  const tabs = [...LOCATIONS.map((l) => ({ id: l.id, name: l.short })), { id: "*", name: "Lain-lain" }, ...(NW.sf && NW.sf.on() ? [{ id: "sf", name: "🌊 Samudra Follower" }] : [])];
+  const tabs = [...LOCATIONS.filter((l) => l.id !== "samudra" || (NW.sf2 && NW.sf2.tabOn())).map((l) => ({ id: l.id, name: l.id === "samudra" ? "🌴 Pulau Legenda" : l.short })), { id: "*", name: "Lain-lain" }, ...(NW.sf && NW.sf.on() ? [{ id: "sf", name: "🌊 Samudra Follower" }] : [])];
   if (!dexTab) dexTab = LOCATIONS[S.loc].id;
   const totalAll = FISH.length, gotAll = FISH.filter((f) => S.dex[f.id]).length;
   const vc = NW.variants ? NW.variants.counts(S) : null;
@@ -1395,6 +1401,7 @@ function dexHTML() {
     <div class="dex-tabs">${tabs.map((t) => `<button data-act="tab" data-arg="${t.id}" class="${t.id === dexTab ? "on" : ""}">${t.name}</button>`).join("")}</div>
     ${dexTab === "sf" && NW.sf ? NW.sf.gridHTML() : `<div class="dex-grid">`}`;
   if (dexTab === "sf") return h;
+  if (dexTab === "samudra" && NW.sf2) return h.replace(/<div class="dex-grid">$/, "") + NW.sf2.bookHTML();
   for (const f of FISH.filter((f) => f.loc === dexTab)) {
     const rec = S.dex[f.id], R = RARITY[f.rarity];
     const timeTag = f.night === true ? "🌙 malam" : f.night === false ? "☀️ siang" : "";
@@ -1411,6 +1418,7 @@ function dexHTML() {
 function mapHTML() {
   let h = `<p class="muted">Upgrade kapal di Toko untuk membuka pulau baru. Tiap lokasi punya ikan khas.</p>${NW.audioPanel ? `<p><button class="btn ghost small" data-act="audio">🔊 Pengaturan Suara</button></p>` : ""}`;
   LOCATIONS.forEach((L, i) => {
+    if (L.id === "samudra") { if (NW.sf2) h += NW.sf2.cardHTML(i); return; }   // Samudra Follower V2: kartu sendiri (gerbang 100 ikan dari server)
     const locked = upLvl("boat") + 1 < L.boat, here = i === S.loc;
     const got = FISH.filter((f) => f.loc === L.id && S.dex[f.id]).length, tot = FISH.filter((f) => f.loc === L.id).length;
     h += `<div class="map-item ${here ? "here" : ""} ${locked ? "locked" : ""}">
@@ -1424,6 +1432,7 @@ function canSail(i) { return !!LOCATIONS[i] && upLvl("boat") + 1 >= LOCATIONS[i]
 function travel(i) {
   closePanel();
   if (!canSail(i)) { toast(`🔒 Butuh ${UPGRADES.boat.levels[LOCATIONS[i].boat - 1]} untuk ke ${LOCATIONS[i].name}`, "bad"); return false; }
+  if (LOCATIONS[i].id === "samudra" && !(NW.sf2 && NW.sf2.gate())) return false;   // syarat 100 tangkapan sah (dicek server juga saat memancing)
   const area = NW.areas.forLoc(i);
   if (area) { // Bumbu 2: lokasi dengan area jelajah (Muara, Toba) → berlayar singkat lalu turun di dermaga
     if (MODE === "world" && NW.areas.cur === area) return false;
@@ -1502,7 +1511,7 @@ window.Nusa = {
   balance, charge, earn,
   mode: () => MODE, isStarted: () => started,
   isPanelOpen: () => !$("panelWrap").classList.contains("hidden") || !$("catchWrap").classList.contains("hidden") || !$("shareWrap").classList.contains("hidden") || !!($("aqWrap") && !$("aqWrap").classList.contains("hidden")) || !!(NW.kedai && NW.kedai.isOpen()) || !!(NW.shopUI && NW.shopUI.isOpen()),
-  openPanel, enterFishing, goWorld, travel, canSail, tickTime, darkness, goldenHour, isNight, marketTip, setHint, save, toast,
+  setDexTab: (t) => { dexTab = t; }, openPanel, enterFishing, goWorld, travel, canSail, tickTime, darkness, goldenHour, isNight, marketTip, setHint, save, toast,
   coolerFull: () => S.cooler.length >= coolerCap(),
   sfx: (n, a) => { initAudio(); if (NW.audio && NW.audio.sfx(n, a)) return; if (SFX[n]) SFX[n](a); },
   // keadaan mancing untuk audio (tanpa rarity/berat ikan, supaya suara tidak membocorkan hasil)

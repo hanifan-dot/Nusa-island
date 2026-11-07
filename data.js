@@ -43,6 +43,12 @@ const LOCATIONS = [
     sky: ["#4f8fd0", "#e9e3d2"], water: ["#1a5c9c", "#0a2a55"], fog: "#90b3d6",
     shore: "far", shoreColor: "#4c6a7a",
   },
+  {   // Samudra Follower V2 — Pulau Para Legenda (area jelajah 'sf2'). Dibuka lewat 100 tangkapan sah (server), BUKAN level kapal.
+    id: "samudra", name: "Samudra Follower — Pulau Para Legenda", short: "Samudra", boat: 1,
+    desc: "Pulau tropis tempat makhluk legenda komunitas berenang. Terbuka setelah 100 tangkapan.",
+    sky: ["#7cc4e8", "#f7e9c4"], water: ["#2aa0b8", "#0c4a78"], fog: "#bfe0e8",
+    shore: "palm", shoreColor: "#3f6b45",
+  },
 ];
 
 // power: 1 (jinak) .. 10 (monster). price = Rp per kg (koin)

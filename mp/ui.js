@@ -50,6 +50,7 @@ function panelHTML() {
       ${hr}
     </div>
     ${err}
+    ${NW.sf2 && NW.sf2.active() ? `<div class="mp-note">🌴 Kamu sedang di Samudra Follower. Dunia Bersama hanya aktif di <b>Muara Kampung</b> — pulang naik kapal untuk bertemu pemain lain.</div>` : ""}
     ${consent ? `<div class="mp-note"><b>Main bersama pemain lain?</b><br>Di Muara Kampung, pemain Google lain bisa melihat <b>nama panggilan</b>, gelar, posisi, ikan yang kamu pamerkan, dan <b>chat</b>-mu. Tidak ada koin, item, email, atau data akun yang dibagikan. Chat disaring dan tidak disimpan. Kamu bisa keluar kapan saja.
       <div class="mp-btns"><button class="btn gold" data-act="mpYes">Ikut Dunia Bersama</button><button class="btn" data-act="mpNo">Tidak, terima kasih</button></div></div>` : `
     <div class="sv-actions">
@@ -138,7 +139,7 @@ function refresh() {
   lg.innerHTML = rec.map((l) => `<div class="${l.mine ? "mine" : ""}"><b>${esc(l.name)}</b> ${esc(l.text)}</div>`).join(""); lg.classList.toggle("hidden", !rec.length || !!(N().isPanelOpen && N().isPanelOpen()));   // umpan singkat tidak menutupi panel yang sedang terbuka
   if (chatOpen) { if (!raf) raf = requestAnimationFrame(() => { raf = 0; renderHist(false); }); }
   const ask = $("mpAsk");
-  if (ask) ask.classList.toggle("hidden", !(loggedIn && v.prefs.consent === null && N().isStarted() && !askDismissed));
+  if (ask) ask.classList.toggle("hidden", !(loggedIn && v.prefs.consent === null && N().isStarted() && !askDismissed && !(NW.sf2 && NW.sf2.active())));   // di Pulau Samudra Follower tidak ada dunia bersama: jangan menawarkan "terlihat di Muara"
 }
 function mount() {
   if ($("mpDock")) return;

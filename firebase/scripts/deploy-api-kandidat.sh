@@ -14,7 +14,7 @@ done
 [ -z "$(git -C "$NUSA_BACKEND_DIR" status --porcelain --untracked-files=no)" ] || die "Kode backend tidak bersih."
 grep -Fxq 'name = "nusa-api"' "$NUSA_BACKEND_DIR/worker/wrangler.toml" || die "Target Worker bukan nusa-api."
 grep -Fq 'name = "nusa-multiplayer"' "$NUSA_GAME_DIR/cf-multiplayer/wrangler.toml" || die "Target multiplayer berubah."
-for pair in 'economy/core.js:economy-core.cjs' 'house/core.js:house-core.cjs' 'economy/sf-core.js:sf-core.cjs' 'economy/aurora-core.js:aurora-core.cjs'; do
+for pair in 'economy/core.js:economy-core.cjs' 'house/core.js:house-core.cjs' 'economy/sf-core.js:sf-core.cjs' 'economy/aurora-core.js:aurora-core.cjs' 'economy/sf2-core.js:sf2-core.cjs'; do
   IFS=: read -r src vendor <<< "$pair"
   cmp -s "$NUSA_GAME_DIR/$src" "$NUSA_BACKEND_DIR/server/vendor/$vendor" || die "Vendor $vendor tidak sama dengan sumber game $src."
 done
