@@ -69,8 +69,8 @@ function gate() {   // dipanggil travel(): true = boleh berlayar
 }
 
 // ---- memancing di pulau: ikan bayangan untuk minigame; hasil asli dari server
-function pendingFish() {
-  const fish = { id: "sf2_unknown", name: "Penghuni Samudra", rarity: "biasa", wMin: 2, wMax: 22, price: 0, loc: "samudra", emoji: "🌊", desc: "", sf2pending: true };
+function pendingFish() {   // HOTFIX: "power" wajib ada (tanpa itu kekuatan ikan NaN → minigame membeku setelah Strike). Hanya kesulitan minigame; rarity/spesies/Pity tetap diundi server saat mendarat.
+  const fish = { id: "sf2_unknown", name: "Penghuni Samudra", rarity: "biasa", wMin: 2, wMax: 22, power: 3, price: 0, loc: "samudra", emoji: "🌊", desc: "", sf2pending: true };
   const r = NW.FM.rollWeight(fish);
   return { fish, w: r.w, wr: r.wr, extreme: false, sf2: true, opId: "s2-" + Date.now().toString(36) + "-" + (++opSeq).toString(36) + Math.random().toString(36).slice(2, 8) };
 }
