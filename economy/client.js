@@ -21,7 +21,7 @@ function apply(v) {
   if (!v || typeof v !== "object" || typeof v.balance !== "number") return;
   st = v; const S = N().S;
   S.money = Math.max(0, Math.floor(v.own));
-  if (v.aur && v.aur.own && S.shop && typeof S.shop === "object") { S.shop.equip = S.shop.equip || {}; if (v.aur.eq) S.shop.equip.joran = "pancing_aurora"; else delete S.shop.equip.joran; S.shop.aurSeen = 1; }   // status Pakai/Lepaskan Aurora: SERVER yang berwenang                       // cermin saja; sumber kebenaran = server
+  if (v.aur && v.aur.own && S.shop && typeof S.shop === "object") { S.shop.equip = S.shop.equip || {}; if (v.aur.eq) S.shop.equip.joran = "pancing_aurora"; else delete S.shop.equip.joran; try { localStorage.setItem("nusa-aur-seen", "1"); } catch (e) {} }   // penanda di perangkat (bukan S.shop: validator menolak kunci asing). Status Pakai/Lepaskan Aurora: SERVER yang berwenang                       // cermin saja; sumber kebenaran = server
   for (const k of Object.keys(v.up || {})) S.up[k] = v.up[k];
   try { N().refreshHUD(); } catch (e) {}
 }
