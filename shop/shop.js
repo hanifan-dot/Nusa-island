@@ -42,6 +42,7 @@ H.interact = (t, api) => {
 // ---------- 3) pilihan "sedang dipakai" (kosmetik) ----------
 const EQ = {
   gamepass_sultan: { kostum: "kostum_sultan", nama: "nama_emas", gelar: "gelar_sultan", dekor: "dekor_sultan", lencana: "lencana_sultan" },
+  gamepass_aurora: { joran: "pancing_aurora" },
   kostum_nelayan: { kostum: "kostum_nelayan" }, efek_nama: { nama: "nama_gelombang" }, skin_kapal_nusantara: { kapal: "skin_kapal_nusantara" }, dekor_rumah: { dekor: "dekor_lampion" },
 };
 let owned = {};                                            // item kosmetik yang dimiliki (dari server)

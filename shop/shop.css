@@ -41,3 +41,10 @@ body.sp-open{overflow:hidden}
 .hud-right{flex:1 1 0;min-width:0;flex-wrap:wrap;justify-content:flex-end;align-content:flex-start}
 .hud-right .icon-btn{padding:6px 7px}
 @media (max-width: 480px) { .hud{gap:4px} .hud-right{gap:3px} .hud-right .icon-btn{padding:5px 3px;font-size:14px;min-width:24px} .hud-right .chip.time{padding:5px 6px;gap:2px} .hud-left{gap:3px} .hud-left .chip{padding:5px 7px} }
+
+/* Pancing Aurora Samudra */
+.sp-item.aur { border-color: #7d6bff; box-shadow: 0 0 0 1px rgba(125, 107, 255, .35), 0 6px 18px rgba(60, 40, 160, .25); }
+.sp-item.aur .sp-perks li.aur-ok { color: #1b7a52; font-weight: 700; } .sp-item.aur .sp-perks li.aur-lock { color: #8a5a1c; font-weight: 600; }
+.aur-odds { margin: 6px 0; font-size: 12px; } .aur-odds summary { cursor: pointer; font-weight: 800; } .aur-odds p { margin: 6px 0 0; line-height: 1.4; }
+.aur-fx { display: flex; gap: 6px; margin: 8px 0 2px; } .aur-fx button { flex: 1; border: 0; border-radius: 10px; padding: 8px 4px; font: 800 12px var(--font); background: #ece6d3; color: #173f50; cursor: pointer; }
+.aur-fx button.on { background: #4a3fc4; color: #fff; } .aur-fxn { display: block; opacity: .75; font-size: 11px; margin-bottom: 6px; }
