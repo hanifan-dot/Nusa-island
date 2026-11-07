@@ -34,6 +34,7 @@
     <div class="chip loc"><span id="locName">Muara Kampung</span></div>
     <div class="chip time"><span id="clockIcon">☀️</span><b id="clock">06:00</b><small id="dayLabel">Hari 1</small><span id="timeNote" class="time-note"></span></div>
     <button class="chip icon-btn misi" id="avatarBtn" aria-label="Edit avatar">🧥</button>
+    <button class="chip icon-btn misi hidden" id="friendsBtn" aria-label="Teman online dan undangan">👥<span class="badge hidden" id="friendsBadge">0</span></button>
     <button class="chip icon-btn misi" id="skillBtn" aria-label="Keahlian & cerita">🎯<span id="skillBadge" class="badge story hidden">!</span></button>
     <button class="chip icon-btn misi" id="misiBtn" aria-label="Misi harian">📋<span id="misiBadge" class="badge hidden">0</span></button>
     <button class="chip icon-btn" id="dexBtn" aria-label="Koleksi ikan">📖</button>
@@ -81,6 +82,7 @@
 <button id="visitBtn" class="visit-btn hidden" aria-label="Kunjungi rumah teman">🏠 Kunjungi Rumah Teman</button>
 <button id="visitBack" class="visit-back hidden" aria-label="Kembali ke rumah saya">⬅ Kembali ke Rumah Saya</button>
 <div id="visitTag" class="visit-tag hidden" aria-live="polite"></div>
+<div id="invPop" class="inv-pop hidden" role="alertdialog" aria-live="assertive"></div>
 <div id="layoutBar" class="layout-bar hidden">
   <div class="lb-row"><b id="lbTitle">Ketuk & geser perabot</b>
     <button class="btn small" id="lbRotate">↻ Putar</button>
@@ -227,6 +229,7 @@
 <script src="mp/client.js"></script>
 <script src="house/core.js"></script>
 <script src="house/client.js"></script>
+<script src="house/social.js"></script>
 <script src="economy/pond-core.js"></script>
 <script src="pond/draw.js"></script>
 <script src="pond/client.js"></script>
