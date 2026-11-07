@@ -86,6 +86,7 @@ with sync_playwright() as p:
         ok("B3 HUD: SAMUDRA FOLLOWER / Pity Mythic 0/100 / Mythic 5,00%", "SAMUDRA FOLLOWER" in hud and "Pity Mythic 0/100" in hud and "Mythic 5,00%" in hud, hud)
         r = ev(pg, "(()=>{const h=document.getElementById('sf2Hud').getBoundingClientRect();return {x:h.x,y:h.y,w:h.width,h:h.height,vw:innerWidth,vh:innerHeight}})()")
         ok("B4 HUD kecil, di atas (tidak menutup joystick kiri-bawah)", r["h"] < 90 and r["w"] < 200 and r["y"] < 200, r)
+        ok("B4b prompt Dunia Bersama ('terlihat di Muara') tidak muncul di pulau", ev(pg, "(()=>{const a=document.getElementById('mpAsk');return !a||a.classList.contains('hidden')})()"))
         shot(pg, "03-pulau-hud.png")
         ok("B5 tanpa error halaman", not errs, errs[:2])
         # ===== C. empat spot memancing sungguhan =====
