@@ -116,7 +116,7 @@ const ecoWrap = (name) => onCall({ enforceAppCheck: false }, async (req) => {
     console.error("eco:" + name, e.message); throw new HttpsError("internal", "Terjadi kesalahan server.");
   }
 });
-for (const n of ["ecoState", "ecoInit", "ecoCatch", "ecoSell", "ecoDrop", "ecoReward", "ecoMission", "ecoBuy", "ecoStreakState", "ecoStreakClaim", "ecoEventState", "ecoEventStart", "ecoEventFinish", "ecoEventClaim", "ecoPondState", "ecoPondPut", "ecoPondTake", "ecoPondFeed", "ecoPondBuy", "ecoPondUpgrade", "ecoFashionState", "ecoFashionBuy", "ecoFashionSave"]) exports[n] = ecoWrap(n);
+for (const n of ["ecoState", "ecoSfInfo", "ecoInit", "ecoCatch", "ecoSell", "ecoDrop", "ecoReward", "ecoMission", "ecoBuy", "ecoStreakState", "ecoStreakClaim", "ecoEventState", "ecoEventStart", "ecoEventFinish", "ecoEventClaim", "ecoPondState", "ecoPondPut", "ecoPondTake", "ecoPondFeed", "ecoPondBuy", "ecoPondUpgrade", "ecoFashionState", "ecoFashionBuy", "ecoFashionSave"]) exports[n] = ecoWrap(n);
 // Event 5 Monster Legenda: jam server + jadwal + juara final boleh dibaca siapa saja (tamu juga). Tanpa data pribadi, tanpa tulisan.
 exports.eventInfo = onCall({ enforceAppCheck: false }, async () => {
   try { return JSON.parse(JSON.stringify(await ecoApi.eventInfo())); }
