@@ -1,4 +1,5 @@
 # Rilis manual: dari main hanya workflow, kode game/backend DI-PIN ke commit teruji.
+# Control Center V2: bawaan = deploy nusa-api + aset dashboard SAJA (Hosting/multiplayer hanya bila diminta). Pengaturan Owner di Firestore TIDAK disentuh.
 name: Deploy Kandidat Terpadu Nusa Island
 on:
   workflow_dispatch:
@@ -8,25 +9,30 @@ on:
         type: string
         required: true
       mode:
-        description: "deploy = rilis paket final. rollback = kembali ke SHA produksi sebelumnya (isi game_sha/backend_sha lama, mis. 3cc759d... / 44eebd3...)."
+        description: "deploy = rilis Control Center V2 (nusa-api + dashboard). rollback = kembali ke backend produksi sebelumnya: isi backend_sha=7a3aa82a54a55656e080669fae52aff1f0b39170 dan game_sha=6419c91d2caf866b967bc6d5d17dbf1e1ccd8cd9."
         type: choice
         options: ["deploy", "rollback"]
         default: "deploy"
       game_sha:
-        description: "SHA game 40 hex (kosong = paket final)"
+        description: "SHA game 40 hex (kosong = game yang sedang live: 6419c91)"
         type: string
         required: false
         default: ""
       backend_sha:
-        description: "SHA backend 40 hex (kosong = paket final)"
+        description: "SHA backend 40 hex (kosong = Control Center V2: ff3ab0b)"
         type: string
         required: false
         default: ""
       multiplayer:
-        description: "Deploy juga nusa-multiplayer? (ya/tidak). WAJIB ya sebelum Owner membuka Rumahku Sosial."
+        description: "Deploy juga nusa-multiplayer + Hosting? (tidak/ya). Tidak diperlukan untuk Control Center V2."
         type: choice
         options: ["tidak", "ya"]
         default: "tidak"
+      target:
+        description: "api-dashboard = HANYA nusa-api + aset dashboard (bawaan, Hosting tidak disentuh). api-dashboard+hosting = juga Firebase Hosting game."
+        type: choice
+        options: ["api-dashboard", "api-dashboard+hosting"]
+        default: "api-dashboard"
 concurrency:
   group: nusa-island-production
   cancel-in-progress: false
@@ -48,7 +54,7 @@ jobs:
           IN_B: ${{ inputs.backend_sha }}
         run: |
           set -e
-          G="${IN_G:-6419c91d2caf866b967bc6d5d17dbf1e1ccd8cd9}"; B="${IN_B:-7a3aa82a54a55656e080669fae52aff1f0b39170}"
+          G="${IN_G:-6419c91d2caf866b967bc6d5d17dbf1e1ccd8cd9}"; B="${IN_B:-ff3ab0b574bb4cd8b40b5438826b0049c8737dbb}"
           if [ "$MODE" = "rollback" ]; then
             [ -n "$IN_G" ] && [ -n "$IN_B" ] || { echo "::error::Rollback WAJIB mengisi game_sha dan backend_sha produksi sebelumnya"; exit 1; }
           fi
@@ -102,10 +108,6 @@ jobs:
           cmp game/house/core.js backend/server/vendor/house-core.cjs
           cmp game/economy/sf-core.js backend/server/vendor/sf-core.cjs
           cmp game/economy/aurora-core.js backend/server/vendor/aurora-core.cjs
-          if [ "${{ needs.pin.outputs.mode }}" = "deploy" ]; then
-            grep -q "NUSA_SOCIAL_HOME = false" game/cloud/config.js
-            grep -q "NUSA_SF_PREVIEW = false" game/cloud/config.js
-          fi
           (cd game && node firebase/scripts/cek-rilis.js && node tests/unit-mp.js && node tests/unit-cf-auth.js)
       - name: Tes backend dan scan rahasia
         run: |
@@ -118,7 +120,7 @@ jobs:
         run: cd game && node firebase/scripts/cek-rilis.js --live https://nusa-island-d2023.web.app --require-live
 
   rilis:
-    name: Deploy nusa-api lalu Firebase Hosting
+    name: Deploy nusa-api + dashboard (Hosting/multiplayer opsional)
     needs: [pin, cek]
     environment: production
     runs-on: ubuntu-latest
@@ -127,6 +129,8 @@ jobs:
       contents: read
       id-token: write
     env:
+      NEED_HOSTING: ${{ (inputs.target == 'api-dashboard+hosting' || inputs.multiplayer == 'ya') && 'ya' || 'tidak' }}
+      GUARD_SHA: ff3ab0b574bb4cd8b40b5438826b0049c8737dbb
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       NUSA_GAME_DIR: ${{ github.workspace }}/game
@@ -160,14 +164,14 @@ jobs:
         with:
           node-version: "22"
       - name: Login Firebase OIDC (tanpa kunci)
-        if: ${{ vars.GCP_WIF_PROVIDER != '' && vars.GCP_DEPLOY_SA != '' }}
+        if: ${{ env.NEED_HOSTING == 'ya' && vars.GCP_WIF_PROVIDER != '' && vars.GCP_DEPLOY_SA != '' }}
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOY_SA }}
           create_credentials_file: true
       - name: Login Firebase dengan secret cadangan
-        if: ${{ vars.GCP_WIF_PROVIDER == '' || vars.GCP_DEPLOY_SA == '' }}
+        if: ${{ env.NEED_HOSTING == 'ya' && (vars.GCP_WIF_PROVIDER == '' || vars.GCP_DEPLOY_SA == '') }}
         env:
           SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
@@ -184,32 +188,52 @@ jobs:
           API=$(printf '%s' "$LIVE" | grep -oE 'apiBase: "https://nusa-api\.[A-Za-z0-9-]+\.workers\.dev"' | head -1 | cut -d '"' -f 2)
           [ -n "$API" ] || { echo "::error::Alamat API live tidak ditemukan"; exit 1; }
           echo "NUSA_API_BASE=$API" >> "$GITHUB_ENV"
+      - name: Ambil penjaga rilis (skrip baca-saja dari backend V2)
+        uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/nusa-island-control-center
+          ref: ${{ env.GUARD_SHA }}
+          token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+          persist-credentials: false
+          path: guard
+      - name: Snapshot status fitur SEBELUM deploy (baca-saja; wajib ada)
+        run: |
+          set -e
+          mkdir -p "$RUNNER_TEMP/rg"
+          curl -fsS --retry 3 --max-time 20 "$NUSA_API_BASE/api/release-status" -o "$RUNNER_TEMP/rg/rs_before.raw" || { echo "::error::release-status SEBELUM deploy tidak terjangkau: tidak bisa membuktikan fitur ON tetap ON. Deploy dibatalkan sebelum menyentuh produksi."; exit 1; }
+          node guard/scripts/release-guard.mjs normalize < "$RUNNER_TEMP/rg/rs_before.raw" > "$RUNNER_TEMP/rg/before.json"
+          curl -fsS --retry 3 --max-time 20 "$NUSA_API_BASE/api/public-config" -o "$RUNNER_TEMP/rg/pc_before.json"
+          node -e 'const s=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const n={"Podium Juara":s.features.leaderboard,"Rumahku Sosial":s.features.socialHome,"Samudra Follower":s.sf.on,"Event Ikan Prabowo":s.sf.eventOn};console.log("Status SEBELUM deploy (dari server): "+Object.entries(n).map(([k,v])=>k+"="+(v?"ON":"OFF")).join(", "))' "$RUNNER_TEMP/rg/before.json"
       - name: Deploy API dengan pengaman variabel dan secret
         run: bash game/firebase/scripts/deploy-api-kandidat.sh
-      - name: Deploy Hosting mode produksi (MP lama tetap dipakai)
+      - name: Deploy Hosting game (HANYA bila diminta; tidak untuk Control Center V2 saja)
+        if: ${{ env.NEED_HOSTING == 'ya' }}
         env:
           NUSA_API_DEPLOYED: "ya"
           NUSA_CI: "1"
           NUSA_TARGET: ${{ inputs.multiplayer == 'ya' && 'semua' || 'game' }}
           TARGET: ${{ inputs.multiplayer == 'ya' && 'semua' || 'game' }}
         run: cd game && bash firebase/scripts/rilis.sh --target "$TARGET" --ci
-      - name: Cek sesudah deploy (kesehatan + status fitur DARI SERVER)
+      - name: Cek sesudah deploy (kesehatan, fitur ON tetap ON, pengaman toko/Aurora, aset dashboard)
         env:
           MODE: ${{ needs.pin.outputs.mode }}
         run: |
           set -e
           curl -fsS --retry 3 "$NUSA_API_BASE/api/health" >/dev/null || { echo "::error::Health nusa-api gagal"; exit 1; }
-          CFG=$(curl -fsS --retry 3 https://nusa-island-d2023.web.app/cloud/config.js)
+          curl -fsS --retry 3 --max-time 20 "$NUSA_API_BASE/api/release-status" -o "$RUNNER_TEMP/rg/rs_after.raw" || { echo "::error::release-status SESUDAH deploy tidak terjangkau"; exit 1; }
+          node guard/scripts/release-guard.mjs normalize < "$RUNNER_TEMP/rg/rs_after.raw" > "$RUNNER_TEMP/rg/after.json"
+          node guard/scripts/release-guard.mjs compare "$RUNNER_TEMP/rg/before.json" "$RUNNER_TEMP/rg/after.json"
+          curl -fsS --retry 3 --max-time 20 "$NUSA_API_BASE/api/public-config" -o "$RUNNER_TEMP/rg/pc_after.json"
+          node guard/scripts/release-guard.mjs shop "$RUNNER_TEMP/rg/pc_before.json" "$RUNNER_TEMP/rg/pc_after.json"
           if [ "$MODE" = "deploy" ]; then
-            printf '%s' "$CFG" | grep -q "NUSA_SOCIAL_HOME = false" || { echo "::error::Flag statis Rumahku Sosial tidak MATI"; exit 1; }
-            R=$(curl -fsS --retry 3 "$NUSA_API_BASE/api/release-status") || { echo "::error::release-status tidak terjangkau"; exit 1; }
-            echo "release-status: $R"
-            printf '%s' "$R" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{const outer=JSON.parse(d),r=outer&&outer.data&&typeof outer.data==="object"?outer.data:outer;if(outer.ok!==true||r.ok!==true||!r.features||!r.sf||["leaderboard","socialHome"].some(k=>typeof r.features[k]!=="boolean")||["on","eventOn"].some(k=>typeof r.sf[k]!=="boolean")){console.error("::error::Format release-status tidak valid");process.exitCode=1;return;}if(r.features.leaderboard||r.features.socialHome||r.sf.on||r.sf.eventOn){console.error("::error::Ada fitur NYALA di server sebelum Owner membukanya: periksa");process.exitCode=1;}}catch(e){console.error("::error::release-status bukan JSON valid");process.exitCode=1;}})' || exit 1
-            echo "OK: API sehat; status server: semua fitur baru MATI."
-          else
-            echo "Rollback: API sehat. Pemeriksaan release-status dilewati (backend lama tak punya endpoint itu)."
+            curl -fsS --retry 3 --max-time 20 "$NUSA_API_BASE/js/nav.js" | grep -q "GAME_TABS" || { echo "::error::Aset dashboard V2 (nav.js) belum tersaji dari nusa-api"; exit 1; }
+            curl -fsS --retry 3 --max-time 20 "$NUSA_API_BASE/js/views/game.js" | grep -q "Manajemen Game" || { echo "::error::Aset dashboard V2 (game.js) belum tersaji"; exit 1; }
+            echo "OK: aset dashboard V2 tersaji."
           fi
-      # ROLLBACK: Run workflow -> mode=rollback, game_sha=3cc759d9eb3ccac160346ca2bc3bd63711a9faef, backend_sha=44eebd3a0f9caaa92161a21f7725c548f0b71084. Lihat docs/RILIS-PAKET-FINAL-20261107.md.
+          echo "OK: API sehat; fitur yang ON sebelum deploy tetap ON; pengaman toko tidak berubah. Konfigurasi Owner di Firestore tidak disentuh."
+      # ROLLBACK (hanya nusa-api + dashboard, Hosting tidak disentuh): Run workflow -> mode=rollback, target=api-dashboard,
+      #   backend_sha=7a3aa82a54a55656e080669fae52aff1f0b39170, game_sha=6419c91d2caf866b967bc6d5d17dbf1e1ccd8cd9, konfirmasi=deploy.
+      #   Snapshot ON/OFF tetap dibandingkan; variabel/secret produksi dipertahankan oleh deploy-api-kandidat.sh (--keep-vars). Lihat docs/RILIS-CONTROL-CENTER-V2.md di repo backend.
       - name: Bersihkan kredensial sementara
         if: always()
         run: rm -f "$RUNNER_TEMP/nusa-sa.json"
