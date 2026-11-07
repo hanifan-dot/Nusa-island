@@ -29,7 +29,35 @@ CONFIG="$NUSA_BACKEND_DIR/worker/.nusa-release-config-$$.toml"
 cleanup(){ rm -rf "$TMP"; rm -f "$CONFIG"; }
 trap cleanup EXIT
 CF_URL="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/nusa-api/settings"
-curl -fsS --retry 2 --max-time 30 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$CF_URL" > "$TMP/before.json" || die "Tidak bisa membaca konfigurasi nusa-api live."
+# Jangan menggunakan -f di sini: simpan respons error Cloudflare untuk diagnostik aman,
+# tanpa mencetak bearer token, account ID, headers, atau konfigurasi produksi.
+cf_read_settings(){
+  local outfile="$1" label="$2" code
+  code=$(curl -sS --retry 2 --max-time 30 -o "$outfile" -w '%{http_code}' \
+    -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$CF_URL") || die "$label: jaringan Cloudflare tidak dapat dihubungi. Belum aman deploy."
+  if [ "$code" != "200" ]; then
+    CF_HTTP_STATUS="$code" node --input-type=commonjs - "$outfile" <<'NODE'
+const fs = require('node:fs');
+try {
+  const r = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+  const e = Array.isArray(r.errors) ? r.errors : [];
+  const safe = e.slice(0, 4).map(x => {
+    const code = Number.isInteger(x.code) ? x.code : 'unknown';
+    const message = String(x.message || 'Tanpa detail').slice(0, 180)
+      .replace(/https?:\/\/\S+/g, '[url]')
+      .replace(/[A-Za-z0-9_\-]{24,}/g, '[dirahasiakan]');
+    return code + ': ' + message;
+  });
+  console.error('Cloudflare API HTTP ' + process.env.CF_HTTP_STATUS +
+    (safe.length ? ' — ' + safe.join('; ') : ' — respons tanpa rincian kesalahan'));
+} catch {
+  console.error('Cloudflare API HTTP ' + process.env.CF_HTTP_STATUS + ' — respons bukan JSON yang dapat dibaca.');
+}
+NODE
+    die "$label: gagal membaca Worker nusa-api. Verifikasi Account ID sama dengan akun nusa-api dan scope Workers Scripts Edit; jangan ulang deploy sampai penyebab teridentifikasi."
+  fi
+}
+cf_read_settings "$TMP/before.json" "Sebelum deploy"
 node --input-type=commonjs - "$TMP/before.json" "$TMP/expected.json" <<'NODE'
 const fs = require('node:fs');
 const data = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
@@ -62,7 +90,7 @@ echo "Build nusa-api (dry-run) dengan variabel live dipertahankan."
 (cd "$NUSA_BACKEND_DIR/worker" && npx --yes wrangler@4 deploy --config "$CONFIG" --keep-vars --strict --dry-run >/dev/null) || die "Build Worker gagal. Belum menyentuh produksi."
 echo "Deploy nusa-api dari backend yang sudah diverifikasi…"
 (cd "$NUSA_BACKEND_DIR/worker" && npx --yes wrangler@4 deploy --config "$CONFIG" --keep-vars --strict) || die "Deploy Worker gagal; jangan deploy Hosting."
-curl -fsS --retry 2 --max-time 30 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$CF_URL" > "$TMP/after.json" || die "API ter-deploy, tapi konfigurasi setelahnya tidak terbaca. STOP, periksa dan rollback bila perlu."
+cf_read_settings "$TMP/after.json" "Sesudah deploy (STOP Hosting bila gagal)"
 node --input-type=commonjs - "$TMP/after.json" "$TMP/expected.json" <<'NODE'
 const fs = require('node:fs');
 const data = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
