@@ -72,6 +72,21 @@ def main():
         ctx, D, ed = page(b, LIVE, login=False); goto_podium(D); ev(D, "NW.podium.load('catch',true)"); time.sleep(0.6)
         ok("D1 tamu: tidak ada peringkat, placeholder", ev(D, "NW.podium._st.data.catch.status")=="inactive")
         ev(D, "NW.podium.open()"); time.sleep(0.7); ok("D2 tamu: pesan masuk akun", "Masuk dengan akun Google" in txt(D), txt(D)[:80]); ctx.close()
+        # F. kostum asli di podium (butuh PR #40 / NW.avatarDraw; bila belum tergabung, bagian ini DILEWATI — bukan lulus palsu)
+        ctx, F, ef = page(b)
+        if ev(F, "!!(window.NW && NW.avatarDraw && NW.avatarDraw.F)"):
+            codes = ev(F, """(()=>{const F=NW.avatarDraw.F, by=(slot)=>F.ITEMS.filter(i=>i.slot===slot);const one=(slot,k)=>{const it=by(slot)[k];return it?slot+':'+it.id+':0':null};
+              const c1=['t','p','c'].map(s=>one(s,0)).filter(Boolean).concat(['s:x:0','r:x:0']).join('|'), c2=[one('t',1),one('p',1),one('h',0),'s:x:1','r:x:1'].filter(Boolean).join('|');return [c1,c2]})()""")
+            lb = json.loads(json.dumps(LIVE)); lb["entries"][0]["outfit"] = codes[0]; lb["entries"][1]["outfit"] = codes[1]
+            ctx.close(); ctx, F, ef = page(b, lb); goto_podium(F); ev(F, "NW.podium.load('catch',true)"); time.sleep(1.2)
+            ok("F1 server mengirim outfit sah → diterima inti klien", ev(F, "NW.podium._st.data.catch.podium[0].outfit") == codes[0], codes)
+            ch = ev(F, "(()=>{const c=NW.podium._chars;return {r1:c[1]&&{top:c[1].ch.style.topId,costume:!!c[1].ch.style.costume,code:c[1].ch.style.code},r2:c[2]&&{top:c[2].ch.style.topId,code:c[2].ch.style.code},r3:c[3]&&{code:c[3].ch.style.code||null}}})()")
+            ok("F2 Juara 1 memakai kostum asli, Juara 2 memakai baju/celana asli, Juara 3 gaya bawaan", ch["r1"] and ch["r1"]["costume"] and ch["r1"]["code"] == codes[0] and ch["r2"] and ch["r2"]["code"] == codes[1] and ch["r3"] and not ch["r3"]["code"], ch)
+            same = ev(F, "(()=>{const a=NW.podium._chars[1].ch;return new Promise(r=>setTimeout(()=>r(a===NW.podium._chars[1].ch),600))})()")
+            ok("F3 karakter dibuat sekali (tidak dibuat ulang tiap frame → hemat CPU, animasi kostum jalan)", same)
+            F.screenshot(path=OUT + "5-podium-kostum-asli.png"); ok("F4 tidak ada error JS", not ef, ef)
+        else: print("SKIP  F kostum asli: NW.avatarDraw (PR #40) belum ada di basis ini")
+        ctx.close()
         # E. regresi: ekonomi/save tidak disentuh
         ctx, E, ee = page(b, LIVE); before = ev(E, "JSON.stringify([Nusa.S.money,Nusa.S.stats.caught])"); goto_podium(E); ev(E, "NW.podium.load('catch',true)"); ev(E, "NW.podium.open()"); time.sleep(1)
         ok("E1 membuka podium tidak mengubah uang/statistik", ev(E, "JSON.stringify([Nusa.S.money,Nusa.S.stats.caught])") == before)

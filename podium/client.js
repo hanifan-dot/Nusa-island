@@ -71,11 +71,19 @@ function plaque(name, title, rank, empty, medal) {
   if (labelCache.size > 40) labelCache.delete(labelCache.keys().next().value);
   labelCache.set(key, cv); return cv;
 }
-const styleOf = (entry) => {                                              // penampilan: kode outfit dari server bila ada (Tahap 2.6), selain itu gaya bawaan semua pemain
-  const base = { shirt: "#579b8b", pants: "#2b3a44", skin: "#c68b5e", hair: "#2a1d14", hat: "caping", collar: "#fff9ec" };
-  try { if (entry && entry.outfit && NW.avatarDraw && NW.avatarDraw.styleFor) return NW.avatarDraw.styleFor(entry.outfit, base) || base; } catch (e) {}
-  return base;
-};
+const BASE_STYLE = { shirt: "#579b8b", pants: "#2b3a44", skin: "#c68b5e", hair: "#2a1d14", hat: "caping", collar: "#fff9ec" };
+// Karakter per peringkat dibuat SEKALI per kode outfit (bukan tiap frame): hemat CPU Android & animasi kostum (_fxT0) tidak ter-reset.
+// Penampilan = kode outfit dari server (hanya item sah milik pemain, Tahap 2.6); tanpa avatarDraw / tanpa outfit → gaya bawaan semua pemain.
+const chars = {};
+function charFor(slot, entry) {
+  const code = (entry && entry.outfit) || "", key = slot.rank + "|" + code, c = chars[slot.rank];
+  if (c && c.key === key) return c.ch;
+  let style = BASE_STYLE;
+  try { if (code && NW.avatarDraw && NW.avatarDraw.styleFor) style = NW.avatarDraw.styleFor(code, BASE_STYLE) || BASE_STYLE; } catch (e) { style = BASE_STYLE; }
+  const ch = { x: C.x + slot.dx, y: C.y + slot.dy, z: LIFT + slot.h, dir: 2, walk: 0, moving: false, seed: slot.rank * 1.7, rod: 0, isMe: false, style, _fxT0: undefined, _tr: [] };
+  if (style.costume) style.fxT0 = performance.now() / 1000;
+  chars[slot.rank] = { key, ch }; return ch;
+}
 function drawPodium(c, o, t) {
   const d = cur(), live = d.status === "live";
   // panggung datar (ubin) + bayangan
@@ -95,7 +103,7 @@ function drawPodium(c, o, t) {
   for (const sl of SLOTS) {
     const e = live ? d.podium[sl.rank - 1] : null, bx = C.x + sl.dx, by = C.y + sl.dy, g = box(c, bx, by, sl.h, sl.col);
     if (e) {
-      const ch = { x: bx, y: by, z: LIFT + sl.h, dir: 2, walk: 0, moving: false, seed: sl.rank * 1.7, style: styleOf(e) };
+      const ch = charFor(sl, e);
       NW.drawCharacter(c, ch, t);
       if (sl.rank === 1) { const cp = P(bx, by, LIFT + sl.h + 38 + Math.sin(t * 2) * 1.5); c.fillStyle = "#f3d56b"; c.strokeStyle = "#173f50"; c.lineWidth = 1; c.beginPath(); c.moveTo(cp.x - 7, cp.y + 5); c.lineTo(cp.x - 7, cp.y - 3); c.lineTo(cp.x - 3.5, cp.y + 1); c.lineTo(cp.x, cp.y - 6); c.lineTo(cp.x + 3.5, cp.y + 1); c.lineTo(cp.x + 7, cp.y - 3); c.lineTo(cp.x + 7, cp.y + 5); c.closePath(); c.fill(); c.stroke(); }
     } else {                                                                // tempat kosong: siluet samar + tanda tanya, tanpa karakter palsu
@@ -179,5 +187,5 @@ function hook() {
   setInterval(() => { if (document.hidden || !loggedIn()) return; const P0 = N() && NW.world && NW.world.player; if (P0 && Math.hypot(P0.x - C.x, P0.y - C.y) < 14 && NW.areas && NW.areas.cur && NW.areas.cur.id === "muara") load("catch", false); }, 20000);   // hanya saat pemain di dekat podium
   if (cloud() && cloud().onChange) cloud().onChange(() => { if (loggedIn() && !st.data.catch) load("catch", false); });
 }
-NW.podium = { hook, drawOver, open, close, load, render, POINT, SLOTS, C, get isOpen() { return isOpen(); }, _st: st };
+NW.podium = { hook, drawOver, _chars: chars, open, close, load, render, POINT, SLOTS, C, get isOpen() { return isOpen(); }, _st: st };
 })();
