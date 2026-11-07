@@ -1,0 +1,24 @@
+/* NUSA ISLAND — Nama Pemain Permanen: modal ramah Android (bottom-sheet; tidak bisa ditutup tanpa memilih nama). */
+.un-ov { position: fixed; inset: 0; z-index: 70; background: rgba(8, 28, 36, .72); display: flex; align-items: flex-start; justify-content: center; padding: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.un-ov.hidden { display: none; }
+.un-sheet { width: 100%; max-width: 440px; min-height: 100%; box-sizing: border-box; background: linear-gradient(180deg, #fff9e8, #ffeec2); color: #3b2a14; padding: 22px 16px calc(24px + env(safe-area-inset-bottom)); font-family: inherit; text-align: center; }
+@media (min-width: 560px) { .un-ov { align-items: center; padding: 16px; } .un-sheet { min-height: 0; border-radius: 20px; box-shadow: 0 18px 50px rgba(0, 0, 0, .45); } }
+.un-hero { font-size: 44px; line-height: 1; margin-bottom: 6px; }
+.un-sheet h2 { margin: 4px 0 8px; font-size: 20px; line-height: 1.25; color: #6b3a0f; outline: none; }
+.un-sheet p { margin: 6px 0; font-size: 15px; line-height: 1.45; }
+.un-fine { font-size: 12.5px !important; color: #6d5a3c; }
+.un-lb { display: block; text-align: left; font-weight: 700; margin: 14px 0 6px; font-size: 14px; }
+.un-in { width: 100%; box-sizing: border-box; min-height: 52px; font-size: 18px; padding: 10px 14px; border-radius: 14px; border: 2px solid #c79a4b; background: #fff; color: #3b2a14; }
+.un-in:focus { outline: 3px solid #1c8fd1; border-color: #1c8fd1; }
+.un-msg { min-height: 22px; font-weight: 700; font-size: 14.5px !important; text-align: left; }
+.un-msg.good { color: #14753a; } .un-msg.bad { color: #b3261e; } .un-msg.warn { color: #9a5b00; }
+.un-name { font-size: 24px !important; font-weight: 800; color: #1c6fa6; word-break: break-all; margin: 12px 0 !important; }
+.un-btn { display: block; width: 100%; box-sizing: border-box; min-height: 50px; margin: 10px 0 0; padding: 12px 14px; font-size: 16px; font-weight: 800; border-radius: 14px; border: 0; cursor: pointer; background: #1c8fd1; color: #fff; box-shadow: 0 3px 0 rgba(0, 0, 0, .18); }
+.un-btn.big { min-height: 56px; font-size: 17px; background: #1e9d4f; }
+.un-btn.ghost { background: transparent; color: #6b3a0f; box-shadow: none; border: 2px solid #c79a4b; }
+.un-btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+.un-btn:focus-visible, .un-chip:focus-visible { outline: 3px solid #1c8fd1; outline-offset: 2px; }
+.un-sug { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; margin-top: 4px; }
+.un-sug .un-fine { width: 100%; margin: 2px 0; }
+.un-chip { min-height: 44px; padding: 8px 14px; border-radius: 999px; border: 2px solid #1c8fd1; background: #fff; color: #1c6fa6; font-weight: 800; font-size: 15px; cursor: pointer; }
+body.un-open { overflow: hidden; }

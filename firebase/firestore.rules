@@ -1,0 +1,158 @@
+rules_version = '2';
+// NUSA ISLAND — Tahap 3 (MODE SPARK, tanpa Cloud Functions).
+// Game menulis langsung ke Firestore; keamanan ditegakkan di sini. Prinsip: tolak semuanya, buka seminimal mungkin.
+// BATASAN JUJUR: rules tidak bisa membaca isi save (string JSON) secara mendalam, jadi koin/item di dalam `data` TIDAK
+// bisa diverifikasi di sini. Yang ditegakkan: pemilik akun, email Google terverifikasi, nomor revisi naik 1, jeda tulis
+// (waktu SERVER), batas ukuran, bentuk dokumen, batas koin pada ringkasan, dan kunci terlarang di dalam data.
+// BELUM DIUJI di emulator/Firebase sungguhan (lihat docs/TAHAP3.md).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function verified() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+    function isOwner() {
+      return verified() && request.auth.token.role == 'owner'
+        && get(/databases/$(database)/documents/owners/$(request.auth.uid)).data.active == true;
+    }
+    function saveShape(d, cap) {
+      return d.keys().hasOnly(['rev','savedAt','savedAtMs','deviceId','opId','hash','summary','flags','data','ts'])
+        && d.keys().hasAll(['rev','savedAt','savedAtMs','opId','hash','summary','data','ts'])
+        && d.rev is int && d.rev >= 1
+        && d.savedAt is string && d.savedAtMs is number
+        && d.opId is string && d.opId.size() <= 64
+        && d.hash is string
+        && d.data is string && d.data.size() >= 2 && d.data.size() <= 800000
+        && d.summary is map
+        && d.summary.keys().hasOnly(['name','money','day','caught','species','fishInBox','rank','homeLevel','boat','mystic','v'])
+        && d.summary.money is number && d.summary.money >= 0 && d.summary.money <= cap
+        && d.ts == request.time;
+    }
+    function noForbiddenKeys(d) {
+      return !d.data.matches('.*"(owner|sandbox|ownerSandbox|role|claims|admin|isOwner|sim)"[ ]*:.*');
+    }
+    function backupShape(d, curData) {
+      return d.keys().hasOnly(['rev','savedAt','savedAtMs','deviceId','opId','hash','summary','flags','data'])
+        && d.rev == curData.rev && d.data == curData.data;
+    }
+
+    // ---- save pemain biasa ----
+    match /users/{uid}/saves/current {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if verified() && request.auth.uid == uid
+        && saveShape(request.resource.data, 1000000000) && noForbiddenKeys(request.resource.data)
+        && request.resource.data.rev == 1;
+      allow update: if verified() && request.auth.uid == uid
+        && saveShape(request.resource.data, 1000000000) && noForbiddenKeys(request.resource.data)
+        && request.resource.data.rev == resource.data.rev + 1
+        && request.time > resource.data.ts + duration.value(1000, 'ms');
+      allow delete: if false;
+    }
+    // cadangan bergilir: harus salinan persis dari save yang sedang berlaku
+    match /users/{uid}/backups/{slot} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if verified() && request.auth.uid == uid && slot.matches('s[0-4]')
+        && backupShape(request.resource.data, get(/databases/$(database)/documents/users/$(uid)/saves/current).data);
+      allow delete: if false;
+    }
+
+    // ---- registri Owner: hanya dibaca akun itu sendiri; ditulis administrator lewat Admin SDK (set-owner.js) ----
+    match /owners/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+
+    // ---- sandbox Owner (data simulasi, terpisah total dari ekonomi normal) ----
+    match /ownerSandbox/{uid} {
+      allow read: if isOwner() && request.auth.uid == uid;
+      allow create: if isOwner() && request.auth.uid == uid
+        && saveShape(request.resource.data, 10000000000000) && request.resource.data.rev == 1;
+      allow update: if isOwner() && request.auth.uid == uid
+        && saveShape(request.resource.data, 10000000000000)
+        && request.resource.data.rev == resource.data.rev + 1
+        && request.time > resource.data.ts + duration.value(1000, 'ms');
+      allow delete: if false;
+      match /backups/{slot} {
+        allow read: if isOwner() && request.auth.uid == uid;
+        allow create, update: if isOwner() && request.auth.uid == uid && slot.matches('s[0-4]')
+          && backupShape(request.resource.data, get(/databases/$(database)/documents/ownerSandbox/$(uid)).data);
+        allow delete: if false;
+      }
+    }
+
+    // ================= LOGIN STREAK 7 HARI (users/{uid}/streak/state) =================
+    // Dokumen ini adalah BUKU KLAIM yang dipercaya. Hari ditentukan oleh jam SERVER (request.time) di zona Asia/Jakarta
+    // (UTC+7, tanpa DST): math.floor((ms + 25200000) / 86400000). Browser tidak mengirim tanggal atau jumlah koin; ia hanya
+    // mengusulkan dokumen berikutnya dan Rules memeriksa bahwa itu PERSIS transisi sah: satu klaim per hari, urutan hari,
+    // reset ke Hari 1 bila ada hari terlewat, kapal hanya di Hari 7 siklus 1, joran hanya di Hari 7 siklus 2, perabot hanya di
+    // Hari 7 siklus 3+, tanpa duplikat perabot sampai ke-13 perabot pernah diberikan. Cermin JS: streak/core.js (validateTransition).
+    // BATASAN JUJUR: jumlah koin/umpan tidak ada di dokumen ini dan dikreditkan oleh klien dari tabel tetap; nilai perabot "acak"
+    // tidak bisa dibuktikan acak oleh Rules (hanya sah/tidak sah). BELUM DIUJI di emulator/Firebase sungguhan.
+    function streakFurnIds() {
+      return ['rw_bangkuBambu','rw_rakKelapa','rw_potAnggrek','rw_tikarPandan','rw_lemariRotan','rw_gongKecil','rw_mejaBatik',
+              'rw_karpetBatik','rw_jukungMini','rw_guciNaga','rw_wayangKulit','rw_garudaEmas','rw_singgasana'];
+    }
+    function jktDay(t) { return math.floor((t.toMillis() + 25200000) / 86400000); }
+    // posisi/siklus berikutnya terhadap dokumen lama p pada hari d
+    function streakNextPos(p, d) {
+      return (p.lastDay == d - 1)
+        ? (p.pos < 7 ? p.pos + 1 : 1)
+        : 1;
+    }
+    // siklus naik hanya setelah Hari 7 selesai (baik berturut-turut maupun setelah bolos); bila putus di tengah siklus, siklus sama
+    function streakNextCycle(p, d) {
+      return p.pos < 7 ? p.cycle : p.cycle + 1;
+    }
+    function streakShape(n) {
+      return n.keys().hasOnly(['total','cycle','pos','lastDay','ship','rod','furn','last','at'])
+        && n.keys().hasAll(['total','cycle','pos','lastDay','ship','rod','furn','last','at'])
+        && n.total is int && n.cycle is int && n.pos is int && n.lastDay is int
+        && n.ship is bool && n.rod is bool && n.furn is list && n.furn.size() <= 400
+        && n.pos >= 1 && n.pos <= 7 && n.cycle >= 1
+        && n.last is map && n.last.keys().hasOnly(['cycle','pos','fid'])
+        && n.last.cycle == n.cycle && n.last.pos == n.pos && n.last.fid is string
+        && n.at == request.time;
+    }
+    // perabot untuk klaim ini: wajib id yang dikenal; boleh sudah pernah diberikan HANYA bila ke-13 sudah habis diberikan
+    function streakFurnOk(n, oldFurn) {
+      return n.last.fid in streakFurnIds()
+        && (!(n.last.fid in oldFurn) || oldFurn.size() >= 13)
+        && n.furn.size() == oldFurn.size() + 1
+        && n.furn[n.furn.size() - 1] == n.last.fid
+        && n.furn[0:oldFurn.size()] == oldFurn;
+    }
+    function streakNoFurn(n, oldFurn) {
+      return n.last.fid == '' && n.furn == oldFurn;
+    }
+    // hadiah eksklusif: kapal di (siklus 1, hari 7); joran di (siklus 2, hari 7); perabot di (siklus >=3, hari 7)
+    function streakItemsOk(n, oldShip, oldRod, oldFurn) {
+      return n.ship == (oldShip || (n.cycle == 1 && n.pos == 7))
+        && n.rod == (oldRod || (n.cycle == 2 && n.pos == 7))
+        && ((n.cycle >= 3 && n.pos == 7) ? streakFurnOk(n, oldFurn) : streakNoFurn(n, oldFurn));
+    }
+    match /users/{uid}/streak/state {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      // klaim pertama: Hari 1 siklus 1
+      allow create: if verified() && request.auth.uid == uid
+        && streakShape(request.resource.data)
+        && request.resource.data.total == 1 && request.resource.data.cycle == 1 && request.resource.data.pos == 1
+        && request.resource.data.lastDay == jktDay(request.time)
+        && request.resource.data.ship == false && request.resource.data.rod == false
+        && request.resource.data.furn == [] && request.resource.data.last.fid == '';
+      // klaim berikutnya: sekali per hari kalender Jakarta, urutan sah
+      allow update: if verified() && request.auth.uid == uid
+        && streakShape(request.resource.data)
+        && request.resource.data.lastDay == jktDay(request.time)
+        && resource.data.lastDay < jktDay(request.time)
+        && request.resource.data.total == resource.data.total + 1
+        && request.resource.data.pos == streakNextPos(resource.data, jktDay(request.time))
+        && request.resource.data.cycle == streakNextCycle(resource.data, jktDay(request.time))
+        && streakItemsOk(request.resource.data, resource.data.ship, resource.data.rod, resource.data.furn);
+      allow delete: if false;
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}

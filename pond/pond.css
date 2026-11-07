@@ -1,0 +1,50 @@
+/* Kolam Ikanku — panel. Ringan, ramah sentuhan (target ≥44px). */
+.pd-wrap { position: fixed; inset: 0; z-index: 12; background: rgba(8, 26, 34, .72); display: flex; align-items: center; justify-content: center; padding: 10px; padding-top: calc(env(safe-area-inset-top, 0px) + 10px); }
+.pd-wrap.hidden { display: none; }
+.pd-card { width: min(96vw, 460px); max-height: 94vh; display: flex; flex-direction: column; background: linear-gradient(180deg, #17384a, #10283a); color: #eaf6fb; border: 2px solid #3f8fa8; border-radius: 16px; box-shadow: 0 10px 34px rgba(0, 0, 0, .5); overflow: hidden; font-size: 14px; }
+.pd-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: rgba(255, 255, 255, .06); }
+.pd-head b { font-size: 16px; flex: 1; }
+.pd-coin { font-weight: 700; color: #ffd966; white-space: nowrap; }
+.pd-x { min-width: 40px; height: 40px; border: 0; border-radius: 10px; background: rgba(255, 255, 255, .12); color: #fff; font-size: 18px; }
+.pd-body { padding: 10px 12px 14px; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 9px; }
+.pd-warn { background: rgba(255, 190, 70, .14); border: 1px solid rgba(255, 190, 70, .55); border-radius: 10px; padding: 8px 10px; font-size: 12.5px; line-height: 1.4; color: #ffe2a8; }
+.pd-lock { background: rgba(255, 255, 255, .08); border: 1px dashed #7fb9cc; border-radius: 10px; padding: 10px; text-align: center; line-height: 1.45; }
+.pd-cap { display: flex; flex-direction: column; gap: 4px; }
+.pd-cap .pd-row { display: flex; justify-content: space-between; font-weight: 700; }
+.pd-bar { height: 12px; border-radius: 7px; background: rgba(0, 0, 0, .35); overflow: hidden; }
+.pd-bar i { display: block; height: 100%; border-radius: 7px; background: linear-gradient(90deg, #3ec2d6, #7be0a8); transition: width .4s; }
+.pd-bar.hot i { background: linear-gradient(90deg, #e9a03a, #e8613a); }
+.pd-acts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.pd-b { min-height: 46px; border: 0; border-radius: 11px; background: #2b7f98; color: #fff; font-weight: 700; font-size: 13px; padding: 6px 4px; line-height: 1.15; }
+.pd-b:active { transform: scale(.97); }
+.pd-b.alt { background: #4b6b3c; } .pd-b.gold { background: #b98a1d; } .pd-b.ghost { background: rgba(255, 255, 255, .12); }
+.pd-b:disabled { opacity: .45; }
+.pd-list { display: flex; flex-direction: column; gap: 6px; }
+.pd-fish { display: flex; align-items: center; gap: 9px; padding: 7px; border-radius: 11px; background: rgba(255, 255, 255, .07); border-left: 4px solid var(--rc, #7fb9cc); }
+.pd-fish.sel { background: rgba(80, 200, 220, .22); outline: 2px solid #5fd1e3; }
+.pd-fish.no { opacity: .5; }
+.pd-fish img { width: 54px; height: 34px; object-fit: contain; flex: none; }
+.pd-fi { flex: 1; min-width: 0; }
+.pd-fi .nm { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-fi .sub { font-size: 11.5px; opacity: .85; }
+.pd-sat { margin-top: 3px; display: flex; align-items: center; gap: 6px; }
+.pd-sat .pd-bar { flex: 1; height: 9px; }
+.pd-sat b { min-width: 38px; text-align: right; font-size: 12.5px; }
+.lv-ok .pd-bar i { background: linear-gradient(90deg, #3ec2d6, #7be0a8); }
+.lv-notice .pd-bar i { background: #e6c23a; } .lv-serious .pd-bar i { background: #e8923a; } .lv-critical .pd-bar i { background: #e0443a; }
+.lv-critical .tag, .lv-serious .tag, .lv-notice .tag { font-weight: 800; }
+.lv-critical .tag { color: #ff8478; } .lv-serious .tag { color: #ffb066; } .lv-notice .tag { color: #f2d56a; }
+.pd-back { align-self: flex-start; }
+.pd-card h4 { margin: 2px 0; font-size: 14px; }
+.pd-item { display: flex; gap: 9px; align-items: center; padding: 8px; border-radius: 11px; background: rgba(255, 255, 255, .07); }
+.pd-item .ic { font-size: 26px; width: 38px; text-align: center; flex: none; }
+.pd-item .tx { flex: 1; min-width: 0; line-height: 1.3; } .pd-item .tx small { opacity: .8; display: block; }
+.pd-qty { display: flex; align-items: center; gap: 4px; }
+.pd-qty button { width: 34px; height: 34px; border: 0; border-radius: 9px; background: rgba(255, 255, 255, .16); color: #fff; font-size: 18px; }
+.pd-qty span { min-width: 28px; text-align: center; font-weight: 700; }
+.pd-sheet { position: absolute; inset: 0; background: rgba(5, 14, 20, .78); display: flex; align-items: center; justify-content: center; padding: 18px; }
+.pd-sheet > div { background: #17384a; border: 2px solid #e6c23a; border-radius: 14px; padding: 14px; width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 10px; line-height: 1.45; }
+.pd-sheet .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pd-card { position: relative; }
+.pd-note { font-size: 12px; opacity: .85; line-height: 1.4; }
+.pd-hist { font-size: 12px; opacity: .85; border-top: 1px solid rgba(255, 255, 255, .15); padding-top: 6px; }

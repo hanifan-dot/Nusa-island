@@ -1,0 +1,7 @@
+node_modules/
+.firebaserc
+serviceAccount*.json
+*.key
+.env
+.env.*
+public/
