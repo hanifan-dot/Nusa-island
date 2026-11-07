@@ -54,12 +54,12 @@ jobs:
           IN_B: ${{ inputs.backend_sha }}
         run: |
           set -e
-          G="${IN_G:-fe4ca3441ad24d75614a068be991fe9195dc7ddc}"; B="${IN_B:-4d2cc7b2ef810cb09ff2dfdbfa95c3b11c1bddae}"
+          G="${IN_G:-fe4ca3441ad24d75614a068be991fe9195dc7ddc}"; B="${IN_B:-a381109bd235729c4f67a311f84c981de58ac262}"
           if [ "$MODE" = "rollback" ]; then
             [ -n "$IN_G" ] && [ -n "$IN_B" ] || { echo "::error::Rollback WAJIB mengisi game_sha dan backend_sha produksi sebelumnya"; exit 1; }
           fi
           if [ "$MODE" = "deploy" ]; then
-            [ "$G" = "fe4ca3441ad24d75614a068be991fe9195dc7ddc" ] && [ "$B" = "4d2cc7b2ef810cb09ff2dfdbfa95c3b11c1bddae" ] || { echo "::error::Hanya pasangan SHA rilis hasil integrasi aman yang diizinkan"; exit 1; }
+            [ "$G" = "fe4ca3441ad24d75614a068be991fe9195dc7ddc" ] && [ "$B" = "a381109bd235729c4f67a311f84c981de58ac262" ] || { echo "::error::Hanya pasangan SHA rilis hasil integrasi aman yang diizinkan"; exit 1; }
           fi
           printf '%s' "$G" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::game_sha harus 40 hex"; exit 1; }
           printf '%s' "$B" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::backend_sha harus 40 hex"; exit 1; }
