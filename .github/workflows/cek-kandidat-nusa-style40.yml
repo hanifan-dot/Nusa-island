@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
-          ref: fe4ca3441ad24d75614a068be991fe9195dc7ddc
+          ref: 4172b58b4813a86f8974ed092baadb217d75c4f9
           path: game
           persist-credentials: false
       - uses: actions/setup-node@v4
@@ -55,3 +55,16 @@ jobs:
           node tests/unit-aurora.js
           node tests/unit-mp.js
           node tests/unit-cf-auth.js
+      - name: Bandingkan index.html situs LIVE dengan kandidat (sama seperti tahap pre-deploy produksi)
+        working-directory: game
+        run: node firebase/scripts/cek-rilis.js --live https://nusa-island-d2023.web.app --require-live
+      - name: Build hosting produksi tiruan dan periksa utuh
+        working-directory: game
+        run: |
+          NUSA_API_BASE=https://nusa-api.contoh.workers.dev NUSA_MP_WS=wss://nusa-multiplayer.contoh.workers.dev bash firebase/scripts/build-hosting.sh produksi
+          node firebase/scripts/cek-rilis.js --build firebase/public --live https://nusa-island-d2023.web.app --require-live
+      - name: Tes inti tambahan (SF server, Podium, Rumahku Sosial, ekonomi, Cloud Save)
+        working-directory: game
+        run: |
+          set -e
+          for t in unit-sf-server unit-podium unit-house-social unit-mp-house unit-shop unit-fashion unit-pond unit-rilis unit-username; do node tests/$t.js; done
