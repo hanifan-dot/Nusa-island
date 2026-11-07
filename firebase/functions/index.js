@@ -55,7 +55,7 @@ exports.ownerSandboxSave = wrap("ownerSandboxSave");
 // =====================================================================================================
 const shopCore = require("./lib/shop-core");
 // Path logis "shop/orders/ID" (3 segmen) → dokumen Firestore "shop_orders/ID" (2 segmen)
-const sp = (p) => { const a = p.split("/"); return a.length === 3 ? `${a[0]}_${a[1] === "userOrders" ? "user_orders" : a[1]}/${a[2]}` : p; }; // sama dengan dashboard (server/shop/db.js)
+const sp = (p) => { if (p === "sf2/firsts") return "shop_sf2/firsts"; const a = p.split("/"); return a.length === 3 ? `${a[0]}_${a[1] === "userOrders" ? "user_orders" : a[1]}/${a[2]}` : p; }; // sama dengan dashboard (server/shop/db.js)
 const shopDb = {
   get: async (p) => { const s = await fs.doc(sp(p)).get(); return s.exists ? s.data() : null; },
   tx: (fn) => fs.runTransaction(async (t) => {
@@ -104,7 +104,7 @@ for (const n of ["createOrder", "cancelOrder", "claimPaid", "listOrders", "getEn
 // =====================================================================================================
 const ecoCore = require("./lib/economy-core");
 ecoApi = ecoCore.makeEconomyServer(shopDb, {
-  tables: require("./lib/economy-tables"), fishmath: require("./lib/fishmath"), streak: require("./lib/streak-core"), quest: require("./lib/quest-core"), event: require("./lib/event-core"), pond: require("./lib/pond-core"), fashion: require("./lib/fashion-core"), sf: require("./lib/sf-core"), aurora: require("./lib/aurora-core"),
+  tables: require("./lib/economy-tables"), fishmath: require("./lib/fishmath"), streak: require("./lib/streak-core"), quest: require("./lib/quest-core"), event: require("./lib/event-core"), pond: require("./lib/pond-core"), fashion: require("./lib/fashion-core"), sf: require("./lib/sf-core"), sf2: require("./lib/sf2-core"), aurora: require("./lib/aurora-core"),
   initCap: process.env.NUSA_ECO_INIT_CAP !== undefined ? Number(process.env.NUSA_ECO_INIT_CAP) : 20000,   // saat rilis resmi: NUSA_ECO_INIT_CAP=0
 });
 const ecoWrap = (name) => onCall({ enforceAppCheck: false }, async (req) => {
@@ -116,7 +116,7 @@ const ecoWrap = (name) => onCall({ enforceAppCheck: false }, async (req) => {
     console.error("eco:" + name, e.message); throw new HttpsError("internal", "Terjadi kesalahan server.");
   }
 });
-for (const n of ["ecoState", "ecoSfInfo", "ecoInit", "ecoCatch", "ecoSell", "ecoDrop", "ecoReward", "ecoMission", "ecoBuy", "ecoStreakState", "ecoQuestState", "ecoQuestOpen", "ecoQuestClaim", "ecoQuestEquip", "ecoStreakClaim", "ecoEventState", "ecoEventStart", "ecoEventFinish", "ecoEventClaim", "ecoPondState", "ecoPondPut", "ecoPondTake", "ecoPondFeed", "ecoPondBuy", "ecoPondUpgrade", "ecoFashionState", "ecoFashionBuy", "ecoFashionSave", "ecoEquip"]) exports[n] = ecoWrap(n);
+for (const n of ["ecoState", "ecoSfInfo", "ecoSf2Info", "ecoSf2Catch", "ecoInit", "ecoCatch", "ecoSell", "ecoDrop", "ecoReward", "ecoMission", "ecoBuy", "ecoStreakState", "ecoQuestState", "ecoQuestOpen", "ecoQuestClaim", "ecoQuestEquip", "ecoStreakClaim", "ecoEventState", "ecoEventStart", "ecoEventFinish", "ecoEventClaim", "ecoPondState", "ecoPondPut", "ecoPondTake", "ecoPondFeed", "ecoPondBuy", "ecoPondUpgrade", "ecoFashionState", "ecoFashionBuy", "ecoFashionSave", "ecoEquip"]) exports[n] = ecoWrap(n);
 // Event 5 Monster Legenda: jam server + jadwal + juara final boleh dibaca siapa saja (tamu juga). Tanpa data pribadi, tanpa tulisan.
 exports.eventInfo = onCall({ enforceAppCheck: false }, async () => {
   try { return JSON.parse(JSON.stringify(await ecoApi.eventInfo())); }
