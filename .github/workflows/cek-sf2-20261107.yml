@@ -1,0 +1,149 @@
+name: Cek Kandidat Samudra Follower V2 (integrasi Quest Owner) (tanpa deploy)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/rilis-sf2-20261107.yml'
+      - '.github/workflows/cek-sf2-20261107.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    name: Uji pasangan SHA Quest Owner (game f0aeae3 + backend 05b9dba)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: wf
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/Nusa-island
+          ref: f0aeae3763111c7df38831496d7728456f2d937a
+          path: game
+          persist-credentials: false
+      - name: Akses baca backend privat
+        env:
+          T: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+        run: '[ -n "$T" ] || { echo "::error::NUSA_BACKEND_READ_TOKEN belum ada"; exit 1; }'
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/nusa-island-control-center
+          ref: 05b9dba79f62cc87a22df66a1849f45741eb4d96
+          token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+          persist-credentials: false
+          path: backend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Vendor backend identik dengan game, Functions lib sinkron, penanda Quest Owner
+        run: |
+          set -euo pipefail
+          for p in economy/core.js:economy-core.cjs economy/quest-core.js:quest-core.cjs economy/sf2-core.js:sf2-core.cjs economy/aurora-core.js:aurora-core.cjs economy/sf-core.js:sf-core.cjs house/core.js:house-core.cjs cloud/core.js:cloud-core.cjs streak/core.js:streak-core.cjs economy/pond-core.js:pond-core.cjs economy/fashion-core.js:fashion-core.cjs event/core.js:event-core.cjs economy/tables.js:economy-tables.cjs username/core.js:name-core.cjs fishmath.js:fishmath.cjs; do cmp "game/${p%%:*}" "backend/server/vendor/${p##*:}"; done
+          for fn in ecoQuestState ecoQuestOpen ecoQuestClaim ecoQuestEquip; do grep -Fq "'$fn'" backend/worker/index.js; grep -Fq "async $fn(auth" backend/server/vendor/economy-core.cjs; done
+          grep -Fq "quest: questCore" backend/worker/index.js
+          grep -Fq "'ecoEquip'" backend/worker/index.js
+          grep -Fq "plausKg" game/economy/core.js
+          node - <<'NODE'
+          const fs = require('node:fs'); const rd = (p) => fs.readFileSync(p, 'utf8'); let bad = 0;
+          const fail = (m) => { console.error('::error::' + m); bad++; };
+          // A. Functions lib dibuat sync-economy.js: header + isi sumber
+          for (const [src, dst] of [['economy/core.js','economy-core.js'],['economy/tables.js','economy-tables.js'],['fishmath.js','fishmath.js'],['streak/core.js','streak-core.js'],['economy/quest-core.js','quest-core.js'],['economy/sf2-core.js','sf2-core.js'],['event/core.js','event-core.js'],['house/core.js','house-core.js'],['username/core.js','name-core.js'],['economy/pond-core.js','pond-core.js'],['economy/fashion-core.js','fashion-core.js'],['economy/aurora-core.js','aurora-core.js'],['economy/sf-core.js','sf-core.js']]) {
+            const exp = '// SALINAN OTOMATIS dari ' + src + ' — jangan diedit di sini (node firebase/scripts/sync-economy.js).\n' + rd('game/' + src);
+            if (!fs.existsSync('game/firebase/functions/lib/' + dst) || rd('game/firebase/functions/lib/' + dst) !== exp) fail('Salinan Functions kedaluwarsa: ' + dst); else console.log('OK functions/lib/' + dst);
+          }
+          // B. toko: dibuat sync-shop.js (header sendiri)
+          const shopExp = '// SALINAN OTOMATIS dari shop/core.js — jangan diedit di sini (node firebase/scripts/sync-shop.js).\n' + rd('game/shop/core.js');
+          if (rd('game/firebase/functions/lib/shop-core.js') !== shopExp) fail('Salinan Functions kedaluwarsa: shop-core.js'); else console.log('OK functions/lib/shop-core.js');
+          // C. Cloud: SUMBER ada di functions/lib/core.js (tanpa header); cloud/core.js disalin mentah oleh sync-core.js. Tidak ada functions/lib/cloud-core.js.
+          if (rd('game/cloud/core.js') !== rd('game/firebase/functions/lib/core.js')) fail('cloud/core.js tidak identik dengan firebase/functions/lib/core.js'); else console.log('OK cloud/core.js == functions/lib/core.js');
+          // D. 13 vendor backend identik byte-per-byte dengan sumber game
+          for (const [src, dst] of [['economy/core.js','economy-core.cjs'],['economy/quest-core.js','quest-core.cjs'],['economy/sf2-core.js','sf2-core.cjs'],['economy/aurora-core.js','aurora-core.cjs'],['economy/sf-core.js','sf-core.cjs'],['house/core.js','house-core.cjs'],['cloud/core.js','cloud-core.cjs'],['streak/core.js','streak-core.cjs'],['economy/pond-core.js','pond-core.cjs'],['economy/fashion-core.js','fashion-core.cjs'],['event/core.js','event-core.cjs'],['economy/tables.js','economy-tables.cjs'],['username/core.js','name-core.cjs'],['fishmath.js','fishmath.cjs']]) {
+            if (rd('game/' + src) !== rd('backend/server/vendor/' + dst)) fail('Vendor backend berbeda dari game: ' + dst); else console.log('OK vendor/' + dst);
+          }
+          if (bad) process.exit(1);
+          console.log('OK: semua salinan Functions + 13 vendor backend identik dengan sumber.');
+          NODE
+      - name: Jalankan LANGKAH PEMERIKSAAN dari workflow RILIS yang sebenarnya (tanpa deploy)
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import yaml, subprocess, sys
+          y = yaml.safe_load(open('wf/.github/workflows/rilis-sf2-20261107.yml'))
+          steps = y['jobs']['cek']['steps']
+          wanted = ['Cek shell, vendor dan aset wajib', 'Regresi khusus update +40% (dilewati saat rollback)', 'Tes backend dan scan rahasia']
+          ran = 0
+          for st in steps:
+              if st.get('name') in wanted:
+                  print('=== menjalankan:', st['name'], flush=True)
+                  r = subprocess.run(['bash', '-eo', 'pipefail', '-c', st['run']], cwd='.')
+                  if r.returncode: sys.exit('GAGAL di langkah rilis: ' + st['name'])
+                  ran += 1
+          assert ran == len(wanted), 'langkah rilis tidak ditemukan semua: %d/%d' % (ran, len(wanted))
+          PY
+      - name: Uji pengaman PASCA-deploy SF V2 secara offline (positif + negatif; mendeteksi bug sready/URL)
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import yaml, subprocess, sys, os, tempfile, re
+          y = yaml.safe_load(open('wf/.github/workflows/rilis-sf2-20261107.yml'))
+          step = next(st for st in y['jobs']['rilis']['steps'] if st.get('name', '').startswith('Cek sesudah deploy'))['run']
+          a = step.index('sready=tidak'); b = step.index('OK: aset Samudra Follower V2 live'); b = step.index('\n', b)
+          snip = step[a:b]
+          # --- statis ---
+          assert '[ "$sready" = "ya" ]' in snip, 'pengecekan harus memakai "$sready"'
+          assert not re.search(r'\[ "" = ', snip), 'ada pengecekan kosong [ "" = ... ]'
+          assert not re.search(r'\?v=["\s]', snip), 'URL aset dengan ?v= kosong'
+          assert snip.count('?v=$G') == 3, 'tiga URL aset SF2 wajib memakai ?v=$G'
+          # --- dinamis: curl palsu, sleep palsu ---
+          d = tempfile.mkdtemp()
+          def mk(name, body):
+              f = os.path.join(d, name); open(f, 'w').write('#!/bin/bash\n' + body); os.chmod(f, 0o755)
+          mk('sleep', 'exit 0')
+          mk('curl', """url="${@: -1}"
+          [ -n "${FAKE_FAIL:-}" ] && exit 22
+          case "$url" in
+            *"/sf2/sf2.js?v=abc123") printf '%s' "$FAKE_SF2" ;;
+            *"/economy/sf2-core.js?v=abc123") printf '%s' "$FAKE_CORE" ;;
+            *) exit 22 ;;
+          esac
+          """)
+          def run(code, sf2='var LOCK_MSG=1', core='PITY_MAX=100', fail=False):
+              e = dict(os.environ, PATH=d + ':' + os.environ['PATH'], G='abc123', FAKE_SF2=sf2, FAKE_CORE=core)
+              if fail: e['FAKE_FAIL'] = '1'
+              return subprocess.run(['bash', '-c', code], env=e, capture_output=True, text=True).returncode
+          ok = [
+            ('POSITIF aset benar -> lulus', run(snip) == 0),
+            ('NEGATIF LOCK_MSG hilang -> gagal', run(snip, sf2='kosong') != 0),
+            ('NEGATIF PITY_MAX hilang -> gagal', run(snip, core='kosong') != 0),
+            ('NEGATIF kredit Instagram bocor -> gagal', run(snip, sf2='LOCK_MSG @ambaleon_12') != 0),
+            ('NEGATIF Hosting tidak terjangkau -> gagal', run(snip, fail=True) != 0),
+            ('NEGATIF URL tanpa ?v=$G -> gagal', run(snip.replace('?v=$G', '?v=')) != 0),
+            ('MUTASI bug lama [ "" = "ya" ] terdeteksi', run(snip.replace('[ "$sready" = "ya" ]', '[ "" = "ya" ]')) != 0),
+          ]
+          for n, v in ok: print(('OK  ' if v else 'GAGAL ') + n)
+          bad = [n for n, v in ok if not v]
+          if bad: sys.exit('Uji pengaman gagal: %s' % bad)
+          print('Semua uji pengaman pasca-deploy lulus.')
+          PY
+      - name: Tes game (tanpa jaringan dan tanpa secret produksi)
+        working-directory: game
+        run: |
+          set -e
+          node firebase/scripts/cek-rilis.js
+          for t in unit-sf2 unit-sf2-map unit-quest unit-economy unit-aurora unit-cloud unit-streak unit-shop unit-fashion unit-pond unit-sf-server unit-podium unit-house-social unit-mp-house unit-map-ext unit-mp unit-cf-auth unit-rilis; do node tests/$t.js; done
+      - name: Build Hosting produksi tiruan memuat aset Quest Owner + SF V2
+        working-directory: game
+        run: |
+          NUSA_API_BASE=https://nusa-api.contoh.workers.dev NUSA_MP_WS=wss://nusa-multiplayer.contoh.workers.dev bash firebase/scripts/build-hosting.sh produksi
+          node firebase/scripts/cek-rilis.js --build firebase/public --live https://nusa-island-d2023.web.app --require-live
+          for f in questowner/questowner.js questowner/ui.js questowner/questowner.css economy/quest-core.js bag/bag.js; do test -s "firebase/public/$f"; done
+          grep -Fq "NW.quest" firebase/public/questowner/questowner.js
+          for f in sf2/sf2.js sf2/area.js sf2/draw.js sf2/sf2.css economy/sf2-core.js; do test -s "firebase/public/$f"; done
+          ! grep -rqF "@ambaleon_12" firebase/public
+      - name: Tes backend dan scan rahasia (tanpa kredensial produksi)
+        working-directory: backend
+        run: |
+          npm install --no-package-lock --no-audit --no-fund
+          npm test
+          npm run scan:secrets
