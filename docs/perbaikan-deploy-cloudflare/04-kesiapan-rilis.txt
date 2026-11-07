@@ -1,0 +1,14 @@
+$ node tests/unit-rilis.js
+unit-rilis: 21 lolos, 0 gagal
+$ node firebase/scripts/cek-rilis.js
+Pemeriksaan rilis OK: 17 fitur wajib lengkap, 112 aset index.
+$ node tests/unit-cf-auth.js
+unit cf-auth: 20 lulus, 0 gagal
+$ bash -n firebase/scripts/{cf-auth-check,deploy-api-kandidat,rilis}.sh
+  sintaks OK: cf-auth-check.sh
+  sintaks OK: deploy-api-kandidat.sh
+  sintaks OK: rilis.sh
+
+STATUS: perbaikan siap ditinjau. BELUM merge, BELUM deploy.
+Deploy menunggu: (1) Owner memeriksa PR, (2) PR workflow ke main digabung Owner, (3) run baru:
+  langkah 'Verifikasi autentikasi Cloudflare' harus berkategori SIAP.
