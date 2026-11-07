@@ -1,6 +1,5 @@
 // NUSA ISLAND — Samudra Follower: jalur MEMANCING (klien). Aktif HANYA bila server (ecoSfInfo, persetujuan Owner di shop_config/main.sf) mengaktifkan ikan untuk akun ini.
-// Model BONUS: setelah ikan biasa mendarat (peluang ikan lama TIDAK berubah), klien melempar peluang yang disetujui Owner. Bila kena → SERVER-DULU:
-// klien meminta server mencatat (id, berat, uid, ref = uid ikan biasa barusan). Ikan baru masuk coolbox/dex SETELAH server menjawab ok. Klien tidak pernah memberi ikan/koin sendiri.
+// Model BONUS: undian peluang dilakukan SERVER (acak server, ecoCatch) — satu kesempatan per ikan biasa sah. Klien hanya menampilkan ikan yang sudah dikonfirmasi server (sfItem).
 (function () {
 "use strict";
 const NW = (window.NW = window.NW || {});
@@ -27,32 +26,23 @@ async function refresh(force) {
   if (NW.sf) NW.sf.setLive(info.on, info.fish.map((x) => x.id));
   return info;
 }
-// Dipanggil game.js setelah ikan BIASA (item) mendarat.
-function after(item) {
-  try {
-    if (!item || !item.uid || busy || !NW.eco || !NW.eco.active()) return;
-    if (!info.on) { refresh(false); return; }                                                // belum aktif: tidak melempar apa pun
-    const Nn = N(); if (Nn.S.cooler.length >= Nn.coolerCap()) return;                          // coolbox penuh: lewati (tidak ada ikan yang hilang)
-    const hit = info.fish.find((x) => Math.random() < x.chance); if (!hit) return;
-    const f = C.BY_ID[hit.id], w = Math.round((f.wMin + (f.wMax - f.wMin) * Math.pow(Math.random(), 2.3)) * 100) / 100;
-    award(f, w, item.uid);
-  } catch (e) { /* tidak pernah mengganggu memancing */ }
-}
-async function award(f, w, ref) {
-  busy = true;
-  try {
-    const Nn = N(), S = Nn.S, uid = NW.HD.newUid(S, "i");
-    const r = await NW.eco.sfCatch({ id: f.id, w, uid, ref });
-    const it = r && r.sfItem && r.sfItem.find((x) => x.uid === uid); if (!it) return;       // server tidak mengonfirmasi → tidak ada ikan
-    if (S.cooler.some((x) => x.uid === it.uid)) return;                                       // anti-ganda lokal
-    S.cooler.push({ uid: it.uid, id: it.id, w: it.w, t: Date.now(), sp: it.sp, lock: true }); // terkunci: tidak ikut "jual semua" tanpa sengaja
+// Dipanggil game.js setelah ikan BIASA mendarat. Klien TIDAK melempar peluang apa pun: undian dilakukan server saat tangkapan dilaporkan (ecoCatch). Di sini hanya menyegarkan status aktif/terkunci.
+function after() { try { if (NW.eco && NW.eco.active() && !info.on) refresh(false); } catch (e) {} }
+const seenSf = new Set();
+// Hasil undian SERVER (sfItem dari ecoCatch). Ikan sudah ada di kotak server; klien hanya mencerminkan + menampilkan kartu.
+function grant(list) {
+  const Nn = N(), S = Nn && Nn.S; if (!S || !Array.isArray(list)) return;
+  for (const it of list) {
+    if (!it || !C.isSF(it.id) || typeof it.uid !== "string" || seenSf.has(it.uid) || S.cooler.some((x) => x.uid === it.uid)) continue;
+    if (!C.BY_ID[it.id] || !(it.w > 0) || !(it.sp > 0)) continue;
+    seenSf.add(it.uid); register();
+    S.cooler.push({ uid: it.uid, id: it.id, w: it.w, t: Date.now(), sp: it.sp, lock: true });   // terkunci: tidak ikut "jual semua" tanpa sengaja
     const rec = S.dex[it.id] || { n: 0, best: 0 }; rec.n++; rec.best = Math.max(rec.best, it.w); S.dex[it.id] = rec;
-    Nn.save(); Nn.refreshHUD(); register();
+    Nn.save(); Nn.refreshHUD();
     const price = Nn.priceOf({ id: it.id, w: it.w, sp: it.sp });
     setTimeout(() => NW.sf.openCatch(it.id, { w: it.w, price }), 900);
-  } catch (e) { /* ditolak server (batas harian/tidak aktif): tidak ada ikan, tidak ada koin */ if (e && /tidak dikenal|spesial|Batas/.test(e.message || "")) refresh(true); }
-  finally { busy = false; }
+  }
 }
-NW.sfPlay = { after, refresh, register, info: () => info, _reset: () => { info = { on: false, fish: [] }; lastFetch = 0; busy = false; } };
+NW.sfPlay = { after, grant, refresh, register, info: () => info, _reset: () => { info = { on: false, fish: [] }; lastFetch = 0; busy = false; } };
 setInterval(() => { if (!document.hidden && NW.eco && NW.eco.active()) refresh(false); }, 60000);
 })();

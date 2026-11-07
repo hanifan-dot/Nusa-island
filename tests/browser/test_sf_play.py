@@ -20,8 +20,8 @@ def wait_for(pg, js, t=10):
     return False
 WRAP = "(function(){var module={exports:{}};%s;window.%s=module.exports})();"
 SERVER = """async()=>{ const m=new Map(); let q=Promise.resolve(); const rd=p=>m.has(p)?JSON.parse(m.get(p)):null;
- const db={get:async p=>rd(p),tx:f=>{const run=q.then(async()=>{const buf=new Map();const r=await f({get:async p=>buf.has(p)?JSON.parse(buf.get(p)):rd(p),set:async(p,v)=>{buf.set(p,JSON.stringify(v))}});for(const[p,v]of buf)m.set(p,v);return r});q=run.catch(()=>{});return run}};
- window.__db=m; const e=NusaEconomyCore.makeEconomyServer(db,{tables:__T,fishmath:NW.FM,initCap:20000,trustClientInit:true,sf:NusaSFCore}); const A={uid:'u-eco'}; window.__srv=e; window.__calls=[];
+ window.__R=()=>Math.random(); const db={get:async p=>rd(p),tx:f=>{const run=q.then(async()=>{const buf=new Map();const r=await f({get:async p=>buf.has(p)?JSON.parse(buf.get(p)):rd(p),set:async(p,v)=>{buf.set(p,JSON.stringify(v))}});for(const[p,v]of buf)m.set(p,v);return r});q=run.catch(()=>{});return run}};
+ window.__db=m; const e=NusaEconomyCore.makeEconomyServer(db,{tables:__T,fishmath:NW.FM,initCap:20000,trustClientInit:true,sf:NusaSFCore,rand:()=>window.__R()}); const A={uid:'u-eco'}; window.__srv=e; window.__calls=[];
  NW.shopApi={sim:false,live:true,isGuest:()=>false,uid:()=>'u-eco',getEntitlements:async()=>({env:'NYATA',wallet:{NYATA:(rd('shop/entitlements/u-eco')||{wallet:{NYATA:0}}).wallet.NYATA}}),
    eco:async(name,d)=>{window.__calls.push(name);try{return JSON.parse(JSON.stringify(await e[name](A,d)))}catch(x){throw Object.assign(new Error(x.message),{code:x.code})}}};
  NW.wallet.hook&&NW.wallet.hook(); return true}"""
@@ -36,7 +36,7 @@ def page(b, qs="?cloud=off"):
     return ctx, pg, errs
 SHOTS = os.environ.get("SHOTS", os.path.join(ROOT_DIR, "docs", "samudra-follower")); os.makedirs(SHOTS, exist_ok=True)
 CFG = lambda fish, ev=False: "()=>{window.__db.set('shop/config',JSON.stringify({sf:{on:true,eventOn:%s,fish:%s}}))}" % ("true" if ev else "false", json.dumps({k: {"price": v, "chance": 0.001, "approvedBy": "owner", "approvedAt": 1} for k, v in fish.items()}))
-FORCE = "()=>{window.__rnd=Math.random;Math.random=()=>0}"; UNFORCE = "()=>{Math.random=window.__rnd}"
+FORCE = "()=>{let c=0;window.__R=()=>(c++%4===0?0:Math.random())}"; UNFORCE = "()=>{window.__R=()=>1-1e-9}"   # acak SERVER tiruan (bukan Math.random browser)
 LAND = "(id)=>{const N=window.__nusa;N.G.phase='fight';N.landFish(Nusa.FISH_BY_ID[id], Nusa.FISH_BY_ID[id].wMin+0.1)}"
 SF = lambda pg: ev(pg, "()=>Nusa.S.cooler.filter(i=>i.id.startsWith('sf_')).map(i=>i.id)")
 with sync_playwright() as p:
@@ -48,7 +48,7 @@ with sync_playwright() as p:
         money0 = ev(pg, "NW.eco.balance()")
         # ===== A. TERKUNCI (belum ada persetujuan Owner) =====
         ev(pg, FORCE); ev(pg, "(id)=>{const N=window.__nusa;N.G.phase='fight';N.landFish(Nusa.FISH_BY_ID[id], Nusa.FISH_BY_ID[id].wMin+0.1)}", "nila"); time.sleep(1.5); ev(pg, "async()=>{await NW.sfPlay.refresh(true)}"); ev(pg, "(id)=>{const N=window.__nusa;N.G.phase='fight';N.landFish(Nusa.FISH_BY_ID[id], Nusa.FISH_BY_ID[id].wMin+0.1)}", "nila"); time.sleep(1.5)
-        ok("A1 TERKUNCI: ikan biasa masuk coolbox, TIDAK ada ikan SF walau peluang dipaksa kena", len(ev(pg, "Nusa.S.cooler")) >= 1 and SF(pg) == [])
+        ok("A1 TERKUNCI: ikan biasa masuk coolbox, TIDAK ada ikan SF walau acak server dipaksa kena", len(ev(pg, "Nusa.S.cooler")) >= 1 and SF(pg) == [])
         ok("A2 TERKUNCI: server tak pernah menerima ecoCatch SF & tab koleksi tidak muncul", not ev(pg, "NW.sf.on()") and ev(pg, "window.__calls.filter(c=>c==='ecoSfInfo').length") >= 1 and not any("sf_" in v for v in ev(pg, "[...window.__db.values()]")))
         ev(pg, UNFORCE)
         # ===== B. Owner menyetujui Tempe + Cupang + Arapaima (Prabowo tanpa event) =====
@@ -57,7 +57,7 @@ with sync_playwright() as p:
         ok("B1 setelah persetujuan: daftar aktif 3 ikan (Prabowo TIDAK ada: event mati)", ev(pg, "NW.sfPlay.info().fish.map(f=>f.id)") == ["sf_tempe", "sf_cupang_slayer", "sf_arapaima"], ev(pg, "NW.sfPlay.info()"))
         ok("B2 tab Samudra Follower muncul untuk pemain (live)", ev(pg, "NW.sf.on() && NW.sf.live()"))
         before_cool = ev(pg, "Nusa.S.cooler.length"); bal0 = ev(pg, "NW.eco.balance()")
-        ev(pg, FORCE); ev(pg, LAND, "nila"); ev(pg, UNFORCE)
+        ev(pg, FORCE); time.sleep(2); ev(pg, LAND, "nila"); ev(pg, "async()=>{await NW.eco.flush()}"); ev(pg, UNFORCE)
         ok("B3 ikan biasa mendarat + BONUS Ikan Tempe dikonfirmasi SERVER lalu masuk coolbox (terkunci)", wait_for(pg, "Nusa.S.cooler.some(i=>i.id==='sf_tempe')", 15) , SF(pg))
         it = ev(pg, "Nusa.S.cooler.find(i=>i.id==='sf_tempe')")
         ok("B4 ikan SF: berat dalam rentang resmi, harga/kg server 7400, terkunci", it and 0.3 <= it["w"] <= 1.4 and it["sp"] == 7400 and it.get("lock") is True, it)
@@ -68,10 +68,11 @@ with sync_playwright() as p:
         ev(pg, "document.getElementById('sfX').click()"); time.sleep(0.3)
         # duplikasi: tangkapan kedua hari yang sama ditolak (batas harian 1), tidak ada ikan/koin tambahan
         n_box = ev(pg, "NW.eco.state().box.length"); ev(pg, FORCE); ev(pg, LAND, "nila"); time.sleep(2.5); ev(pg, UNFORCE)
+        ev(pg, "async()=>{await NW.eco.flush()}"); time.sleep(1)
         ok("C1 batas harian: bonus ke-2 Tempe ditolak server, tak ada duplikasi (hanya ikan biasa bertambah)", ev(pg, "Nusa.S.cooler.filter(i=>i.id==='sf_tempe').length") == 1 and ev(pg, "NW.eco.state().box.length") == n_box + 1)
         # replay manual dari konsol (browser dimanipulasi)
         r = ev(pg, "async()=>{try{await __srv.ecoCatch({uid:'u-eco'},{opId:'x'+Date.now(),id:'sf_arapaima',w:100,uid:'fakeuid1234',ref:'tidakada123'});return 'LOLOS'}catch(e){return e.message}}")
-        ok("C2 klien palsu tanpa ref nyata ditolak server", "spesial tidak valid" in r, r)
+        ok("C2 klien palsu mengirim ikan SF sendiri (dengan ref/harga) ditolak server", "tidak dikenal" in r, r)
         r = ev(pg, "async()=>{const u=Nusa.S.cooler.find(i=>i.id==='nila').uid;try{await __srv.ecoCatch({uid:'u-eco'},{opId:'y'+Date.now(),id:'sf_tempe',w:900,uid:'fakeuid5678',ref:u});return 'LOLOS'}catch(e){return e.message}}")
         ok("C3 berat palsu ditolak server", "tidak dikenal" in r, r)
         # inventaris & tampilan
@@ -98,7 +99,7 @@ with sync_playwright() as p:
         ok("E1 Prabowo disetujui tetapi event MATI → tidak aktif", ev(pg, "NW.sfPlay.info().fish.length") == 0)
         ev(pg, CFG({"sf_prabowo": 750}, True)); ev(pg, "async()=>{await NW.sfPlay.refresh(true)}")
         ok("E2 event dinyalakan Owner → Prabowo aktif", ev(pg, "NW.sfPlay.info().fish.map(f=>f.id)") == ["sf_prabowo"])
-        ev(pg, "()=>{window.__srv && 0}"); ev(pg, FORCE); ev(pg, LAND, "nila"); ev(pg, UNFORCE)
+        ev(pg, "()=>{const b=document.getElementById('catchOk');if(b&&b.offsetParent)b.click();window.__nusa.G.phase='idle'}"); ev(pg, FORCE); time.sleep(2.2); ev(pg, LAND, "nila"); ev(pg, "async()=>{await NW.eco.flush()}"); ev(pg, UNFORCE)
         ok("E3 Prabowo masuk coolbox setelah konfirmasi server (event hidup), kredit @akhmadraffa123", wait_for(pg, "Nusa.S.cooler.some(i=>i.id==='sf_prabowo')", 15) and wait_for(pg, "NW.sf.isOpen()", 8) and "@akhmadraffa123" in ev(pg, "document.getElementById('sfOv').innerText"))
         time.sleep(0.6); pg.screenshot(path=os.path.join(SHOTS, "15-kartu-prabowo-event.png")); ev(pg, "document.getElementById('sfX').click()")
         # Cloud Save tetap sah

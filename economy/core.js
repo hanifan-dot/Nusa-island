@@ -72,6 +72,33 @@
     const maxKg = (f) => f.xMax || f.wMax;
     // Harga jual ikan SF: harga/kg terkunci saat tangkap (b.sp, ditulis server), tanpa pengali harian. Entri tanpa sp valid → tidak bernilai (1 koin), bukan crash.
     const sfSale = (b) => (SFX && SFX.isSF(b.id) && Number.isFinite(b.sp) && b.sp > 0 ? FM.priceFor({ price: b.sp }, b.w, 1, PRICE_SCALE) : 1);
+    // Acak tepercaya milik SERVER (bukan JavaScript browser). Bisa diganti lewat opts.rand (hanya untuk tes deterministik).
+    const secureRand = () => {
+      const g = typeof globalThis !== "undefined" && globalThis.crypto && globalThis.crypto.getRandomValues ? globalThis.crypto : null;
+      if (g) { const a = new Uint32Array(2); g.getRandomValues(a); return (a[0] * 2097152 + (a[1] >>> 11)) / 9007199254740992; }
+      return require("crypto").randomBytes(7).readUIntBE(0, 6) / 281474976710656;
+    };
+    const rand = typeof opts.rand === "function" ? opts.rand : secureRand;
+    // Satu kesempatan bonus SF per ikan biasa sah (uid belum pernah diundi). Satu lemparan menentukan paling banyak SATU ikan. Gagal/penuh/batas harian → diam-diam tanpa ikan (tidak ada koin/ikan yang bocor).
+    function sfRoll(eco, uids, cfg, now) {
+      const out = [], sfs = eco.sf && typeof eco.sf === "object" ? eco.sf : (eco.sf = {}), seen = Array.isArray(sfs.refs) ? sfs.refs : (sfs.refs = []);
+      const st = SFX.status(cfg || {}), live = SFX.IDS.filter((id) => st[id].ok);
+      for (const u of uids) {
+        if (seen.includes(u)) continue;                       // uid yang sudah diundi tidak diundi ulang (anti-replay/jual-lalu-kirim-ulang)
+        seen.push(u); if (seen.length > 60) seen.splice(0, seen.length - 60);
+        if (!live.length) continue;
+        let r = rand(), hit = null;
+        for (const id of live) { if (r < st[id].chance) { hit = id; break; } r -= st[id].chance; }
+        if (!hit) continue;
+        if (eco.box.length >= LIM.boxMax) continue;
+        const f = SFX.SPEC[hit];
+        if (!SFX.takeDaily(sfs, hit, st[hit].dayCap, now)) continue;
+        const w = Math.round((f.wMin + (f.wMax - f.wMin) * Math.pow(rand(), 2.3)) * 100) / 100, su = "sf" + Math.floor(rand() * 4294967296).toString(36) + Math.floor(rand() * 4294967296).toString(36);
+        if (eco.box.some((b) => b.u === su)) continue;
+        eco.box.push({ u: su, id: hit, w, sp: st[hit].price }); out.push({ uid: su, id: hit, w, sp: st[hit].price, from: u });
+      }
+      return out;
+    }
 
     // ---- Kolam Ikan (pond-core.js): data kolam dipegang server di dokumen ekonomi (eco.pond) ----
     const pondKnows = (eco, u) => !!(eco.pond && ((eco.pond.fish || []).some((f) => f.u === u) || (eco.pond.hist || []).some((f) => f.u === u)));
@@ -133,49 +160,35 @@
         const items = Array.isArray(p.items) ? p.items : [p];
         if (!items.length || items.length > LIM.catchBatch) throw E("invalid-argument", "Paket tangkapan tidak valid.");
         const seenUid = new Set();
-        const sfN = SFX ? items.filter((it) => it && SFX.isSF(it.id)).length : 0;
-        if (SFX && sfN > SFX.HARD.perBatch) throw E("invalid-argument", "Ikan tidak dikenal.");
-        const sfCfg = sfN ? ((await db.get("shop/config")) || {}) : null, sfR = {};   // config dibaca HANYA bila paket memuat ikan SF (tangkapan biasa: tanpa baca tambahan)
         for (const it of items) {
-          let f = it && FISH[it.id];
-          if (!f && sfN && SFX.isSF(it.id)) { const r = SFX.resolve(sfCfg, it.id); if (r.ok && SFX.weightOk(it.id, Number(it.w))) { f = r.fish; sfR[it.uid] = r; } }
+          const f = it && FISH[it.id];   // ikan Samudra Follower TIDAK pernah diterima dari klien: hanya server yang dapat memberikannya (undian di ecoCatch)
           if (!f) throw E("invalid-argument", "Ikan tidak dikenal.");
           const w = Number(it.w);
-          if (!f.sf && (!(w >= f.wMin * 0.5) || !(w <= maxKg(f)))) throw E("invalid-argument", "Berat ikan tidak masuk akal.");
+          if (!(w >= f.wMin * 0.5) || !(w <= maxKg(f))) throw E("invalid-argument", "Berat ikan tidak masuk akal.");
           if (!f.protected) { if (typeof it.uid !== "string" || !UID_RE.test(it.uid) || seenUid.has(it.uid)) throw E("invalid-argument", "UID ikan tidak valid."); seenUid.add(it.uid); }
         }
+        const sfCfg = SFX ? ((await db.get("shop/config")) || {}) : null;   // 1 baca config per paket (hanya bila modul SF terpasang)
         return db.tx(async (t) => {
           const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco);
           const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, view(eco, ent));
-          const now = clock(), n = items.length, sfOnly = !!SFX && items.every((it) => SFX.isSF(it.id));
-          if (sfOnly) { // tangkapan spesial = BONUS atas satu pendaratan ikan biasa yang sungguh ada di kotak server (ref), sekali pakai; dibatasi harian — tidak memakai jatah laju ikan biasa
-            const it = items[0], sfs = eco.sf && typeof eco.sf === "object" ? eco.sf : (eco.sf = {}), refs = Array.isArray(sfs.refs) ? sfs.refs : (sfs.refs = []);
-            if (typeof it.ref !== "string" || !UID_RE.test(it.ref) || refs.includes(it.ref) || !eco.box.some((b) => b.u === it.ref && !SFX.isSF(b.id))) throw E("failed-precondition", "Tangkapan spesial tidak valid.");
-            refs.push(it.ref); if (refs.length > 30) refs.splice(0, refs.length - 30);
-          } else {
+          const now = clock(), n = items.length;
           // jeda rata-rata ≥ catchGapMs antar tangkapan: paket n ikan harus terpisah ≥ (n-1)×jeda dari kiriman sebelumnya
           if (now - eco.lastCatchAt < (n - 1) * LIM.catchGapMs || (n === 1 && now - eco.lastCatchAt < LIM.catchGapMs)) throw E("resource-exhausted", "Tangkapan terlalu cepat.");
           eco.catches = eco.catches.filter((x) => now - x < HOUR);
           if (eco.catches.length + n > LIM.catchPerHour) throw E("resource-exhausted", "Batas tangkapan per jam tercapai.");
-          }
-          if (!sfOnly) { for (let i = 0; i < n; i++) eco.catches.push(now); eco.lastCatchAt = now; }
-          let reward = 0; const skipped = [], sfItem = [];
+          for (let i = 0; i < n; i++) eco.catches.push(now);
+          eco.lastCatchAt = now;
+          let reward = 0; const skipped = []; let sfItem = [];
+          const rolled = [];   // ikan biasa sah yang masuk kotak → tiap satu mendapat TEPAT satu kesempatan bonus SF
           for (const it of items) {
-            const f = FISH[it.id] || sfR[it.uid].fish, w = Number(it.w);
-            if (f.sf) {
-              if (pondKnows(eco, it.uid)) { skipped.push(it.uid); continue; }
-              if (eco.box.some((b) => b.u === it.uid)) throw E("already-exists", "UID ikan sudah ada.");
-              if (eco.box.length >= LIM.boxMax) throw E("resource-exhausted", "Kotak ikan penuh.");
-              if (!SFX.takeDaily(eco.sf && typeof eco.sf === "object" ? eco.sf : (eco.sf = {}), f.id, sfR[it.uid].dayCap, now)) throw E("resource-exhausted", "Batas harian ikan spesial tercapai.");
-              eco.box.push({ u: it.uid, id: f.id, w: Math.round(w * 100) / 100, sp: f.price }); sfItem.push({ uid: it.uid, id: f.id, w: Math.round(w * 100) / 100, sp: f.price });   // sp = harga/kg yang disetujui Owner saat tangkap (dikunci di sisi server)
-              continue;
-            }
+            const f = FISH[it.id], w = Number(it.w);
             if (f.protected) { const r = Math.round(f.price * PRICE_SCALE * FM.effectiveKg(w) * 1.2); reward += r; credit(eco, r); continue; }
             if (pondKnows(eco, it.uid)) { skipped.push(it.uid); continue; }            // ikan yang sedang/pernah di kolam (mis. simpanan lama dipulihkan) tidak boleh masuk kotak lagi
             if (eco.box.some((b) => b.u === it.uid)) throw E("already-exists", "UID ikan sudah ada.");
             if (eco.box.length >= LIM.boxMax) throw E("resource-exhausted", "Kotak ikan penuh.");
-            eco.box.push({ u: it.uid, id: f.id, w: Math.round(w * 100) / 100 });
+            eco.box.push({ u: it.uid, id: f.id, w: Math.round(w * 100) / 100 }); rolled.push(it.uid);
           }
+          if (SFX && rolled.length) sfItem = sfRoll(eco, rolled, sfCfg, now);
           lbCount(eco, items, typeof skipped === "undefined" ? null : skipped, now);   // Podium Juara: sekali per paket, di transaksi yang sama
           await t.set(ECO(uid), remember(eco, opId, { reward, skipped, sfItem }) && eco);
           return Object.assign({ ok: true, reward, skipped, sfItem }, view(eco, ent));

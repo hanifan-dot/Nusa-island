@@ -43,13 +43,15 @@ async function ensure() {
   finally { booting = false; }
   return active();
 }
+// Ikan Samudra Follower diundi dan dibuat OLEH SERVER di ecoCatch; klien hanya menampilkan hasil yang sudah dikonfirmasi.
+const sfGot = (r) => { try { if (r && Array.isArray(r.sfItem) && r.sfItem.length && NW.sfPlay) NW.sfPlay.grant(r.sfItem); } catch (e) {} };
 async function flush() {
   if (busy || !live()) return; busy = true;
   try {
     while (rq.length) { const r = rq[0]; try { apply(await call("ecoReward", r)); rq.shift(); } catch (e) { if (e && (e.code === "invalid-argument" || e.code === "failed-precondition")) rq.shift(); else throw e; } }
     while (q.length || inflight) {
       if (!inflight) { const items = q.slice(0, 10); inflight = { opId: rid(), items, tries: 0 }; }       // paket ≤10 tangkapan: hemat tulis Firestore; opId tetap saat diulang
-      try { apply(await call("ecoCatch", { opId: inflight.opId, items: inflight.items.map((x) => ({ id: x.id, w: x.w, uid: x.uid })) })); q.splice(0, inflight.items.length); inflight = null; }
+      try { const rr = await call("ecoCatch", { opId: inflight.opId, items: inflight.items.map((x) => ({ id: x.id, w: x.w, uid: x.uid })) }); apply(rr); sfGot(rr); q.splice(0, inflight.items.length); inflight = null; }
       catch (e) {
         const code = e && e.code;
         if (code === "resource-exhausted" && ++inflight.tries < 6) { schedule(8000); break; }          // terlalu cepat/batas jam: coba lagi nanti (tidak dibuang langsung)
@@ -111,8 +113,7 @@ function buy(reason, grant, failCb) {
 }
 // ---- Samudra Follower: daftar aktif (disetujui Owner) & tangkapan spesial. Server-dulu: ikan baru masuk coolbox SETELAH server menjawab ok. ----
 async function sfInfo() { if (!active()) return { on: false, fish: [] }; return call("ecoSfInfo", {}); }
-async function sfCatch(item) { await flush(); const r = await call("ecoCatch", { opId: rid(), id: item.id, w: item.w, uid: item.uid, ref: item.ref }); apply(r); return r; }
-NW.eco = { applyState: apply, sfInfo, sfCatch, active, ensure, flush, onCatch, release, sell, drop, reward, mission, buy, balance: () => (st ? st.balance : 0), state: () => st, lastError: () => lastErr, _reset: () => { st = null; q = []; rq = []; inflight = null; } };
+NW.eco = { applyState: apply, sfInfo, active, ensure, flush, onCatch, release, sell, drop, reward, mission, buy, balance: () => (st ? st.balance : 0), state: () => st, lastError: () => lastErr, _reset: () => { st = null; q = []; rq = []; inflight = null; } };
 setInterval(() => { if (!document.hidden && live()) ensure().then(() => flush()); }, 45000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden && live()) ensure(); });
 setInterval(() => { if (!st && live() && !booting) ensure(); }, 2500);   // begitu login terdeteksi → aktifkan ekonomi server
