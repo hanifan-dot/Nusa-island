@@ -1,0 +1,165 @@
+# Rilis manual: dari main hanya workflow, kode game/backend DI-PIN ke commit teruji.
+name: Deploy Kandidat Terpadu Nusa Island
+on:
+  workflow_dispatch:
+    inputs:
+      konfirmasi:
+        description: "Ketik persis deploy"
+        type: string
+        required: true
+      multiplayer:
+        description: "Deploy juga nusa-multiplayer? (ya/tidak). WAJIB ya sebelum Owner membuka Rumahku Sosial."
+        type: choice
+        options: ["tidak", "ya"]
+        default: "tidak"
+concurrency:
+  group: nusa-island-production
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  cek:
+    name: Tes kandidat tanpa kunci produksi
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hanya Owner dan konfirmasi
+        env:
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+          CONFIRM: ${{ inputs.konfirmasi }}
+        run: |
+          [ "$ACTOR" = "$OWNER" ] || exit 1
+          [ "$CONFIRM" = "deploy" ] || exit 1
+      - name: Verifikasi akses baca repository backend privat
+        env:
+          NUSA_BACKEND_READ_TOKEN: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+        run: |
+          if [ -z "$NUSA_BACKEND_READ_TOKEN" ]; then
+            echo "::error::Akses repo backend privat belum terhubung. Tambahkan GitHub Actions repository secret NUSA_BACKEND_READ_TOKEN (fine-grained PAT, Contents: Read, hanya repo nusa-island-control-center) ke repo Nusa-island."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/Nusa-island
+          ref: 6419c91d2caf866b967bc6d5d17dbf1e1ccd8cd9
+          fetch-depth: 0
+          path: game
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/nusa-island-control-center
+          ref: 8992c7012f7db19ef3e4bb34a4b9f659ea5da995
+          token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+          persist-credentials: false
+          path: backend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Cek shell, vendor dan aset wajib
+        run: |
+          bash -n game/firebase/scripts/deploy-api-kandidat.sh
+          bash -n game/firebase/scripts/rilis.sh
+          bash -n game/firebase/scripts/cf-auth-check.sh
+          cmp game/economy/core.js backend/server/vendor/economy-core.cjs
+          cmp game/house/core.js backend/server/vendor/house-core.cjs
+          cmp game/economy/sf-core.js backend/server/vendor/sf-core.cjs
+          cmp game/economy/aurora-core.js backend/server/vendor/aurora-core.cjs
+          grep -q "NUSA_SOCIAL_HOME = false" game/cloud/config.js
+          grep -q "NUSA_SF_PREVIEW = false" game/cloud/config.js
+          (cd game && node firebase/scripts/cek-rilis.js && node tests/unit-mp.js && node tests/unit-cf-auth.js)
+      - name: Tes backend dan scan rahasia
+        run: |
+          cd backend
+          npm install --no-package-lock --no-audit --no-fund
+          npm test
+          npm run scan:secrets
+      - name: Bandingkan dengan situs live, cegah fitur hilang
+        run: cd game && node firebase/scripts/cek-rilis.js --live https://nusa-island-d2023.web.app --require-live
+
+  rilis:
+    name: Deploy nusa-api lalu Firebase Hosting
+    needs: cek
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      NUSA_GAME_DIR: ${{ github.workspace }}/game
+      NUSA_BACKEND_DIR: ${{ github.workspace }}/backend
+      NUSA_GAME_SHA: 6419c91d2caf866b967bc6d5d17dbf1e1ccd8cd9
+      NUSA_BACKEND_SHA: 8992c7012f7db19ef3e4bb34a4b9f659ea5da995
+      NUSA_CONFIRM: "ya"
+    steps:
+      - name: Verifikasi akses baca repository backend privat
+        env:
+          NUSA_BACKEND_READ_TOKEN: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+        run: |
+          if [ -z "$NUSA_BACKEND_READ_TOKEN" ]; then
+            echo "::error::Akses repo backend privat belum terhubung. Tambahkan GitHub Actions repository secret NUSA_BACKEND_READ_TOKEN (fine-grained PAT, Contents: Read, hanya repo nusa-island-control-center) ke repo Nusa-island."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/Nusa-island
+          ref: 6419c91d2caf866b967bc6d5d17dbf1e1ccd8cd9
+          fetch-depth: 0
+          path: game
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/nusa-island-control-center
+          ref: 8992c7012f7db19ef3e4bb34a4b9f659ea5da995
+          token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+          persist-credentials: false
+          path: backend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Login Firebase OIDC (tanpa kunci)
+        if: ${{ vars.GCP_WIF_PROVIDER != '' && vars.GCP_DEPLOY_SA != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+          create_credentials_file: true
+      - name: Login Firebase dengan secret cadangan
+        if: ${{ vars.GCP_WIF_PROVIDER == '' || vars.GCP_DEPLOY_SA == '' }}
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          [ -n "$SERVICE_ACCOUNT" ] || { echo "::error::Konfigurasi Firebase belum siap"; exit 1; }
+          umask 077
+          printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/nusa-sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/nusa-sa.json" >> "$GITHUB_ENV"
+      - name: Verifikasi autentikasi Cloudflare (read-only, tanpa menampilkan rahasia)
+        run: bash game/firebase/scripts/cf-auth-check.sh --emit-env
+      - name: Baca alamat nusa-api dari game live
+        run: |
+          [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || { echo "::error::Secret Cloudflare belum siap"; exit 1; }
+          LIVE=$(curl -fsS --retry 2 https://nusa-island-d2023.web.app/cloud/config.js)
+          API=$(printf '%s' "$LIVE" | grep -oE 'apiBase: "https://nusa-api\.[A-Za-z0-9-]+\.workers\.dev"' | head -1 | cut -d '"' -f 2)
+          [ -n "$API" ] || { echo "::error::Alamat API live tidak ditemukan"; exit 1; }
+          echo "NUSA_API_BASE=$API" >> "$GITHUB_ENV"
+      - name: Deploy API dengan pengaman variabel dan secret
+        run: bash game/firebase/scripts/deploy-api-kandidat.sh
+      - name: Deploy Hosting mode produksi (MP lama tetap dipakai)
+        env:
+          NUSA_API_DEPLOYED: "ya"
+          NUSA_CI: "1"
+          NUSA_TARGET: ${{ inputs.multiplayer == 'ya' && 'semua' || 'game' }}
+          TARGET: ${{ inputs.multiplayer == 'ya' && 'semua' || 'game' }}
+        run: cd game && bash firebase/scripts/rilis.sh --target "$TARGET" --ci
+      - name: Cek sesudah deploy (kesehatan API, fitur baru tetap terkunci)
+        run: |
+          set -e
+          curl -fsS --retry 3 "$NUSA_API_BASE/api/health" >/dev/null || { echo "::error::Health nusa-api gagal"; exit 1; }
+          CFG=$(curl -fsS --retry 3 https://nusa-island-d2023.web.app/cloud/config.js)
+          printf '%s' "$CFG" | grep -q "NUSA_SOCIAL_HOME = false" || { echo "::error::Flag Rumahku Sosial statis tidak MATI"; exit 1; }
+          printf '%s' "$CFG" | grep -q "NUSA_SF_PREVIEW = false" || { echo "::error::Pratinjau SF tidak MATI"; exit 1; }
+          echo "OK: API sehat, semua fitur baru MATI sampai Owner membukanya lewat Nusa Control Center."
+      # ROLLBACK: lihat docs/RILIS-PAKET-FINAL-20261107.md (jalankan ulang workflow ini dengan SHA lama 3cc759d/44eebd3).
+      - name: Bersihkan kredensial sementara
+        if: always()
+        run: rm -f "$RUNNER_TEMP/nusa-sa.json"
