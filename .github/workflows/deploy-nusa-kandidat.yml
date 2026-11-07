@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
-          ref: 9a88ae6691820628327581f745772bc6767c7f4d
+          ref: 3cc759d9eb3ccac160346ca2bc3bd63711a9faef
           fetch-depth: 0
           path: game
       - uses: actions/checkout@v4
@@ -53,11 +53,12 @@ jobs:
         run: |
           bash -n game/firebase/scripts/deploy-api-kandidat.sh
           bash -n game/firebase/scripts/rilis.sh
+          bash -n game/firebase/scripts/cf-auth-check.sh
           cmp game/economy/core.js backend/server/vendor/economy-core.cjs
           cmp game/house/core.js backend/server/vendor/house-core.cjs
           cmp game/economy/sf-core.js backend/server/vendor/sf-core.cjs
           cmp game/economy/aurora-core.js backend/server/vendor/aurora-core.cjs
-          (cd game && node firebase/scripts/cek-rilis.js && node tests/unit-mp.js)
+          (cd game && node firebase/scripts/cek-rilis.js && node tests/unit-mp.js && node tests/unit-cf-auth.js)
       - name: Tes backend dan scan rahasia
         run: |
           cd backend
@@ -81,7 +82,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       NUSA_GAME_DIR: ${{ github.workspace }}/game
       NUSA_BACKEND_DIR: ${{ github.workspace }}/backend
-      NUSA_GAME_SHA: 9a88ae6691820628327581f745772bc6767c7f4d
+      NUSA_GAME_SHA: 3cc759d9eb3ccac160346ca2bc3bd63711a9faef
       NUSA_BACKEND_SHA: 44eebd3a0f9caaa92161a21f7725c548f0b71084
       NUSA_CONFIRM: "ya"
     steps:
@@ -96,7 +97,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
-          ref: 9a88ae6691820628327581f745772bc6767c7f4d
+          ref: 3cc759d9eb3ccac160346ca2bc3bd63711a9faef
           fetch-depth: 0
           path: game
       - uses: actions/checkout@v4
@@ -125,6 +126,8 @@ jobs:
           umask 077
           printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/nusa-sa.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/nusa-sa.json" >> "$GITHUB_ENV"
+      - name: Verifikasi autentikasi Cloudflare (read-only, tanpa menampilkan rahasia)
+        run: bash game/firebase/scripts/cf-auth-check.sh --emit-env
       - name: Baca alamat nusa-api dari game live
         run: |
           [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || { echo "::error::Secret Cloudflare belum siap"; exit 1; }
