@@ -22,10 +22,12 @@ Klien **menolak seluruh papan** (→ inactive) bila bentuk/versi/kategori salah,
 ## Kategori (hanya statistik yang dipegang server)
 | id | Arti | Sumber server |
 |---|---|---|
-| `catch` | total ikan | jumlah `eco.cat` pada `shop/economy/<uid>` |
-| `species` | jumlah spesies berbeda | banyak kunci `eco.cat` > 0 |
+| `catch` | total ikan | penghitung server `lb_stats/<uid>.catch` (dicatat dari `ecoCatch` yang lolos validasi) |
+| `species` | jumlah spesies berbeda | banyak kunci `lb_stats/<uid>.sp` |
 
 Batas jujur: server tidak bisa melihat pemain benar-benar memancing; angka dibatasi laju (`catchGapMs`, `catchPerHour`) sehingga manipulasi diperkecil, bukan dihilangkan. Peringkat TIDAK PERNAH dihitung dari `localStorage`/save di browser.
+
+> Koreksi: versi awal dokumen ini keliru menyebut `eco.cat` (itu barang kucing yang dibeli) sebagai sumber. Implementasi backend: repo control-center PR #17.
 
 ## Pertanyaan terbuka (untuk Worker 02 / Owner)
 1. Siapa yang mengimplementasi agregasi server? Usul: dokumen `leaderboard/<category>` yang diperbarui terjadwal (mis. tiap 5–10 menit) dari `shop/economy/*`, agar baca murah (kuota Firestore).
