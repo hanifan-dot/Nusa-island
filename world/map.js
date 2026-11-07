@@ -9,7 +9,9 @@ window.NW = window.NW || {};
 "use strict";
 
 const { T, TW, TH, isLandT, hash2, rng } = NW;
-const MW = 40, MH = 40, CX = 19, CY = 19;
+const MW = 40, CX = 19, CY = 19;
+let MH = 40;                                  // diperpanjang ke selatan oleh Ekspansi 40% (lihat blok "EKSPANSI" di bawah); generator acak lama memakai MH0 agar posisi benda lama tidak bergeser
+const MH0 = 40;
 
 // ---------- Bentuk pulau ----------
 function islandD(x, y) {
@@ -18,7 +20,7 @@ function islandD(x, y) {
   return Math.hypot(dx, dy) / n;
 }
 
-const tiles = new Uint8Array(MW * MH);
+let tiles = new Uint8Array(MW * MH);
 const tileAt = (x, y) => (x < 0 || y < 0 || x >= MW || y >= MH ? T.DEEP : tiles[(y | 0) * MW + (x | 0)]);
 const setTile = (x, y, t) => { if (x >= 0 && y >= 0 && x < MW && y < MH) tiles[y * MW + x] = t; };
 
@@ -124,30 +126,30 @@ function nearPath(x, y) {
 const R = rng(20261029);
 // pohon kelapa di pasir
 for (let i = 0; i < 900 && objects.filter((o) => o.kind === "palm").length < 34; i++) {
-  const x = 1 + R() * (MW - 2), y = 1 + R() * (MH - 2);
+  const x = 1 + R() * (MW - 2), y = 1 + R() * (MH0 - 2);
   if (tileAt(x, y) !== T.SAND || nearPath(x, y) || nearAny(x, y, 1.0)) continue;
   if (y > DOCK.y0 - 2.5 && y < DOCK.y1 + 3.5 && x > E - 4) continue;
   objects.push({ kind: "palm", x, y, h: 70 + R() * 30, lean: (R() - 0.5) * 0.9, ph: R() * 6 });
 }
 // pohon rindang & semak di rumput
 for (let i = 0; i < 900 && objects.filter((o) => o.kind === "tree").length < 10; i++) {
-  const x = 2 + R() * (MW - 4), y = 2 + R() * (MH - 4);
+  const x = 2 + R() * (MW - 4), y = 2 + R() * (MH0 - 4);
   if (tileAt(x, y) !== T.GRASS || nearPath(x, y) || nearAny(x, y, 1.9)) continue;
   objects.push({ kind: "tree", x, y, s: 0.85 + R() * 0.35, hue: R() });
 }
 for (let i = 0; i < 900 && objects.filter((o) => o.kind === "bush").length < 22; i++) {
-  const x = 2 + R() * (MW - 4), y = 2 + R() * (MH - 4);
+  const x = 2 + R() * (MW - 4), y = 2 + R() * (MH0 - 4);
   if (tileAt(x, y) !== T.GRASS || nearPath(x, y) || nearAny(x, y, 0.7)) continue;
   objects.push({ kind: "bush", x, y, s: 0.7 + R() * 0.5, flowers: R() < 0.4 });
 }
 for (let i = 0; i < 900 && objects.filter((o) => o.kind === "rock").length < 12; i++) {
-  const x = 1 + R() * (MW - 2), y = 1 + R() * (MH - 2);
+  const x = 1 + R() * (MW - 2), y = 1 + R() * (MH0 - 2);
   if (tileAt(x, y) !== T.SAND || nearPath(x, y) || nearAny(x, y, 0.8)) continue;
   objects.push({ kind: "rock", x, y, s: 0.6 + R() * 0.7 });
 }
 // batu di air dangkal
 for (let i = 0; i < 300 && objects.filter((o) => o.kind === "searock").length < 6; i++) {
-  const x = 1 + R() * (MW - 2), y = 1 + R() * (MH - 2);
+  const x = 1 + R() * (MW - 2), y = 1 + R() * (MH0 - 2);
   if (tileAt(x, y) !== T.SHALLOW || (y > DOCK.y0 - 2 && y < DOCK.y1 + 5 && x > E - 2)) continue;
   objects.push({ kind: "searock", x, y, s: 0.7 + R() * 0.6 });
 }
@@ -169,6 +171,61 @@ objects.push({ kind: "board", x: 20.3, y: 19.25 });
 objects.push({ kind: "gate", x: HOME_GATE.x, y: HOME_GATE.y });
 for (const [x, y, s] of [[8.2, 12.2, 1.1], [11.4, 12.0, 1.0], [8.4, 13.4, 0.8], [11.3, 13.3, 0.9], [9.8, 11.6, 1.2]]) objects.push({ kind: "bamboo", x, y, s });
 objects.push({ kind: "boat", x: BOAT.x, y: BOAT.y });
+
+
+// ---------- EKSPANSI MUARA ~40%: "Tanjung Lampu" (selatan) ----------
+// Semua koordinat, benda & bangunan lama TIDAK berpindah: peta hanya diperpanjang ke selatan (indeks tile lama sama), lalu daratan baru
+// disambung lewat tanah genting. Wilayah baru: jalan setapak, pohon, lampu, bangku, taman bunga, plaza NUSA STYLE (dipasang style/style.js)
+// dan lahan kosong untuk pengembangan berikutnya.
+const EXT = { cx: 19.5, cy: 41.2, rx: 10.2, ry: 5.8, y0: 33 };
+function annexD(x, y) {
+  const dx = (x - EXT.cx) / EXT.rx, dy = (y - EXT.cy) / EXT.ry, a = Math.atan2(dy, dx);
+  return Math.hypot(dx, dy) / (1 + 0.06 * Math.sin(a * 3 + 0.5) + 0.04 * Math.sin(a * 6 + 1));
+}
+MH = 52;
+{ const t2 = new Uint8Array(MW * MH); t2.set(tiles); tiles = t2; }
+for (let y = EXT.y0; y < MH; y++) for (let x = 0; x < MW; x++) {
+  const d = annexD(x + 0.5, y + 0.5); setTile(x, y, d < 0.8 ? T.GRASS : d < 1 ? T.SAND : d < 1.14 ? T.SHALLOW : T.DEEP);
+}
+for (let y = 30; y <= 36; y++) for (let x = 16; x <= 22; x++) {          // tanah genting penghubung (hanya mengubah air)
+  if (isLandT(tileAt(x, y))) continue; setTile(x, y, x >= 17 && x <= 21 ? T.GRASS : T.SAND);
+}
+for (let i = objects.length - 1; i >= 0; i--) { const o = objects[i]; if (o.kind === "searock" && o.y > 30 && o.x > 15 && o.x < 24) objects.splice(i, 1); }   // batu laut yang kini berada di darat jalur penghubung
+pathRect(18, 28, 18, 46);              // jalan utara–selatan diperpanjang
+pathRect(9, 40, 30, 40);               // jalan timur–barat Tanjung Lampu
+pathRect(25, 41, 25, 44);              // cabang kecil
+for (let y = 39; y <= 41; y++) for (let x = 17; x <= 20; x++) if (isLandT(tileAt(x, y))) setTile(x, y, T.PATH);   // plaza kecil
+const ADD_SIGNS = [
+  { x: 19.4, y: 33.6, title: "Tanjung Lampu", text: "Kawasan baru Muara Kampung: jalan setapak, taman, dan NUSA STYLE — Fashion & Avatar Studio di sisi timur plaza." },
+  { x: 15.6, y: 38.7, title: "Lahan Pengembangan", text: "Lahan ini disiapkan untuk bangunan Muara Kampung berikutnya. Nantikan kejutannya!" },
+];
+const R2 = rng(20261107);
+const extFree = (x, y, pad) => { for (const b of buildings) if (x > b.x0 - pad && x < b.x1 + pad && y > b.y0 - pad && y < b.y1 + pad) return false;
+  if (x > 21.0 && x < 26.6 && y > 36.0 && y < 41.6) return false;             // tapak NUSA STYLE + halaman depan
+  for (const o of objects) if (Math.hypot(x - o.x, y - o.y) < pad + 0.4) return false;
+  for (const p of points) if (Math.hypot(x - p.x, y - p.y) < pad + 0.6) return false; return !nearPath(x, y); };
+for (let i = 0; i < 1500 && objects.filter((o) => o.y > 34 && o.kind === "palm").length < 14; i++) {
+  const x = 2 + R2() * (MW - 4), y = 34 + R2() * 16; if (tileAt(x, y) !== T.SAND || !extFree(x, y, 1.0)) continue;
+  objects.push({ kind: "palm", x, y, h: 70 + R2() * 30, lean: (R2() - 0.5) * 0.9, ph: R2() * 6 });
+}
+for (let i = 0; i < 1500 && objects.filter((o) => o.y > 34 && o.kind === "tree").length < 9; i++) {
+  const x = 2 + R2() * (MW - 4), y = 35 + R2() * 14; if (tileAt(x, y) !== T.GRASS || !extFree(x, y, 1.9)) continue;
+  objects.push({ kind: "tree", x, y, s: 0.85 + R2() * 0.35, hue: R2() });
+}
+for (let i = 0; i < 1500 && objects.filter((o) => o.y > 34 && o.kind === "bush").length < 14; i++) {
+  const x = 2 + R2() * (MW - 4), y = 35 + R2() * 14; if (tileAt(x, y) !== T.GRASS || !extFree(x, y, 0.7)) continue;
+  objects.push({ kind: "bush", x, y, s: 0.7 + R2() * 0.5, flowers: R2() < 0.5 });
+}
+for (let i = 0; i < 800 && objects.filter((o) => o.y > 34 && o.kind === "rock").length < 5; i++) {
+  const x = 2 + R2() * (MW - 4), y = 35 + R2() * 14; if (tileAt(x, y) !== T.SAND || !extFree(x, y, 0.8)) continue;
+  objects.push({ kind: "rock", x, y, s: 0.6 + R2() * 0.7 });
+}
+const extLamps = [[17.4, 34.4], [17.4, 38.2], [19.6, 38.5], [15.2, 40.9], [22.0, 40.9], [27.2, 40.9], [11.4, 40.9], [17.4, 43.6]];
+extLamps.forEach(([x, y]) => { objects.push({ kind: "lamp", x, y }); lamps.push([x, y]); });
+objects.push({ kind: "bench", x: 20.9, y: 42.5, dir: "x" }, { kind: "bench", x: 16.3, y: 42.3, dir: "y" }, { kind: "barrel", x: 27.9, y: 41.5 }, { kind: "crate", x: 28.5, y: 41.9 });
+ADD_SIGNS.forEach((s) => { signs.push(s); objects.push({ kind: "sign", x: s.x, y: s.y, title: s.title }); points.push({ id: "sign" + (signs.length - 1), x: s.x + 0.45, y: s.y + 0.45, r: 0.85, icon: "📜", label: "Baca", sign: s }); });
+for (const [x, y, s] of [[12.2, 37.4, 0.9], [12.2, 38.4, 0.9], [12.2, 39.3, 0.9], [13.3, 37.1, 0.9], [14.4, 37.1, 0.9], [15.5, 37.1, 0.9]]) objects.push({ kind: "bamboo", x, y, s });   // pagar bambu lahan pengembangan
+flowerBeds.push({ x0: 14.7, y0: 41.6, x1: 16.0, y1: 42.6 }, { x0: 22.0, y0: 42.2, x1: 23.3, y1: 43.2 });
 
 // collision objek
 for (const o of objects) {
@@ -197,7 +254,7 @@ const shoreEdges = NW.areaKit.shoreEdges(tileAt, MW, MH);
 const START = { x: 19.5, y: 20.6 };
 
 NW.MUARA_MAP = {
-  MW, MH, tiles, tileAt, islandD, DOCK, SPOT, BOAT, SHORE_E, START,
+  MW, MH, tiles, tileAt, islandD: (x, y) => Math.min(islandD(x, y), annexD(x, y)), EXT, DOCK, SPOT, BOAT, SHORE_E, START,
   buildings, objects, points, signs, NAV, NAV_EDGES, HOME_GATE, flowerBeds, PARK, lamps, solids, walkable, shoreEdges,
   docks: [{ ...DOCK, axis: "x" }],
   // titik mancing: marker di ujung dermaga, posisi kembali setelah mancing

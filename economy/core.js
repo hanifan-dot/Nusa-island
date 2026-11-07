@@ -57,7 +57,7 @@
     const topupOf = (ent) => (ent && ent.wallet && ent.wallet.NYATA) || 0;
     const view = (eco, ent) => ({ init: eco.init, own: eco.bal, topup: topupOf(ent), balance: eco.bal + topupOf(ent), up: eco.up, homeLv: eco.homeLv, cat: eco.cat,
       box: eco.box.map((b) => b.u), claimed: Object.keys(eco.claimed), troph: eco.troph || {},
-      ...(AU ? { aur: { own: AU.ownsAny(ent), live: AU.owns(ent), n: (eco.aur && eco.aur.n) || 0, up: (eco.aur && eco.aur.up) || 0 } } : {}) });
+      ...(AU ? { aur: { own: AU.ownsAny(ent), live: AU.active(ent, eco), eq: AU.equipOn(eco), n: (eco.aur && eco.aur.n) || 0, up: (eco.aur && eco.aur.up) || 0 } } : {}) });
     const doneOp = (eco, id) => { const o = eco.ops.find((x) => x.id === id); return o ? o.r : null; };
     const remember = (eco, id, r) => { eco.ops.push({ id, r }); if (eco.ops.length > LIM.ops) eco.ops.splice(0, eco.ops.length - LIM.ops); return r; };
     // ===== Statistik Podium Juara (leaderboardTop): dihitung SERVER di transaksi ecoCatch yang SAMA (tanpa tulis tambahan, tanpa baca baru).
@@ -156,7 +156,7 @@
           if (eco.catches.length + n > LIM.catchPerHour) throw E("resource-exhausted", "Batas tangkapan per jam tercapai.");
           for (let i = 0; i < n; i++) eco.catches.push(now); eco.lastCatchAt = now;
           let reward = 0; const skipped = [], swaps = [], fin = [];
-          const bonus = !!(AU && AU.owns(ent));                                           // bonus HANYA bila server melihat kepemilikan NYATA di entitlement (bukan klaim klien)
+          const bonus = !!(AU && AU.active(ent, eco));                                           // bonus HANYA bila server melihat kepemilikan NYATA di entitlement (bukan klaim klien)
           for (const it of items) {
             let f = FISH[it.id] || sfR[it.uid].fish, w = Number(it.w);
             if (f.sf) {
@@ -566,6 +566,22 @@
         },
       });
     }
+    // Perlengkapan Gamepass (Pakai/Lepaskan): status SAH disimpan di SERVER (eco.eq). Lepas ≠ hapus hak milik (entitlement tak disentuh).
+    // Bonus Aurora hanya berlaku bila dimiliki (NYATA) DAN sedang dipakai; tanpa catatan = terpasang otomatis begitu pembelian disetujui server.
+    if (AU) Object.assign(api, {
+      async ecoEquip(auth, p) {
+        const uid = uidOf(auth), opId = needOp(p); p = p || {};
+        if (p.slot !== "joran" || typeof p.on !== "boolean") throw E("invalid-argument", "Perlengkapan tidak dikenal.");
+        return db.tx(async (t) => {
+          const eco = await getEco(t, uid), ent = await entOf(t, uid);
+          const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, view(eco, ent));
+          if (!AU.ownsAny(ent)) throw E("failed-precondition", "Belum memiliki Gamepass ini.");
+          eco.eq = Object.assign({}, eco.eq, { joran: p.on ? "pancing_aurora" : "off" });
+          await t.set(ECO(uid), remember(eco, opId, { eq: p.on }) && eco);
+          return Object.assign({ ok: true, eq: p.on }, view(eco, ent));
+        });
+      },
+    });
     return api;
   }
   // Menimpa simpanan klien dengan nilai server (dipanggil writeSave & loadSave). Mengembalikan simpanan baru + daftar perubahan.
