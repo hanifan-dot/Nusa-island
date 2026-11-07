@@ -63,7 +63,7 @@ Tes: `node tests/unit-sf-server.js` (20), unit-economy/cloud/event/pond/rilis/le
 
 ## Tahap 9 — Integrasi selesai (TERKUNCI sampai Owner setuju)
 
-**Sudah terintegrasi:** memancing (bonus setelah ikan biasa mendarat; peluang ikan lama & Megalodon tidak berubah), kotak pancing/inventaris, koleksi (Samudra Follower), kartu tangkapan asli, dan penjualan. Server (`ecoCatch`/`ecoSell`/`ecoSfInfo`) memvalidasi ID, berat (±1%), harga (dikunci saat tangkap), batas harian, `ref` ke ikan biasa nyata (sekali pakai), idempoten per `opId`. Ikan Prabowo hanya jika `sf.eventOn=true`. Kredit pengusul tetap di keempat ikan. Tidak masuk akuarium/kolam/pamer/Podium.
+**Sudah terintegrasi:** memancing (bonus setelah ikan biasa mendarat; peluang ikan lama & Megalodon tidak berubah), kotak pancing/inventaris, koleksi (Samudra Follower), kartu tangkapan asli, dan penjualan. Server (`ecoCatch`/`ecoSell`/`ecoSfInfo`) MENGUNDI sendiri (acak server) satu kesempatan per ikan biasa sah, lalu membuat ikan SF (uid, berat, harga dikunci); klien tidak bisa mengirim ikan `sf_*`. Batas harian, idempoten per `opId`, uid yang sudah diundi tidak diundi ulang. Ikan Prabowo hanya jika `sf.eventOn=true`. Kredit pengusul tetap di keempat ikan. Tidak masuk akuarium/kolam/pamer/Podium.
 
 ### USULAN nilai final (BELUM AKTIF — menunggu persetujuan Owner)
 | Ikan | Rarity | Berat | Harga/kg | Peluang | Batas/hari |
@@ -89,5 +89,5 @@ Untuk mengaktifkan (Owner), tulis ke `shop/config` (Worker: `shop_config/main`):
 1. Persetujuan Owner atas tabel di atas + penulisan `sf` ke config (belum ada UI Owner).
 2. Sakelar event Prabowo (`sf.eventOn`) oleh Owner.
 3. Belum diuji di Firebase/Cloudflare nyata (sandbox tanpa jaringan) dan belum di Android.
-4. Server tidak bisa memverifikasi undian acak klien; dibatasi `ref` sekali pakai + batas harian (≤4/hari total).
+4. Undian sudah di server, tetapi server masih memercayai laporan 'ikan biasa mendarat' dari klien (dibatasi laju 1,5 dtk/400 per jam, uid unik, batas harian ≤4/hari). Bukan anti-cheat sempurna.
 5. Kecil: `cloud/core.js` dexCount menghitung id SF di ringkasan simpanan.
