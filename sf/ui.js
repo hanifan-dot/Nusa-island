@@ -5,7 +5,7 @@
 const NW = (window.NW = window.NW || {});
 const C = window.NusaSFCatalog; if (!C) return;
 let mode = C.DEFAULT_MODE;
-try { const q = new URLSearchParams(location.search).get("sf"); if (q === "preview") mode = "preview"; } catch (e) {}
+try { const q = new URLSearchParams(location.search).get("sf"); if (q === "preview" && window.NUSA_SF_PREVIEW === true) mode = "preview"; } catch (e) {}
 const on = () => mode !== "off";
 const $ = (id) => document.getElementById(id);
 const reduced = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; } };

@@ -16,3 +16,5 @@ window.NUSA_FIREBASE = {
 
 // Rumahku Sosial (minta izin berkunjung → pemilik TERIMA/TOLAK, blokir, senyap): MATI sampai Owner menyetujui deploy backend Tahap 4 (fungsi homeVisitRequest/homeInbox/homeVisitRespond/homePrefs di nusa-api).
 window.NUSA_SOCIAL_HOME = false;
+// Samudra Follower: pratinjau koleksi (?sf=preview) MATI di produksi. Ikan belum bisa dipancing sampai Owner menyetujui harga/peluang (shop_config/main.sf) dan jalur klien selesai.
+if (window.NUSA_SF_PREVIEW !== true) window.NUSA_SF_PREVIEW = false;   // (uji boleh menyalakannya sebelum halaman dimuat)

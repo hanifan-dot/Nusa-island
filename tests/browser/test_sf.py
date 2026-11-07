@@ -8,7 +8,7 @@ ok, ev, wait_for, seed, R = ns["ok"], ns["ev"], ns["wait_for"], ns["seed"], ns["
 OUT = os.environ.get("SHOTS", "/tmp/nusa-sf/"); os.makedirs(OUT, exist_ok=True)
 def page(b, q="", vp=(360, 740)):
     ctx = b.new_context(viewport={"width": vp[0], "height": vp[1]}, has_touch=True, device_scale_factor=2)
-    ctx.add_init_script("window.__demoAuto='demo-a';if(!localStorage.getItem('__seeded')){localStorage.setItem('nusa-island-v1', %s);localStorage.setItem('__seeded','1')}" % json.dumps(json.dumps(seed("Budi"))))
+    ctx.add_init_script(("window.NUSA_SF_PREVIEW=true;" if "sf=preview" in q else "") + "window.__demoAuto='demo-a';if(!localStorage.getItem('__seeded')){localStorage.setItem('nusa-island-v1', %s);localStorage.setItem('__seeded','1')}" % json.dumps(json.dumps(seed("Budi"))))
     pg = ctx.new_page(); errs = []; pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.goto(ns["ROOT"] + "?cloud=demo" + q); wait_for(pg, "window.NW && NW.cloud && NW.cloud.status!=='init'", 8); time.sleep(0.3)
     pg.click("#gateGoogle"); wait_for(pg, "(()=>{const g=document.getElementById('gate');return !g || g.classList.contains('hidden')})()", 10); time.sleep(0.5)

@@ -2,6 +2,9 @@
   "_catatan": "Daftar fitur yang WAJIB ikut di setiap rilis. Dibaca oleh firebase/scripts/cek-rilis.js (dijalankan di tombol GitHub dan rilis.sh). Menambah fitur baru = tambah entri di sini; menghapus fitur live HARUS disengaja lewat retired.",
   "retired": [],
   "features": [
+    { "id": "rumahku-sosial", "nama": "Rumahku Sosial (minta izin berkunjung, default mati)", "files": ["house/social.js"],
+      "index": ["house/social.js"], "build_dirs": ["house"],
+      "markers": [["house/social.js", "homeVisitRequest"], ["cloud/config.js", "NUSA_SOCIAL_HOME = false"]] },
     { "id": "samudra-follower", "nama": "Samudra Follower (4 ikan ide pengikut, default mati)", "files": ["sf/catalog.js", "sf/draw.js", "sf/ui.js", "sf/sf.css", "economy/sf-core.js"],
       "index": ["sf/sf.css", "sf/catalog.js", "sf/draw.js", "sf/ui.js"], "build_dirs": ["sf"],
       "markers": [["sf/catalog.js", "DEFAULT_MODE"], ["game.js", "NW.sf.gridHTML()"], ["economy/core.js", "SFX.takeDaily"]] },

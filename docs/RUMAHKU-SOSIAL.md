@@ -21,3 +21,11 @@ Tidak ada jalur ke koin, kolam, inventaris, atau Cloud Save: fungsi baru hanya m
 
 ## Syarat aktif (Owner)
 Deploy backend (nusa-api PLAYER_FN + core) → deploy nusa-multiplayer → ubah flag → hosting. Tidak diaktifkan di sini. Backend belum terverifikasi di Firestore/Cloudflare asli.
+
+
+---
+## KOREKSI ALUR (kandidat rilis 2026-11-07)
+Alur awal terbalik. **Alur benar:** Budi memilih Rudi dari daftar online → tombol "Minta izin berkunjung" → Rudi (pemilik) melihat "Budi ingin berkunjung ke Rumahku milikmu" → TERIMA/TOLAK → bila TERIMA, Budi mendapat jawaban + tombol MASUK (tidak ada teleport otomatis; Rudi tetap di rumahnya, tetap pemilik, bisa kick/blokir/senyap).
+API: `homeVisitRequest`, `homeInbox` (`requests` + `answers`), `homeVisitRespond`, `homePrefs` (menggantikan `homeInvite`/`homeRespond`). Tes: `tests/unit-house-social.js` (54), `tests/browser/test_rumahku_sosial.py` (25, dua akun Budi→Rudi: request, accept, masuk, decline, kick, senyap, blokir), screenshot `docs/rumahku-sosial/`.
+Nama permanen vs `profile.name`: hanya andalkan `profile.name` bila `profile.uname` ada; selain itu nama lokal bebas (server memakai nama dari Cloud Save pemilik, bukan dari klien).
+Flag `NUSA_SOCIAL_HOME` tetap `false`.
