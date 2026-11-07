@@ -1,0 +1,38 @@
+/* NUSA ISLAND — Pilih Dunia Bermain: panel modern bertema Nusa Island (teal/mint/gold/krem). Tanpa emoji; ikon SVG. */
+.wm-ov { position: fixed; inset: 0; z-index: 65; display: flex; align-items: flex-end; justify-content: center; background: rgba(8, 28, 36, 0); transition: background .22s ease; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.wm-ov.hidden { display: none; } .wm-ov.show { background: rgba(8, 28, 36, .66); }
+.wm-sheet { position: relative; width: 100%; max-width: 760px; box-sizing: border-box; max-height: 100%; overflow-y: auto; background: linear-gradient(180deg, #fffaf0 0%, #f4ecd6 100%); color: #173f50; border-radius: 22px 22px 0 0; padding: 18px 14px calc(18px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 40px rgba(0, 0, 0, .35); transform: translateY(24px); opacity: 0; transition: transform .24s cubic-bezier(.2, .8, .2, 1), opacity .2s ease; border-top: 4px solid #e0b84c; }
+.wm-ov.show .wm-sheet { transform: none; opacity: 1; }
+@media (min-width: 640px) { .wm-ov { align-items: center; padding: 16px; } .wm-sheet { border-radius: 22px; border: 3px solid #e0b84c; max-height: 94vh; } }
+.wm-x { position: absolute; top: 10px; right: 10px; width: 44px; height: 44px; border-radius: 50%; border: 2px solid #173f50; background: #fff; color: #173f50; display: grid; place-items: center; cursor: pointer; padding: 0; box-shadow: 0 2px 0 rgba(23, 63, 80, .25); z-index: 2; }
+.wm-x:hover { background: #ffe9c6; } .wm-x:focus-visible, .wm-btn:focus-visible { outline: 3px solid #1c8fd1; outline-offset: 2px; }
+.wm-head { text-align: center; padding: 2px 52px 10px; }
+.wm-head h2 { margin: 0; font: 800 20px/1.2 var(--display, Georgia, serif); letter-spacing: .08em; color: #173f50; outline: none; }
+.wm-head h2::after { content: ""; display: block; width: 64px; height: 4px; border-radius: 3px; margin: 8px auto 0; background: linear-gradient(90deg, #579b8b, #e0b84c); }
+.wm-sub { margin: 8px 0 0; font-size: 13.5px; line-height: 1.4; color: #4b6b78; }
+.wm-body.wm-in { animation: wmSwap .26s ease both; }
+@keyframes wmSwap { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.wm-cards { display: grid; gap: 12px; grid-template-columns: 1fr; }
+@media (min-width: 640px) { .wm-cards { grid-template-columns: 1fr 1fr; } }
+.wm-card { background: #fff; border: 2px solid #cdbf98; border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 3px 0 rgba(23, 63, 80, .12); transition: border-color .2s, transform .2s, box-shadow .2s; }
+.wm-card.on { border-color: #579b8b; box-shadow: 0 0 0 3px rgba(87, 155, 139, .28), 0 3px 0 rgba(23, 63, 80, .12); }
+.wm-art-wrap { position: relative; background: #cfeaf2; line-height: 0; } .wm-art { width: 100%; height: 142px; display: block; } @media (min-width: 640px) { .wm-art { height: 150px; } }
+.wm-badge { position: absolute; top: 8px; left: 8px; background: #1e9d4f; color: #fff; font: 800 11px/1 system-ui, sans-serif; letter-spacing: .1em; padding: 6px 9px; border-radius: 999px; box-shadow: 0 2px 0 rgba(0, 0, 0, .2); }
+.wm-cbody { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.wm-cbody h3 { margin: 0; font: 800 17px/1.2 var(--display, Georgia, serif); letter-spacing: .08em; color: #173f50; }
+.wm-card.multi h3 { color: #1b6f8a; } .wm-card.single h3 { color: #8a5a1c; }
+.wm-cbody p { margin: 0; font-size: 14px; line-height: 1.45; color: #2c4f5d; }
+.wm-st { display: flex; align-items: flex-start; gap: 8px; padding: 9px 11px; border-radius: 12px; background: #f1f6f5; font-size: 13.5px; line-height: 1.35; font-weight: 600; color: #274b59; margin-top: auto; }
+.wm-dot { flex: 0 0 auto; width: 11px; height: 11px; border-radius: 50%; margin-top: 4px; background: #9aa9ae; box-shadow: 0 0 0 3px rgba(154, 169, 174, .25); }
+.wm-st.ok .wm-dot { background: #1e9d4f; box-shadow: 0 0 0 3px rgba(30, 157, 79, .25); } .wm-st.wait .wm-dot { background: #e0b84c; box-shadow: 0 0 0 3px rgba(224, 184, 76, .3); animation: wmPulse 1s ease-in-out infinite; }
+.wm-st.warn .wm-dot { background: #e08a2e; box-shadow: 0 0 0 3px rgba(224, 138, 46, .3); } .wm-st.bad .wm-dot { background: #e2574c; box-shadow: 0 0 0 3px rgba(226, 87, 76, .28); } .wm-st.bad { background: #fdeceb; color: #8a2a22; }
+@keyframes wmPulse { 50% { transform: scale(1.35); opacity: .7; } }
+.wm-btn { display: block; width: 100%; box-sizing: border-box; min-height: 50px; padding: 12px 14px; border: 0; border-radius: 14px; font: 800 15.5px/1.2 system-ui, sans-serif; letter-spacing: .02em; cursor: pointer; background: #579b8b; color: #fff; box-shadow: 0 3px 0 rgba(23, 63, 80, .25); transition: transform .1s, filter .15s; }
+.wm-btn:hover:not(:disabled) { filter: brightness(1.06); } .wm-btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 rgba(23, 63, 80, .25); }
+.wm-btn.alt { background: #c98a2b; } .wm-btn.ghost { background: transparent; color: #173f50; border: 2px solid #cdbf98; box-shadow: none; margin-top: 10px; }
+.wm-btn:disabled { opacity: .5; cursor: default; box-shadow: none; }
+.wm-pane { background: #fff; border: 2px solid #cdbf98; border-radius: 18px; padding: 16px 14px; }
+.wm-h { margin: 0 0 8px; font: 800 18px/1.25 var(--display, Georgia, serif); color: #173f50; } .wm-pane p { margin: 0 0 14px; font-size: 14.5px; line-height: 1.5; color: #2c4f5d; }
+.wm-note { margin: 12px 2px 0; padding: 10px 12px; border-radius: 12px; background: #eef5f3; font-size: 13.5px; font-weight: 600; color: #274b59; } .wm-note.good { background: #e3f5e9; color: #14663a; } .wm-note.bad { background: #fdeceb; color: #8a2a22; }
+.hm-ic .wm-ico { display: block; color: #173f50; } body.wm-open { overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .wm-sheet, .wm-ov, .wm-body.wm-in, .wm-dot { animation: none !important; transition: none !important; } }
