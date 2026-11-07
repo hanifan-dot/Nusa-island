@@ -94,6 +94,9 @@ with sync_playwright() as p:
         from_price = ev(pg, "(it)=>NW.FM.priceFor({price:7400},it.w,1,Nusa.PRICE_SCALE||3)", it)
         ok("D1 jual: server membayar tepat harga terkunci (7400/kg × berat), saldo naik sebesar itu", res == from_price and ev(pg, "NW.eco.balance()") == bal1 + res, (res, from_price))
         ok("D2 jual dua kali tidak membayar lagi (anti-ganda)", ev(pg, "(uid)=>new Promise(r=>NW.eco.sell([uid],(e,x)=>r(e?'ERR':x.total)))", uid) in (0, "ERR"))
+        ev(pg, "()=>{const b=document.getElementById('catchOk');if(b&&b.offsetParent)b.click();window.__nusa.G.phase='idle'}"); ev(pg, "()=>{Nusa.openPanel('inventory')}"); time.sleep(0.7)
+        ev(pg, "()=>{Nusa.S.cooler=Nusa.S.cooler.filter(i=>i.uid!==arguments[0])}") if False else None
+        pg.screenshot(path=os.path.join(SHOTS, "16-setelah-jual-validasi-server.png")); ev(pg, "()=>Nusa.closePanel()")
         # Prabowo: hanya saat event Owner
         ev(pg, CFG({"sf_prabowo": 750})); ev(pg, "async()=>{await NW.sfPlay.refresh(true)}")
         ok("E1 Prabowo disetujui tetapi event MATI → tidak aktif", ev(pg, "NW.sfPlay.info().fish.length") == 0)
