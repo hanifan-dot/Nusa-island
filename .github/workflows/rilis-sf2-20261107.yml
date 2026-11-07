@@ -1,0 +1,337 @@
+# Rilis manual Samudra Follower V2: dari main hanya workflow; game/backend DI-PIN ke pasangan SHA integrasi teruji (game f0aeae3, backend 05b9dba).
+# Berdasarkan workflow sukses "RILIS Nusa Island Quest Owner" (run sukses terbaru). Menambah ecoSf2Info/ecoSf2Catch (Worker) + aset sf2/ (Hosting). Quest Owner, Joran WhatsApp, Tas, Aurora, Cloud Save, SF lama, multiplayer, QRIS, Payment Center, flags & secrets dipertahankan.
+# ROLLBACK ke produksi sebelumnya (Quest Owner): mode=rollback, game_sha=8d9afbf5cdfce45fcf1557bdb7f5e614e8dc26e2, backend_sha=65b131e25f6af388171ac432626ff1bd385924a1, konfirmasi=deploy, target=api-dashboard+hosting, multiplayer=ya.
+name: RILIS Nusa Island Samudra Follower V2
+on:
+  workflow_dispatch:
+    inputs:
+      konfirmasi:
+        description: "Ketik persis deploy"
+        type: string
+        required: true
+      mode:
+        description: "deploy = rilis Quest Owner (pasangan SHA integrasi). rollback = isi kedua SHA sebelum update (game+backend)."
+        type: choice
+        options: ["deploy", "rollback"]
+        default: "deploy"
+      game_sha:
+        description: "Kosong = game Quest Owner teruji; rollback isi SHA game sebelum update."
+        type: string
+        required: false
+        default: ""
+      backend_sha:
+        description: "Kosong = backend Quest Owner teruji; rollback isi SHA backend sebelum update."
+        type: string
+        required: false
+        default: ""
+      multiplayer:
+        description: "WAJIB ya (multiplayer ikut dibangun ulang agar konsisten dengan rilis +40%)."
+        type: choice
+        options: ["tidak", "ya"]
+        default: "ya"
+      target:
+        description: "WAJIB api-dashboard+hosting (aset questowner/ ada di Hosting)."
+        type: choice
+        options: ["api-dashboard", "api-dashboard+hosting"]
+        default: "api-dashboard+hosting"
+concurrency:
+  group: nusa-island-production
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  pin:
+    name: Tentukan SHA (paket final atau rollback)
+    runs-on: ubuntu-latest
+    outputs:
+      game: ${{ steps.p.outputs.game }}
+      backend: ${{ steps.p.outputs.backend }}
+      mode: ${{ steps.p.outputs.mode }}
+    steps:
+      - id: p
+        env:
+          MODE: ${{ inputs.mode }}
+          IN_G: ${{ inputs.game_sha }}
+          IN_B: ${{ inputs.backend_sha }}
+        run: |
+          set -e
+          G="${IN_G:-f0aeae3763111c7df38831496d7728456f2d937a}"; B="${IN_B:-05b9dba79f62cc87a22df66a1849f45741eb4d96}"
+          if [ "$MODE" = "rollback" ]; then
+            [ -n "$IN_G" ] && [ -n "$IN_B" ] || { echo "::error::Rollback WAJIB mengisi game_sha dan backend_sha produksi sebelumnya"; exit 1; }
+          fi
+          if [ "$MODE" = "deploy" ]; then
+            [ "$G" = "f0aeae3763111c7df38831496d7728456f2d937a" ] && [ "$B" = "05b9dba79f62cc87a22df66a1849f45741eb4d96" ] || { echo "::error::Hanya pasangan SHA rilis hasil integrasi aman yang diizinkan"; exit 1; }
+          fi
+          printf '%s' "$G" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::game_sha harus 40 hex"; exit 1; }
+          printf '%s' "$B" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::backend_sha harus 40 hex"; exit 1; }
+          echo "game=$G" >> "$GITHUB_OUTPUT"; echo "backend=$B" >> "$GITHUB_OUTPUT"; echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "Mode $MODE: game ${G:0:7}, backend ${B:0:7}"
+  cek:
+    needs: pin
+    name: Tes kandidat tanpa kunci produksi
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hanya Owner dan konfirmasi
+        env:
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+          CONFIRM: ${{ inputs.konfirmasi }}
+        run: |
+          [ "$ACTOR" = "$OWNER" ] || exit 1
+          [ "$CONFIRM" = "deploy" ] || exit 1
+      - name: Pastikan rilis tiga komponen, tanpa salah target
+        env:
+          TARGET: ${{ inputs.target }}
+          MP: ${{ inputs.multiplayer }}
+        run: |
+          [ "$TARGET" = "api-dashboard+hosting" ] && [ "$MP" = "ya" ] || { echo "::error::Rilis +40% wajib API+Hosting dan multiplayer=ya"; exit 1; }
+      - name: Verifikasi akses baca repository backend privat
+        env:
+          NUSA_BACKEND_READ_TOKEN: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+        run: |
+          if [ -z "$NUSA_BACKEND_READ_TOKEN" ]; then
+            echo "::error::Akses repo backend privat belum terhubung. Tambahkan GitHub Actions repository secret NUSA_BACKEND_READ_TOKEN (fine-grained PAT, Contents: Read, hanya repo nusa-island-control-center) ke repo Nusa-island."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/Nusa-island
+          ref: ${{ needs.pin.outputs.game }}
+          fetch-depth: 0
+          path: game
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/nusa-island-control-center
+          ref: ${{ needs.pin.outputs.backend }}
+          token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+          persist-credentials: false
+          path: backend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Cek shell, vendor dan aset wajib
+        run: |
+          bash -n game/firebase/scripts/deploy-api-kandidat.sh
+          bash -n game/firebase/scripts/rilis.sh
+          bash -n game/firebase/scripts/cf-auth-check.sh
+          cmp game/economy/core.js backend/server/vendor/economy-core.cjs
+          cmp game/house/core.js backend/server/vendor/house-core.cjs
+          cmp game/economy/sf-core.js backend/server/vendor/sf-core.cjs
+          cmp game/economy/aurora-core.js backend/server/vendor/aurora-core.cjs
+          cmp game/economy/quest-core.js backend/server/vendor/quest-core.cjs
+          cmp game/economy/sf2-core.js backend/server/vendor/sf2-core.cjs
+          cmp game/economy/tables.js backend/server/vendor/economy-tables.cjs
+          cmp game/fishmath.js backend/server/vendor/fishmath.cjs
+          cmp game/streak/core.js backend/server/vendor/streak-core.cjs
+          cmp game/event/core.js backend/server/vendor/event-core.cjs
+          cmp game/economy/pond-core.js backend/server/vendor/pond-core.cjs
+          cmp game/economy/fashion-core.js backend/server/vendor/fashion-core.cjs
+          cmp game/username/core.js backend/server/vendor/name-core.cjs
+          (cd game && node firebase/scripts/cek-rilis.js && node tests/unit-mp.js && node tests/unit-cf-auth.js)
+      - name: Regresi khusus update +40% (dilewati saat rollback)
+        if: ${{ needs.pin.outputs.mode == 'deploy' }}
+        run: |
+          cmp game/economy/core.js backend/server/vendor/economy-core.cjs
+          cmp game/cloud/core.js backend/server/vendor/cloud-core.cjs
+          grep -Fq "async ecoSfInfo(auth)" game/economy/core.js
+          grep -Fq "sfRoll(eco, rolled, sfCfg, now)" game/economy/core.js
+          grep -Fq "sfGot(rr)" game/economy/client.js
+          grep -Fq "async ecoEquip(auth, p)" backend/server/vendor/economy-core.cjs
+          grep -Fq "ecoEquip" backend/worker/index.js
+          grep -Fq "GAME_TABS" backend/public/js/nav.js
+          for fn in ecoQuestState ecoQuestOpen ecoQuestClaim ecoQuestEquip; do grep -Fq "'$fn'" backend/worker/index.js; grep -Fq "async $fn(auth" backend/server/vendor/economy-core.cjs; done
+          grep -Fq "quest: questCore" backend/worker/index.js
+          grep -Fq "plausKg" game/economy/core.js
+          grep -Fq "qoBagEquip" game/bag/bag.js
+          for f in questowner/questowner.js questowner/ui.js questowner/questowner.css economy/quest-core.js firebase/functions/lib/quest-core.js; do test -s "game/$f" || { echo "::error::Berkas Quest Owner hilang: $f"; exit 1; }; done
+          for fn in ecoSf2Info ecoSf2Catch; do grep -Fq "'$fn'" backend/worker/index.js; grep -Fq "async $fn(auth" backend/server/vendor/economy-core.cjs; done
+          grep -Fq "sf2: sf2Core" backend/worker/index.js
+          grep -Fq "'sf2/firsts'" backend/server/shop/db.js
+          grep -Fq 'A-Za-z0-9_' backend/worker/index.js
+          for f in sf2/sf2.js sf2/area.js sf2/draw.js sf2/sf2.css economy/sf2-core.js firebase/functions/lib/sf2-core.js; do test -s "game/$f" || { echo "::error::Berkas SF V2 hilang: $f"; exit 1; }; done
+          for t in unit-sf2 unit-sf2-map unit-quest unit-streak unit-shop unit-rilis unit-sf-server unit-podium unit-house-social unit-fashion unit-pond; do node game/tests/$t.js; done
+          node - <<'NODE'
+          const fs = require('node:fs'); const rd = (p) => fs.readFileSync(p, 'utf8'); let bad = 0;
+          const fail = (m) => { console.error('::error::' + m); bad++; };
+          // A. Functions lib dibuat sync-economy.js: header + isi sumber
+          for (const [src, dst] of [['economy/core.js','economy-core.js'],['economy/tables.js','economy-tables.js'],['fishmath.js','fishmath.js'],['streak/core.js','streak-core.js'],['economy/quest-core.js','quest-core.js'],['economy/sf2-core.js','sf2-core.js'],['event/core.js','event-core.js'],['house/core.js','house-core.js'],['username/core.js','name-core.js'],['economy/pond-core.js','pond-core.js'],['economy/fashion-core.js','fashion-core.js'],['economy/aurora-core.js','aurora-core.js'],['economy/sf-core.js','sf-core.js']]) {
+            const exp = '// SALINAN OTOMATIS dari ' + src + ' — jangan diedit di sini (node firebase/scripts/sync-economy.js).\n' + rd('game/' + src);
+            if (!fs.existsSync('game/firebase/functions/lib/' + dst) || rd('game/firebase/functions/lib/' + dst) !== exp) fail('Salinan Functions kedaluwarsa: ' + dst); else console.log('OK functions/lib/' + dst);
+          }
+          // B. toko: dibuat sync-shop.js (header sendiri)
+          const shopExp = '// SALINAN OTOMATIS dari shop/core.js — jangan diedit di sini (node firebase/scripts/sync-shop.js).\n' + rd('game/shop/core.js');
+          if (rd('game/firebase/functions/lib/shop-core.js') !== shopExp) fail('Salinan Functions kedaluwarsa: shop-core.js'); else console.log('OK functions/lib/shop-core.js');
+          // C. Cloud: SUMBER ada di functions/lib/core.js (tanpa header); cloud/core.js disalin mentah oleh sync-core.js. Tidak ada functions/lib/cloud-core.js.
+          if (rd('game/cloud/core.js') !== rd('game/firebase/functions/lib/core.js')) fail('cloud/core.js tidak identik dengan firebase/functions/lib/core.js'); else console.log('OK cloud/core.js == functions/lib/core.js');
+          // D. 14 vendor backend identik byte-per-byte dengan sumber game
+          for (const [src, dst] of [['economy/core.js','economy-core.cjs'],['economy/quest-core.js','quest-core.cjs'],['economy/sf2-core.js','sf2-core.cjs'],['economy/aurora-core.js','aurora-core.cjs'],['economy/sf-core.js','sf-core.cjs'],['house/core.js','house-core.cjs'],['cloud/core.js','cloud-core.cjs'],['streak/core.js','streak-core.cjs'],['economy/pond-core.js','pond-core.cjs'],['economy/fashion-core.js','fashion-core.cjs'],['event/core.js','event-core.cjs'],['economy/tables.js','economy-tables.cjs'],['username/core.js','name-core.cjs'],['fishmath.js','fishmath.cjs']]) {
+            if (rd('game/' + src) !== rd('backend/server/vendor/' + dst)) fail('Vendor backend berbeda dari game: ' + dst); else console.log('OK vendor/' + dst);
+          }
+          if (bad) process.exit(1);
+          console.log('OK: semua salinan Functions + 14 vendor backend identik dengan sumber.');
+          NODE
+          (cd game && NUSA_API_BASE=https://nusa-api.contoh.workers.dev NUSA_MP_WS=wss://nusa-multiplayer.contoh.workers.dev bash firebase/scripts/build-hosting.sh produksi >/dev/null && node firebase/scripts/cek-rilis.js --build firebase/public --live https://nusa-island-d2023.web.app --require-live && for f in questowner/questowner.js questowner/ui.js questowner/questowner.css economy/quest-core.js bag/bag.js; do test -s "firebase/public/$f" || { echo "::error::Aset tidak masuk build Hosting: $f"; exit 1; }; done && grep -Fq "NW.quest" firebase/public/questowner/questowner.js && echo "OK: aset Quest Owner ada di build Hosting")
+          grep -Fq "MAP_W = 40, MAP_H = 52" game/mp/proto.js
+          node game/tests/unit-map-ext.js
+          node game/tests/unit-cloud.js
+          node game/tests/unit-economy.js
+          node game/tests/unit-aurora.js
+      - name: Tes backend dan scan rahasia
+        run: |
+          cd backend
+          npm install --no-package-lock --no-audit --no-fund
+          npm test
+          npm run scan:secrets
+      - name: Bandingkan dengan situs live, cegah fitur hilang (dilewati saat rollback)
+        if: ${{ needs.pin.outputs.mode == 'deploy' }}
+        run: cd game && node firebase/scripts/cek-rilis.js --live https://nusa-island-d2023.web.app --require-live
+
+  rilis:
+    name: Deploy nusa-api + dashboard (Hosting/multiplayer opsional)
+    needs: [pin, cek]
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NEED_HOSTING: ${{ (inputs.target == 'api-dashboard+hosting' || inputs.multiplayer == 'ya') && 'ya' || 'tidak' }}
+      GUARD_SHA: ff3ab0b574bb4cd8b40b5438826b0049c8737dbb
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      NUSA_GAME_DIR: ${{ github.workspace }}/game
+      NUSA_BACKEND_DIR: ${{ github.workspace }}/backend
+      NUSA_GAME_SHA: ${{ needs.pin.outputs.game }}
+      NUSA_BACKEND_SHA: ${{ needs.pin.outputs.backend }}
+      NUSA_CONFIRM: "ya"
+    steps:
+      - name: Verifikasi akses baca repository backend privat
+        env:
+          NUSA_BACKEND_READ_TOKEN: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+        run: |
+          if [ -z "$NUSA_BACKEND_READ_TOKEN" ]; then
+            echo "::error::Akses repo backend privat belum terhubung. Tambahkan GitHub Actions repository secret NUSA_BACKEND_READ_TOKEN (fine-grained PAT, Contents: Read, hanya repo nusa-island-control-center) ke repo Nusa-island."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/Nusa-island
+          ref: ${{ needs.pin.outputs.game }}
+          fetch-depth: 0
+          path: game
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/nusa-island-control-center
+          ref: ${{ needs.pin.outputs.backend }}
+          token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+          persist-credentials: false
+          path: backend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Login Firebase OIDC (tanpa kunci)
+        if: ${{ env.NEED_HOSTING == 'ya' && vars.GCP_WIF_PROVIDER != '' && vars.GCP_DEPLOY_SA != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+          create_credentials_file: true
+      - name: Login Firebase dengan secret cadangan
+        if: ${{ env.NEED_HOSTING == 'ya' && (vars.GCP_WIF_PROVIDER == '' || vars.GCP_DEPLOY_SA == '') }}
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          [ -n "$SERVICE_ACCOUNT" ] || { echo "::error::Konfigurasi Firebase belum siap"; exit 1; }
+          umask 077
+          printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/nusa-sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/nusa-sa.json" >> "$GITHUB_ENV"
+      - name: Verifikasi autentikasi Cloudflare (read-only, tanpa menampilkan rahasia)
+        run: bash game/firebase/scripts/cf-auth-check.sh --emit-env
+      - name: Baca alamat nusa-api dari game live
+        run: |
+          [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || { echo "::error::Secret Cloudflare belum siap"; exit 1; }
+          LIVE=$(curl -fsS --retry 2 https://nusa-island-d2023.web.app/cloud/config.js)
+          API=$(printf '%s' "$LIVE" | grep -oE 'apiBase: "https://nusa-api\.[A-Za-z0-9-]+\.workers\.dev"' | head -1 | cut -d '"' -f 2)
+          [ -n "$API" ] || { echo "::error::Alamat API live tidak ditemukan"; exit 1; }
+          echo "NUSA_API_BASE=$API" >> "$GITHUB_ENV"
+      - name: Ambil penjaga rilis (skrip baca-saja dari backend V2)
+        uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/nusa-island-control-center
+          ref: ${{ env.GUARD_SHA }}
+          token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+          persist-credentials: false
+          path: guard
+      - name: Snapshot status fitur SEBELUM deploy (baca-saja; wajib ada)
+        run: |
+          set -e
+          mkdir -p "$RUNNER_TEMP/rg"
+          curl -fsS --retry 3 --max-time 20 "$NUSA_API_BASE/api/release-status" -o "$RUNNER_TEMP/rg/rs_before.raw" || { echo "::error::release-status SEBELUM deploy tidak terjangkau: tidak bisa membuktikan fitur ON tetap ON. Deploy dibatalkan sebelum menyentuh produksi."; exit 1; }
+          node guard/scripts/release-guard.mjs normalize < "$RUNNER_TEMP/rg/rs_before.raw" > "$RUNNER_TEMP/rg/before.json"
+          curl -fsS --retry 3 --max-time 20 "$NUSA_API_BASE/api/public-config" -o "$RUNNER_TEMP/rg/pc_before.json"
+          node -e 'const s=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const n={"Podium Juara":s.features.leaderboard,"Rumahku Sosial":s.features.socialHome,"Samudra Follower":s.sf.on,"Event Ikan Prabowo":s.sf.eventOn};console.log("Status SEBELUM deploy (dari server): "+Object.entries(n).map(([k,v])=>k+"="+(v?"ON":"OFF")).join(", "))' "$RUNNER_TEMP/rg/before.json"
+      - name: Deploy API dengan pengaman variabel dan secret
+        run: bash game/firebase/scripts/deploy-api-kandidat.sh
+      - name: Deploy Multiplayer 52 + Firebase Hosting game
+        if: ${{ env.NEED_HOSTING == 'ya' }}
+        env:
+          NUSA_API_DEPLOYED: "ya"
+          NUSA_CI: "1"
+          NUSA_TARGET: ${{ inputs.multiplayer == 'ya' && 'semua' || 'game' }}
+          TARGET: ${{ inputs.multiplayer == 'ya' && 'semua' || 'game' }}
+        run: cd game && bash firebase/scripts/rilis.sh --target "$TARGET" --ci
+      - name: Cek sesudah deploy (kesehatan, fitur ON tetap ON, pengaman toko/Aurora, aset dashboard)
+        env:
+          MODE: ${{ needs.pin.outputs.mode }}
+          G: ${{ needs.pin.outputs.game }}
+        run: |
+          set -e
+          curl -fsS --retry 3 "$NUSA_API_BASE/api/health" >/dev/null || { echo "::error::Health nusa-api gagal"; exit 1; }
+          curl -fsS --retry 3 --max-time 20 "$NUSA_API_BASE/api/release-status" -o "$RUNNER_TEMP/rg/rs_after.raw" || { echo "::error::release-status SESUDAH deploy tidak terjangkau"; exit 1; }
+          node guard/scripts/release-guard.mjs normalize < "$RUNNER_TEMP/rg/rs_after.raw" > "$RUNNER_TEMP/rg/after.json"
+          node guard/scripts/release-guard.mjs compare "$RUNNER_TEMP/rg/before.json" "$RUNNER_TEMP/rg/after.json"
+          curl -fsS --retry 3 --max-time 20 "$NUSA_API_BASE/api/public-config" -o "$RUNNER_TEMP/rg/pc_after.json"
+          node guard/scripts/release-guard.mjs shop "$RUNNER_TEMP/rg/pc_before.json" "$RUNNER_TEMP/rg/pc_after.json"
+          if [ "$MODE" = "deploy" ]; then
+            curl -fsS --retry 3 --max-time 20 "$NUSA_API_BASE/js/nav.js" | grep -q "GAME_TABS" || { echo "::error::Aset dashboard V2 (nav.js) belum tersaji dari nusa-api"; exit 1; }
+            curl -fsS --retry 3 --max-time 20 "$NUSA_API_BASE/js/views/game.js" | grep -q "Manajemen Game" || { echo "::error::Aset dashboard V2 (game.js) belum tersaji"; exit 1; }
+            echo "OK: aset dashboard V2 tersaji."
+          fi
+          # Validasi kode aset rilis, bukan sekadar HTTP 200 (Hosting SPA dapat mengembalikan index.html untuk URL salah).
+          if [ "$MODE" = "deploy" ]; then
+            ready=tidak
+            for i in 1 2 3 4 5; do
+              if curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/bag/bag.js?hotfix=$G" | grep -Fq "NW.bag" && \
+                 curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/style/style.js?hotfix=$G" | grep -Fq "NUSA STYLE" && \
+                 curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/mp/proto.js?hotfix=$G" | grep -Fq "MAP_W = 40, MAP_H = 52"; then ready=ya; break; fi
+              sleep 4
+            done
+            [ "$ready" = "ya" ] || { echo "::error::Aset Tas/Style atau batas multiplayer 52 belum tampak di Hosting"; exit 1; }
+            echo "OK: aset Tas + NUSA STYLE + world MH=52 live."
+            qready=tidak
+            for i in 1 2 3 4 5 6; do
+              if curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/questowner/questowner.js?v=$G" | grep -Fq "NW.quest" && \
+                 curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/economy/quest-core.js?v=$G" | grep -Fq "plausKg" && \
+                 curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/bag/bag.js?v=$G" | grep -Fq "qoBagEquip"; then qready=ya; break; fi
+              sleep 5
+            done
+            [ "$qready" = "ya" ] || { echo "::error::Aset Quest Owner belum tampak di Hosting"; exit 1; }
+            echo "OK: aset Quest Owner live di Hosting."
+            sready=tidak
+            for i in 1 2 3 4 5 6; do
+              if curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/sf2/sf2.js?v=$G" | grep -Fq "LOCK_MSG" && \
+                 curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/economy/sf2-core.js?v=$G" | grep -Fq "PITY_MAX" && \
+                 ! curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/sf2/sf2.js?v=$G" | grep -Fq "@ambaleon_12"; then sready=ya; break; fi
+              sleep 5
+            done
+            [ "$sready" = "ya" ] || { echo "::error::Aset Samudra Follower V2 belum tampak di Hosting (atau kredit bocor)"; exit 1; }
+            echo "OK: aset Samudra Follower V2 live; kredit Instagram tidak ikut."
+          fi
+          echo "OK: API sehat; fitur yang ON sebelum deploy tetap ON; pengaman toko tidak berubah. Konfigurasi Owner di Firestore tidak disentuh."
+            # ROLLBACK: mode=rollback, target=api-dashboard+hosting, multiplayer=ya, konfirmasi=deploy,
+      #   backend_sha=65b131e25f6af388171ac432626ff1bd385924a1, game_sha=8d9afbf5cdfce45fcf1557bdb7f5e614e8dc26e2 (Quest Owner).
+      #   Cadangan cepat TANPA deploy: shop_config/main.sf2.off=true menutup pulau (data pemain tidak berubah).
+      - name: Bersihkan kredensial sementara
+        if: always()
+        run: rm -f "$RUNNER_TEMP/nusa-sa.json"
