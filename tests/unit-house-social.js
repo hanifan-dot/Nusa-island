@@ -1,4 +1,4 @@
-// Rumahku Sosial (Tahap 4): undangan, TERIMA/TOLAK, senyap, blokir, cooldown, keluarkan — node tests/unit-house-social.js
+// Rumahku Sosial (Tahap 4, alur BENAR): pemohon MINTA IZIN berkunjung → pemilik TERIMA/TOLAK; senyap, blokir, cooldown, kick, kedaluwarsa — node tests/unit-house-social.js
 const cloud = require("../firebase/functions/lib/core.js"), H = require("../house/core.js");
 let pass = 0, fail = 0;
 const ok = (n, c, x) => { if (c) pass++; else { fail++; console.log("FAIL ", n, x === undefined ? "" : JSON.stringify(x)); } };
@@ -15,72 +15,86 @@ const wr = (srv, uid, s) => srv.writeSave(A(uid), { data: JSON.stringify(s), bas
   const U = ["uid-budi", "uid-sari", "uid-rudi"], P = U.map(H.pidOf);
   for (const [i, u] of U.entries()) await wr(srv, u, save(["Budi", "Sari", "Rudi"][i], 2));
   await wr(srv, "uid-kosong", null === 1 ? {} : save("Kosong", 1));
-  // --- undangan dasar ---
-  let r = await house.homeInvite(A("uid-budi"), { pid: P[1] }); ok("undangan terkirim", r.ok && r.sent === true, r);
-  let ib = await house.homeInbox(A("uid-sari")); ok("kotak masuk berisi 1 undangan dari Budi (nama dari server)", ib.invites.length === 1 && ib.invites[0].name === "Budi" && ib.invites[0].pid === P[0] && !/uid-|@/.test(JSON.stringify(ib)), ib);
-  ok("pengirim tidak punya undangan", (await house.homeInbox(A("uid-budi"))).invites.length === 0);
-  await rej("tidak bisa mengundang diri sendiri", house.homeInvite(A("uid-budi"), { pid: P[0] }), "invalid-argument");
-  await rej("pid tak dikenal", house.homeInvite(A("uid-budi"), { pid: "ZZZZZZZZ" }), "not-found");
-  await rej("pid tidak valid", house.homeInvite(A("uid-budi"), { pid: "x" }), "invalid-argument");
-  await rej("tanpa login", house.homeInvite({}, { pid: P[1] }), "unauthenticated");
-  r = await house.homeInvite(A("uid-budi"), { pid: P[1] }); ok("cooldown anti-spam 60 dtk", r.sent === false && r.wait > 0, r);
-  ok("cooldown tidak menambah undangan", (await house.homeInbox(A("uid-sari"))).invites.length === 1);
-  // --- rumah privat: tamu belum boleh masuk ---
-  await rej("sebelum terima: Sari ditolak masuk (privat)", house.homeVisit(A("uid-sari"), { pid: P[0] }), "permission-denied");
-  await rej("sebelum terima: pintu multiplayer menolak", house.homeAccess(A("uid-sari"), { pid: P[0] }), "permission-denied");
-  // --- hak akses: pihak lain tidak bisa menjawab undangan orang ---
-  const id = ib.invites[0].id;
-  await rej("Rudi tidak bisa menerima undangan milik Sari", house.homeRespond(A("uid-rudi"), { id, accept: true }), "not-found");
-  await rej("id undangan ngawur", house.homeRespond(A("uid-sari"), { id: "abc", accept: true }), "not-found");
-  await rej("accept bukan boolean true = tolak, tapi id palsu tetap ditolak", house.homeRespond(A("uid-sari"), { id: "", accept: true }), "invalid-argument");
-  // --- TERIMA ---
-  r = await house.homeRespond(A("uid-sari"), { id, accept: true }); ok("terima: server memberi pid & nama pengundang", r.ok && r.accepted && r.pid === P[0] && r.name === "Budi", r);
-  ok("undangan hilang dari kotak masuk", (await house.homeInbox(A("uid-sari"))).invites.length === 0);
-  await rej("undangan tidak bisa dipakai dua kali", house.homeRespond(A("uid-sari"), { id, accept: true }), "not-found");
-  const v = await house.homeVisit(A("uid-sari"), { pid: P[0] }); ok("setelah terima: boleh masuk rumah privat", v.ok && v.owner.name === "Budi", v);
-  const ac = await house.homeAccess(A("uid-sari"), { pid: P[0] }); ok("pintu multiplayer: boleh masuk sebagai tamu", ac.role === "visitor" && ac.room === "rumah-" + P[0], ac);
-  await rej("Rudi (tidak diundang) tetap ditolak", house.homeVisit(A("uid-rudi"), { pid: P[0] }), "permission-denied");
-  ok("tidak ada uid/email bocor di dokumen publik", !/@rahasia|uid-sari/.test(db.m.get("homepub/" + P[0]).replace(/"uid":"uid-budi"/, "")), null);
-  // --- keluarkan tamu mencabut izin ---
-  await house.homeKick(A("uid-budi"), { pid: P[1] });
-  await rej("setelah dikeluarkan: Sari ditolak", house.homeVisit(A("uid-sari"), { pid: P[0] }), "permission-denied");
-  await rej("dikeluarkan: tidak bisa diundang lagi seketika", house.homeInvite(A("uid-budi"), { pid: P[1] }), "failed-precondition");
-  // --- izin kedaluwarsa ---
-  T += 61000; // lewat cooldown undangan; ban 1 jam masih berlaku
-  T += 61 * 60000;
-  await house.homeInvite(A("uid-budi"), { pid: P[1] }); ib = await house.homeInbox(A("uid-sari"));
-  await house.homeRespond(A("uid-sari"), { id: ib.invites[0].id, accept: true });
-  ok("terima lagi setelah larangan habis: masuk", (await house.homeVisit(A("uid-sari"), { pid: P[0] })).ok);
+  // Budi (pemohon) minta izin berkunjung ke rumah Rudi (pemilik). Rumah Rudi privat.
+  const [B, S_, R_] = [A("uid-budi"), A("uid-sari"), A("uid-rudi")];
+  let r = await house.homeVisitRequest(B, { pid: P[2] }); ok("Budi → Rudi: permintaan terkirim", r.ok && r.sent === true, r);
+  let ib = await house.homeInbox(R_); ok("Rudi menerima permintaan dari Budi (nama dari server, tanpa uid/email)", ib.requests.length === 1 && ib.requests[0].name === "Budi" && ib.requests[0].pid === P[0] && !/uid-|@/.test(JSON.stringify(ib)), ib);
+  ok("Budi (pemohon) tidak punya permintaan masuk & belum ada jawaban", (await house.homeInbox(B)).requests.length === 0 && (await house.homeInbox(B)).answers.length === 0);
+  await rej("tidak bisa minta ke diri sendiri", house.homeVisitRequest(B, { pid: P[0] }), "invalid-argument");
+  await rej("pid tak dikenal", house.homeVisitRequest(B, { pid: "ZZZZZZZZ" }), "not-found");
+  await rej("pid tidak valid", house.homeVisitRequest(B, { pid: "x" }), "invalid-argument");
+  await rej("tanpa login", house.homeVisitRequest({}, { pid: P[2] }), "unauthenticated");
+  r = await house.homeVisitRequest(B, { pid: P[2] }); ok("cooldown anti-spam 60 dtk", r.sent === false && r.wait > 0, r);
+  ok("cooldown tidak menambah permintaan", (await house.homeInbox(R_)).requests.length === 1);
+  // sebelum diterima: Budi belum boleh masuk; tidak ada izin terbalik (Rudi juga tidak boleh masuk rumah Budi)
+  await rej("sebelum terima: Budi ditolak masuk rumah Rudi (privat)", house.homeVisit(B, { pid: P[2] }), "permission-denied");
+  await rej("sebelum terima: pintu multiplayer menolak Budi", house.homeAccess(B, { pid: P[2] }), "permission-denied");
+  // hak jawab: hanya pemilik
+  const id = ib.requests[0].id;
+  await rej("Sari tidak bisa menjawab permintaan milik Rudi", house.homeVisitRespond(S_, { id, accept: true }), "not-found");
+  await rej("Budi (pemohon) tidak bisa menerima sendiri permintaannya", house.homeVisitRespond(B, { id, accept: true }), "not-found");
+  await rej("id ngawur", house.homeVisitRespond(R_, { id: "abc", accept: true }), "not-found");
+  await rej("id kosong", house.homeVisitRespond(R_, { id: "", accept: true }), "invalid-argument");
+  // TERIMA oleh Rudi
+  r = await house.homeVisitRespond(R_, { id, accept: true }); ok("Rudi TERIMA: server mengonfirmasi", r.ok && r.accepted && r.pid === P[0] && r.name === "Budi", r);
+  ok("permintaan hilang dari kotak Rudi", (await house.homeInbox(R_)).requests.length === 0);
+  await rej("permintaan sekali pakai (tidak bisa diterima dua kali)", house.homeVisitRespond(R_, { id, accept: true }), "not-found");
+  const ans = (await house.homeInbox(B)).answers; ok("Budi mendapat jawaban DITERIMA dari Rudi (tanpa teleport otomatis)", ans.length === 1 && ans[0].ok === true && ans[0].pid === P[2] && ans[0].name === "Rudi" && !/uid-|@/.test(JSON.stringify(ans)), ans);
+  const v = await house.homeVisit(B, { pid: P[2] }); ok("Budi boleh masuk rumah Rudi setelah diterima", v.ok && v.owner.name === "Rudi", v);
+  const ac = await house.homeAccess(B, { pid: P[2] }); ok("pintu multiplayer: Budi masuk sebagai tamu rumah Rudi (Rudi tetap pemilik)", ac.role === "visitor" && ac.room === "rumah-" + P[2], ac);
+  await rej("tidak ada izin terbalik: Rudi tetap tidak boleh masuk rumah Budi (privat)", house.homeVisit(R_, { pid: P[0] }), "permission-denied");
+  await rej("Sari (tidak diminta) tetap ditolak masuk rumah Rudi", house.homeVisit(S_, { pid: P[2] }), "permission-denied");
+  r = await house.homeVisitRequest(B, { pid: P[2] }); ok("izin masih berlaku: tidak perlu minta lagi", r.sent === false && r.approved === true && r.pid === P[2], r);
+  ok("tidak ada uid/email bocor di dokumen publik", !/@rahasia|uid-budi/.test(db.m.get("homepub/" + P[2]).replace(/"uid":"uid-rudi"/, "")), null);
+  // KICK oleh pemilik mencabut izin
+  await house.homeKick(R_, { pid: P[0] });
+  await rej("setelah di-kick: Budi ditolak masuk", house.homeVisit(B, { pid: P[2] }), "permission-denied");
+  await rej("di-kick: tidak bisa minta lagi seketika", house.homeVisitRequest(B, { pid: P[2] }), "failed-precondition");
+  // setelah larangan habis: minta lagi, diterima, lalu kedaluwarsa 2 jam
+  T += 61 * 60000 + 1000;
+  await house.homeVisitRequest(B, { pid: P[2] }); ib = await house.homeInbox(R_);
+  await house.homeVisitRespond(R_, { id: ib.requests[0].id, accept: true });
+  ok("setelah larangan habis & diterima: masuk", (await house.homeVisit(B, { pid: P[2] })).ok);
   T += 2 * 3600000 + 1000;
-  await rej("izin tamu kedaluwarsa setelah 2 jam", house.homeVisit(A("uid-sari"), { pid: P[0] }), "permission-denied");
-  // --- TOLAK + cooldown tolak ---
-  await house.homeInvite(A("uid-rudi"), { pid: P[1] }); ib = await house.homeInbox(A("uid-sari"));
-  r = await house.homeRespond(A("uid-sari"), { id: ib.invites[0].id, accept: false }); ok("tolak: tidak diterima", r.ok && r.accepted === false);
-  await rej("setelah tolak: tetap tidak bisa masuk", house.homeVisit(A("uid-sari"), { pid: P[2] }), "permission-denied");
-  r = await house.homeInvite(A("uid-rudi"), { pid: P[1] }); ok("setelah ditolak: cooldown 5 menit", r.sent === false && r.wait > 60, r);
-  T += 5 * 60000 + 1000; r = await house.homeInvite(A("uid-rudi"), { pid: P[1] }); ok("cooldown tolak berakhir", r.sent === true);
-  // --- kedaluwarsa undangan ---
-  T += 6 * 60000; ok("undangan kedaluwarsa 5 menit", (await house.homeInbox(A("uid-sari"))).invites.length === 0);
-  await rej("tidak bisa menerima undangan kedaluwarsa", house.homeRespond(A("uid-sari"), { id: "x".repeat(10), accept: true }), "not-found");
-  // --- senyap ---
-  r = await house.homePrefs(A("uid-sari"), { mute: true }); ok("senyap aktif", r.mute === true);
-  ok("pengaturan memuat senyap", (await house.homeSettings(A("uid-sari"))).mute === true);
-  r = await house.homeInvite(A("uid-budi"), { pid: P[1] }); ok("disenyapkan: tampak terkirim (tidak bocor)", r.ok && r.sent === true, r);
-  ok("disenyapkan: tidak masuk kotak", (await house.homeInbox(A("uid-sari"))).invites.length === 0);
-  await house.homePrefs(A("uid-sari"), { mute: false });
-  // --- blokir ---
-  T += 61000; r = await house.homePrefs(A("uid-sari"), { block: P[0], on: true }); ok("blokir Budi", r.blocks.length === 1 && r.blocks[0].name === "Budi" && !/uid-/.test(JSON.stringify(r)), r);
-  r = await house.homeInvite(A("uid-budi"), { pid: P[1] }); ok("diblokir: undangan tampak terkirim tapi tak sampai", r.sent === true && (await house.homeInbox(A("uid-sari"))).invites.length === 0);
-  await rej("pemblokir tidak bisa mengundang yang diblokir", house.homeInvite(A("uid-sari"), { pid: P[0] }), "failed-precondition");
-  await house.homePrefs(A("uid-budi"), { block: P[2], on: true });
-  await rej("diblokir pemilik: Rudi ditolak masuk walau diizinkan", (async () => { await house.homeSetPrivacy(A("uid-budi"), { mode: "public" }); return house.homeVisit(A("uid-rudi"), { pid: P[0] }); })(), "permission-denied");
-  r = await house.homePrefs(A("uid-sari"), { block: P[0], on: false }); ok("buka blokir", r.blocks.length === 0);
-  await rej("blokir diri sendiri", house.homePrefs(A("uid-sari"), { block: P[1], on: true }), "invalid-argument");
-  await rej("prefs kosong", house.homePrefs(A("uid-sari"), {}), "invalid-argument");
-  // --- laju ---
-  let ex = 0; for (let i = 0; i < 12; i++) { try { await house.homeInvite(A("uid-rudi"), { pid: P[0] }); } catch (e) { if (e.code === "resource-exhausted") ex++; } }
-  ok("laju undangan dibatasi per menit", ex > 0, ex);
-  // --- Cloud Save & ekonomi tidak tersentuh ---
+  await rej("izin tamu kedaluwarsa setelah 2 jam", house.homeVisit(B, { pid: P[2] }), "permission-denied");
+  // TOLAK
+  await house.homeVisitRequest(B, { pid: P[2] }); ib = await house.homeInbox(R_);
+  r = await house.homeVisitRespond(R_, { id: ib.requests[0].id, accept: false }); ok("Rudi TOLAK: tidak diterima", r.ok && r.accepted === false);
+  const an2 = (await house.homeInbox(B)).answers; ok("Budi melihat jawaban ditolak", an2.some((a) => a.ok === false && a.pid === P[2]), an2);
+  await rej("setelah ditolak: Budi tetap tidak bisa masuk", house.homeVisit(B, { pid: P[2] }), "permission-denied");
+  r = await house.homeVisitRequest(B, { pid: P[2] }); ok("setelah ditolak: cooldown 5 menit", r.sent === false && r.wait > 60, r);
+  T += 5 * 60000 + 1000; r = await house.homeVisitRequest(B, { pid: P[2] }); ok("cooldown tolak berakhir", r.sent === true);
+  // permintaan & jawaban kedaluwarsa
+  T += 6 * 60000; ok("permintaan kedaluwarsa 5 menit", (await house.homeInbox(R_)).requests.length === 0);
+  ok("jawaban kedaluwarsa 10 menit", (await house.homeInbox(B)).answers.length === 0);
+  await rej("tidak bisa menerima permintaan kedaluwarsa", house.homeVisitRespond(R_, { id: "x".repeat(10), accept: true }), "not-found");
+  // SENYAP (pemilik)
+  r = await house.homePrefs(R_, { mute: true }); ok("senyap aktif", r.mute === true);
+  ok("pengaturan memuat senyap", (await house.homeSettings(R_)).mute === true);
+  r = await house.homeVisitRequest(B, { pid: P[2] }); ok("pemilik senyap: tampak terkirim (tidak bocor)", r.ok && r.sent === true, r);
+  ok("pemilik senyap: tidak masuk kotak", (await house.homeInbox(R_)).requests.length === 0);
+  await house.homePrefs(R_, { mute: false });
+  // BLOKIR
+  T += 61000; r = await house.homePrefs(R_, { block: P[0], on: true }); ok("Rudi blokir Budi", r.blocks.length === 1 && r.blocks[0].name === "Budi" && !/uid-/.test(JSON.stringify(r)), r);
+  r = await house.homeVisitRequest(B, { pid: P[2] }); ok("diblokir pemilik: permintaan tampak terkirim tapi tak sampai", r.sent === true && (await house.homeInbox(R_)).requests.length === 0);
+  await rej("Rudi (pemblokir) tidak bisa menjadi pemohon ke yang diblokir", house.homeVisitRequest(R_, { pid: P[0] }), "failed-precondition");
+  await rej("diblokir pemilik: Budi ditolak masuk walau rumah publik", (async () => { await house.homeSetPrivacy(R_, { mode: "public" }); return house.homeVisit(B, { pid: P[2] }); })(), "permission-denied");
+  r = await house.homePrefs(R_, { block: P[0], on: false }); ok("buka blokir", r.blocks.length === 0);
+  await rej("blokir diri sendiri", house.homePrefs(R_, { block: P[2], on: true }), "invalid-argument");
+  await rej("prefs kosong", house.homePrefs(R_, {}), "invalid-argument");
+  // pemohon memblokir pemilik → tidak bisa meminta
+  await house.homePrefs(B, { block: P[2], on: true });
+  await rej("pemohon yang memblokir tidak bisa minta", house.homeVisitRequest(B, { pid: P[2] }), "failed-precondition");
+  await house.homePrefs(B, { block: P[2], on: false });
+  // blokir mencabut tamu yang sudah diterima
+  await house.homeSetPrivacy(R_, { mode: "private" }); T += 6 * 60000;
+  await house.homeVisitRequest(S_, { pid: P[2] }); ib = await house.homeInbox(R_); await house.homeVisitRespond(R_, { id: ib.requests[0].id, accept: true });
+  ok("Sari diterima → masuk", (await house.homeVisit(S_, { pid: P[2] })).ok);
+  await house.homePrefs(R_, { block: P[1], on: true });
+  await rej("diblokir setelah diterima: izin tamu dicabut", house.homeVisit(S_, { pid: P[2] }), "permission-denied");
+  // laju
+  let ex = 0; for (let i = 0; i < 12; i++) { try { await house.homeVisitRequest(R_, { pid: P[0] }); } catch (e) { if (e.code === "resource-exhausted") ex++; } }
+  ok("laju permintaan dibatasi per menit", ex > 0, ex);
   const keys = [...db.m.keys()].filter((k) => !/^(homepub|homeinbox|homeidx|users)\//.test(k)); ok("tidak menulis koleksi lain (koin/kolam/inventaris)", keys.length === 0, keys);
   const sv = JSON.parse(db.m.get("users/uid-sari/saves/current")); ok("Cloud Save pemain tidak berubah oleh fitur sosial", !/blocks|guests|mute|homeinbox/.test(JSON.stringify(sv)));
   console.log(`unit-house-social: ${pass} lulus, ${fail} gagal`); process.exit(fail ? 1 : 0);

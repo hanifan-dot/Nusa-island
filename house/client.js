@@ -46,7 +46,7 @@ function resultsHTML(list, mode) {
 }
 function pendHTML() {
   const pd = V.pendInvite; if (!pd || pd.until < Date.now()) return "";
-  return `<div class="vh-row"><div class="vh-ic">💌</div><div class="grow"><b>${esc(pd.name)}</b><div class="muted">Undangan diterima</div></div><button class="btn small gold" data-visit="${esc(pd.pid)}">MASUK</button></div>`;
+  return `<div class="vh-row"><div class="vh-ic">💌</div><div class="grow"><b>${esc(pd.name)}</b><div class="muted">Izin berkunjung diterima</div></div><button class="btn small gold" data-visit="${esc(pd.pid)}">MASUK</button></div>`;
 }
 function findHTML() {
   return `<div class="vh-find">${pendHTML()}<input id="vhQ" class="vh-in" type="search" inputmode="search" placeholder="Ketik nama pemain..." maxlength="14" autocomplete="off" autocapitalize="off" enterkeyhint="search" value="${esc(V.q)}">

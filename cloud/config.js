@@ -14,5 +14,5 @@ window.NUSA_FIREBASE = {
   apiBase: ""                          // alamat Cloudflare Worker (tanpa Blaze), mis. "https://nusa-api.<akun>.workers.dev". Kosong = mode lama.
 };
 
-// Rumahku Sosial (undangan kunjungan, blokir, senyap): MATI sampai Owner menyetujui deploy backend Tahap 4 (fungsi homeInvite/homeInbox/homeRespond/homePrefs di nusa-api).
+// Rumahku Sosial (minta izin berkunjung → pemilik TERIMA/TOLAK, blokir, senyap): MATI sampai Owner menyetujui deploy backend Tahap 4 (fungsi homeVisitRequest/homeInbox/homeVisitRespond/homePrefs di nusa-api).
 window.NUSA_SOCIAL_HOME = false;

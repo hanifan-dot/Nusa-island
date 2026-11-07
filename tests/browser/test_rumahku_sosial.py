@@ -3,7 +3,7 @@ Jalankan: python tests/browser/test_house.py   (foto layar asli disimpan di docs
 Yang SUNGGUHAN di sini: game asli (index.html, tanpa diubah untuk uji), klien rumah (house/client.js), mode kunjungan (world/home.js), klien multiplayer (mp/client.js),
   jalur HTTP asli cloud/api.js, dan INTI SERVER yang sama dengan produksi (cloud/core.js, house/core.js, mp/room-core.js) di atas basis data memori.
 YANG TIDAK DIUJI: Firestore/Cloudflare Workers/Durable Object asli, verifikasi token Google asli (token uji 'dev.<uid>'), Android fisik, jaringan seluler.
-Akun uji: demo-a ("Budi"), demo-b ("Sari") di browser; "Joko"/"Budi kedua" hanya data uji di server. Tidak ada data pemain produksi."""
+Akun uji: demo-a ("Budi"), demo-b ("Rudi") di browser; "Joko"/"Budi kedua" hanya data uji di server. Tidak ada data pemain produksi."""
 import time, json, os, sys, subprocess, urllib.request
 from playwright.sync_api import sync_playwright
 
@@ -96,11 +96,11 @@ def main():
     try:
         with sync_playwright() as p:
             b = p.chromium.launch()
-            cA, A, eA = new_page(b, "demo-a", "Budi"); cB, B, eB = new_page(b, "demo-b", "Sari")
+            cA, A, eA = new_page(b, "demo-a", "Budi"); cB, B, eB = new_page(b, "demo-b", "Rudi")
             for pg in (A, B): ev(pg, "window.NUSA_SOCIAL_HOME=true")
             uA, uB = uid(A), uid(B); pA, pB = ev_node(uA), ev_node(uB)
-            ev(A, "Nusa.S.profile.name='Budi'"); ev(B, "Nusa.S.profile.name='Sari'")
-            ok("0a Cloud Save Budi", push_save(A).get("ok") is True); ok("0b Cloud Save Sari", push_save(B).get("ok") is True)
+            ev(A, "Nusa.S.profile.name='Budi'"); ev(B, "Nusa.S.profile.name='Rudi'")
+            ok("0a Cloud Save Budi", push_save(A).get("ok") is True); ok("0b Cloud Save Rudi", push_save(B).get("ok") is True)
             ok("0c fitur MATI bila flag dimatikan: tombol tersembunyi", ev(A, "document.getElementById('friendsBtn').classList.contains('hidden')"))
             # aktifkan modul sosial (flag diset sebelum hook; panggil hook manual karena load sudah lewat)
             for pg in (A, B):
@@ -110,42 +110,44 @@ def main():
             for pg in (A, B): wait_for(pg, "NW.mp.view().online", 10); ev(pg, "NW.mp.joinRoom(3)")
             ok("1b keduanya di server #3", wait_for(A, "NW.mp.view().online && NW.mp.view().roomNo===3", 10) and wait_for(B, "NW.mp.view().online && NW.mp.view().roomNo===3", 10))
             ev(B, "NW.mp.sendOutfit && NW.mp.sendOutfit('')"); time.sleep(1.2)
-            ok("1c daftar pemain memuat ID publik (hid) Sari", wait_for(A, "NW.mp.view().players.some(p=>p.hid)", 8), V(A)["players"])
-            ok("1d hid = hash satu arah, cocok dengan pid Sari", ev(A, "NW.mp.view().players.map(p=>p.hid)")[0] == pB)
+            ok("1c daftar pemain memuat ID publik (hid) Rudi", wait_for(A, "NW.mp.view().players.some(p=>p.hid)", 8), V(A)["players"])
+            ok("1d hid = hash satu arah, cocok dengan pid Rudi", ev(A, "NW.mp.view().players.map(p=>p.hid)")[0] == pB)
             ev(A, "document.getElementById('friendsBtn').click()"); wait_for(A, "!!document.querySelector('.sc-av')", 5); time.sleep(0.6)
-            ok("2a daftar online menampilkan Sari dengan avatar & ID", ev(A, "[...document.querySelectorAll('.vh-row')].some(r=>r.textContent.includes('Sari')&&r.querySelector('canvas.sc-av')&&r.querySelector('.vh-sid'))"))
+            ok("2a daftar online menampilkan Rudi dengan avatar & ID", ev(A, "[...document.querySelectorAll('.vh-row')].some(r=>r.textContent.includes('Rudi')&&r.querySelector('canvas.sc-av')&&r.querySelector('.vh-sid'))"))
             shot(A, "01-daftar-online.png")
             ev(A, "document.querySelector('[data-sinv]').click()"); time.sleep(0.8)
-            ok("2b undangan terkirim (toast / cooldown)", ev(A, "document.querySelector('[data-sinv]').disabled") is True)
+            ok("2b Budi (pemohon) mengirim permintaan izin berkunjung ke Rudi (tombol bertuliskan 'Minta izin berkunjung', lalu cooldown)", ev(A, "document.querySelector('[data-sinv]').disabled") is True)
             A.keyboard.press("Escape"); ev(A, "Nusa.closePanel()")
-            ok("3a Sari menerima notifikasi TERIMA/TOLAK", wait_for(B, "(()=>{NW.social._poll();return !document.getElementById('invPop').classList.contains('hidden')})()", 10) and ev(B, "document.getElementById('invPop').textContent.includes('Budi')"))
-            shot(B, "02-notifikasi-undangan.png")
-            ok("3b tanpa terima, Sari ditolak masuk rumah privat Budi", api(B, "homeVisit", {"pid": pA}).get("err") == "permission-denied")
-            # Budi pulang ke Rumahku (pemilik), Sari menerima lalu masuk
-            enter_home(A); time.sleep(0.5)
-            enter_home(B)
-            ev(B, "document.querySelector('#invPop [data-sacc]').click()"); 
-            ok("4a Sari masuk rumah Budi setelah TERIMA", wait_for(B, "NW.home.visit && NW.home.visit.pid", 10), banner_text(B))
-            ok("4b Sari dan Budi sama-sama berada di ruang rumah", wait_for(B, "NW.mp.view().house && NW.mp.view().online", 10) and wait_for(A, "NW.mp.view().house && NW.mp.view().players.length>=1", 10), V(A).get("players"))
-            time.sleep(1.0); ev(B, "NW.mp.sendChat('Halo Budi, rumahmu bagus!')"); time.sleep(0.8)
-            ok("4c chat bersama di rumah (Budi menerima)", wait_for(A, "NW.mp.view().log.some(l=>l.text.includes('rumahmu bagus'))", 6))
-            shot(B, "03-tamu-di-rumah.png"); shot(A, "04-pemilik-melihat-tamu.png")
-            # pemilik: senyap + keluarkan + blokir
-            A.click("#visitBtn"); wait_for(A, "!!document.querySelector('[data-vtab=mine]')", 5); ev(A, "document.querySelector('[data-vtab=mine]').click()"); time.sleep(0.8)
-            ok("5a pemilik melihat tombol Keluarkan untuk tamu", wait_for(A, "!!document.querySelector('[data-kick]')", 6))
-            shot(A, "05-panel-pemilik-keluarkan.png")
-            ev(A, "document.querySelector('[data-kick]').click()"); 
-            ok("5b tamu dikeluarkan dan kembali ke Rumahku-nya", wait_for(B, "!NW.home.visit", 10))
-            ok("5c setelah dikeluarkan Sari ditolak server", api(B, "homeVisit", {"pid": pA}).get("err") == "permission-denied")
-            # Sari mengatur senyap & blokir
+            ok("3a Rudi (PEMILIK) menerima notifikasi 'Budi ingin berkunjung ke Rumahku milikmu' + TERIMA/TOLAK", wait_for(B, "(()=>{NW.social._poll();return !document.getElementById('invPop').classList.contains('hidden')})()", 10) and "ingin berkunjung ke Rumahku milikmu" in ev(B, "document.getElementById('invPop').textContent") and "Budi" in ev(B, "document.getElementById('invPop').textContent"))
+            shot(B, "02-notifikasi-permintaan-izin.png")
+            ok("3b tanpa TERIMA, Budi ditolak masuk rumah privat Rudi", api(A, "homeVisit", {"pid": pB}).get("err") == "permission-denied")
+            ok("3c tidak ada izin terbalik: Rudi tidak otomatis boleh masuk rumah Budi", api(B, "homeVisit", {"pid": pA}).get("err") == "permission-denied")
+            enter_home(A); time.sleep(0.4); enter_home(B)
+            ev(B, "document.querySelector('#invPop [data-sacc]').click()"); time.sleep(0.8)
+            ok("4a Rudi tetap di rumahnya sendiri (tidak ada teleport paksa) setelah TERIMA", ev(B, "NW.home.active && !NW.home.visit"))
+            ok("4b Budi menerima jawaban 'menerima izin berkunjungmu' + tombol MASUK (tidak otomatis masuk)", wait_for(A, "(()=>{NW.social._poll();const p=document.getElementById('invPop');return !p.classList.contains('hidden')&&p.textContent.includes('menerima izin')&&!!p.querySelector('[data-senter]')})()", 10) and ev(A, "NW.home.active && !NW.home.visit"))
+            shot(A, "02b-jawaban-diterima.png")
+            ev(A, "document.querySelector('#invPop [data-senter]').click()")
+            ok("4c Budi masuk rumah Rudi setelah menekan MASUK", wait_for(A, "NW.home.visit && NW.home.visit.pid", 10), banner_text(A))
+            ok("4d Budi (tamu) dan Rudi (pemilik) sama-sama berada di ruang rumah", wait_for(A, "NW.mp.view().house && NW.mp.view().online", 10) and wait_for(B, "NW.mp.view().house && NW.mp.view().players.length>=1", 10), V(B).get("players"))
+            time.sleep(1.0); ev(A, "NW.mp.sendChat('Halo Rudi, rumahmu bagus!')"); time.sleep(0.8)
+            ok("4e chat bersama di rumah (Rudi menerima)", wait_for(B, "NW.mp.view().log.some(l=>l.text.includes('rumahmu bagus'))", 6))
+            shot(A, "03-tamu-di-rumah.png"); shot(B, "04-pemilik-melihat-tamu.png")
+            # pemilik (Rudi): keluarkan tamu, senyap, blokir
+            B.click("#visitBtn"); wait_for(B, "!!document.querySelector('[data-vtab=mine]')", 5); ev(B, "document.querySelector('[data-vtab=mine]').click()"); time.sleep(0.8)
+            ok("5a pemilik (Rudi) melihat tombol Keluarkan untuk tamu (Budi)", wait_for(B, "!!document.querySelector('[data-kick]')", 6))
+            shot(B, "05-panel-pemilik-keluarkan.png")
+            ev(B, "document.querySelector('[data-kick]').click()")
+            ok("5b tamu (Budi) dikeluarkan dan kembali ke Rumahku-nya", wait_for(A, "!NW.home.visit", 10))
+            ok("5c setelah dikeluarkan Budi ditolak server", api(A, "homeVisit", {"pid": pB}).get("err") == "permission-denied")
+            r = api(A, "homeVisitRequest", {"pid": pB})
+            ok("6a baru dikeluarkan: Budi tidak bisa minta izin lagi seketika (server)", r.get("err") == "failed-precondition")
             ev(B, "document.getElementById('friendsBtn').click()"); time.sleep(0.4); ev(B, "document.querySelector('[data-stab=prefs]').click()"); time.sleep(0.8)
             ev(B, "document.querySelector('[data-smute=\"1\"]').click()"); time.sleep(0.8)
-            ok("6a Sari menyenyapkan undangan (server)", api(B, "homeSettings")["ok"]["mute"] is True)
+            ok("6b Rudi menyenyapkan permintaan (server)", api(B, "homeSettings")["ok"]["mute"] is True)
             shot(B, "06-pengaturan-senyap.png")
-            r = api(A, "homeInvite", {"pid": pB})
-            ok("6b baru dikeluarkan: Budi tidak bisa mengundang Sari lagi seketika (server); senyap/blokir diuji di unit-house-social", r.get("err") == "failed-precondition" and api(B, "homeInbox")["ok"]["invites"] == [], r)
             api(B, "homePrefs", {"mute": False}); api(B, "homePrefs", {"block": pA, "on": True})
-            ok("6c diblokir Sari: Budi tidak bisa mengirim undangan", api(B, "homeSettings")["ok"]["blocks"][0]["name"] == "Budi")
+            ok("6c Rudi memblokir Budi (server)", api(B, "homeSettings")["ok"]["blocks"][0]["name"] == "Budi")
             # Cloud Save tidak berubah oleh fitur sosial
             la = api(A, "loadSave")["ok"]["data"]; ok("7a Cloud Save Budi bersih dari data sosial", "guests" not in la and "homeinbox" not in la)
             ok("7b tidak ada error halaman", not [e for e in (eA + eB) if "PAGEERR" in e], [e for e in (eA + eB)][:4])

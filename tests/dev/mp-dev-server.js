@@ -10,7 +10,7 @@ const mem = new Map(); let lock = Promise.resolve();
 const rdm = (p) => (mem.has(p) ? JSON.parse(mem.get(p)) : null);
 const memdb = { get: async (p) => rdm(p), tx: (fn) => { const run = lock.then(async () => { const buf = new Map(); const r = await fn({ get: async (p) => (buf.has(p) ? JSON.parse(buf.get(p)) : rdm(p)), set: async (p, v) => { buf.set(p, JSON.stringify(v)); } }); for (const [p, v] of buf) mem.set(p, v); return r; }); lock = run.catch(() => {}); return run; } };
 const houseSrv = HouseCore.makeHouseServer(memdb, { clock: () => Date.now() });
-const api = Object.assign(cloudCore.makeServer(memdb, { now: () => Date.now(), house: houseSrv }), { homeSearch: houseSrv.homeSearch, homeVisit: houseSrv.homeVisit, homeAccess: houseSrv.homeAccess, homeSettings: houseSrv.homeSettings, homeSetPrivacy: houseSrv.homeSetPrivacy, homeAllow: houseSrv.homeAllow, homeKick: houseSrv.homeKick, homeInvite: houseSrv.homeInvite, homeInbox: houseSrv.homeInbox, homeRespond: houseSrv.homeRespond, homePrefs: houseSrv.homePrefs });
+const api = Object.assign(cloudCore.makeServer(memdb, { now: () => Date.now(), house: houseSrv }), { homeSearch: houseSrv.homeSearch, homeVisit: houseSrv.homeVisit, homeAccess: houseSrv.homeAccess, homeSettings: houseSrv.homeSettings, homeSetPrivacy: houseSrv.homeSetPrivacy, homeAllow: houseSrv.homeAllow, homeKick: houseSrv.homeKick, homeVisitRequest: houseSrv.homeVisitRequest, homeInbox: houseSrv.homeInbox, homeVisitRespond: houseSrv.homeVisitRespond, homePrefs: houseSrv.homePrefs });
 const HTTP_OF = { "invalid-argument": 400, unauthenticated: 401, "permission-denied": 403, "not-found": 404, "failed-precondition": 409, "resource-exhausted": 429 };
 const houseBans = new Map();      // "ruang:id-publik" → sampai kapan (lapisan larangan di ruang, seperti HouseRoom produksi)
 const PORT = +(process.argv[2] || process.env.PORT || 8799), CAP = +(process.env.ROOM_CAP || P.ROOM_CAP);
@@ -61,7 +61,7 @@ const server = http.createServer((req, res) => {
     req.on("end", async () => {
       const send = (code, o) => { res.writeHead(code, Object.assign({ "content-type": "application/json" }, CORS)); res.end(JSON.stringify(o)); };
       const m = /^Bearer dev\.([\w-]+)$/.exec(req.headers.authorization || ""); const auth = m ? { uid: m[1], token: { email_verified: true, firebase: { sign_in_provider: "google.com" } } } : null;
-      const fnName = fm[1], ok = ["writeSave", "loadSave", "homeSearch", "homeVisit", "homeAccess", "homeSettings", "homeSetPrivacy", "homeAllow", "homeKick", "homeInvite", "homeInbox", "homeRespond", "homePrefs"];
+      const fnName = fm[1], ok = ["writeSave", "loadSave", "homeSearch", "homeVisit", "homeAccess", "homeSettings", "homeSetPrivacy", "homeAllow", "homeKick", "homeVisitRequest", "homeInbox", "homeVisitRespond", "homePrefs"];
       if (!ok.includes(fnName)) return send(404, { error: { status: "not-found", message: "Fungsi tidak dikenal." } });
       try { const out = await api[fnName](auth, (JSON.parse(body || "{}").data) || {}); send(200, { result: JSON.parse(JSON.stringify(out)) }); }
       catch (e) { send(HTTP_OF[e.code] || 500, { error: { status: e.code || "internal", message: e.message } }); }
