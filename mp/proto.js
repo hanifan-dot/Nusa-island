@@ -39,6 +39,16 @@ function cleanHold(m) {
   return { i, w, v };
 }
 
+// kode penampilan avatar (HANYA ID item lokal + indeks warna; tidak ada gambar). "" = bawaan. null = tidak sah.
+const OUTFIT_PART = /^[tphacsr]:[a-z0-9_]{1,24}:[0-9]{1,2}$/;
+function cleanOutfit(v) {
+  if (v == null || v === "") return "";
+  if (typeof v !== "string" || v.length > 140) return null;
+  const parts = v.split("|"), seen = new Set(); if (parts.length > 7) return null;
+  for (const x of parts) { if (!OUTFIT_PART.test(x) || seen.has(x[0])) return null; seen.add(x[0]); }
+  return v;
+}
+
 // ---- nama panggilan ----
 const RESERVED = /(admin|owner|moderator|petugas|developer|nusa ?island|pemilik|\bgm\b|official|resmi)/i;
 function cleanName(v, fallback) {
@@ -66,7 +76,7 @@ const qz = (v) => Math.round(v * Q);
 const uq = (n) => n / Q;
 const clampInt = (v, a, b, d) => { v = Math.floor(Number(v)); return Number.isFinite(v) ? Math.max(a, Math.min(b, v)) : d; };
 
-const API = { HOUSE, WORLD_HPS, WORLD_EPOCH_MS, sharedHour, roomId, VARIANTS, cleanHold, VERSION, SUBPROTOCOL, AREA, MAP_W, MAP_H, Q, ROOM_CAP, MIN_ROOMS, MAX_ROOMS, TIMEOUT_MS, TICK_MS, MAX_SPEED, CHAT_MAX, NAME_MAX, F, EMOTES, cleanName, cleanChat, maskBad, qz, uq, clampInt };
+const API = { HOUSE, WORLD_HPS, WORLD_EPOCH_MS, sharedHour, roomId, VARIANTS, cleanHold, cleanOutfit, VERSION, SUBPROTOCOL, AREA, MAP_W, MAP_H, Q, ROOM_CAP, MIN_ROOMS, MAX_ROOMS, TIMEOUT_MS, TICK_MS, MAX_SPEED, CHAT_MAX, NAME_MAX, F, EMOTES, cleanName, cleanChat, maskBad, qz, uq, clampInt };
 if (typeof module !== "undefined" && module.exports) module.exports = API;
 else { root.NW = root.NW || {}; root.NW.MPProto = API; }
 })(typeof window !== "undefined" ? window : globalThis);

@@ -50,7 +50,7 @@ class Room {
     const x = Number.isFinite(startPos && startPos.x) ? startPos.x : 19.5, y = Number.isFinite(startPos && startPos.y) ? startPos.y : 20.6;
     const p = { conn, uid, pid, name: P.cleanName(prof.n, "Nelayan-" + pid.slice(1)), rank: P.clampInt(prof.r, 0, 8, 0), rod: P.clampInt(prof.rd, 0, 9, 0),
       x: Math.max(0, Math.min(this.mapW, x)), y: Math.max(0, Math.min(this.mapH, y)), d: 2, f: 0, vis: false, role: (extra && extra.role) === "owner" ? "owner" : "visitor", hid: String((extra && extra.hid) || "").slice(0, 8), bKick: new Bucket(0.2, 3, now), dirty: false, last: now, lastMove: now, lastTp: 0,
-      lo: false, tickN: 0, bMove: new Bucket(10, 14, now), bChat: new Bucket(0.5, 3, now), bEmote: new Bucket(1, 2, now), bProf: new Bucket(0.2, 2, now), bAny: new Bucket(25, 40, now), bHold: new Bucket(1, 4, now), hold: null, lastChat: "", viol: 0 };
+      lo: false, tickN: 0, bMove: new Bucket(10, 14, now), bChat: new Bucket(0.5, 3, now), bEmote: new Bucket(1, 2, now), bProf: new Bucket(0.2, 2, now), bAny: new Bucket(25, 40, now), bHold: new Bucket(1, 4, now), bOutfit: new Bucket(0.5, 3, now), outfit: "", hold: null, lastChat: "", viol: 0 };
     this.players.set(conn, p); this.byUid.set(uid, conn); this.countDirty = true;
     return { ok: true, pid };
   }
@@ -69,10 +69,11 @@ class Room {
     const list = []; for (const [c, q] of this.players) if (c !== conn && q.vis) list.push(this.pub(q));
     const w = { t: "w", me: p.pid, room: this.id, rn: this.number(), n: this.size(), v: this.count(), cap: this.cap, ps: list, hz: Math.round(1000 / P.TICK_MS), st: this.now() };
     if (this.house) { w.k = "house"; w.own = p.role === "owner" ? 1 : 0; }
+    const ou = {}; let nou = 0; for (const [c, q] of this.players) if (c !== conn && q.vis && q.outfit) { ou[q.pid] = q.outfit; nou++; } if (nou) w.ou = ou;     // penampilan pemain yang sudah ada (tambahan; klien lama mengabaikan)
     this.send(conn, w);
-    if (!was) { this.bcast({ t: "j", p: this.pub(p) }, conn); this.countDirty = true; }
+    if (!was) { this.bcast({ t: "j", p: this.pub(p) }, conn); this.countDirty = true; if (p.outfit) this.bcast({ t: "a", id: p.pid, o: p.outfit }, conn); }
   }
-  hide(conn) { const p = this.players.get(conn); if (p && p.vis) { p.vis = false; p.hold = null; this.bcast({ t: "l", id: p.pid }, conn); this.countDirty = true; } }
+  hide(conn) { const p = this.players.get(conn); if (p && p.vis) { p.vis = false; p.hold = null; p.outfit = ""; this.bcast({ t: "l", id: p.pid }, conn); this.countDirty = true; } }
 
   leave(conn) {
     const p = this.players.get(conn); if (!p) return;
@@ -105,6 +106,13 @@ class Room {
         if (JSON.stringify(h) === JSON.stringify(p.hold)) return;      // sama dengan status sekarang: abaikan tanpa memakai jatah
         if (!p.bHold.take(now)) return;
         p.hold = h; this.bcast({ t: "f", id: p.pid, h: h ? [h.i, h.w, h.v] : 0 }, conn); return;
+      }
+      case "a": {                                                  // penampilan avatar (kosmetik): kode pendek berisi ID item; tanpa gambar
+        if (!p.vis) return;
+        const o = P.cleanOutfit(m.o); if (o === null) return this.strike(conn, p);
+        if (o === p.outfit) return;
+        if (!p.bOutfit.take(now)) return;
+        p.outfit = o; this.bcast({ t: "a", id: p.pid, o }, conn); return;
       }
       case "o": p.lo = !!m.lo; return;                              // mode hemat data: siaran lebih jarang
       case "v": return m.on ? (p.vis ? undefined : this.show(conn)) : this.hide(conn);
@@ -194,11 +202,11 @@ class Room {
   }
 
   // ---- pemulihan setelah Durable Object hibernasi ----
-  snapshot(conn) { const p = this.players.get(conn); if (!p) return null; const s = { pid: p.pid, uid: p.uid, n: p.name, r: p.rank, rd: p.rod, x: p.x, y: p.y, d: p.d, f: p.f, v: p.vis ? 1 : 0, l: p.last, lo: p.lo ? 1 : 0, hd: p.hold || null }; if (this.house) { s.ro = p.role; s.h = p.hid; } return s; }
+  snapshot(conn) { const p = this.players.get(conn); if (!p) return null; const s = { pid: p.pid, uid: p.uid, n: p.name, r: p.rank, rd: p.rod, x: p.x, y: p.y, d: p.d, f: p.f, v: p.vis ? 1 : 0, l: p.last, lo: p.lo ? 1 : 0, hd: p.hold || null, oc: p.outfit || "" }; if (this.house) { s.ro = p.role; s.h = p.hid; } return s; }
   restore(conn, s) {
     const now = this.now();
     const r = this.join(conn, s.uid, { n: s.n, r: s.r, rd: s.rd }, { x: s.x, y: s.y }, { role: s.ro, hid: s.h }); if (!r.ok) return r;
-    const p = this.players.get(conn); p.pid = s.pid; p.d = s.d; p.f = s.f; p.vis = !!s.v; p.last = Math.max(s.l || 0, now - 1000); p.lo = !!s.lo; p.hold = s.hd || null;
+    const p = this.players.get(conn); p.pid = s.pid; p.d = s.d; p.f = s.f; p.vis = !!s.v; p.last = Math.max(s.l || 0, now - 1000); p.lo = !!s.lo; p.hold = s.hd || null; p.outfit = typeof s.oc === "string" ? s.oc : "";
     const n = parseInt(String(s.pid).slice(1), 36); if (Number.isFinite(n) && n >= this.nextId) this.nextId = n + 1;
     return r;
   }

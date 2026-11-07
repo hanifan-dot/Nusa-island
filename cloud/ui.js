@@ -149,6 +149,7 @@
           </div>
           <h4 class="prof-h">Gelar & pencapaian</h4><div class="prof-chips">${titles.map((t) => `<span>🎖️ ${esc(t)}</span>`).join("")}${awards.map((a) => `<span${a.name === "PENAKLUK ATUK BAHAR" ? ' class="prof-badge-goat"' : ""}>${esc(a.icon || "🏅")} ${esc(a.name)}</span>`).join("") || (titles.length ? "" : `<span class="muted">Belum ada — tangkap ikan pertamamu!</span>`)}</div>
           ${kedaiProfile(S)}
+          <button class="btn small gold" data-act="openAvatar" style="margin:8px 0">👤 EDIT AVATAR</button>
           ${(NW.shop && NW.shop.owned().lencana_sultan && S.shop && S.shop.equip && S.shop.equip.lencana === 'lencana_sultan') ? '<div class="prof-note"><span class="prof-badge-goat">👑 SULTAN SAMUDRA</span> · Pemilik Gamepass Nelayan Sultan</div>' : ''}
           <h4 class="prof-h">Cloud Save</h4><div class="cloud-card" id="cloudCard">
             <div class="cs-row"><span class="dotc ${st}"></span><b id="csText">${esc(cloud.statusText())}</b></div>
@@ -170,6 +171,7 @@
         return h;
       }
       async function act(a) {
+        if (a === "openAvatar") { if (NW.avatarUI) NW.avatarUI.open("edit"); return; }
         const N = window.Nusa;
         if (a === "login") { const r = await cloud.signInGoogle(); if (r.error) N.toast(r.message, "bad"); else if (["empty", "uploaded", "identical", "synced", "offline"].includes(r.result)) N.toast("Login berhasil ✅", "good"); }
         else if (a === "logout") await cloud.logout();

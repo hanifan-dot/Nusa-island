@@ -15,7 +15,7 @@ const N = () => window.Nusa;
 const KNOWN = [
   ["worldBtn", "Bermain di Dunia"],
   ["misiBtn", "Misi Harian"], ["streakBtn", "Hadiah Login 7 Hari"], ["evBtn", "Event Monster Legenda"], ["skillBtn", "Keahlian & Cerita"], ["advBtn", "Kompas & Petualangan"],
-  ["dexBtn", "Koleksi Ikan"], ["crownBtn", "Nusa Premium"], ["acctBtn", "Profil & Akun"], ["recoverBtn", "Pulihkan Data"], ["serverBtn", "Server"], ["musicBtn", "Musik & Suara"], ["muteBtn", "Suara"],
+  ["dexBtn", "Koleksi Ikan"], ["crownBtn", "Nusa Premium"], ["avatarBtn", "Edit Avatar & Fashion"], ["acctBtn", "Profil & Akun"], ["recoverBtn", "Pulihkan Data"], ["serverBtn", "Server"], ["musicBtn", "Musik & Suara"], ["muteBtn", "Suara"],
 ];
 const ORDER = KNOWN.map((k) => k[0]), LABEL = Object.fromEntries(KNOWN);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
