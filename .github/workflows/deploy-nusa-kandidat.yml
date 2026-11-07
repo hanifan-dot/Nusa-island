@@ -7,13 +7,57 @@ on:
         description: "Ketik persis deploy"
         type: string
         required: true
+      mode:
+        description: "deploy = rilis paket final. rollback = kembali ke SHA produksi sebelumnya (isi game_sha/backend_sha lama, mis. 3cc759d... / 44eebd3...)."
+        type: choice
+        options: ["deploy", "rollback"]
+        default: "deploy"
+      game_sha:
+        description: "SHA game 40 hex (kosong = paket final)"
+        type: string
+        required: false
+        default: ""
+      backend_sha:
+        description: "SHA backend 40 hex (kosong = paket final)"
+        type: string
+        required: false
+        default: ""
+      multiplayer:
+        description: "Deploy juga nusa-multiplayer? (ya/tidak). WAJIB ya sebelum Owner membuka Rumahku Sosial."
+        type: choice
+        options: ["tidak", "ya"]
+        default: "tidak"
 concurrency:
   group: nusa-island-production
   cancel-in-progress: false
 permissions:
   contents: read
 jobs:
+  pin:
+    name: Tentukan SHA (paket final atau rollback)
+    runs-on: ubuntu-latest
+    outputs:
+      game: ${{ steps.p.outputs.game }}
+      backend: ${{ steps.p.outputs.backend }}
+      mode: ${{ steps.p.outputs.mode }}
+    steps:
+      - id: p
+        env:
+          MODE: ${{ inputs.mode }}
+          IN_G: ${{ inputs.game_sha }}
+          IN_B: ${{ inputs.backend_sha }}
+        run: |
+          set -e
+          G="${IN_G:-6419c91d2caf866b967bc6d5d17dbf1e1ccd8cd9}"; B="${IN_B:-7a3aa82a54a55656e080669fae52aff1f0b39170}"
+          if [ "$MODE" = "rollback" ]; then
+            [ -n "$IN_G" ] && [ -n "$IN_B" ] || { echo "::error::Rollback WAJIB mengisi game_sha dan backend_sha produksi sebelumnya"; exit 1; }
+          fi
+          printf '%s' "$G" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::game_sha harus 40 hex"; exit 1; }
+          printf '%s' "$B" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::backend_sha harus 40 hex"; exit 1; }
+          echo "game=$G" >> "$GITHUB_OUTPUT"; echo "backend=$B" >> "$GITHUB_OUTPUT"; echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "Mode $MODE: game ${G:0:7}, backend ${B:0:7}"
   cek:
+    needs: pin
     name: Tes kandidat tanpa kunci produksi
     runs-on: ubuntu-latest
     steps:
@@ -36,13 +80,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
-          ref: 3cc759d9eb3ccac160346ca2bc3bd63711a9faef
+          ref: ${{ needs.pin.outputs.game }}
           fetch-depth: 0
           path: game
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/nusa-island-control-center
-          ref: 44eebd3a0f9caaa92161a21f7725c548f0b71084
+          ref: ${{ needs.pin.outputs.backend }}
           token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
           persist-credentials: false
           path: backend
@@ -58,6 +102,10 @@ jobs:
           cmp game/house/core.js backend/server/vendor/house-core.cjs
           cmp game/economy/sf-core.js backend/server/vendor/sf-core.cjs
           cmp game/economy/aurora-core.js backend/server/vendor/aurora-core.cjs
+          if [ "${{ needs.pin.outputs.mode }}" = "deploy" ]; then
+            grep -q "NUSA_SOCIAL_HOME = false" game/cloud/config.js
+            grep -q "NUSA_SF_PREVIEW = false" game/cloud/config.js
+          fi
           (cd game && node firebase/scripts/cek-rilis.js && node tests/unit-mp.js && node tests/unit-cf-auth.js)
       - name: Tes backend dan scan rahasia
         run: |
@@ -65,12 +113,13 @@ jobs:
           npm install --no-package-lock --no-audit --no-fund
           npm test
           npm run scan:secrets
-      - name: Bandingkan dengan situs live, cegah fitur hilang
+      - name: Bandingkan dengan situs live, cegah fitur hilang (dilewati saat rollback)
+        if: ${{ needs.pin.outputs.mode == 'deploy' }}
         run: cd game && node firebase/scripts/cek-rilis.js --live https://nusa-island-d2023.web.app --require-live
 
   rilis:
     name: Deploy nusa-api lalu Firebase Hosting
-    needs: cek
+    needs: [pin, cek]
     environment: production
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -82,8 +131,8 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       NUSA_GAME_DIR: ${{ github.workspace }}/game
       NUSA_BACKEND_DIR: ${{ github.workspace }}/backend
-      NUSA_GAME_SHA: 3cc759d9eb3ccac160346ca2bc3bd63711a9faef
-      NUSA_BACKEND_SHA: 44eebd3a0f9caaa92161a21f7725c548f0b71084
+      NUSA_GAME_SHA: ${{ needs.pin.outputs.game }}
+      NUSA_BACKEND_SHA: ${{ needs.pin.outputs.backend }}
       NUSA_CONFIRM: "ya"
     steps:
       - name: Verifikasi akses baca repository backend privat
@@ -97,13 +146,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
-          ref: 3cc759d9eb3ccac160346ca2bc3bd63711a9faef
+          ref: ${{ needs.pin.outputs.game }}
           fetch-depth: 0
           path: game
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/nusa-island-control-center
-          ref: 44eebd3a0f9caaa92161a21f7725c548f0b71084
+          ref: ${{ needs.pin.outputs.backend }}
           token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
           persist-credentials: false
           path: backend
@@ -141,8 +190,26 @@ jobs:
         env:
           NUSA_API_DEPLOYED: "ya"
           NUSA_CI: "1"
-          NUSA_TARGET: "game"
-        run: cd game && bash firebase/scripts/rilis.sh --target game --ci
+          NUSA_TARGET: ${{ inputs.multiplayer == 'ya' && 'semua' || 'game' }}
+          TARGET: ${{ inputs.multiplayer == 'ya' && 'semua' || 'game' }}
+        run: cd game && bash firebase/scripts/rilis.sh --target "$TARGET" --ci
+      - name: Cek sesudah deploy (kesehatan + status fitur DARI SERVER)
+        env:
+          MODE: ${{ needs.pin.outputs.mode }}
+        run: |
+          set -e
+          curl -fsS --retry 3 "$NUSA_API_BASE/api/health" >/dev/null || { echo "::error::Health nusa-api gagal"; exit 1; }
+          CFG=$(curl -fsS --retry 3 https://nusa-island-d2023.web.app/cloud/config.js)
+          if [ "$MODE" = "deploy" ]; then
+            printf '%s' "$CFG" | grep -q "NUSA_SOCIAL_HOME = false" || { echo "::error::Flag statis Rumahku Sosial tidak MATI"; exit 1; }
+            R=$(curl -fsS --retry 3 "$NUSA_API_BASE/api/release-status") || { echo "::error::release-status tidak terjangkau"; exit 1; }
+            echo "release-status: $R"
+            printf '%s' "$R" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const r=JSON.parse(d);if(r.ok!==true)process.exit(1);if(r.features.leaderboard||r.features.socialHome||r.sf.on||r.sf.eventOn){console.error("::error::Ada fitur NYALA di server sebelum Owner membukanya (atau Owner sudah membukanya sebelumnya): periksa");process.exit(1)}})' || exit 1
+            echo "OK: API sehat; status server: semua fitur baru MATI."
+          else
+            echo "Rollback: API sehat. Pemeriksaan release-status dilewati (backend lama tak punya endpoint itu)."
+          fi
+      # ROLLBACK: Run workflow -> mode=rollback, game_sha=3cc759d9eb3ccac160346ca2bc3bd63711a9faef, backend_sha=44eebd3a0f9caaa92161a21f7725c548f0b71084. Lihat docs/RILIS-PAKET-FINAL-20261107.md.
       - name: Bersihkan kredensial sementara
         if: always()
         run: rm -f "$RUNNER_TEMP/nusa-sa.json"
