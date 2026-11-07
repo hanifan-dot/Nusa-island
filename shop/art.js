@@ -90,6 +90,7 @@ function nameTag(c, x, y, text, kind, t, w) {
   c.restore();
 }
 const PREV = {
+  gamepass_aurora(c, w, h, t) { if (NW.aurora) NW.aurora.drawPreview(c, w, h, t); },
   gamepass_sultan(c, w, h, t) { bgSea(c, w, h, t); const g = c.createRadialGradient(w / 2, h * .5, 4, w / 2, h * .5, h * .8); g.addColorStop(0, "rgba(232,194,90,.45)"); g.addColorStop(1, "rgba(232,194,90,0)"); c.fillStyle = g; c.fillRect(0, 0, w, h);
     person(c, w / 2, h * .8, 1.15, { shirt: "#7a2d1c", trim: GOLD, sash: GOLD, crown: true, headband: GOLD }); nameTag(c, w / 2, h * .1, "Sultan Samudra", "gold", t); for (let i = 0; i < 4; i++) star(c, w * (.18 + i * .22), h * (.28 + .1 * Math.sin(t * 2 + i)), 3 + i % 2 * 1.5, .5 + .5 * Math.sin(t * 3 + i * 1.7)); },
   skin_kapal_nusantara(c, w, h, t) { bgSea(c, w, h, t); const bob = Math.sin(t * 2) * 2, x = w / 2, y = h * .66 + bob; c.save(); c.translate(x, y); c.rotate(Math.sin(t * 1.6) * .04);

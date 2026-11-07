@@ -364,7 +364,7 @@ function doCast() {
   G.phase = "flying"; G.bob.vis = true; G.bob.sink = 0;
   S.stats.casts++;
   G.streakBait = NW.streak ? NW.streak.useBait() : false; // Umpan Hadiah (habis pakai) dipakai otomatis bila ada
-  SFX.cast();
+  SFX.cast(); if (NW.aurora) NW.aurora.event("cast", rodTip());
   if (G.perfect) { toast("Lemparan Sempurna! ✨ Lebih hoki", "good"); emit("perfect"); }
   updateHint();
 }
@@ -374,7 +374,7 @@ function landBobber() {
   G.hotHit = !!((skill("presisi") || G.spotId) && G.hot && Math.abs(G.target.z - G.hot.z) < 0.75 && Math.abs(G.target.x - G.hot.x) < 0.5);
   emit("cast", { perfect: G.perfect, hit: G.hotHit });
   addRipple(G.bob.x, G.bob.z, 3); splashAt(G.bob.x, G.bob.z, 10);
-  SFX.splash();
+  SFX.splash(); if (NW.aurora) NW.aurora.event("land", bobberScreen());
   G.phase = "waiting";
   const sp = UPGRADES.bait.speed[upLvl("bait")] * (G.streakBait ? NW.streak.BAIT_SPEED : 1);
   G.wxBite = NW.weather ? NW.weather.biteFactor() : 1; // cuaca: ±ringan (0,88–1,08) pada waktu tunggu SAJA; tidak menyentuh pemilihan ikan, varian, atau pertarungan
@@ -394,7 +394,7 @@ function triggerBite() {
   const locId = LOCATIONS[S.loc].id;
   G.pending = (NW.story && NW.story.challengeFish(G.perfect, locId)) || (NW.adv && NW.adv.challengeFish(G.perfect, locId)) || chooseFish();
   G.phase = "bite"; G.biteWindow = 0.95 + upLvl("bait") * 0.05;
-  G.bob.sink = 1; addRipple(G.bob.x, G.bob.z, 2); splashAt(G.bob.x, G.bob.z, 6);
+  G.bob.sink = 1; addRipple(G.bob.x, G.bob.z, 2); splashAt(G.bob.x, G.bob.z, 6); if (NW.aurora) NW.aurora.event("bite", bobberScreen());
   SFX.bite();
   if (navigator.vibrate) try { navigator.vibrate(60); } catch (_) {}
   updateHint();
@@ -433,7 +433,7 @@ function endFight(result) {
 }
 function startReelBack() {
   G.phase = "reeling";
-  G.reelBack = { t: 0, x: G.bob.x, z: G.bob.z };
+  G.reelBack = { t: 0, x: G.bob.x, z: G.bob.z }; if (NW.aurora) NW.aurora.event("reel", bobberScreen());
   G.shadow = null;
   updateHint();
 }
@@ -779,6 +779,7 @@ function draw() {
   if (NW.event) NW.event.drawWater(ctx, { W, H, HZ, U, dk, projX, projY, projS }); // Event 5 Monster Legenda: monster berenang di air (hanya saat event & di lokasinya)
   drawBoat(dk);
   drawLineAndBobber();
+  if (NW.aurora) NW.aurora.drawParticles(ctx);
 
   // cipratan
   ctx.fillStyle = "rgba(235,248,255,.9)";
@@ -946,6 +947,7 @@ function drawBoat(dk) {
   // bentuk, warna, gagang, reel, dan ornamen mengikuti joran aktif (NW.look.RODS, 10 tingkat)
   const mx = (hp.x + tip.x) / 2 + G.rodBend * 30 * U, my = (hp.y + tip.y) / 2 - 10 * U + G.rodBend * 10 * U;
   NW.look.drawHeldRod(ctx, NW.look.rodSpec(), hp, { x: mx, y: my }, tip, { x: hp.x - Math.cos(G.rodAngle) * 30 * U, y: hp.y - Math.sin(G.rodAngle) * 30 * U }, U, night);
+  if (NW.aurora && NW.aurora.equipped()) NW.aurora.rodFx(ctx, tip, U);   // cahaya aurora, bintang, petir kecil di ujung pancing (Gamepass)
 }
 
 // Tampilan depan dermaga Muara (saat mancing dari darat)

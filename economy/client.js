@@ -49,7 +49,7 @@ async function flush() {
     while (rq.length) { const r = rq[0]; try { apply(await call("ecoReward", r)); rq.shift(); } catch (e) { if (e && (e.code === "invalid-argument" || e.code === "failed-precondition")) rq.shift(); else throw e; } }
     while (q.length || inflight) {
       if (!inflight) { const items = q.slice(0, 10); inflight = { opId: rid(), items, tries: 0 }; }       // paket ≤10 tangkapan: hemat tulis Firestore; opId tetap saat diulang
-      try { apply(await call("ecoCatch", { opId: inflight.opId, items: inflight.items.map((x) => ({ id: x.id, w: x.w, uid: x.uid })) })); q.splice(0, inflight.items.length); inflight = null; }
+      try { const rr = await call("ecoCatch", { opId: inflight.opId, items: inflight.items.map((x) => ({ id: x.id, w: x.w, uid: x.uid })) }); apply(rr); if (rr && rr.swaps && rr.swaps.length && NW.aurora) NW.aurora.applySwaps(rr.swaps); q.splice(0, inflight.items.length); inflight = null; }
       catch (e) {
         const code = e && e.code;
         if (code === "resource-exhausted" && ++inflight.tries < 6) { schedule(8000); break; }          // terlalu cepat/batas jam: coba lagi nanti (tidak dibuang langsung)
@@ -62,7 +62,7 @@ async function flush() {
   finally { busy = false; }
 }
 // ---- tangkapan ----
-function onCatch(item) { if (!active() || !item || !item.uid) return; q.push({ id: item.id, w: item.w, uid: item.uid }); if (q.length >= 8) flush(); else schedule(window.NusaApi && window.NusaApi.enabled() ? 45000 : 20000); }   // dikirim berkelompok (≤10) tiap ±20 dtk, atau sebelum jual/beli
+function onCatch(item) { if (!active() || !item || !item.uid) return; q.push({ id: item.id, w: item.w, uid: item.uid }); if (q.length >= 8 || (st && st.aur && st.aur.live)) flush(); else schedule(window.NusaApi && window.NusaApi.enabled() ? 45000 : 20000); }   // dikirim berkelompok (≤10) tiap ±20 dtk, atau sebelum jual/beli
 // ikan dilindungi: hadiah dari server (tidak ada item)
 function release(fish, w, done) {
   if (!active()) return false;
@@ -109,7 +109,7 @@ function buy(reason, grant, failCb) {
   })();
   return true;
 }
-NW.eco = { applyState: apply, active, ensure, flush, onCatch, release, sell, drop, reward, mission, buy, balance: () => (st ? st.balance : 0), state: () => st, lastError: () => lastErr, _reset: () => { st = null; q = []; rq = []; inflight = null; } };
+NW.eco = { aur: () => (st && st.aur) || null, applyState: apply, active, ensure, flush, onCatch, release, sell, drop, reward, mission, buy, balance: () => (st ? st.balance : 0), state: () => st, lastError: () => lastErr, _reset: () => { st = null; q = []; rq = []; inflight = null; } };
 setInterval(() => { if (!document.hidden && live()) ensure().then(() => flush()); }, 45000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden && live()) ensure(); });
 setInterval(() => { if (!st && live() && !booting) ensure(); }, 2500);   // begitu login terdeteksi → aktifkan ekonomi server

@@ -83,6 +83,7 @@ const RODS = [
 function syncNames() { RODS.forEach((r, i) => { r.name = UPGRADES.rod.levels[i]; }); }
 syncNames();
 function rodSpec(level) {
+  if (level === undefined && NW.aurora && NW.aurora.rodSpec) { const x = NW.aurora.rodSpec(); if (x) return x; } // Pancing Aurora Samudra (Gamepass; kepemilikan dari server)
   if (level === undefined && NW.streak && NW.streak.rodSpec) { const x = NW.streak.rodSpec(); if (x) return x; } // Joran Pelaut Eksklusif (hadiah Login Streak)
   const L = level === undefined ? S().up.rod : level;
   return RODS[Math.max(0, Math.min(RODS.length - 1, L | 0))];
@@ -176,6 +177,7 @@ function drawHeldRod(ctx, spec, hp, mid, tip, back, U, night) {
     const band = (t, w, lw) => { const p = bez(t), n = nrm(t); ctx.strokeStyle = night(a.col); ctx.lineWidth = lw * U; ctx.beginPath(); ctx.moveTo(p[0] - n[0] * w * U, p[1] - n[1] * w * U); ctx.lineTo(p[0] + n[0] * w * U, p[1] + n[1] * w * U); ctx.stroke(); };
     if (a.kind === "dots") { ctx.fillStyle = night(a.col); for (const t of [0.3, 0.42, 0.54]) { const p = bez(t); ctx.beginPath(); ctx.arc(p[0], p[1], 1.6 * U, 0, 7); ctx.fill(); } }
     else if (a.kind === "layers") { for (const f of [0.3, 0.55, 0.8]) { ctx.strokeStyle = night(a.col); ctx.lineWidth = 1.6 * U; ctx.beginPath(); ctx.moveTo(back.x + (hp.x - back.x) * f - 4 * U, back.y + (hp.y - back.y) * f - 3 * U); ctx.lineTo(back.x + (hp.x - back.x) * f + 4 * U, back.y + (hp.y - back.y) * f + 3 * U); ctx.stroke(); } band(0.08, 3, 2); }
+    else if (a.kind === "aurora") { if (NW.aurora) NW.aurora.rodAccent(ctx, bez, nrm, U, night); }
     else if (a.kind === "wave") { for (const t of [0.22, 0.36, 0.5, 0.64]) band(t, 2.6, 1.3); }
     else { band(0.1, 3, 1.8); band(0.4, 3, 1.8); if (a.kind === "royal") { band(0.25, 3, 2); band(0.55, 3, 2); const tp = tip; ctx.fillStyle = night(a.col); ctx.beginPath(); ctx.arc(tp.x, tp.y, 2.2 * U, 0, 7); ctx.fill(); } }
   }

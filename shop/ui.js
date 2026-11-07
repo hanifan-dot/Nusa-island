@@ -32,6 +32,7 @@ function onClick(e) {
   if (a === "tab") { st.tab = id; st.view = null; render(); }
   else if (a === "buy") buy(id);
   else if (a === "equip") NW.shop.toggleEquip(id).then(render);
+  else if (a === "aurfx") { if (NW.aurora) NW.aurora.setLevel(+id); render(); }
   else if (a === "sim") act("simulatePayment");
   else if (a === "claim") act("claimPaid");
   else if (a === "wa") waConfirm();
@@ -71,12 +72,20 @@ function promoBar() {
 function renderTabs() {
   root.querySelector("#spTabs").innerHTML = C.CATEGORIES.map((c) => `<button role="tab" class="sp-tab${st.tab === c.id ? " on" : ""}" data-a="tab" data-id="${c.id}" aria-selected="${st.tab === c.id}">${c.icon} ${esc(c.name)}</button>`).join("");
 }
+function auroraPerks(it, owned) {
+  const A = NW.aurora, lv = A ? A.level() : 1, b = A && A.bonus ? A.bonus() : null;
+  const status = !owned ? "" : b && b.live ? `<li class="aur-ok">✅ Bonus peluang AKTIF — diverifikasi server (${b.up} dari ${b.n} tangkapan Biasa dinaikkan)</li>` : `<li class="aur-lock">🔒 Bonus peluang terkunci: butuh pembelian NYATA yang sudah dibayar &amp; ekonomi server aktif. Pancing &amp; efek tetap bisa dipakai sebagai tampilan.</li>`;
+  const fx = owned ? `<div class="aur-fx" role="group" aria-label="Efek pancing">${["Rendah", "Sedang", "Tinggi"].map((l, i) => `<button class="${lv === i ? "on" : ""}" data-a="aurfx" data-id="${i}">${l}</button>`).join("")}</div><small class="aur-fxn">Efek: Rendah = cahaya lembut · Sedang = + bintang · Tinggi = + petir kecil. Pilih Rendah/Sedang untuk HP Android lawas.</small>` : "";
+  return `<ul class="sp-perks"><li>🌌 Pancing fantasi biru-ungu: aurora, bintang, petir kecil, efek air</li><li>🎬 Animasi khusus melempar &amp; menarik</li><li>🎯 <b>+1 poin persentase</b> pada kelompok ikan <b>Langka</b> (mis. 23,3% → 24,3% pada peluang dasar) — bukan +1% tiap spesies</li><li>💰 Tidak menaikkan harga jual, berat ikan, atau hadiah koin</li>${status}</ul>
+  <details class="aur-odds"><summary>Cara kerja &amp; pengecualian</summary><p>Server mengubah sebagian kecil tangkapan <b>Biasa</b> (≈1,7%) menjadi ikan <b>Langka</b> dari lokasi yang sama. Dengan umpan/kapal hoki, tambahannya sedikit di bawah 1 poin. <b>Dikecualikan sepenuhnya:</b> Megalodon &amp; ikan event, ikan mistis, ikan dilindungi, sampah, Epik &amp; Legenda. Berlaku permanen sekali beli, hanya untuk pembelian NYATA terverifikasi.</p></details>${fx}`;
+}
 function itemCard(it) {
   const owned = !!st.ent.products[it.id], eq = NW.shop.isEquipped(it.id);
   const stat = owned ? `<span class="sp-own">✅ Dimiliki (permanen)</span>` : `<span class="sp-no">Belum dimiliki</span>`;
-  const btn = owned ? `<button class="sp-btn${eq ? " on" : ""}" data-a="equip" data-id="${it.id}">${eq ? "✔ Sedang dipakai" : "Pakai"}</button>` : !canBuy() ? `<button class="sp-btn" disabled>Segera hadir</button>` : it.enabled ? `<button class="sp-btn buy" data-a="buy" data-id="${it.id}">Beli · ${C.fmtRp(it.price)}</button>` : `<button class="sp-btn" disabled>Sedang tidak tersedia</button>`;
-  const perks = it.id === "gamepass_sultan" ? `<ul class="sp-perks"><li>👘 Kostum Sultan</li><li>🏅 Gelar “Sultan Samudra”</li><li>✨ Efek nama emas</li><li>🏮 Dekorasi rumah eksklusif</li><li>🎖️ Lencana profil Sultan</li></ul>` : "";
-  return `<article class="sp-item${it.id === "gamepass_sultan" ? " big" : ""}"><canvas data-pv="${it.id}" width="240" height="150" aria-label="Pratinjau ${esc(it.name)}"></canvas><div class="sp-info"><h3>${esc(it.icon)} ${esc(it.name)}</h3><p>${esc(it.desc)}</p>${perks}<div class="sp-tag">Hanya kosmetik · tidak menambah kekuatan</div>${stat}${owned ? "" : priceBlock(it)}${btn}</div></article>`;
+  const btn = owned ? `<button class="sp-btn${eq ? " on" : ""}" data-a="equip" data-id="${it.id}">${eq ? "✔ Sedang dipakai" : "Pakai"}</button>` : !canBuy() ? `<button class="sp-btn" disabled>Segera hadir</button>` : it.enabled ? `<button class="sp-btn buy" data-a="buy" data-id="${it.id}">Beli · ${C.fmtRp(it.price)}</button>` : `<button class="sp-btn" disabled>${it.bonus ? "Terkunci — belum dibuka Owner" : "Sedang tidak tersedia"}</button>`;
+  const aur = it.id === "gamepass_aurora";
+  const perks = aur ? auroraPerks(it, owned) : it.id === "gamepass_sultan" ? `<ul class="sp-perks"><li>👘 Kostum Sultan</li><li>🏅 Gelar “Sultan Samudra”</li><li>✨ Efek nama emas</li><li>🏮 Dekorasi rumah eksklusif</li><li>🎖️ Lencana profil Sultan</li></ul>` : "";
+  return `<article class="sp-item${it.id === "gamepass_sultan" || aur ? " big" : ""}${aur ? " aur" : ""}"><canvas data-pv="${it.id}" width="240" height="150" aria-label="Pratinjau ${esc(it.name)}"></canvas><div class="sp-info"><h3>${esc(it.icon)} ${esc(it.name)}</h3><p>${esc(it.desc)}</p>${perks}<div class="sp-tag">${aur ? "Pancing + bonus peluang transparan (lihat rincian)" : "Hanya kosmetik · tidak menambah kekuatan"}</div>${stat}${owned ? "" : priceBlock(it)}${btn}</div></article>`;
 }
 function packCard(p) {
   const base = p.base;
