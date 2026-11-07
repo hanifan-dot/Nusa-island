@@ -49,6 +49,7 @@ function viewGear() {
   const nm = (k) => { const u = U[k], lv = (S.up && S.up[k]) || 0; return u && u.levels ? u.levels[Math.min(lv, u.levels.length - 1)] : "Tingkat " + (lv + 1); };
   const eq = (NW.shop && NW.shop.owned ? Object.entries((S.shop && S.shop.equip) || {}) : []).filter(([s, i]) => owned()[i]);
   return `<div>${rows.map(([k, t]) => `<div class="bg-row"><b>${t}</b><span>${esc(nm(k))}</span></div>`).join("")}</div>`
+    + (NW.quest && NW.quest.bagCard ? NW.quest.bagCard() : "")          // Joran WhatsApp (hadiah Quest Owner) — status Pakai/Lepaskan sah di server
     + (eq.length ? `<div class="bg-note"><b>Kosmetik terpasang:</b> ${eq.map(([s, i]) => esc(s + ": " + i.replace(/_/g, " "))).join(", ")}</div>` : "")
     + `<div class="bg-note">Upgrade dibeli di Pasar/Toko Pancing. Status perlengkapan tersimpan bersama Cloud Save.</div>`;
 }
@@ -74,6 +75,7 @@ function act(a, arg) {
   if (a === "bagTab") { tab = arg; note = ""; N().renderPanel(); return; }
   if (a === "bagOn") { if (!NW.shop.isEquipped(arg)) setWear(arg, true); return; }
   if (a === "bagOff") { if (NW.shop.isEquipped(arg)) setWear(arg, false); return; }
+  if (a === "qoBagEquip") { if (NW.quest && !busy) { busy = true; N().renderPanel(); NW.quest.setEquip(arg === "1").then((ok) => { busy = false; note = ok ? (arg === "1" ? "Terpasang & tersimpan ✔" : "Dilepas & tersimpan ✔ (hak milik tetap)") : "Gagal menyimpan. Coba lagi."; noteBad = !ok; N().renderPanel(); }); } return; }
   if (a === "bagShop") { N().closePanel(); if (NW.shopUI) NW.shopUI.open("gamepass"); return; }
   if (a === "bagAvatar") { N().closePanel(); if (NW.avatarUI) NW.avatarUI.open("edit"); return; }
 }
