@@ -9,7 +9,7 @@
 const VERSION = 1;
 const SUBPROTOCOL = "nusa.v1";
 const AREA = "muara";                 // Tahap 4: dunia bersama hanya di Muara Kampung
-const MAP_W = 40, MAP_H = 40;         // world/map.js (MW, MH)
+const MAP_W = 40, MAP_H = 52;         // world/map.js (MW, MH) — MH 40→52 oleh Ekspansi Tanjung Lampu; server lama hanya memotong y>40 (tidak menendang)
 const Q = 20;                         // posisi dikirim sebagai bilangan bulat = tile × 20 (resolusi 0,05 tile)
 const ROOM_CAP = 16;                  // pemain per instance (ringan untuk HP Android)
 const MIN_ROOMS = 12;                 // selalu buka 12 server pertama

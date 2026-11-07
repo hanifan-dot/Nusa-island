@@ -48,5 +48,16 @@ const catchOne = async (e, id, w) => { now += 20000; return e.ecoCatch(U, { opId
     await assert.rejects(() => S.createOrder(PL, { productId: "gamepass_aurora", opId: "abcdefgh", nick: "x" }), /dinonaktifkan/);
     await S.ownerSetEnabled(OW, { productId: "gamepass_aurora", enabled: true }); cat = await S.getCatalog(PL); assert.equal(cat.items.find((i) => i.id === "gamepass_aurora").enabled, true); assert.equal(cat.items.find((i) => i.id === "gamepass_aurora").price, 20000);
     await S.ownerSetEnabled(OW, { productId: "gamepass_aurora", enabled: false }); assert.equal((await S.getCatalog(PL)).items.find((i) => i.id === "gamepass_aurora").enabled, false); });
+  await t("Pakai/Lepaskan (ecoEquip): default terpasang; Lepaskan mematikan bonus tapi hak milik tetap; Pakai lagi menghidupkan; klien palsu & non-pemilik ditolak; idempoten", async () => {
+    const { e, db, init } = mk("NYATA", () => 0); await init();
+    assert.equal((await e.ecoState(U)).aur.eq, true); now += 20000; assert.equal((await e.ecoCatch(U, { opId: op(), id: "nila", w: 1, uid: fid() })).swaps.length, 1);
+    const id = op(), off = await e.ecoEquip(U, { opId: id, slot: "joran", on: false }); assert.equal(off.aur.eq, false); assert.equal(off.aur.live, false); assert.equal(off.aur.own, true);
+    assert.deepEqual((await e.ecoEquip(U, { opId: id, slot: "joran", on: false })).duplicate, true);
+    now += 20000; assert.deepEqual((await e.ecoCatch(U, { opId: op(), id: "nila", w: 1, uid: fid() })).swaps, []);
+    assert.ok(JSON.parse(db.m.get("shop/entitlements/u1")).owned.pancing_aurora, "hak milik permanen tidak hilang");
+    const on = await e.ecoEquip(U, { opId: op(), slot: "joran", on: true }); assert.equal(on.aur.live, true); now += 20000; assert.equal((await e.ecoCatch(U, { opId: op(), id: "nila", w: 1, uid: fid() })).swaps.length, 1);
+    await assert.rejects(() => e.ecoEquip(U, { opId: op(), slot: "kapal", on: true }), /tidak dikenal/); await assert.rejects(() => e.ecoEquip(U, { opId: op(), slot: "joran", on: "ya" }), /tidak dikenal/);
+    const n = mk(null, () => 0); await n.init(); await assert.rejects(() => n.e.ecoEquip(U, { opId: op(), slot: "joran", on: true }), /Belum memiliki/);
+    const sm = mk("SIMULASI", () => 0); await sm.init(); const v = await sm.e.ecoEquip(U, { opId: op(), slot: "joran", on: true }); assert.equal(v.aur.live, false, "SIMULASI tidak pernah dapat bonus"); });
   console.log(`unit-aurora: ${pass} lulus, ${fail} gagal`); process.exit(fail ? 1 : 0);
 })();

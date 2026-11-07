@@ -51,10 +51,15 @@ const has = (slot, item) => !!owned[item] && eqS()[slot] === item;  // dipakai S
 function isEquipped(pid) { const m = EQ[pid]; return !!m && Object.entries(m).every(([s, i]) => eqS()[s] === i); }
 async function toggleEquip(pid) {
   const m = EQ[pid]; if (!m) return; const e = eqS(), on = isEquipped(pid);
+  // Aurora: status Pakai/Lepaskan disimpan di SERVER (bonus bergantung padanya). Gagal simpan → tidak berubah.
+  if (pid === "gamepass_aurora" && NW.eco && NW.eco.active && NW.eco.active()) {
+    try { await NW.eco.equip("joran", !on); applyLook(); N().save(); return { ok: true }; } catch (x) { try { N().toast("Gagal menyimpan perlengkapan. Coba lagi."); } catch (y) {} return { ok: false }; }
+  }
   for (const [s, i] of Object.entries(m)) { if (on) { if (e[s] === i) delete e[s]; } else if (owned[i]) e[s] = i; }
   applyLook(); N().save();
 }
-function setOwned(ent) { owned = Object.assign({}, ent && ent.owned ? Object.fromEntries(Object.keys(ent.owned).map((k) => [k, 1])) : {}); applyLook(); }
+let loaded = false;
+function setOwned(ent) { loaded = true; owned = Object.assign({}, ent && ent.owned ? Object.fromEntries(Object.keys(ent.owned).map((k) => [k, 1])) : {}); applyLook(); }
 const BASE = { shirt: "#579b8b", pants: "#2b3a44", collar: "#fff9ec", hatCol: undefined };
 const COST = { kostum_sultan: { shirt: "#7a2d1c", collar: "#e8c25a", hatCol: "#e8c25a" }, kostum_nelayan: { shirt: "#1b6c8c", collar: "#e8f6ff", hatCol: "#e3be7a" } };
 function applyLook() {
@@ -89,7 +94,7 @@ function applyLook() {
 
 // ---------- 4) dompet tunggal: saldo Top Up tinggal di SERVER (lihat shop/wallet.js); tidak ada lagi pemindahan koin ke S.money ----------
 const deliver = () => (NW.wallet ? NW.wallet.refresh() : Promise.resolve());
-NW.shop = { deliver, setOwned, toggleEquip, isEquipped, has, applyLook, B, SPOT, KEEP, EQ, owned: () => owned };
+NW.shop = { _loaded: () => loaded, deliver, setOwned, toggleEquip, isEquipped, has, applyLook, B, SPOT, KEEP, EQ, owned: () => owned };
 // muat hak milik di latar belakang (setelah game siap) agar kosmetik terpakai tanpa membuka toko
 setTimeout(() => { try { NW.shopApi.getEntitlements().then((e) => { setOwned(e); deliver(); }).catch(() => {}); } catch (e) {} }, 600);
 if (NW.cloud && NW.cloud.onChange) try { NW.cloud.onChange(() => setTimeout(() => NW.shopApi.getEntitlements().then((e) => { setOwned(e); deliver(); }).catch(() => {}), 800)); } catch (e) {}

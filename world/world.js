@@ -72,7 +72,7 @@ const keys = new Set();
 let moved = false;
 const joyEl = $("joy"), knobEl = $("joyKnob");
 function joyHome() { const r = joyEl.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
-function blocked() { return dialog.open || busy || !!cine || N().isPanelOpen() || !N().isStarted() || $("fade").classList.contains("on") || (NW.home && NW.home.isEditing()) || (NW.adv && NW.adv.isBusy()) || (NW.mp && NW.mp.typing); }
+function blocked() { return dialog.open || busy || !!cine || N().isPanelOpen() || !N().isStarted() || $("fade").classList.contains("on") || (NW.home && NW.home.isEditing()) || (NW.adv && NW.adv.isBusy()) || (NW.mp && NW.mp.typing) || (NW.styleShop && NW.styleShop.isOpen()); }
 
 function onDown(e) {
   if (N().mode() !== "world") return;

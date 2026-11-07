@@ -93,7 +93,12 @@ function applySwaps(sw) {
 }
 // pasang otomatis sebagai joran aktif saat pertama kali kepemilikan terverifikasi server terlihat
 let seen = false;
-function tick() { try { if (!seen && owned()) { seen = true; const S = N().S; if (!S.shop || typeof S.shop !== "object") S.shop = { v: 1, equip: {} }; if (!S.shop.equip) S.shop.equip = {}; if (!S.shop.equip.joran && !S.shop.aurSeen) { S.shop.equip.joran = "pancing_aurora"; S.shop.aurSeen = 1; N().save(); } } } catch (e) {} }
+const SEEN_KEY = "nusa-aur-seen";
+function tick() { try { const S0 = N().S; if (seen && !(S0 && S0.shop && S0.shop.aurSeen !== undefined)) return; if (!owned()) return; const S = N().S; if (!S.shop || typeof S.shop !== "object") S.shop = { v: 1, equip: {} }; if (!S.shop.equip) S.shop.equip = {};
+  // Penanda "sudah dilihat" disimpan di perangkat, BUKAN di S.shop (validator Cloud Save menolak kunci tak dikenal). Migrasi data lama: cadangkan, pindahkan penanda, hapus kunci.
+  let flag = false; try { flag = localStorage.getItem(SEEN_KEY) === "1"; } catch (e) {}
+  if (S.shop.aurSeen !== undefined) { try { localStorage.setItem("nusa-island-v1-backup-pulih-aurseen-" + Date.now(), JSON.stringify(S)); localStorage.setItem(SEEN_KEY, "1"); flag = true; } catch (e) { return; } delete S.shop.aurSeen; N().save(); }
+  if (!seen) { seen = true; if (!S.shop.equip.joran && !flag) { S.shop.equip.joran = "pancing_aurora"; try { localStorage.setItem(SEEN_KEY, "1"); } catch (e) {} N().save(); } } } catch (e) {} }
 setInterval(tick, 1500);
 NW.aurora = { SPEC, LABEL, owned, equipped, bonus, rodSpec, level: () => level, setLevel, event, rodFx, rodAccent, drawParticles, drawPreview, applySwaps };
 })();
