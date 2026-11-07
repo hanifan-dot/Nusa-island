@@ -12,7 +12,10 @@ const ecoOf = (db, u) => JSON.parse(db.m.get("shop/economy/" + u));
 const setEco = (db, u, f) => { const e = ecoOf(db, u); f(e); db.m.set("shop/economy/" + u, JSON.stringify(e)); };
 const player = async (o, u, lbc) => { await o.e.ecoInit({ uid: u }, {}); setEco(o.db, u, (e) => { e.lbc = lbc === undefined ? 100 : lbc; }); };
 const go = async (o, u, spot) => { now += 2000; return o.e.ecoSf2Catch({ uid: u }, { opId: op(), spot: spot || "dalam" }); };
-const R = (r1, r2, r3) => SEQ(r1, r2, r3, 0.5);   // lalu acak bebas (uid unik)   // r1 rarity, r2 spesies, r3 berat, lalu uid
+// DETERMINISTIK & berulang per tangkapan (tanpa Math.random): tiap tangkapan memakai 6 undian = r1 rarity, r2 spesies, r3 berat, 0,5, lalu 2 undian uid dari deret emas (unik antar tangkapan).
+// Dulu: sesudah 4 nilai jatuh ke Math.random → tangkapan ke-2 pada server yang sama bisa jadi Mythic acak (tes flaky). Mekanisme game tidak diubah.
+let GK = 0;   // penghitung global → uid unik juga antar server tiruan yang berbagi satu db
+const R = (r1, r2, r3) => { let i = 0; return () => { const j = i++ % 6; return j < 3 ? [r1, r2, r3][j] : j === 3 ? 0.5 : ((++GK * 0.6180339887498949) % 1) * 0.999; }; };
 (async () => {
   // ---------- matematika murni ----------
   await t("Functions lib sf2-core sama dengan sumber", () => assert.ok(fs.readFileSync(path.join(__dirname, "../firebase/functions/lib/sf2-core.js"), "utf8").endsWith(fs.readFileSync(path.join(__dirname, "../economy/sf2-core.js"), "utf8"))));
