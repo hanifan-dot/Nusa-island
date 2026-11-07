@@ -26,6 +26,9 @@
     { id: "gamepass_sultan", cat: "gamepass", name: "Gamepass Nelayan Sultan", icon: "👑", intro: 15000, regular: 25000, permanent: true, cosmetic: true, power: false,
       desc: "Sekali beli, berlaku PERMANEN (tanpa langganan). Kostum Sultan, gelar \"Sultan Samudra\", efek nama emas, dekorasi rumah eksklusif, dan lencana profil Sultan. Hanya tampilan.",
       grants: ["kostum_sultan", "gelar_sultan", "nama_emas", "dekor_sultan", "lencana_sultan"] },
+    { id: "gamepass_aurora", cat: "gamepass", name: "Pancing Aurora Samudra", icon: "🌌", intro: 20000, regular: 20000, permanent: true, cosmetic: false, power: false, bonus: "langka_1pp", lockedUntilOwner: true,
+      desc: "Sekali beli, PERMANEN. Pancing fantasi biru-ungu: cahaya aurora, partikel bintang, petir kecil, efek air, animasi lempar & tarik. Bonus peluang: +1 poin persentase pada kelompok ikan Langka (pada peluang dasar). Tidak menaikkan harga jual, berat ikan, atau hadiah koin. Megalodon, ikan event, ikan mistis, dan ikan dilindungi dikecualikan.",
+      grants: ["pancing_aurora"] },
     { id: "skin_kapal_nusantara", cat: "kapal", name: "Skin Kapal Nusantara", icon: "⛵", intro: 5000, regular: 8000, permanent: true, cosmetic: true, power: false, desc: "Layar batik merah-emas dan lambung berukir. Tidak mengubah kecepatan kapal.", grants: ["skin_kapal_nusantara"] },
     { id: "kostum_nelayan", cat: "kostum", name: "Kostum Nelayan", icon: "🧥", intro: 3000, regular: 5000, permanent: true, cosmetic: true, power: false, desc: "Baju nelayan biru laut dengan ikat kepala emas. Hanya tampilan.", grants: ["kostum_nelayan"] },
     { id: "dekor_rumah", cat: "dekor", name: "Dekorasi Rumah", icon: "🏮", intro: 5000, regular: 8000, permanent: true, cosmetic: true, power: false, desc: "Lampion kayu Nusantara untuk Rumahku. Hanya tampilan.", grants: ["dekor_lampion"] },
@@ -76,7 +79,9 @@
     const requireTrusted = (auth) => { if (auth && auth.system === "payment-webhook") return; requireOwner(auth); }; // webhook = identitas sistem yang disuntik backend (BUKAN dari browser)
     const CFG = "shop/config", ORD = (id) => `shop/orders/${id}`, IDX = (uid) => `shop/userOrders/${uid}`, ENT = (uid) => `shop/entitlements/${uid}`, LED = (uid) => `shop/ledger/${uid}`;
     const REF = (r) => `shop/refs/${r}`, AUD = "shop/audit", CNT = "shop/counters";
-    const defaultCfg = () => ({ launchAt: null, promoDays: 30, mode: "simulasi", disabled: {}, orderTtlMs: DAY });
+    const defaultCfg = () => ({ launchAt: null, promoDays: 30, mode: "simulasi", disabled: {}, unlocked: {}, orderTtlMs: DAY });
+    // produk bertanda lockedUntilOwner (bonus peluang) TERKUNCI sampai Owner membukanya secara eksplisit; konfigurasi lama tanpa "unlocked" tetap terkunci
+    const isEnabled = (cfg, prod) => !cfg.disabled[prod.id] && (!prod.lockedUntilOwner || !!(cfg.unlocked && cfg.unlocked[prod.id]));
     async function cfgOf(t) { const c = await t.get(CFG); return Object.assign(defaultCfg(), c || {}); }
     async function audit(t, auth, action, orderId, detail) {
       const a = (await t.get(AUD)) || { n: 0, items: [] };
@@ -107,7 +112,7 @@
       async getCatalog() {
         const now = clock(), cfg = await db.tx(async (t) => cfgOf(t));
         const ps = promoState(cfg, now);
-        const items = PRODUCTS.map((p) => ({ id: p.id, cat: p.cat, name: p.name, icon: p.icon, desc: p.desc, permanent: true, cosmetic: true, power: false, price: priceOf(p, cfg, now), intro: p.intro, regular: p.regular, enabled: !cfg.disabled[p.id], grants: p.grants }));
+        const items = PRODUCTS.map((p) => ({ id: p.id, cat: p.cat, name: p.name, icon: p.icon, desc: p.desc, permanent: true, cosmetic: p.cosmetic !== false, power: false, bonus: p.bonus || null, price: priceOf(p, cfg, now), intro: p.intro, regular: p.regular, enabled: isEnabled(cfg, p), grants: p.grants }));
         const packs = PACKAGES.map((p) => ({ id: p.id, name: p.name, icon: p.icon, rupiah: p.rupiah, coins: p.coins, base: p.base, bonus: p.bonus, bonusPct: p.bonusPct, enabled: !cfg.disabled[p.id] }));
         return { now, mode: cfg.mode, env: envOf(cfg), live: envOf(cfg) === "NYATA", promo: ps, items, packs, merchant: MERCHANT, coinsPer1000: COINS_PER_1000 };
       },
@@ -125,7 +130,7 @@
           // daftar pilot KOSONG tidak berarti "terbuka untuk umum" — pembelian tetap ditolak untuk semua sampai Owner menyalakan kunci itu di server.
           const pilot = Array.isArray(cfg.pilot) ? cfg.pilot : [];
           if (cfg.mode === "nyata" && (pilot.length ? pilot.indexOf(uid) < 0 : opts.publicOpen === false)) throw E("failed-precondition", "Toko sedang uji terbatas. Segera dibuka untuk semua pemain.");
-          if (cfg.disabled[prod.id]) throw E("failed-precondition", "Produk sedang dinonaktifkan.");
+          if (!isEnabled(cfg, prod)) throw E("failed-precondition", "Produk sedang dinonaktifkan.");
           const idx = await expireStale(t, uid, now), ent = (await t.get(ENT(uid))) || { products: {} };
           if (!isCoinPack(prod) && ent.products[prod.id]) throw E("already-exists", "Kamu sudah memiliki produk ini.");
           for (const id of idx.ids) { const o = await t.get(ORD(id)); if (!o) continue; if (o.opId === p.opId) return { order: safeOrder(o), existing: true }; if (o.status === "PENDING" && o.productId === prod.id) return { order: safeOrder(o), existing: true }; }
@@ -266,7 +271,7 @@
         });
       },
       async ownerSetLaunch(auth, p) { requireOwner(auth); if (!Number.isFinite(p && p.launchAt)) throw E("invalid-argument", "launchAt (ms) wajib."); return db.tx(async (t) => { const c = await cfgOf(t); c.launchAt = Math.floor(p.launchAt); if (p.promoDays !== undefined) { if (!(p.promoDays >= 1 && p.promoDays <= 90)) throw E("invalid-argument"); c.promoDays = Math.floor(p.promoDays); } await t.set(CFG, c); await audit(t, auth, "setLaunch", null, { launchAt: c.launchAt, promoDays: c.promoDays }); return { config: c }; }); },
-      async ownerSetEnabled(auth, p) { requireOwner(auth); if (!BY_ID[p && p.productId]) throw E("not-found"); return db.tx(async (t) => { const c = await cfgOf(t); if (p.enabled) delete c.disabled[p.productId]; else c.disabled[p.productId] = true; await t.set(CFG, c); await audit(t, auth, "setEnabled", null, { productId: p.productId, enabled: !!p.enabled }); return { config: c }; }); },
+      async ownerSetEnabled(auth, p) { requireOwner(auth); if (!BY_ID[p && p.productId]) throw E("not-found"); return db.tx(async (t) => { const c = await cfgOf(t); c.unlocked = c.unlocked || {}; if (p.enabled) { delete c.disabled[p.productId]; c.unlocked[p.productId] = true; } else { c.disabled[p.productId] = true; delete c.unlocked[p.productId]; } await t.set(CFG, c); await audit(t, auth, "setEnabled", null, { productId: p.productId, enabled: !!p.enabled }); return { config: c }; }); },
       async ownerSetMode(auth, p) { requireOwner(auth); if (p && p.mode === "nyata" && !realEnabled) throw E("failed-precondition", "Backend pembayaran nyata belum siap; mode nyata tidak bisa dinyalakan."); if (!p || !["simulasi", "nyata"].includes(p.mode)) throw E("invalid-argument"); return db.tx(async (t) => { const c = await cfgOf(t); c.mode = p.mode; await t.set(CFG, c); await audit(t, auth, "setMode", null, { mode: p.mode }); return { config: c }; }); },
       // daftar UID pilot (uji uang asli terkendali). Kosong = terbuka untuk semua pemain.
       async ownerSetPilot(auth, p) { requireOwner(auth); const u = (p && p.uids); if (!Array.isArray(u) || u.length > 20 || u.some((x) => typeof x !== "string" || !/^[A-Za-z0-9_-]{6,128}$/.test(x))) throw E("invalid-argument", "Daftar UID tidak valid (maks 20)."); return db.tx(async (t) => { const c = await cfgOf(t); c.pilot = Array.from(new Set(u)); await t.set(CFG, c); await audit(t, auth, "setPilot", null, { n: c.pilot.length }); return { config: c }; }); },

@@ -31,5 +31,5 @@ PASS  D6 kostum tak dikenal (versi game lain) → fallback tampilan dasar, tanpa
 PASS  D7 kode rusak ditolak → tampilan dasar
 PASS  D8 8 pemain berefek berkumpul: hanya 3 pertama berefek (hemat), sisanya 0  [1, 1, 1, 0, 0, 0, 0, 0]
 PASS  D9 mode efek 'Mati' tersimpan & dihormati
-PASS  D10 biaya gambar kostum paling berat < 3 ms/bingkai (headless CPU)  0.02
+PASS  D10 biaya gambar kostum paling berat < 3 ms/bingkai (headless CPU)  0.03
 PASS  E1 pemain lama tanpa data avatar: gaya karakter identik (caping, warna asli)

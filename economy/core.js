@@ -40,6 +40,7 @@
     const initCap = Number.isFinite(opts.initCap) ? opts.initCap : 20000;     // batas koin lama yang diakui SEKALI saat migrasi; 0 saat rilis
     const SK = opts.streak || null;                                           // StreakCore (streak/core.js), opsional
     const PC = opts.pond || null;                                             // PondCore (economy/pond-core.js): Kolam Ikan Rumahku, opsional (tanpa ini ecoPond* menolak)
+    const AU = opts.aurora || null;                                           // AuroraCore (economy/aurora-core.js): bonus peluang Gamepass Pancing Aurora, opsional (tanpa ini tidak ada bonus)
     const FC = opts.fashion || null;                                          // FashionCore (economy/fashion-core.js): katalog & harga avatar, opsional
     const SFX = opts.sf || null;                                              // SFCore (economy/sf-core.js): Samudra Follower, opsional & TERKUNCI sampai Owner menyetujui nilai di shop/config.sf
     const EV = opts.event || null;                                            // EventCore (event/core.js): Event 5 Monster Legenda, opsional
@@ -55,7 +56,8 @@
       ops: [], earned: 0, spent: 0, lastCatchAt: 0, streak: null, streakBait: 0, ev: {}, troph: {} });
     const topupOf = (ent) => (ent && ent.wallet && ent.wallet.NYATA) || 0;
     const view = (eco, ent) => ({ init: eco.init, own: eco.bal, topup: topupOf(ent), balance: eco.bal + topupOf(ent), up: eco.up, homeLv: eco.homeLv, cat: eco.cat,
-      box: eco.box.map((b) => b.u), claimed: Object.keys(eco.claimed), troph: eco.troph || {} });
+      box: eco.box.map((b) => b.u), claimed: Object.keys(eco.claimed), troph: eco.troph || {},
+      ...(AU ? { aur: { own: AU.ownsAny(ent), live: AU.owns(ent), n: (eco.aur && eco.aur.n) || 0, up: (eco.aur && eco.aur.up) || 0 } } : {}) });
     const doneOp = (eco, id) => { const o = eco.ops.find((x) => x.id === id); return o ? o.r : null; };
     const remember = (eco, id, r) => { eco.ops.push({ id, r }); if (eco.ops.length > LIM.ops) eco.ops.splice(0, eco.ops.length - LIM.ops); return r; };
     // ===== Statistik Podium Juara (leaderboardTop): dihitung SERVER di transaksi ecoCatch yang SAMA (tanpa tulis tambahan, tanpa baca baru).
@@ -153,26 +155,34 @@
           eco.catches = eco.catches.filter((x) => now - x < HOUR);
           if (eco.catches.length + n > LIM.catchPerHour) throw E("resource-exhausted", "Batas tangkapan per jam tercapai.");
           for (let i = 0; i < n; i++) eco.catches.push(now); eco.lastCatchAt = now;
-          let reward = 0; const skipped = [];
+          let reward = 0; const skipped = [], swaps = [], fin = [];
+          const bonus = !!(AU && AU.owns(ent));                                           // bonus HANYA bila server melihat kepemilikan NYATA di entitlement (bukan klaim klien)
           for (const it of items) {
-            const f = FISH[it.id] || sfR[it.uid].fish, w = Number(it.w);
+            let f = FISH[it.id] || sfR[it.uid].fish, w = Number(it.w);
             if (f.sf) {
-              if (pondKnows(eco, it.uid)) { skipped.push(it.uid); continue; }
+              if (pondKnows(eco, it.uid)) { skipped.push(it.uid); fin.push(it); continue; }
               if (eco.box.some((b) => b.u === it.uid)) throw E("already-exists", "UID ikan sudah ada.");
               if (eco.box.length >= LIM.boxMax) throw E("resource-exhausted", "Kotak ikan penuh.");
               if (!SFX.takeDaily(eco.sf && typeof eco.sf === "object" ? eco.sf : (eco.sf = {}), f.id, sfR[it.uid].dayCap, now)) throw E("resource-exhausted", "Batas harian ikan spesial tercapai.");
-              eco.box.push({ u: it.uid, id: f.id, w: Math.round(w * 100) / 100, sp: f.price });   // sp = harga/kg yang disetujui Owner saat tangkap (dikunci di sisi server)
+              eco.box.push({ u: it.uid, id: f.id, w: Math.round(w * 100) / 100, sp: f.price }); fin.push(it);   // sp = harga/kg yang disetujui Owner saat tangkap (dikunci di sisi server)
               continue;
             }
-            if (f.protected) { const r = Math.round(f.price * PRICE_SCALE * FM.effectiveKg(w) * 1.2); reward += r; credit(eco, r); continue; }
-            if (pondKnows(eco, it.uid)) { skipped.push(it.uid); continue; }            // ikan yang sedang/pernah di kolam (mis. simpanan lama dipulihkan) tidak boleh masuk kotak lagi
+            if (f.protected) { const r = Math.round(f.price * PRICE_SCALE * FM.effectiveKg(w) * 1.2); reward += r; credit(eco, r); fin.push(it); continue; }
+            if (pondKnows(eco, it.uid)) { skipped.push(it.uid); fin.push(it); continue; }            // ikan yang sedang/pernah di kolam (mis. simpanan lama dipulihkan) tidak boleh masuk kotak lagi
             if (eco.box.some((b) => b.u === it.uid)) throw E("already-exists", "UID ikan sudah ada.");
             if (eco.box.length >= LIM.boxMax) throw E("resource-exhausted", "Kotak ikan penuh.");
+            let fi = it;
+            if (bonus && f.rarity === "biasa") {                                          // bonus Aurora: Biasa → Langka (lokasi sama), diundi SERVER; berat diundi ulang SERVER
+              eco.aur = eco.aur || { n: 0, up: 0 }; eco.aur.n++;
+              const to = AU.roll(f, rng);
+              if (to && FISH[to]) { const nf = FISH[to], r = FM.rollWeight(nf, rng); swaps.push({ u: it.uid, from: f.id, id: to, w: r.w }); eco.aur.up++; f = nf; w = r.w; fi = { id: to, w, uid: it.uid }; }
+            }
+            fin.push(fi);
             eco.box.push({ u: it.uid, id: f.id, w: Math.round(w * 100) / 100 });
           }
-          lbCount(eco, items, typeof skipped === "undefined" ? null : skipped, now);   // Podium Juara: sekali per paket, di transaksi yang sama
-          await t.set(ECO(uid), remember(eco, opId, { reward, skipped }) && eco);
-          return Object.assign({ ok: true, reward, skipped }, view(eco, ent));
+          lbCount(eco, fin, typeof skipped === "undefined" ? null : skipped, now);   // Podium Juara: sekali per paket, di transaksi yang sama
+          await t.set(ECO(uid), remember(eco, opId, { reward, skipped, swaps }) && eco);
+          return Object.assign({ ok: true, reward, skipped, swaps }, view(eco, ent));
         });
       },
       // Jual ikan: harga dihitung server dari kotak server. Ikan yang tidak ada di kotak diabaikan (dilaporkan sebagai "unknown").
