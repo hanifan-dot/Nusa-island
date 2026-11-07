@@ -95,6 +95,7 @@ function holdUI(it, here) {
 }
 function holdAct(a, arg) {
   if (a === "holdFish") {
+    { const it0 = (N().S.cooler || []).find((x) => x.uid === arg), f0 = it0 && N().FISH_BY_ID[it0.id]; if (f0 && f0.sf) { N().toast("Ikan spesial belum bisa dipamerkan", "bad"); return true; } }
     if (NW.inv) NW.inv.closeDetail();
     if (start(arg)) { N().closePanel(); N().toast(`Kamu memamerkan ${N().FISH_BY_ID[H.id].name} · ${N().fmtW(H.w)}`, "good"); }
     return true;

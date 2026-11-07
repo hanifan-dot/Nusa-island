@@ -108,7 +108,7 @@ const fmtEta = (ms) => { const h = Math.floor(ms / 3600000), d = Math.floor(h / 
 // ikan di coolbox yang boleh masuk kolam (bukan sampah/dilindungi; harus tercatat di kotak ikan server)
 function eligible() {
   const box = new Set(((NW.eco && NW.eco.state()) || {}).box || []), F = N().FISH_BY_ID;
-  return (N().S.cooler || []).map((it) => { const f = F[it.id]; let why = ""; if (!f) why = "tidak dikenal"; else if (f.rarity === "sampah") why = "sampah"; else if (f.protected) why = "dilindungi"; else if (!box.has(it.uid)) why = "belum tercatat server"; return { it, f, why }; });
+  return (N().S.cooler || []).map((it) => { const f = F[it.id]; let why = ""; if (!f) why = "tidak dikenal"; else if (f.sf) why = "ikan spesial"; else if (f.rarity === "sampah") why = "sampah"; else if (f.protected) why = "dilindungi"; else if (!box.has(it.uid)) why = "belum tercatat server"; return { it, f, why }; });
 }
 NW.pond = { status, refresh, retry, onYard, put, take, feed, buy, upgrade, fishRows, drawState, nowSrv, fmtEta, eligible, view: () => st, busy: () => busy, _reset: () => { st = null; supported = null; fails = 0; busy = false; pending = null; ack.seen.clear(); ack.got.clear(); shown.clear(); cache = { at: -1, v: null }; } };
 })();

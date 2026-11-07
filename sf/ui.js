@@ -6,17 +6,23 @@ const NW = (window.NW = window.NW || {});
 const C = window.NusaSFCatalog; if (!C) return;
 let mode = C.DEFAULT_MODE;
 try { const q = new URLSearchParams(location.search).get("sf"); if (q === "preview" && window.NUSA_SF_PREVIEW === true) mode = "preview"; } catch (e) {}
-const on = () => mode !== "off";
+let live = false;   // true bila server (persetujuan Owner) mengaktifkan minimal satu ikan untuk akun ini
+const S_ = () => (window.Nusa && window.Nusa.S) || null;
+const owned = (id) => { const S = S_(), r = S && S.dex && S.dex[id]; return !!(r && r.n > 0); };
+const hasAny = () => C.FISH.some((f) => owned(f.id));
+const on = () => mode !== "off" || live || hasAny();
+const rar = (f) => C.RARITY[f.sfRarity || f.rarity] || { label: "", color: "#9ab" };
 const $ = (id) => document.getElementById(id);
 const reduced = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; } };
 let ov = null, cv = null, raf = 0, curId = null, t0 = 0, frames = 0, catchMode = false;
 
+const stat = (f) => { const S = S_(), r = S && S.dex && S.dex[f.id]; return r && r.n > 0 ? `Tertangkap ${r.n}× · terbaik ${String(Math.round(r.best * 100) / 100).replace(".", ",")} kg` : (live && f.activeNow ? "Bisa didapat sebagai bonus" : (f.event ? "Ikan event" : "Belum bisa dipancing")); };
 function img(id) { return NW.sfDraw.sprite(id, 150, 90); }
 function gridHTML() {
-  let h = `<div class="sf-note">🌊 Ikan spesial dari ide pengikut Instagram Nusa Island. ${mode === "preview" ? "<b>Mode pratinjau</b>: belum bisa dipancing." : ""}</div><div class="sf-grid">`;
+  let h = `<div class="sf-note">🌊 Ikan spesial dari ide pengikut Instagram Nusa Island. ${mode === "preview" && !live ? "<b>Mode pratinjau</b>: belum bisa dipancing." : ""}</div><div class="sf-grid">`;
   for (const f of C.FISH) {
     const R = C.RARITY[f.rarity];
-    h += `<button class="sf-cell" data-act="sfOpen" data-arg="${f.id}" style="--sfc:${R.color}"><img src="${img(f.id)}" alt="${f.name}"><div class="nm">${f.name}</div><span class="rb">${R.label}</span><div class="cr">📸 ${f.credit}</div><div class="st">${f.event ? "Ikan event" : "Belum bisa dipancing"}</div></button>`;
+    h += `<button class="sf-cell" data-act="sfOpen" data-arg="${f.id}" style="--sfc:${R.color}"><img src="${img(f.id)}" alt="${f.name}"><div class="nm">${f.name}</div><span class="rb">${R.label}</span><div class="cr">📸 ${f.credit}</div><div class="st">${stat(f)}</div></button>`;
   }
   return h + `</div>`;
 }
@@ -31,8 +37,12 @@ function build() {
 function paintCard() {
   const f = C.BY_ID[curId], R = C.RARITY[f.rarity], card = $("sfCard");
   card.style.setProperty("--sfc", R.color); card.style.setProperty("--sfg", R.glow || "rgba(255,255,255,.4)");
-  $("sfRb").textContent = (catchMode ? "✨ TANGKAPAN SPESIAL · " : "") + R.label; $("sfNm").textContent = f.name; $("sfDs").textContent = f.desc;
+  $("sfRb").textContent = (catchMode ? "✨ TANGKAPAN SPESIAL · " : "") + R.label;
+  $("sfPrev").style.display = realInfo ? "none" : ""; $("sfNm").textContent = f.name; $("sfDs").textContent = f.desc;
   $("sfCr").textContent = `📸 Ide ikan oleh ${f.credit} (${C.IG_NOTE})`;
+  const kg = (w) => String(Math.round(w * 100) / 100).replace(".", ",") + " kg";
+  if (realInfo) { $("sfTg").textContent = `Berat ${kg(realInfo.w)} · nilai jual ≈ ${Math.round(realInfo.price).toLocaleString("id-ID")} koin · tersimpan di Coolbox (terkunci)`; $("sfX").textContent = "Simpan"; return; }
+  $("sfX").textContent = "Tutup";
   $("sfTg").textContent = catchMode ? "Pratinjau kartu: tidak ada ikan/koin yang ditambahkan." : (f.event ? "Hanya muncul saat event aktif · belum bisa dipancing" : "Belum bisa dipancing (menunggu persetujuan Owner)");
   $("sfPrev").textContent = catchMode ? "↩ Kembali ke detail" : "✨ Lihat kartu tangkapan";
 }
@@ -48,11 +58,12 @@ function frame(ts) {
   raf = requestAnimationFrame(frame);
 }
 const sin2 = Math.sin;
-function open(id) {
-  if (!on() || !C.BY_ID[id]) return; build(); curId = id; catchMode = false; paintCard(); ov.classList.add("on"); t0 = performance.now(); frames = 0;
+let realInfo = null;
+function open(id, real) {
+  if (!on() || !C.BY_ID[id]) return; build(); curId = id; realInfo = real || null; catchMode = !!real; paintCard(); ov.classList.add("on"); t0 = performance.now(); frames = 0;
   if (!raf) raf = requestAnimationFrame(frame);
 }
-function close() { if (ov) ov.classList.remove("on"); catchMode = false; }
+function close() { if (ov) ov.classList.remove("on"); catchMode = false; realInfo = null; }
 document.addEventListener("click", (e) => { const el = e.target.closest && e.target.closest('[data-act="sfOpen"]'); if (el) open(el.dataset.arg); });
-NW.sf = { mode: () => mode, on, gridHTML, open, close, frames: () => frames, setMode: (m) => { if (m === "off" || m === "preview") mode = m; }, isOpen: () => !!(ov && ov.classList.contains("on")), catchPreview: () => { catchMode = true; paintCard(); } };
+NW.sf = { mode: () => mode, on, isSF: C.isSF, rar, setLive: (v, ids) => { live = !!v; C.FISH.forEach((f) => { f.activeNow = !!(ids && ids.includes(f.id)); }); }, live: () => live, openCatch: (id, real) => open(id, real), gridHTML, open, close, frames: () => frames, setMode: (m) => { if (m === "off" || m === "preview") mode = m; }, isOpen: () => !!(ov && ov.classList.contains("on")), catchPreview: () => { catchMode = true; paintCard(); } };
 })();

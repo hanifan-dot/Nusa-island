@@ -233,6 +233,7 @@ function waterOf(h, aq) { const f = fishIn(h, aq.uid); return f.length ? aq.wate
 function eligible(item, aq, h, FISH_BY_ID, ignoreUid) {
   const f = FISH_BY_ID[item.id];
   if (!f) return { ok: false, why: "Jenis tidak dikenal" };
+  if (f.sf) return { ok: false, why: "Ikan spesial belum bisa dipajang" };
   if (f.emoji || f.rarity === "sampah") return { ok: false, why: "Bukan ikan" };
   if (f.protected) return { ok: false, why: "Dilindungi, harus dilepas ke alam" };
   if (f.pelagic) return { ok: false, why: "Perenang samudra, butuh laut lepas" };

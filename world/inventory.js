@@ -17,7 +17,7 @@ const RAR_RANK = { sampah: 0, biasa: 1, langka: 2, epik: 3, legenda: 4 };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fish = (it) => N().FISH_BY_ID[it.id];
 const PILL = { sampah: "#5c615e", biasa: "#2f7a62", langka: "#2a79b0", epik: "#8a3fc0", legenda: "#9a6a08" }; // teks lencana kelangkaan, cukup gelap agar terbaca
-const pill = (f) => { const R = RARITY[f.rarity]; return `<span class="pill" style="background:${R.color}2e;color:${PILL[f.rarity]}">${f.mistik ? "✨ Mistis" : R.label}</span>`; };
+const pill = (f) => { if (f.sf && NW.sf) { const R = NW.sf.rar(f); return `<span class="pill" style="background:${R.color}2e;color:${R.color}">🌊 ${R.label}</span>`; } const R = RARITY[f.rarity]; return `<span class="pill" style="background:${R.color}2e;color:${PILL[f.rarity]}">${f.mistik ? "✨ Mistis" : R.label}</span>`; };
 
 // ---------- Gambar kecil (satu per spesies, di-cache) ----------
 const thumbCache = {};

@@ -316,7 +316,7 @@ function chooseFish() {
 function priceMult(id, day = S.day) { return 0.7 + seeded(hashStr(id + ":" + day))() * 0.75; }
 const PRICE_SCALE = 3;
 // Bumbu 1.2: berat di atas 100 kg dikompres (NW.FM.effectiveKg) agar ikan raksasa tidak merusak ekonomi
-function priceOf(item) { return NW.FM.priceFor(FISH_BY_ID[item.id], item.w, priceMult(item.id), PRICE_SCALE); }
+function priceOf(item) { const f = FISH_BY_ID[item.id]; if (f && f.sf) return NW.FM.priceFor({ price: item.sp || 0 }, item.w, 1, PRICE_SCALE); return NW.FM.priceFor(f, item.w, priceMult(item.id), PRICE_SCALE); }   // ikan Samudra Follower: harga/kg dikunci server saat tangkap (item.sp), tanpa pengali harian
 
 // ---------- Input ----------
 function press(px) {
@@ -457,6 +457,7 @@ function landFish(fish, w) {
     if (fish.mistik) item.lock = true; // ikan mistis otomatis terkunci (tidak ikut "jual semua" tanpa sengaja; bisa dibuka kuncinya di Inventaris)
     S.cooler.push(item);
     if (NW.eco) NW.eco.onCatch(item);   // lapor ke server (kotak ikan server) bila ekonomi server aktif
+    if (NW.sfPlay && fish.rarity !== "sampah") NW.sfPlay.after(item);   // Samudra Follower: peluang BONUS (hanya bila Owner mengaktifkan; ikan biasa tidak berubah)
     if (NW.variants) NW.variants.record(S, fish, vr, w, LOCATIONS[S.loc].id);
   }
   emit("catch", { fish, w, night: isNight(), loc: LOCATIONS[S.loc].id, vr, spot: G.spotId || null, sea: fishFrom === "sea" && G.sea ? G.sea.id : null });
@@ -1036,6 +1037,7 @@ function drawFish(c, f, x, y, L, vr) {
     c.font = `${Math.round(L * 0.55)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
     c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(f.emoji, x, y); return;
   }
+  if (f.sf && NW.sfDraw) { NW.sfDraw.draw(c, f.id, x, y, L * 0.98, 0.6); return; }   // Samudra Follower: gambar sendiri (sf/draw.js)
   if (f.mistik && NW.mystic) { NW.mystic.drawFish(c, f, x, y, L); return; } // Bumbu 2.4.1: ikan mistis punya gambar sendiri (transparan berpendar / pari bersirip bercahaya)
   const [sl, sh] = f.shape;
   const bl = L * 0.74, bh = bl * (sh / sl) * 1.15;
