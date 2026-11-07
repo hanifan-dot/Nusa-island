@@ -1,0 +1,57 @@
+name: Cek Kandidat +40% (tanpa deploy)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/rilis-nusa-style-plus40-20261107.yml'
+      - '.github/workflows/cek-kandidat-nusa-style40.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    name: Uji game + peta + Aurora + Firebase sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/Nusa-island
+          ref: fe4ca3441ad24d75614a068be991fe9195dc7ddc
+          path: game
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pastikan semua berkas wajib lengkap
+        run: |
+          set -euo pipefail
+          for f in firebase/scripts/deploy-api-kandidat.sh firebase/scripts/cf-auth-check.sh tests/unit-cf-auth.js tests/unit-economy.js tests/unit-aurora.js tests/unit-map-ext.js tests/unit-cloud.js tests/unit-mp.js; do
+            test -s "game/$f" || { echo "::error::Berkas hilang: $f"; exit 1; }
+          done
+          bash -n game/firebase/scripts/deploy-api-kandidat.sh
+          bash -n game/firebase/scripts/cf-auth-check.sh
+          bash -n game/firebase/scripts/rilis.sh
+      - name: Pastikan seluruh Firebase Functions lib sesuai sumber game
+        working-directory: game
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const pairs = [['economy/core.js','economy-core.js'],['economy/tables.js','economy-tables.js'],['fishmath.js','fishmath.js'],['streak/core.js','streak-core.js'],['event/core.js','event-core.js'],['house/core.js','house-core.js'],['username/core.js','name-core.js'],['economy/pond-core.js','pond-core.js'],['economy/fashion-core.js','fashion-core.js'],['economy/sf-core.js','sf-core.js'],['economy/aurora-core.js','aurora-core.js']];
+          for (const [src,dst] of pairs) {
+            const header = '// SALINAN OTOMATIS dari '+src+' — jangan diedit di sini (node firebase/scripts/sync-economy.js).\n';
+            const expected = header+fs.readFileSync(src,'utf8');
+            const actual = fs.readFileSync('firebase/functions/lib/'+dst,'utf8');
+            if (expected !== actual) { console.error('::error::Salinan Firebase kedaluwarsa: '+dst); process.exitCode=1; }
+            else console.log('OK '+dst);
+          }
+          NODE
+      - name: Regresi game (tanpa jaringan dan tanpa secret produksi)
+        working-directory: game
+        run: |
+          set -e
+          node firebase/scripts/cek-rilis.js
+          node tests/unit-map-ext.js
+          node tests/unit-cloud.js
+          node tests/unit-economy.js
+          node tests/unit-aurora.js
+          node tests/unit-mp.js
+          node tests/unit-cf-auth.js
