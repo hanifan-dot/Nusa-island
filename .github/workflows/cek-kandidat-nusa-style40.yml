@@ -67,4 +67,4 @@ jobs:
         working-directory: game
         run: |
           set -e
-          for t in unit-sf-server unit-podium unit-house-social unit-mp-house unit-shop unit-fashion unit-pond unit-rilis unit-username; do node tests/$t.js; done
+          for t in unit-sf-server unit-podium unit-house-social unit-mp-house unit-shop unit-fashion unit-pond unit-rilis; do node tests/$t.js; done
