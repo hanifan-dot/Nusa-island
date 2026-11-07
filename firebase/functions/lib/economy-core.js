@@ -56,6 +56,15 @@
       box: eco.box.map((b) => b.u), claimed: Object.keys(eco.claimed), troph: eco.troph || {} });
     const doneOp = (eco, id) => { const o = eco.ops.find((x) => x.id === id); return o ? o.r : null; };
     const remember = (eco, id, r) => { eco.ops.push({ id, r }); if (eco.ops.length > LIM.ops) eco.ops.splice(0, eco.ops.length - LIM.ops); return r; };
+    // ===== Statistik Podium Juara (leaderboardTop): dihitung SERVER di transaksi ecoCatch yang SAMA (tanpa tulis tambahan, tanpa baca baru).
+    // eco.lb = { c: total ikan, n: jumlah spesies berbeda, sp: {idSpesies: jumlah}, t: waktu naik terakhir }. Tidak ikut `view` (tak terkirim ke klien), tidak direset saat ikan dijual,
+    // tidak menyentuh saldo/kotak/reward. Dokumen lama tanpa `lb` mulai dari 0 (konservatif: tidak ada angka lama yang "diakui"). Paket yang dilewati (ikan sudah di kolam) tidak dihitung.
+    const lbCount = (eco, items, skipped, now) => {
+      const lb = eco.lb = eco.lb && typeof eco.lb === "object" ? eco.lb : { c: 0, n: 0, sp: {}, t: 0 }; if (!lb.sp || typeof lb.sp !== "object") lb.sp = {};
+      const skip = new Set(Array.isArray(skipped) ? skipped : []); let add = 0;
+      for (const it of items) { if (it.uid && skip.has(it.uid)) continue; add++; lb.sp[it.id] = (lb.sp[it.id] || 0) + 1; }
+      if (add) { lb.c = (lb.c || 0) + add; lb.n = Object.keys(lb.sp).length; lb.t = now; }
+    };
     const getEco = async (t, uid) => Object.assign(fresh(), (await t.get(ECO(uid))) || {});
     const needInit = (eco) => { if (!eco.init) throw E("failed-precondition", "Ekonomi belum diaktifkan untuk akun ini."); };
     const maxKg = (f) => f.xMax || f.wMax;
@@ -137,6 +146,7 @@
             if (eco.box.length >= LIM.boxMax) throw E("resource-exhausted", "Kotak ikan penuh.");
             eco.box.push({ u: it.uid, id: f.id, w: Math.round(w * 100) / 100 });
           }
+          lbCount(eco, items, typeof skipped === "undefined" ? null : skipped, now);   // Podium Juara: sekali per paket, di transaksi yang sama
           await t.set(ECO(uid), remember(eco, opId, { reward }) && eco);
           return Object.assign({ ok: true, reward }, view(eco, ent));
         });
