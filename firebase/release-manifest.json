@@ -2,9 +2,9 @@
   "_catatan": "Daftar fitur yang WAJIB ikut di setiap rilis. Dibaca oleh firebase/scripts/cek-rilis.js (dijalankan di tombol GitHub dan rilis.sh). Menambah fitur baru = tambah entri di sini; menghapus fitur live HARUS disengaja lewat retired.",
   "retired": [],
   "features": [
-    { "id": "samudra-follower", "nama": "Samudra Follower (4 ikan ide pengikut, default mati)", "files": ["sf/catalog.js", "sf/draw.js", "sf/ui.js", "sf/sf.css"],
+    { "id": "samudra-follower", "nama": "Samudra Follower (4 ikan ide pengikut, default mati)", "files": ["sf/catalog.js", "sf/draw.js", "sf/ui.js", "sf/sf.css", "economy/sf-core.js"],
       "index": ["sf/sf.css", "sf/catalog.js", "sf/draw.js", "sf/ui.js"], "build_dirs": ["sf"],
-      "markers": [["sf/catalog.js", "DEFAULT_MODE"], ["game.js", "NW.sf.gridHTML()"]] },
+      "markers": [["sf/catalog.js", "DEFAULT_MODE"], ["game.js", "NW.sf.gridHTML()"], ["economy/core.js", "SFX.takeDaily"]] },
     { "id": "event", "nama": "Event Megalodon (banner 5 detik)", "files": ["event/core.js", "event/client.js", "event/ui.js", "event/draw.js", "event/event.css"],
       "index": ["event/event.css", "event/core.js", "event/draw.js", "event/client.js", "event/ui.js"], "build_dirs": ["event"],
       "markers": [["event/ui.js", "PILL_MS = 5000"], ["game.js", "NW.event.hook()"]] },
