@@ -76,7 +76,7 @@
     const secureRand = () => {
       const g = typeof globalThis !== "undefined" && globalThis.crypto && globalThis.crypto.getRandomValues ? globalThis.crypto : null;
       if (g) { const a = new Uint32Array(2); g.getRandomValues(a); return (a[0] * 2097152 + (a[1] >>> 11)) / 9007199254740992; }
-      return require("crypto").randomBytes(7).readUIntBE(0, 6) / 281474976710656;
+      return 1;   // tanpa crypto tepercaya: gagal-tertutup (tidak pernah mengundi ikan SF) — tidak jatuh ke Math.random
     };
     const rand = typeof opts.rand === "function" ? opts.rand : secureRand;
     // Satu kesempatan bonus SF per ikan biasa sah (uid belum pernah diundi). Satu lemparan menentukan paling banyak SATU ikan. Gagal/penuh/batas harian → diam-diam tanpa ikan (tidak ada koin/ikan yang bocor).
