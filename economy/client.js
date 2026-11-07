@@ -20,7 +20,8 @@ const toast = (m, k) => { try { N().toast(m, k); } catch (e) {} };
 function apply(v) {
   if (!v || typeof v !== "object" || typeof v.balance !== "number") return;
   st = v; const S = N().S;
-  S.money = Math.max(0, Math.floor(v.own));                       // cermin saja; sumber kebenaran = server
+  S.money = Math.max(0, Math.floor(v.own));
+  if (v.aur && v.aur.own && S.shop && typeof S.shop === "object") { S.shop.equip = S.shop.equip || {}; if (v.aur.eq) S.shop.equip.joran = "pancing_aurora"; else delete S.shop.equip.joran; try { localStorage.setItem("nusa-aur-seen", "1"); } catch (e) {} }   // penanda di perangkat (bukan S.shop: validator menolak kunci asing). Status Pakai/Lepaskan Aurora: SERVER yang berwenang                       // cermin saja; sumber kebenaran = server
   for (const k of Object.keys(v.up || {})) S.up[k] = v.up[k];
   try { N().refreshHUD(); } catch (e) {}
 }
@@ -111,9 +112,11 @@ function buy(reason, grant, failCb) {
   })();
   return true;
 }
+let eqSeq = 0;
+async function equip(slot, on) { if (!active()) throw new Error("offline"); const rr = await call("ecoEquip", { opId: "eq-" + Date.now().toString(36) + "-" + (++eqSeq) + Math.random().toString(36).slice(2, 8), slot, on: !!on }); apply(rr); return rr; }
 // ---- Samudra Follower: daftar aktif (disetujui Owner). Undian & pembuatan ikan dilakukan SERVER di ecoCatch (sfItem). ----
 async function sfInfo() { if (!active()) return { on: false, fish: [] }; return call("ecoSfInfo", {}); }
-NW.eco = { aur: () => (st && st.aur) || null, applyState: apply, sfInfo, active, ensure, flush, onCatch, release, sell, drop, reward, mission, buy, balance: () => (st ? st.balance : 0), state: () => st, lastError: () => lastErr, _reset: () => { st = null; q = []; rq = []; inflight = null; } };
+NW.eco = { equip, sfInfo, aur: () => (st && st.aur) || null, applyState: apply, active, ensure, flush, onCatch, release, sell, drop, reward, mission, buy, balance: () => (st ? st.balance : 0), state: () => st, lastError: () => lastErr, _reset: () => { st = null; q = []; rq = []; inflight = null; } };
 setInterval(() => { if (!document.hidden && live()) ensure().then(() => flush()); }, 45000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden && live()) ensure(); });
 setInterval(() => { if (!st && live() && !booting) ensure(); }, 2500);   // begitu login terdeteksi → aktifkan ekonomi server

@@ -1,0 +1,25 @@
+/* NUSA ISLAND — Tas Pemain. Ringan, tanpa animasi berulang. Tombol SVG di HUD (di samping ☰), panel lewat sistem panel game. */
+.hud-right #bagBtn { order: 8; position: relative; width: 40px; height: 36px; padding: 0; display: grid; place-items: center; min-width: 40px; cursor: pointer; }
+.hud-right .hm-btn { order: 9; }
+#bagBtn svg { width: 24px; height: 24px; display: block; }
+#bagBtn .bg-dot { position: absolute; top: 3px; right: 3px; width: 9px; height: 9px; border-radius: 50%; background: #e2574c; box-shadow: 0 0 0 1.5px #fff6e0; }
+.bg-tabs { display: flex; gap: 6px; margin: 2px 0 10px; }
+.bg-tab { flex: 1; border: 0; border-radius: 12px; padding: 9px 4px; font: 800 13px var(--font, system-ui); background: rgba(23,63,80,.09); color: #173f50; cursor: pointer; min-height: 40px; }
+.bg-tab.on { background: #173f50; color: #fff6e0; }
+.bg-list { display: grid; gap: 9px; }
+.bg-card { display: grid; grid-template-columns: 52px 1fr; gap: 10px; align-items: center; background: #fff; border-radius: 14px; padding: 10px; box-shadow: 0 2px 8px rgba(10,35,45,.12); }
+.bg-card.off { opacity: .78; }
+.bg-ic { width: 52px; height: 52px; border-radius: 12px; display: grid; place-items: center; background: linear-gradient(145deg, #e9f3ee, #cfe4dd); }
+.bg-ic svg { width: 34px; height: 34px; }
+.bg-ic.aur { background: linear-gradient(145deg, #3b2f9e, #6a4fd0); }
+.bg-ic.sul { background: linear-gradient(145deg, #7a2d1c, #c9962e); }
+.bg-h { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-weight: 800; color: #173f50; }
+.bg-tag { font: 800 10.5px var(--font, system-ui); padding: 2px 7px; border-radius: 99px; background: #e5eadf; color: #3f5a4a; }
+.bg-tag.use { background: #2fb39a; color: #fff; } .bg-tag.lock { background: #f0e2b8; color: #6a5217; }
+.bg-s { font-size: 12px; color: #4b6470; margin: 3px 0 6px; line-height: 1.35; }
+.bg-b { border: 0; border-radius: 10px; padding: 8px 14px; font: 800 13px var(--font, system-ui); cursor: pointer; min-height: 38px; background: #2fb39a; color: #fff; }
+.bg-b.ghost { background: rgba(23,63,80,.12); color: #173f50; } .bg-b.gold { background: #f0b53a; color: #3a2a05; }
+.bg-b[disabled] { opacity: .55; cursor: default; }
+.bg-note { font-size: 11.5px; color: #4b6470; margin: 10px 2px 0; line-height: 1.4; }
+.bg-row { display: flex; justify-content: space-between; padding: 7px 2px; border-bottom: 1px solid rgba(23,63,80,.1); font-size: 13px; color: #173f50; }
+.bg-save { font-size: 12px; font-weight: 700; margin: 8px 2px 0; min-height: 16px; } .bg-save.ok { color: #1c7a5d; } .bg-save.bad { color: #b3392f; }

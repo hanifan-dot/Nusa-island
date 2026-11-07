@@ -1,0 +1,14 @@
+/* NUSA ISLAND — NUSA STYLE (interior studio). Overlay ringan di bawah HUD (z 4) dan di bawah panel (z 10). */
+.ns-room { position: fixed; inset: 0; z-index: 4; background: #2a1f33; touch-action: none; }
+.ns-room.hidden { display: none !important; }
+.ns-room canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.ns-bar { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 10px calc(env(safe-area-inset-bottom, 0px) + 12px); display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; pointer-events: none; }
+.ns-bar > * { pointer-events: auto; }
+.ns-b { border: 0; border-radius: 14px; padding: 12px 16px; min-height: 46px; font: 800 14px var(--font, system-ui); color: #173f50; background: #fff6e0; box-shadow: 0 3px 10px rgba(0,0,0,.35); cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+.ns-b svg { width: 20px; height: 20px; }
+.ns-b.main { background: #2fb39a; color: #fff; } .ns-b.gold { background: #f0b53a; color: #3a2a05; }
+.ns-exit { position: absolute; left: 10px; top: calc(env(safe-area-inset-top, 0px) + 54px); background: #e2574c; color: #fff; font-size: 15px; padding: 12px 18px; min-height: 48px; }
+.ns-title { position: absolute; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + 112px); text-align: center; color: #fff6e0; font: 800 13px var(--font, system-ui); text-shadow: 0 2px 6px rgba(0,0,0,.6); pointer-events: none; }
+.ns-rot { position: absolute; top: 50%; width: 46px; height: 46px; margin-top: -23px; border-radius: 50%; padding: 0; justify-content: center; }
+.ns-rot.l { left: 8px; } .ns-rot.r { right: 8px; }
+body.in-nustyle #joy, body.in-nustyle #actBtn, body.in-nustyle #hint, body.in-nustyle .mp-dock, body.in-nustyle #mpLog { display: none !important; }

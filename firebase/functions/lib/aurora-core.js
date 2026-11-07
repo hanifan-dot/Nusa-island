@@ -20,11 +20,13 @@
   const owns = (ent) => !!(ent && ent.owned && ent.owned[GRANT] && ent.owned[GRANT].env === "NYATA");
   const ownsAny = (ent) => !!(ent && ent.owned && ent.owned[GRANT]);
   // fish = baris tabel server {id, rarity, loc,...}. rnd() → [0,1). Mengembalikan id ikan Langka pengganti atau null.
+  const equipOn = (eco) => !(eco && eco.eq && eco.eq.joran === "off");           // tanpa catatan = terpasang otomatis
+  const active = (ent, eco) => owns(ent) && equipOn(eco);
   function roll(fish, rnd) {
     if (!fish || fish.rarity !== "biasa" || fish.protected) return null;
     const k = SRC[fish.id]; if (!k) return null;
     const P = POOL[k]; if (!P.to.length || !(rnd() < P.q)) return null;
     return P.to[Math.min(P.to.length - 1, Math.floor(rnd() * P.to.length))];
   }
-  return { PRODUCT_ID, GRANT, PRICE, PP, POOL, owns, ownsAny, roll };
+  return { PRODUCT_ID, GRANT, PRICE, PP, POOL, owns, ownsAny, equipOn, active, roll };
 });

@@ -2,6 +2,8 @@
   "_catatan": "Daftar fitur yang WAJIB ikut di setiap rilis. Dibaca oleh firebase/scripts/cek-rilis.js (dijalankan di tombol GitHub dan rilis.sh). Menambah fitur baru = tambah entri di sini; menghapus fitur live HARUS disengaja lewat retired.",
   "retired": [],
   "features": [
+    {"id": "nusa-style", "nama": "NUSA STYLE + Ekspansi Tanjung Lampu (peta +40%)", "files": ["style/style.js", "style/style.css"], "index": ["style/style.js"], "build_dirs": ["style"], "markers": [["style/style.js", "Keluar Toko"], ["world/map.js", "EKSPANSI MUARA"]]},
+    {"id": "tas-pemain", "nama": "Tas Pemain (Gamepass/Perlengkapan/Fashion, Pakai/Lepaskan)", "files": ["bag/bag.js", "bag/bag.css"], "index": ["bag/bag.js"], "build_dirs": ["bag"], "markers": [["bag/bag.js", "bagOff"], ["economy/core.js", "ecoEquip"]]},
     {"id": "gamepass-aurora", "nama": "Gamepass Pancing Aurora Samudra (terkunci sampai Owner)", "files": ["aurora/aurora.js", "economy/aurora-core.js"], "index": ["aurora/aurora.js"], "build_dirs": ["aurora"], "markers": [["economy/core.js", "AU.roll"], ["shop/core.js", "lockedUntilOwner"]]},
     { "id": "rumahku-sosial", "nama": "Rumahku Sosial (minta izin berkunjung, default mati)", "files": ["house/social.js"],
       "index": ["house/social.js"], "build_dirs": ["house"],
