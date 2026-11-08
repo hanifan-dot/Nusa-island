@@ -5,7 +5,7 @@
 //  DEFINISI Pity (satu-satunya, anti off-by-one): P = jumlah tangkapan sah di pulau SEJAK Mythic terakhir (0..99). Undian memakai P SEBELUM tangkapan:
 //     P >= 99  → Mythic DIJAMIN (inilah tangkapan ke-100 tanpa Mythic).   Selain itu → undian rarity dengan pita floor(P/20).
 //     Sesudahnya: Mythic → P = 0 ; selain Mythic → P = P + 1.
-//  Peluang dalam basis poin (1% = 100 bp, total SELALU 10000): Epic = Mythic = 500 + 20*pita ; Uncommon 2700 ; Rare 800 ; Common = sisa (5500 - 40*pita).
+//  Peluang dalam basis poin (1% = 100 bp, total SELALU 10000): Mythic = 200 + 20*pita ; Epic = 515 + 20*pita ; Uncommon 2785 ; Rare 825 ; Common = 5675 - 40*pita. OWNER FISH = bonus independen 0,02% (di luar tabel).
 //  Katalog: data murni, dapat diperluas sampai 1.000 entri (CATALOG_MAX). ID permanen; spesies `active:false` tidak diundi tetapi koleksi lama TIDAK dihapus.
 // =========================================================
 (function (root, factory) {
@@ -15,7 +15,9 @@
   "use strict";
   const CATALOG_VERSION = 1, CATALOG_MAX = 1000, PITY_MAX = 100, UNLOCK_CATCHES = 100;
   const RARITIES = ["common", "uncommon", "rare", "epic", "mythic"];
-  const RLABEL = { common: "Common", uncommon: "Uncommon", rare: "Rare", epic: "Epic", mythic: "Mythic" };
+  const RLABEL = { common: "Common", uncommon: "Uncommon", rare: "Rare", epic: "Epic", mythic: "Mythic", owner: "OWNER / ULTRA SECRET" };
+  // OWNER FISH: BONUS terpisah (undian independen ke-2 di server, BUKAN bagian tabel rarity → Pity Mythic tidak terganggu). Peluang tepat 0,02% = 2 per 10.000 tangkapan sah.
+  const OWNER_ID = "sf2_owner_fish", OWNER_P = 0.0002, OWNER_BP = 2;
   // Nilai jual (koin) per rarity [min,max]; ikan dijual dengan nilai tetap yang dikunci server saat tangkap (tidak bergantung berat → monster raksasa tidak jutaan).
   const PRICE = { common: [10, 25], uncommon: [25, 50], rare: [60, 100], epic: [100, 140], mythic: [200, 250] };
   const HAB = { K: "karang", M: "muara", D: "danau", L: "dalam" };
@@ -65,6 +67,7 @@
     ["sf2_kraken", "Kraken", "mythic", "L", 2000, 4800, "gurita", ["#6a3a5e", "#c98aa8", "#e0b8c8"], "Gurita raksasa bertentakel tak terhitung. Pelaut menyebutnya 'si penarik kapal'.", { c: 1, ig: ["@inirichee15"] }],
     ["sf2_naga_palung", "Naga Palung Kelabu", "mythic", "L", 3500, 4900, "ular", ["#4a4f5a", "#9aa3b0", "#c9553b"], "Monster orisinal Nusa Island: naga bersisik kelabu yang menjaga palung terdalam.", { c: 1 }],
     ["sf2_el_gran_maja", "El Gran Maja", "mythic", "L", 3600, 4900, "maja", ["#8a6a3c", "#e9d9a8", "#f0c850"], "Hiu purba raksasa bercorak emas kuno. Konon menjaga kuil yang tenggelam di dasar samudra.", { c: 1, ig: ["@derr6789ten"] }],
+    ["sf2_owner_fish", "OWNER FISH", "owner", "L", 88, 888, "owner", ["#0f3a7a", "#f0d27a", "#ffd24a"], "Ikan istimewa bermahkota emas, bersisik emas-biru. Hadiah langka untuk siapa pun yang beruntung. Koleksi kehormatan (tidak dijual).", { o: 1, a: 0, w: 1 }],
     ["sf2_penjaga_muara", "Penjaga Muara Zamrud", "mythic", "M", 600, 2400, "channa", ["#2f7a5a", "#bfe6c8", "#e0d27a"], "Penunggu muara berselimut lumut zamrud. Hanya bangun saat air pasang."],
     ["sf2_naga_danau", "Naga Danau Sunyi", "mythic", "D", 500, 2000, "ular", ["#3a5a7a", "#a6c8d8", "#c8d6e0"], "Naga danau yang tidur ribuan tahun; permukaan danau bergetar saat ia bernapas."],
   ];
@@ -88,7 +91,8 @@
   const band = (p) => Math.min(4, Math.floor(Math.max(0, p) / 20));
   function odds(p) {   // p = Pity SEBELUM tangkapan (0..99). Total SELALU 10000.
     if (p >= PITY_MAX - 1) return { common: 0, uncommon: 0, rare: 0, epic: 0, mythic: 10000, guaranteed: true };
-    const b = band(p), up = LIM.bonusPer20 * b, o = { common: 5500 - 2 * up, uncommon: 2700, rare: 800, epic: 500 + up, mythic: 500 + up, guaranteed: false };
+    // Dasar (bp, total 10.000): Mythic 2% (turun dari 5%); 300 bp sisanya dibagi proporsional ke kategori lain (Common 56,75 · Uncommon 27,85 · Rare 8,25 · Epic 5,15 · Mythic 2,00).
+    const b = band(p), up = LIM.bonusPer20 * b, o = { common: 5675 - 2 * up, uncommon: 2785, rare: 825, epic: 515 + up, mythic: 200 + up, guaranteed: false };
     return o;
   }
   const pct = (bp) => bp / 100;
@@ -121,5 +125,5 @@
   }
   const isOff = (cfg) => !!(cfg && cfg.sf2 && cfg.sf2.off === true);
 
-  return { CATALOG_VERSION, CATALOG_MAX, PITY_MAX, UNLOCK_CATCHES, RARITIES, RLABEL, PRICE, HABITATS, HAB, LIM, SPECIES, LEGACY, BY_ID, isSpecies, odds, pct, band, rollRarity, nextPity, pickSpecies, weightFor, weightOk, coinValue, unlockCount, isOff, index, reset };
+  return { OWNER_ID, OWNER_P, OWNER_BP, CATALOG_VERSION, CATALOG_MAX, PITY_MAX, UNLOCK_CATCHES, RARITIES, RLABEL, PRICE, HABITATS, HAB, LIM, SPECIES, LEGACY, BY_ID, isSpecies, odds, pct, band, rollRarity, nextPity, pickSpecies, weightFor, weightOk, coinValue, unlockCount, isOff, index, reset };
 });
