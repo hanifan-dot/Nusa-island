@@ -26,6 +26,8 @@ function apply(v) {
   try { N().refreshHUD(); } catch (e) {}
 }
 // Inisialisasi akun (migrasi sekali) lalu selaraskan. Aman dipanggil berulang.
+let ensureFail = 0, ensureAt = 0;
+const bo = (n, base) => Math.min(300000, base * Math.pow(2, Math.min(n, 8)));   // HEMAT KUOTA: jeda coba-ulang membesar saat server gagal (maks 5 menit), kembali normal begitu berhasil
 async function ensure() {
   if (!live() || booting) return active();
   booting = true;
@@ -35,12 +37,12 @@ async function ensure() {
       const S = N().S, fish = (S.cooler || []).concat((S.home && S.home.placedFish) || []).filter((x) => x && x.uid && !(NW.sf && NW.sf.isSF(x.id)) && !(NW.sf2 && NW.sf2.isSf2(x.id))).map((x) => ({ uid: x.uid, id: x.id, w: x.w }));
       v = await call("ecoInit", { money: S.money, up: S.up, homeLv: S.home && S.home.level, cooler: fish });
     }
-    apply(v); lastState = Date.now(); await flush();
+    apply(v); lastState = Date.now(); ensureFail = 0; ensureAt = 0; await flush();
     // ikan di coolbox yang belum tercatat server (mis. tangkapan saat offline) dilaporkan ulang — tetap kena batas laju server
     const have = new Set(st.box || []);
     for (const it of N().S.cooler || []) if (it && it.uid && !(NW.sf && NW.sf.isSF(it.id)) && !(NW.sf2 && NW.sf2.isSf2(it.id)) && !have.has(it.uid) && !q.some((x) => x.uid === it.uid)) q.push({ id: it.id, w: it.w, uid: it.uid });
     await flush();
-  } catch (e) { lastErr = (e && e.message) || "gagal"; }
+  } catch (e) { lastErr = (e && e.message) || "gagal"; ensureFail++; ensureAt = Date.now() + bo(ensureFail, 2500); }
   finally { booting = false; }
   return active();
 }
@@ -128,5 +130,5 @@ const ECO_STALE_MS = 300000, ECO_VIS_GAP = 60000;
 const refreshIfStale = (minAge) => { if (live() && !(st && Date.now() - lastState < minAge)) return ensure(); };
 setInterval(() => { if (!document.hidden && live()) { flush(); refreshIfStale(ECO_STALE_MS); } }, 45000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden && live()) refreshIfStale(ECO_VIS_GAP); });
-setInterval(() => { if (!st && live() && !booting) ensure(); }, 2500);   // begitu login terdeteksi → aktifkan ekonomi server
+setInterval(() => { if (!st && live() && !booting && Date.now() >= ensureAt) ensure(); }, 2500);   // begitu login terdeteksi → aktifkan ekonomi server
 })();

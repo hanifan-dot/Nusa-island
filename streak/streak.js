@@ -163,15 +163,17 @@ function reconcile(doc) {
 }
 
 // ---------- Muat & klaim ----------
+let sFail = 0, sAt = 0;
+const bo = (n, base) => Math.min(300000, base * Math.pow(2, Math.min(n, 8)));   // HEMAT KUOTA: jeda coba-ulang membesar saat server gagal (maks 5 menit), kembali normal begitu berhasil
 async function refresh(fresh) {
   const st = theStore(), acc = access();
   if (!acc.ok || !st) { R.loaded = false; R.doc = null; emit(); badge(); return view(); }
   R.loading = true; R.error = ""; emit();
   try {
-    R.doc = await st.get(!!fresh); R.loaded = true;
+    R.doc = await st.get(!!fresh); R.loaded = true; sFail = 0; sAt = 0;
     const rr = reconcile(R.doc);
     if (rr && rr.reward) { R.restored = rr; N().toast("🎁 Hadiah login yang belum masuk dipulihkan: " + C.describe(rr.reward), "good"); }
-  } catch (e) { R.error = errText(e); R.loaded = false; }
+  } catch (e) { R.error = errText(e); R.loaded = false; sFail++; sAt = Date.now() + bo(sFail, 30000); }
   R.loading = false; emit(); badge();
   return view();
 }
@@ -269,7 +271,7 @@ function hook() {
   if (NW.streakUI) NW.streakUI.register();
   syncClock().then(() => refresh(false)).then(() => { const v = view(); if (!toastedToday && v.access.ok && v.loaded && v.canClaim) { toastedToday = true; setTimeout(() => N().toast("🎁 Hadiah login hari ini siap diklaim!", "good"), 2500); } });
   if (NW.cloud && NW.cloud.onChange) { let lastUid = null; NW.cloud.onChange(() => { const u = user(); const id = u ? u.uid : null; if (id !== lastUid) { lastUid = id; refresh(false); } }); }
-  setInterval(() => { if (!document.hidden) { if (!R.loaded && !R.loading && !R.busy && access().ok) refresh(false); badge(); emit(); } }, 30000);   // juga: muat buku klaim begitu ekonomi server aktif   // pergantian hari WIB: lencana & kalender menyegarkan diri
+  setInterval(() => { if (!document.hidden) { if (!R.loaded && !R.loading && !R.busy && Date.now() >= sAt && access().ok) refresh(false); badge(); emit(); } }, 30000);   // juga: muat buku klaim begitu ekonomi server aktif   // pergantian hari WIB: lencana & kalender menyegarkan diri
 }
 
 NW.streak = { Core: C, SHIP, ROD, BAIT_LUCK, BAIT_SPEED, migrate, hook, view, refresh, claim, access, onChange: (f) => R.listeners.push(f),

@@ -65,10 +65,12 @@ const errText = (e) => {
   if (c === "unauthenticated") return "Masuk dulu dengan akun Google.";
   return "Gagal menghubungi server. Coba lagi sebentar lagi.";
 };
+let qFail = 0, qAt = 0;
+const bo = (n, base) => Math.min(300000, base * Math.pow(2, Math.min(n, 8)));   // HEMAT KUOTA: jeda coba-ulang membesar saat server gagal (maks 5 menit), kembali normal begitu berhasil
 async function refresh() {
   const acc = access(); if (!acc.ok) { badge(); emit(); return view(); }
   if (R.loading) return view(); R.loading = true; R.error = ""; emit();
-  try { seen(await api().eco("ecoQuestState", {})); } catch (e) { R.error = errText(e); }
+  try { seen(await api().eco("ecoQuestState", {})); qFail = 0; qAt = 0; } catch (e) { R.error = errText(e); qFail++; qAt = Date.now() + bo(qFail, 4000); }
   R.loading = false; badge(); emit(); return view();
 }
 function view() {
@@ -217,7 +219,7 @@ function hook() {
   document.addEventListener("visibilitychange", () => { if (document.hidden) return; const was = R.opened; refresh().then(() => { if (was) { R.opened = null; const v = view(); const it = v.items.find((x) => x.id === was); if (it && it.st !== "klaim" && it.e.o) toast("👋 Selamat datang kembali! " + (it.st === "selesai" ? "Hadiah " + it.short + " siap diklaim." : "Tunggu sebentar lalu klaim hadiahnya."), "good"); } }); });
   window.addEventListener("focus", () => { if (R.opened) refresh(); });
   if (NW.cloud && NW.cloud.onChange) NW.cloud.onChange(() => { refresh(); });
-  setInterval(() => { if (!document.hidden) { if (!R.loaded && !R.loading && access().ok) refresh(); badge(); } }, 4000);
+  setInterval(() => { if (!document.hidden) { if (!R.loaded && !R.loading && Date.now() >= qAt && access().ok) refresh(); badge(); } }, 4000);
 }
 // Baris "Joran WhatsApp" di Toko → Joran (tetap ada walau panel Quest sudah hilang), + delegasi klik Pakai/Lepaskan
 function rodRowHTML() {
