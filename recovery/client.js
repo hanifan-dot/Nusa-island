@@ -212,7 +212,21 @@ function hook() {
   const hr = document.querySelector(".hud-right"); if (!hr || $("recoverBtn")) return;
   ensure();
   const b = document.createElement("button"); b.id = "recoverBtn"; b.type = "button"; b.className = "chip icon-btn"; b.setAttribute("aria-label", "Pulihkan Data"); b.textContent = "🔄";
-  b.addEventListener("click", () => open()); hr.appendChild(b);            // ubin "🔄 Pulihkan Data" di menu ☰ (tombol disembunyikan; menu memanggilnya)
+  b.addEventListener("click", () => open()); hr.appendChild(b); scheduleVerify();            // ubin "🔄 Pulihkan Data" di menu ☰ (tombol disembunyikan; menu memanggilnya)
 }
-NW.recovery = { hook, open, close, scan, _state: () => st, get isOpen() { return isOpen(); } };
+// Verifikasi pemulihan: satu kali per sesi, hanya bila perangkat ini pernah mengirim permohonan. Server yang memutuskan "Selesai".
+const VERIFY_KEY = "nusa-recovery-verify-session";
+async function verifyIfPending() {
+  try {
+    const c = cloud(); if (!c || !c.enabled || c.sandbox || !c.user) return;
+    try { if (sessionStorage.getItem(VERIFY_KEY)) return; } catch (e) {}
+    const issue = window.NW && NW.username && NW.username.isOpen && NW.username.isOpen() ? "name_prompt" : null;   // pemain masih diminta membuat nama
+    const p = R.verifyPayload(R.sentRead(localStorage), c.meta(), issue); if (!p) return;
+    try { sessionStorage.setItem(VERIFY_KEY, "1"); } catch (e) {}
+    const res = await c.call("recoveryVerify", p);
+    if (res && res.state === "verified") { try { localStorage.removeItem(R.SENT_KEY); } catch (e) {} try { window.Nusa.toast && window.Nusa.toast("Pemulihan terverifikasi ✓", "good"); } catch (e) {} }
+  } catch (e) { /* diam: verifikasi bukan bagian jalur bermain; coba lagi sesi berikutnya */ }
+}
+function scheduleVerify() { const c = cloud(); if (c && c.ready && c.ready.then) c.ready.then(() => setTimeout(verifyIfPending, 3000)); }
+NW.recovery = { hook, open, close, scan, verifyIfPending, scheduleVerify, _state: () => st, get isOpen() { return isOpen(); } };
 })();

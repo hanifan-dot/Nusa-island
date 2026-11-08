@@ -24,6 +24,20 @@ t("cloudCandidate: tanpa data → null", () => assert.strictEqual(R.cloudCandida
 t("pagar statis: client.js hanya memanggil peek/restoreCloud/recoveryRequest — tidak ada tulis Cloud/ekonomi/top-up", () => {
   const src = fs.readFileSync(path.join(__dirname, "../recovery/client.js"), "utf8");
   assert(!/writeSave|restoreBackup|walletAdd|topup|topUp|grantCoins|removeItem|localStorage\.clear/i.test(src), "client.js memuat panggilan terlarang");
-  const calls = [...src.matchAll(/cloud\(\)\.call\("([A-Za-z]+)"/g)].map((m) => m[1]); assert.deepStrictEqual([...new Set(calls)], ["recoveryRequest"]); });
+  const calls = [...src.matchAll(/cloud\(\)\.call\("([A-Za-z]+)"/g)].map((m) => m[1]); assert.deepStrictEqual([...new Set(calls)].sort(), ["recoveryRequest", "recoveryVerify"]); });
 t("pagar statis: core.js tidak punya setItem/removeItem/clear", () => { const src = fs.readFileSync(path.join(__dirname, "../recovery/core.js"), "utf8"); assert(!/setItem|removeItem|\.clear\(/.test(src.replace(/\/\/.*$/gm, ""))); });
+t("verifyPayload: hanya akun Google yang pernah mengirim permohonan; tanpa data tulis; issue dibatasi", () => {
+  const sent = { hash: "abc", at: 1 }, meta = { mode: "google", uid: "u1", hash: "0a1b2c3d" };
+  assert.deepStrictEqual(R.verifyPayload(sent, meta), { hash: "0a1b2c3d" });
+  assert.deepStrictEqual(R.verifyPayload(sent, meta, "name_prompt"), { hash: "0a1b2c3d", issue: "name_prompt" });
+  assert.deepStrictEqual(R.verifyPayload(sent, meta, "hack"), { hash: "0a1b2c3d" });
+  assert.strictEqual(R.verifyPayload(null, meta), null, "tanpa permohonan terkirim → tidak memanggil server");
+  assert.strictEqual(R.verifyPayload(sent, { mode: "guest", uid: null }), null, "tamu tidak memverifikasi");
+  assert.deepStrictEqual(R.verifyPayload(sent, { mode: "google", uid: "u1", hash: "BUKAN HEX" }), {}, "hash tidak valid dibuang");
+});
+t("pagar statis: verifikasi hanya satu kali per sesi dan tidak menulis save", () => {
+  const src = fs.readFileSync(path.join(__dirname, "../recovery/client.js"), "utf8");
+  assert(/VERIFY_KEY/.test(src) && /sessionStorage\.setItem\(VERIFY_KEY/.test(src));
+  assert(!/setInterval/.test(src), "tanpa polling");
+});
 console.log(`unit-recovery-ui: ${n} lulus`);
