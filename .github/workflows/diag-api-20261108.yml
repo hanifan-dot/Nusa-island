@@ -1,0 +1,34 @@
+name: Diagnosa BACA-SAJA nusa-api (release-status 503)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/diag-api-20261108.yml'
+permissions:
+  contents: read
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NUSA_API_BASE: https://nusa-api.hanifanwahhaja28.workers.dev
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Probe endpoint publik (GET saja, tanpa menulis apa pun)
+        run: |
+          for i in 1 2 3 4 5 6; do
+            echo "=== putaran $i $(date -u +%FT%TZ)"
+            for p in api/health api/public-config api/release-status; do
+              code=$(curl -sS --max-time 20 -D /tmp/h.txt -o /tmp/b.txt -w '%{http_code} %{time_total}s' "$NUSA_API_BASE/$p" || echo "curl-gagal")
+              echo "-- $p -> $code"; grep -iE '^(cf-ray|server|content-type|retry-after)' /tmp/h.txt | tr -d '\r'
+              head -c 500 /tmp/b.txt | sed -E 's/("(apiKey|appId|messagingSenderId)":")[^"]*/\1***/g'; echo
+            done
+            sleep 12
+          done
+      - name: Status Worker di Cloudflare (read-only, token tidak dicetak)
+        run: |
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "token tidak tersedia"; exit 0; }
+          H="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+          echo "== deployments nusa-api"; curl -sS --max-time 20 -H "$H" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/nusa-api/deployments" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('success'),[ (x.get('created_on'),x.get('source'),[v.get('version_id') for v in x.get('versions',[])]) for x in (d.get('result') or {}).get('deployments',[])[:4]],d.get('errors'))"
+          echo "== nama secret/binding (tanpa nilai)"; curl -sS --max-time 20 -H "$H" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/nusa-api/secrets" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('success'),sorted(x.get('name') for x in d.get('result') or []),d.get('errors'))"
