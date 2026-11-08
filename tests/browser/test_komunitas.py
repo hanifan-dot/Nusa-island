@@ -38,5 +38,8 @@ def main():
         lv = ev(pg, "Nusa.S.up.rod"); ok("D5 beli Lv 11 lewat UI: tingkat naik 9 -> 10 (indeks), tidak ganda", lv == 10, lv)
         ok("D6 tanpa error halaman", not errs and not errs2, (errs + errs2)[:2])
         ctx.close(); b.close()
-    print("TOTAL", sum(1 for x in R if x is True), "/", len(R)); sys.exit(0 if all(R) else 1)
+    passed = sum(1 for x in R if isinstance(x, str) and x.startswith("PASS"))
+    failed = [x for x in R if isinstance(x, str) and x.startswith("FAIL")]
+    print(f"TOTAL {passed} / {len(R)} (gagal {len(failed)})")
+    sys.exit(0 if passed == len(R) == 14 and not failed else 1)
 main()
