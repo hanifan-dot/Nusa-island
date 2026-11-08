@@ -9,7 +9,7 @@ permissions:
   contents: read
 jobs:
   test:
-    name: Uji pasangan SHA Quest Owner (game 89d042c + backend 05b9dba)
+    name: Uji pasangan SHA Quest Owner (game a22cc1c + backend 2094dc6)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
-          ref: 89d042c49cea870b631dcece44daec724e889fe7
+          ref: a22cc1cdf8fc0fdfd16bd50547dc02a65b245aad
           path: game
           persist-credentials: false
       - name: Akses baca backend privat
@@ -29,7 +29,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/nusa-island-control-center
-          ref: 05b9dba79f62cc87a22df66a1849f45741eb4d96
+          ref: 2094dc6d97f6a0d26fbfb554fcc25a0bb06652e2
           token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
           persist-credentials: false
           path: backend
