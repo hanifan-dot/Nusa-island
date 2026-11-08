@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
-          ref: ca41f4a372e4e8142d8729e11ed811160fe354bf
+          ref: 3f0c4fac470d9823184211724335e4768adab602
           path: game
           persist-credentials: false
       - name: Akses baca backend privat
