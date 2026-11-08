@@ -24,7 +24,9 @@ function setFrom(e) {
   }
   seeded = true;
 }
-async function refresh() { if (!live()) { if (top) { top = 0; try { N().refreshHUD(); } catch (e) {} } return; } try { setFrom(await A().getEntitlements()); } catch (e) { /* offline: tetap pakai angka terakhir */ } }
+let wFail = 0, wAt = 0;
+const bo = (n, base) => Math.min(300000, base * Math.pow(2, Math.min(n, 8)));   // HEMAT KUOTA: jeda coba-ulang membesar saat server gagal (maks 5 menit), kembali normal begitu berhasil
+async function refresh() { if (!live()) { if (top) { top = 0; try { N().refreshHUD(); } catch (e) {} } return; } try { setFrom(await A().getEntitlements()); wFail = 0; wAt = 0; } catch (e) { /* offline: tetap pakai angka terakhir */ wFail++; wAt = Date.now() + bo(wFail, 45000); } }
 const rid = () => "S" + Date.now().toString(36) + Math.floor(Math.random() * 1e9).toString(36);
 
 // Bayar `cost` koin. grant() dipanggil SETELAH pembayaran sah (sinkron bila tidak memakai saldo Top Up). Mengembalikan true bila permintaan diterima.
@@ -54,6 +56,6 @@ NW.wallet = { bal, local, topup: () => top, charge, refresh, setFrom, isBusy: ()
 // ikut mengamati setiap pembacaan hak milik (toko, login, polling pesanan) agar saldo Top Up selalu mutakhir
 function hook() { const a = A(); if (!a || a._wallet) return; a._wallet = true; const g = a.getEntitlements; a.getEntitlements = async function (d) { const e = await g.call(a, d); setFrom(e); return e; }; }
 hook(); NW.wallet.hook = hook;
-setInterval(() => { if (!document.hidden && live()) refresh(); }, 45000);
+setInterval(() => { if (!document.hidden && live() && Date.now() >= wAt) refresh(); }, 45000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
 })();

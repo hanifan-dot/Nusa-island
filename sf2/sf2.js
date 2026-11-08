@@ -31,12 +31,14 @@ function patchSf() {   // pil rarity di Inventaris memakai NW.sf.rar(f): beri wa
 }
 
 // ---- status dari server (read-only)
+let nextTry = 0, fails = 0;
+const retryGap = (n, base) => Math.min(300000, base * Math.pow(2, Math.min(n, 8)));   // HEMAT KUOTA: jeda coba-ulang membesar saat server gagal (maks 5 menit), kembali normal begitu berhasil
 async function refresh(force) {
   const E = NW.eco; if (!E || fetching || !E.active()) return info;
   if (!force && info && Date.now() - lastFetch < 30000) return info;
   fetching = true;
-  try { const r = await E.sf2Info(); info = r && r.on ? r : (r && r.off ? { off: true } : null); lastFetch = Date.now(); }
-  catch (e) { info = null; lastFetch = Date.now() - 20000; }
+  try { const r = await E.sf2Info(); info = r && r.on ? r : (r && r.off ? { off: true } : null); lastFetch = Date.now(); fails = 0; nextTry = Date.now() + 10000; }
+  catch (e) { info = null; lastFetch = Date.now() - 20000; fails++; nextTry = Date.now() + retryGap(fails, 10000); }   // dulu: gagal → info=null → dicoba lagi tiap 700 ms
   finally { fetching = false; }
   paintHud(); const w = $("panelWrap"); if (w && !w.classList.contains("hidden") && NW._sf2Panel) NW._sf2Panel();
   return info;
@@ -140,7 +142,7 @@ function paintHud(bump, mythic) {
   hud.classList.toggle("near", p >= 80); if (bump) { hud.classList.remove("bump"); void hud.offsetWidth; hud.classList.add("bump"); }
   if (mythic) { hud.classList.remove("myth"); void hud.offsetWidth; hud.classList.add("myth"); }
 }
-setInterval(() => { if (!document.hidden) { const was = hud && !hud.classList.contains("hidden"); if (active() && !info) refresh(false); if (was !== active()) paintHud(); } }, 700);
+setInterval(() => { if (!document.hidden) { const was = hud && !hud.classList.contains("hidden"); if (active() && !info && Date.now() >= nextTry) refresh(false); if (was !== active()) paintHud(); } }, 700);
 
 // ---- panel informasi peluang & Pity
 function overlay(html) {
