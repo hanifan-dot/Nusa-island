@@ -11,9 +11,11 @@ window.NW = window.NW || {};
 const N = () => window.Nusa, $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const user = () => (NW.cloud && NW.cloud.user) || null;
-const POLL_MS = 20000;
+// HEMAT BACA FIRESTORE: dulu homeInbox dipanggil tiap 20 dtk terus-menerus (1 baca/panggilan ≈ 180 baca/jam). Undangan berlaku 5 mnt
+// dan jawaban 10 mnt, jadi 60 dtk sudah cukup; polling cepat (15 dtk) hanya selama menunggu jawaban atau panel Teman terbuka.
+const POLL_MS = 60000, FAST_MS = 15000, FAST_WINDOW_MS = 150000;
 const S = { on: false, tab: "online", inv: [], ans: [], prefs: null, msg: "", sent: {}, seen: new Set(), pend: null, timer: 0, busy: false, ready: false, cool: {} };
-let srvOn = false;   // saklar Owner dari server (gameFlags): membuka fitur TANPA deploy ulang. Bawaan MATI.
+let srvOn = false, fastUntil = 0, lastPoll = 0;   // saklar Owner dari server (gameFlags): membuka fitur TANPA deploy ulang. Bawaan MATI.
 const wanted = () => window.NUSA_SOCIAL_HOME === true || srvOn;
 const canApi = () => !!(wanted() && window.NusaApi && window.NusaApi.enabled() && user());
 const api = (name, data) => window.NusaApi.call(name, data || {}, true);
@@ -91,7 +93,7 @@ async function requestVisit(pid) {
   try {
     const r = await api("homeVisitRequest", { pid });
     if (r.approved) { goVisit(r.pid, r.name || "pemilik rumah"); }
-    else if (r.sent) { S.cool[pid] = Date.now() + 60000; N().toast("📨 Permintaan izin terkirim. Menunggu jawaban pemilik.", "good"); setTimeout(render, 61000); }
+    else if (r.sent) { boost(); S.cool[pid] = Date.now() + 60000; N().toast("📨 Permintaan izin terkirim. Menunggu jawaban pemilik.", "good"); setTimeout(render, 61000); }
     else { S.cool[pid] = Date.now() + (r.wait || 60) * 1000; S.msg = `Tunggu ${r.wait || 60} detik sebelum meminta lagi.`; }
   } catch (e) { S.msg = errText(e); }
   render();
@@ -138,8 +140,14 @@ function showAnswer(a) {
     : `<div class="inv-t">🚫 <b>${esc(a.name)}</b> menolak izin berkunjungmu</div><div class="inv-b"><button class="btn small" data-sclose="1">OK</button></div>`;
   p.classList.remove("hidden");
 }
+// penjadwal adaptif: 60 dtk normal; 15 dtk selama ada permintaan kunjungan yang menunggu jawaban atau panel Teman terbuka
+const nextDelay = () => (Date.now() < fastUntil || (N().currentPanel && N().currentPanel() === "friends") ? FAST_MS : POLL_MS);
+function loop() { clearTimeout(S.timer); S.timer = setTimeout(() => { if (!S.on) return; if (!document.hidden) pollNow(); loop(); }, nextDelay()); }
+function boost() { fastUntil = Date.now() + FAST_WINDOW_MS; if (S.on) { loop(); if (Date.now() - lastPoll > 5000) pollNow(); } }
+document.addEventListener("visibilitychange", () => { if (!document.hidden && S.on && Date.now() - lastPoll > 30000) { pollNow(); loop(); } });
 async function pollNow() {
   if (!canApi()) return;
+  lastPoll = Date.now();
   try {
     const r = await api("homeInbox"); S.ready = true;
     S.inv = r.requests || []; S.ans = r.answers || []; syncBadge();
@@ -149,18 +157,18 @@ async function pollNow() {
     render();
   } catch (e) { if (e && (e.code === "not-found" || e.code === "unimplemented" || e.code === "invalid-argument") && !S.ready) disable(); }
 }
-function disable() { S.on = false; clearInterval(S.timer); $("friendsBtn").classList.add("hidden"); }
+function disable() { S.on = false; clearTimeout(S.timer); $("friendsBtn").classList.add("hidden"); }
 function start() {
   if (S.on || !canApi()) return;
   api("homeInbox").then((r) => {                                    // cek kemampuan: server harus punya fungsi baru, kalau tidak fitur tetap tersembunyi
     if (!r || !Array.isArray(r.requests)) return;
-    S.on = true; S.ready = true; $("friendsBtn").classList.remove("hidden"); S.timer = setInterval(() => { if (!document.hidden) pollNow(); }, POLL_MS); pollNow();
+    S.on = true; S.ready = true; $("friendsBtn").classList.remove("hidden"); loop(); pollNow();
   }).catch(() => { /* backend belum siap: fitur tetap mati */ });
 }
 function hook() {
   if (!wanted()) return;
   N().registerPanel("friends", { title: () => "👥 Teman & Undangan", render: panelHTML, after });
-  $("friendsBtn").addEventListener("click", () => { N().sfx("click"); S.tab = S.inv.length || S.ans.length ? "inbox" : "online"; S.msg = ""; N().openPanel("friends"); });
+  $("friendsBtn").addEventListener("click", () => { N().sfx("click"); boost(); S.tab = S.inv.length || S.ans.length ? "inbox" : "online"; S.msg = ""; N().openPanel("friends"); });
   $("invPop").addEventListener("click", (e) => { const t = e.target.closest("button"); if (!t) return; if (t.dataset.sacc) respond(t.dataset.sacc, true); else if (t.dataset.sdec) respond(t.dataset.sdec, false); else if (t.dataset.senter) { hidePop(); goVisit(t.dataset.senter, t.dataset.sname || "pemilik rumah"); } else if (t.dataset.sclose) hidePop(); });
   if (NW.mp && NW.mp.onChange) NW.mp.onChange(() => { if (N().currentPanel() === "friends" && S.tab === "online") { clearTimeout(S._rt); S._rt = setTimeout(render, 400); } });
   setInterval(() => { if (!S.on) start(); }, 5000); start();
