@@ -27,6 +27,14 @@ t("dompet toko 45 dtk: ditahan jeda setelah gagal", () => {
   const s = src("shop/wallet.js");
   assert(/Date\.now\(\) >= wAt\) refresh\(\)/.test(s)); assert(/wFail\+\+; wAt = Date\.now\(\) \+ bo\(wFail, 45000\)/.test(s));
 });
+t("dompet toko: permintaan ke server paling cepat tiap 3 mnt (dulu 45 dtk) dan kembali ke tab hanya bila >60 dtk; hook mereset penghitung", () => {
+  const s = src("shop/wallet.js");
+  assert(/WALLET_POLL_MS = 180000/.test(s)); assert(/WALLET_VIS_GAP = 60000/.test(s));
+  assert(/Date\.now\(\) - wLast >= WALLET_POLL_MS && Date\.now\(\) >= wAt\) refresh\(\)/.test(s));
+  assert(/visibilitychange", \(\) => \{ if \(!document\.hidden && Date\.now\(\) - wLast >= WALLET_VIS_GAP\) refresh\(\)/.test(s));
+  assert(/function setFrom\(e\) \{\s*wLast = Date\.now\(\);/.test(s), "setiap pembacaan hak milik (hook) menyegarkan penghitung");
+  assert((s.match(/setInterval\(/g) || []).length === 1, "tetap satu setInterval");
+});
 t("tidak ada polling BARU: tidak ada setInterval tambahan di modul yang diubah", () => {
   const before = { "economy/client.js": 2, "questowner/questowner.js": 1, "streak/streak.js": 1, "sf2/sf2.js": 2, "shop/wallet.js": 1 };
   for (const [f, c] of Object.entries(before)) assert.strictEqual((src(f).match(/setInterval\(/g) || []).length, c, f);
