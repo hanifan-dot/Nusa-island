@@ -67,15 +67,45 @@ const OLD10 = { levels: ["Joran Bambu Kampung", "Joran Fiber Muara", "Joran Karb
     assert.equal(4 + LIST.length, 15); assert.deepStrictEqual(SF.FISH.map((f) => [f.name, f.credit]), [["Ikan Tempe", "@mlfs_05"], ["Cupang Slayer", "@agusii.55"], ["Ikan Prabowo", "@akhmadraffa123"], ["Arapaima Gigas", "@alanaimroni"]]);
     assert.ok(!SF2.BY_ID.sf2_udang_jala.credit.some((c) => c.startsWith("@")));
   });
-  await t("El Gran Maja terdaftar di katalog SF2 (Penemu Pertama aktif), Mythic Laut Dalam; Udang Jala uncommon Muara; keduanya TIDAK diundi (peluang menunggu Owner)", () => {
-    const m = SF2.BY_ID.sf2_el_gran_maja, u = SF2.BY_ID.sf2_udang_jala; assert.ok(m.community && m.rarity === "mythic" && m.hab.includes("dalam") && m.active === false); assert.ok(u.community && u.rarity === "uncommon" && u.hab.includes("muara") && u.active === false);
-    for (const h of SF2.HABITATS) for (const r of SF2.RARITIES) for (const s of SF2.index()[h][r]) assert.ok(s.id !== m.id && s.id !== u.id);
-    for (const r of [0, 0.3, 0.999]) { assert.notEqual((SF2.pickSpecies("dalam", "mythic", r) || {}).id, m.id); assert.notEqual((SF2.pickSpecies("muara", "uncommon", r) || {}).id, u.id); }
+  await t("Owner setuju: El Gran Maja Mythic Laut Dalam dan Udang Jala Uncommon Muara aktif untuk diundi, lokasi lain tidak", () => {
+    const m = SF2.BY_ID.sf2_el_gran_maja, u = SF2.BY_ID.sf2_udang_jala;
+    assert.ok(m.community && m.active && m.rarity === "mythic" && m.hab.length === 1 && m.hab[0] === "dalam");
+    assert.ok(u.community && u.active && u.rarity === "uncommon" && u.hab.length === 1 && u.hab[0] === "muara");
+    assert.equal(SF2.index().dalam.mythic.filter((s) => s.id === m.id).length, 1);
+    assert.equal(SF2.index().muara.uncommon.filter((s) => s.id === u.id).length, 1);
+    for (const h of SF2.HABITATS) {
+      if (h !== "dalam") assert.ok(!SF2.index()[h].mythic.some((s) => s.id === m.id), h);
+      if (h !== "muara") assert.ok(!SF2.index()[h].uncommon.some((s) => s.id === u.id), h);
+    }
+    assert.equal(SF2.pickSpecies("dalam", "mythic", 0.999).id, m.id);
+    assert.equal(SF2.pickSpecies("muara", "uncommon", 0.5).id, u.id);
+  });
+  await t("validasi peluang ekonomi: rarity, Pity, harga tidak berubah; dua spesies berbagi peluang dalam rarity", () => {
+    const m = SF2.BY_ID.sf2_el_gran_maja, u = SF2.BY_ID.sf2_udang_jala;
+    const deep = SF2.index().dalam.mythic, river = SF2.index().muara.uncommon;
+    const sum = (a) => a.reduce((n, s) => n + s.weight, 0);
+    assert.equal(sum(deep), 50); assert.equal(sum(river), 34); // deep: lima Mythic w10; muara: 14 + 10 + 10
+    const firstM = SF2.odds(0).mythic / 10000 * m.weight / sum(deep);
+    const firstU = SF2.odds(0).uncommon / 10000 * u.weight / sum(river);
+    assert.ok(Math.abs(firstM - 0.01) < 1e-12); // 1,00% per tangkapan Laut Dalam pada Pity 0
+    assert.ok(Math.abs(firstU - 0.07941176470588235) < 1e-12); // ~7,94% Muara pada Pity 0
+    for (const p of [0, 19, 20, 40, 60, 80, 98, 99]) {
+      const o = SF2.odds(p); assert.equal(SF2.RARITIES.reduce((n, k) => n + o[k], 0), 10000);
+      assert.equal(o.uncommon, p === 99 ? 0 : 2700);
+    }
+    assert.equal(SF2.odds(99).mythic, 10000);
+    assert.equal(SF2.PITY_MAX, 100); assert.equal(SF2.LIM.perHour, 150);
+    for (const s of [m, u]) {
+      const [min, max] = SF2.PRICE[s.rarity];
+      assert.equal(SF2.coinValue(s, s.wMin), min);
+      assert.equal(SF2.coinValue(s, s.wMax), max);
+      assert.ok(s.wMax <= 4900);
+    }
   });
   await t("peluang/Pity/harga TIDAK berubah: tabel dasar & pita, harga rarity, jumlah ikan server 48", () => {
     const o0 = SF2.odds(0); assert.deepStrictEqual([o0.common, o0.uncommon, o0.rare, o0.epic, o0.mythic], [5500, 2700, 800, 500, 500]); assert.equal(SF2.odds(99).mythic, 10000); assert.equal(SF2.PITY_MAX, 100);
     assert.deepStrictEqual(SF2.PRICE, { common: [10, 25], uncommon: [25, 50], rare: [60, 100], epic: [100, 140], mythic: [200, 250] }); assert.equal(T.FISH.length, 48);
-    const ids = SF2.SPECIES.filter((s) => s.active).map((s) => s.id).sort(); assert.equal(ids.length, 36);   // 36 aktif sebelum update = 36 sekarang
+    const ids = SF2.SPECIES.filter((s) => s.active).map((s) => s.id).sort(); assert.equal(ids.length, 38);   // 36 lama + 2 spesies aktif atas izin Owner
   });
   await t("Leviathan memakai desain baru (bentuk 'leviatan', palet biru tua + aksen cyan), bukan 'ular' lama; data kompatibel Cloud Save (bobot <= 4900)", () => {
     const l = SF2.BY_ID.sf2_leviathan; assert.equal(l.shape, "leviatan"); assert.ok(/^#0[0-9a-f]/i.test(l.col[0]) && /^#3[0-9a-f]e/i.test(l.col[2]) || l.col[2].toLowerCase() === "#35e8ff"); assert.ok(l.wMax <= 4900 && SF2.BY_ID.sf2_el_gran_maja.wMax <= 4900);

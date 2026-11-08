@@ -1,6 +1,6 @@
-# Joran Level 11–20 & spesies baru — USULAN untuk persetujuan Owner
+# Joran Level 11–20 & spesies baru — disetujui Owner, kandidat belum dirilis
 
-Status: kandidat ini memuat data + UI, tetapi **peluang tangkap spesies baru TIDAK diaktifkan** dan statistik joran di bawah adalah **usulan**. Ekonomi produksi tidak berubah sebelum Owner menyetujui. Level 1–10 tidak diubah.
+Status: Owner menyetujui statistik joran Lv11–20 serta mengaktifkan dua spesies setelah validasi ekonomi/peluang. Kandidat ini BELUM merge/deploy; Level 1–10 tidak diubah.
 
 ## Joran (nama & harga sesuai daftar Owner; beli berurutan, divalidasi server `ecoBuy`)
 | Lv | Nama | Harga | Kapasitas (kg) | Kekuatan | Tarik |
@@ -19,10 +19,10 @@ Status: kandidat ini memuat data + UI, tetapi **peluang tangkap spesies baru TID
 
 Kenaikan per level lebih kecil daripada Lv 6–10 (±3% vs ±10%); Lv 20 ≤ 1,3× Lv 10. Kapasitas ≤ 4.900 kg (batas bobot Cloud Save). Cermin server `quest-core.ROD_CAP` dijaga sama dengan `data.js` oleh tes. Joran khusus WhatsApp/Aurora tidak disentuh.
 
-## Spesies baru (nonaktif — belum diundi)
-| Spesies | Rarity usulan | Habitat | Bobot | Kredit |
+## Spesies baru (aktif di kandidat; belum dipublikasikan)
+| Spesies | Rarity disetujui | Habitat | Bobot | Kredit |
 |---|---|---|---|---|
 | El Gran Maja | Mythic | Laut Dalam | 3.600–4.900 kg | @derr6789ten |
 | Udang Jala | Uncommon | Muara | 0,03–0,35 kg | Usulan Komunitas GRUP NUSA |
 
-Keduanya tampil di Koleksi Ikan → Samudra Follower dan Buku Koleksi SF2 (redup bila belum ditemukan, kredit tetap terlihat). Mengaktifkannya = mengubah isi kolam rarity → Owner perlu memutuskan: aktifkan (flag `a:0` dihapus; Pity dan tabel bp tidak berubah, hanya daftar spesies dalam kolam yang bertambah) atau tetap tampil-saja. Harga jual mengikuti pita rarity yang ada.
+Keduanya tampil di Koleksi Ikan → Samudra Follower dan Buku Koleksi SF2. Status aktif berarti keduanya dapat diundi **hanya di habitat/rarity masing-masing**, bukan tambahan peluang rarity atau Pity. Harga jual tetap mengikuti pita rarity server: Mythic 200–250 koin dan Uncommon 25–50 koin. Pada Pity 0, perkiraan peluang per tangkapan di lokasi yang tepat: El Gran Maja **1,00%** (5% Mythic × 10/50 bobot kolam Laut Dalam) dan Udang Jala **7,94%** (27% Uncommon × 10/34 bobot kolam Muara). Probabilitas meningkat/berubah sesuai Pity/komposisi katalog; anti-farming tetap 150 tangkapan per 60 menit. Tidak ada perubahan peluang kategori atau sistem pembayaran.

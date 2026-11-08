@@ -64,6 +64,22 @@ const R = (r1, r2, r3) => { let i = 0; return () => { const j = i++ % 6; return 
   await t("Pity 19: undian ke-20 memakai 5,00%; Pity 20: undian berikutnya memakai 5,20% (batas Mythic 0,9480 vs 0,9500)", async () => {
     const o = mk(R(0.9490, 0, 0)); await player(o, "a"); setEco(o.db, "a", (e) => { e.sf2 = { p: 19, n: 19, base: 0, d: {}, f: {}, h: [] }; }); let r = await go(o, "a"); assert.equal(r.fish.rarity, "epic", "p19: 0.949 masih Epic (<0.95)");
     const o2 = mk(R(0.9490, 0, 0)); await player(o2, "b"); setEco(o2.db, "b", (e) => { e.sf2 = { p: 20, n: 20, base: 0, d: {}, f: {}, h: [] }; }); r = await go(o2, "b"); assert.equal(r.fish.rarity, "mythic", "p20: 0.949 → Mythic (batas 0,948)"); });
+  await t("Owner: El Gran Maja nyata diundi server (Mythic Laut Dalam), harga rarity dan Pity aman", async () => {
+    const o = mk(R(0.99, 0.999, 0.5)); await player(o, "maja");
+    const r = await go(o, "maja", "dalam");
+    assert.equal(r.fish.id, "sf2_el_gran_maja");
+    assert.equal(r.fish.rarity, "mythic");
+    assert.ok(r.fish.value >= SF2.PRICE.mythic[0] && r.fish.value <= SF2.PRICE.mythic[1]);
+    assert.equal(r.pity, 0); assert.ok(r.first);
+  });
+  await t("Owner: Udang Jala nyata diundi server (Uncommon Muara), harga rarity dan Pity aman", async () => {
+    const o = mk(R(0.6, 0.5, 0.5)); await player(o, "udang");
+    const r = await go(o, "udang", "muara");
+    assert.equal(r.fish.id, "sf2_udang_jala");
+    assert.equal(r.fish.rarity, "uncommon");
+    assert.ok(r.fish.value >= SF2.PRICE.uncommon[0] && r.fish.value <= SF2.PRICE.uncommon[1]);
+    assert.equal(r.pity, 1); assert.ok(r.first);
+  });
   await t("Mythic pada Pity 73 → reset 0 langsung", async () => { const o = mk(R(0.99, 0, 0)); await player(o, "a"); setEco(o.db, "a", (e) => { e.sf2 = { p: 73, n: 73, base: 0, d: {}, f: {}, h: [] }; }); const r = await go(o, "a"); assert.ok(r.mythic); assert.equal(r.pity, 0); assert.equal(r.pityBefore, 73); assert.equal((await o.e.ecoSf2Info({ uid: "a" })).pity, 0); });
   await t("Pity 99 + tangkapan sukses → WAJIB Mythic (acak 0 = Common di tabel biasa) lalu reset 0", async () => { const o = mk(R(0.0, 0, 0)); await player(o, "a"); setEco(o.db, "a", (e) => { e.sf2 = { p: 99, n: 99, base: 0, d: {}, f: {}, h: [] }; });
     const r = await go(o, "a", "karang"); assert.equal(r.fish.rarity, "mythic"); assert.ok(r.guaranteed); assert.equal(r.pity, 0); assert.ok(SF2.BY_ID[r.fish.id].rarity === "mythic" && SF2.BY_ID[r.fish.id].hab.includes("karang")); });
