@@ -9,7 +9,7 @@ permissions:
   contents: read
 jobs:
   test:
-    name: Uji pasangan SHA Recovery V2 (game 106fd74a + backend 3699959, identitas + Cloud Save)
+    name: Uji pasangan SHA Recovery V2 (game d8f88d9 + backend 3699959, identitas + Cloud Save)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
-          ref: 106fd74a8387e7609894ea4584f5aa8bc836fe40
+          ref: d8f88d9f8b5d32fbd46300b0f1da81f915febf15
           path: game
           persist-credentials: false
       - name: Akses baca backend privat
