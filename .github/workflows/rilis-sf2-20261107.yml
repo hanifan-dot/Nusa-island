@@ -131,6 +131,7 @@ jobs:
       - name: Regresi khusus update +40% (dilewati saat rollback)
         if: ${{ needs.pin.outputs.mode == 'deploy' }}
         run: |
+          set -x  # Diagnostik guard pra-rilis; tak memuat rahasia
           cmp game/economy/core.js backend/server/vendor/economy-core.cjs
           cmp game/cloud/core.js backend/server/vendor/cloud-core.cjs
           grep -Fq "async ecoSfInfo(auth)" game/economy/core.js
