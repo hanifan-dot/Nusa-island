@@ -48,8 +48,10 @@ with sync_playwright() as p:
     ctx = b.new_context(viewport={"width": 390, "height": 780}, has_touch=True)
     ctx.add_init_script(INIT)
     pg = ctx.new_page(); errs = []; pg.on("pageerror", lambda e: errs.append(str(e)))
+    pg.goto(ROOT); pg.wait_for_function("window.NW && NW.cloud && NW.eco && NW.cloud._test", timeout=20000)   # WAJIB: muat game dulu (harness harus berdiri sendiri dari commit)
     if ev(pg, "!document.getElementById('splash').classList.contains('hidden')"): ev(pg, "()=>{document.getElementById('startBtn').click();return 1}")
     ev(pg, "()=>{window.NUSA_SOCIAL_HOME=true;window.NusaApi={enabled:()=>true,call:async(name)=>{window.__cnt[name]=(window.__cnt[name]||0)+1;return name==='homeInbox'?{requests:[],answers:[]}:{}}};return 1}")   # api.js menimpa tiruan saat dimuat: pasang ulang
+    ev(pg, "()=>{NW.social.hook();return 1}"); ev(pg, '(ms)=>window.__advance(ms)', 500)   # nyalakan polling homeInbox (hook sekali saja)
     ev(pg, "()=>{NW.cloud.user={uid:'demo-perf',name:'Uji'}; NW.cloud.writeMeta&&0; NW.cloud._test.writeMeta({mode:'google',uid:'demo-perf',rev:0,hash:''}); NW.cloud._test.startSync(); return 1}"); ev(pg, '(ms)=>window.__advance(ms)', 3000)   # lewati dialog login; jam virtual harus berjalan
     # ekonomi server tiruan di batas API: hanya menghitung
     ev(pg, """()=>{ const v={init:true,balance:10,own:10,top:0,up:{},box:[],aur:null};
@@ -76,6 +78,8 @@ with sync_playwright() as p:
     TS = {"ecoState": int(os.environ.get("MAX_ECO_TS", "60")), "homeInbox": int(os.environ.get("MAX_INBOX_TS", "80")), "loadSave:meta": int(os.environ.get("MAX_META_TS", "80"))}
     for k, mx in limit.items(): ok(f"jam aktif: {k} <= {mx}", out[k] <= mx, out[k])
     for k, mx in limit.items(): ok(f"jam pindah-tab: {k} <= {TS[k]}", out2[k] <= TS[k], out2[k])
+    LOW = {"ecoState": 5, "homeInbox": 30, "loadSave:meta": 8}
+    for k, mn in LOW.items(): ok(f"jam aktif: {k} >= {mn} (harness benar-benar mengukur)", out[k] >= mn, out[k])
     real = [e for e in errs]
     ok("tanpa galat JS", not real, real[:2])
     b.close()
