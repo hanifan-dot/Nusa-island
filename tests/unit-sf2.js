@@ -6,28 +6,29 @@ let pass = 0, fail = 0; const t = async (n, f) => { try { await f(); pass++; } c
 function mkdb() { const m = new Map(); const rd = (p) => (m.has(p) ? JSON.parse(m.get(p)) : null); let q = Promise.resolve();
   return { m, get: async (p) => rd(p), tx: (fn) => { const run = q.then(async () => { const buf = new Map(); const out = await fn({ get: async (p) => (buf.has(p) ? JSON.parse(buf.get(p)) : rd(p)), set: async (p, v) => { buf.set(p, JSON.stringify(v)); } }); for (const [p, v] of buf) m.set(p, v); return out; }); q = run.catch(() => {}); return run; } }; }
 let now = 1e12, n = 0; const op = () => "op" + (++n) + "xxxxxxxx";
+const inBand = (v, k) => v >= Math.round(SF2.PRICE[k][0] * 0.75) - 1 && v <= Math.round(SF2.PRICE[k][1] * 0.75) + 1;   // nilai jual = band x 0,75 (nerf total 25%)
 const SEQ = (...v) => { let i = 0; return () => (i < v.length ? v[i++] : Math.random() * 0.999); };   // acak server tiruan
 const mk = (rand, cfg, db0) => { const db = db0 || mkdb(); if (cfg) db.m.set("shop/config", JSON.stringify(cfg)); return { db, e: EC.makeEconomyServer(db, { clock: () => now, tables: T, fishmath: FM, trustClientInit: true, sf2: SF2, sf: SF, rand }) }; };
 const ecoOf = (db, u) => JSON.parse(db.m.get("shop/economy/" + u));
 const setEco = (db, u, f) => { const e = ecoOf(db, u); f(e); db.m.set("shop/economy/" + u, JSON.stringify(e)); };
 const player = async (o, u, lbc) => { await o.e.ecoInit({ uid: u }, {}); setEco(o.db, u, (e) => { e.lbc = lbc === undefined ? 100 : lbc; }); };
 const go = async (o, u, spot) => { now += 2000; return o.e.ecoSf2Catch({ uid: u }, { opId: op(), spot: spot || "dalam" }); };
-// DETERMINISTIK & berulang per tangkapan (tanpa Math.random): tiap tangkapan memakai 6 undian = r1 rarity, r2 spesies, r3 berat, 0,5, lalu 2 undian uid dari deret emas (unik antar tangkapan).
+// DETERMINISTIK & berulang per tangkapan (tanpa Math.random): tiap tangkapan memakai 8 undian = r1 rarity, r2 spesies, r3 berat, 0,5, 2 undian uid dari deret emas (unik antar tangkapan), lalu 2 undian bonus OWNER FISH (0,9 = tidak dapat).
 // Dulu: sesudah 4 nilai jatuh ke Math.random → tangkapan ke-2 pada server yang sama bisa jadi Mythic acak (tes flaky). Mekanisme game tidak diubah.
 let GK = 0;   // penghitung global → uid unik juga antar server tiruan yang berbagi satu db
-const R = (r1, r2, r3) => { let i = 0; return () => { const j = i++ % 6; return j < 3 ? [r1, r2, r3][j] : j === 3 ? 0.5 : ((++GK * 0.6180339887498949) % 1) * 0.999; }; };
+const R = (r1, r2, r3) => { let i = 0; return () => { const j = i++ % 8; return j < 3 ? [r1, r2, r3][j] : j === 3 ? 0.5 : j >= 6 ? 0.9 : ((++GK * 0.6180339887498949) % 1) * 0.999; }; };
 (async () => {
   // ---------- matematika murni ----------
   await t("Functions lib sf2-core sama dengan sumber", () => assert.ok(fs.readFileSync(path.join(__dirname, "../firebase/functions/lib/sf2-core.js"), "utf8").endsWith(fs.readFileSync(path.join(__dirname, "../economy/sf2-core.js"), "utf8"))));
-  await t("distribusi dasar 55/27/8/5/5 = 100% dan total SELALU 10000 untuk Pity 0..99", () => {
-    const o0 = SF2.odds(0); assert.deepStrictEqual([o0.common, o0.uncommon, o0.rare, o0.epic, o0.mythic], [5500, 2700, 800, 500, 500]);
+  await t("distribusi dasar 56,75/27,85/8,25/5,15/2,00 = 100% dan total SELALU 10000 untuk Pity 0..99", () => {
+    const o0 = SF2.odds(0); assert.deepStrictEqual([o0.common, o0.uncommon, o0.rare, o0.epic, o0.mythic], [5675, 2785, 825, 515, 200]);
     for (let p = 0; p < 100; p++) { const o = SF2.odds(p); assert.equal(o.common + o.uncommon + o.rare + o.epic + o.mythic, 10000, "p=" + p); for (const k of SF2.RARITIES) assert.ok(o[k] >= 0 && Number.isInteger(o[k])); } });
-  await t("tabel pita: 0–19 5,00 · 20–39 5,20 · 40–59 5,40 · 60–79 5,60 · 80–98 5,80 (Epic=Mythic); tambahan diambil dari Common", () => {
-    const exp = [[0, 5], [19, 5], [20, 5.2], [39, 5.2], [40, 5.4], [59, 5.4], [60, 5.6], [79, 5.6], [80, 5.8], [98, 5.8]];
-    for (const [p, e] of exp) { const o = SF2.odds(p); assert.equal(SF2.pct(o.epic), e, "epic p=" + p); assert.equal(SF2.pct(o.mythic), e, "mythic p=" + p); assert.equal(o.uncommon, 2700); assert.equal(o.rare, 800); assert.equal(o.common, 5500 - 2 * (o.epic - 500)); } });
+  await t("tabel pita: Mythic 2,00 · 2,20 · 2,40 · 2,60 · 2,80 (+0,20 per pita; Epic ikut +0,20 dari 5,15); tambahan diambil dari Common", () => {
+    const exp = [[0, 2], [19, 2], [20, 2.2], [39, 2.2], [40, 2.4], [59, 2.4], [60, 2.6], [79, 2.6], [80, 2.8], [98, 2.8]];
+    for (const [p, e] of exp) { const o = SF2.odds(p); assert.equal(SF2.pct(o.mythic), e, "mythic p=" + p); assert.equal(o.epic - 515, o.mythic - 200, "epic p=" + p); assert.equal(o.uncommon, 2785); assert.equal(o.rare, 825); assert.equal(o.common, 5675 - 2 * (o.mythic - 200)); } });
   await t("Pity 99 → Mythic 100% DIJAMIN (tangkapan ke-100) apa pun acaknya", () => { const o = SF2.odds(99); assert.equal(o.mythic, 10000); assert.ok(o.guaranteed); for (const r of [0, 0.3, 0.9999]) assert.equal(SF2.rollRarity(99, r), "mythic"); assert.ok(!SF2.odds(98).guaranteed); });
   await t("aturan reset: 19→20; Mythic di Pity 73 → 0; 99+sukses → 0 (Mythic)", () => { assert.equal(SF2.nextPity(19, "common"), 20); assert.equal(SF2.nextPity(73, "mythic"), 0); assert.equal(SF2.nextPity(99, SF2.rollRarity(99, 0.5)), 0); assert.equal(SF2.nextPity(98, "rare"), 99); });
-  await t("batas rarity tepat (bp): 5499→common, 5500→uncommon, 9499→epic, 9500→mythic", () => { assert.equal(SF2.rollRarity(0, 0.5499), "common"); assert.equal(SF2.rollRarity(0, 0.55), "uncommon"); assert.equal(SF2.rollRarity(0, 0.9499), "epic"); assert.equal(SF2.rollRarity(0, 0.95), "mythic"); assert.throws(() => SF2.rollRarity(0, 1)); });
+  await t("batas rarity tepat (bp): 5674→common, 5675→uncommon, 9799→epic, 9800→mythic", () => { assert.equal(SF2.rollRarity(0, 0.5674), "common"); assert.equal(SF2.rollRarity(0, 0.5675), "uncommon"); assert.equal(SF2.rollRarity(0, 0.9799), "epic"); assert.equal(SF2.rollRarity(0, 0.98), "mythic"); assert.throws(() => SF2.rollRarity(0, 1)); });
   await t("katalog: ID permanen unik & valid, 12 spesies komunitas (10 usulan Owner + Udang Jala + Naga Palung orisinal) + 4 lama = 16, nilai jual dalam rentang rarity, tiap spot punya SEMUA 5 rarity", () => {
     const ids = new Set(); for (const s of SF2.SPECIES) { assert.ok(/^[a-z0-9_]{1,40}$/.test(s.id) && !ids.has(s.id)); ids.add(s.id); assert.ok(s.wMin > 0 && s.wMax > s.wMin); for (const h of s.hab) assert.ok(SF2.HABITATS.includes(h)); }
     assert.equal(SF2.SPECIES.filter((s) => s.community).length, 12); assert.equal(SF2.LEGACY.length, 4); assert.equal(SF2.SPECIES.filter((s) => s.community).length + SF2.LEGACY.length, 16);
@@ -60,16 +61,16 @@ const R = (r1, r2, r3) => { let i = 0; return () => { const j = i++ % 6; return 
   await t("kredit Owner (config) hanya untuk akun yang ada sebelum batas waktu", async () => { const cfg = { sf2: { legacyCredit: 100, legacyBefore: 1e12 + 5e9 } }; const o = mk(R(0.1, 0, 0), cfg); await player(o, "a", 0); assert.ok((await go(o, "a")).ok);
     const cfg2 = { sf2: { legacyCredit: 100, legacyBefore: 5 } }; const o2 = mk(R(0.1, 0, 0), cfg2); await player(o2, "b", 0); await assert.rejects(() => go(o2, "b"), /terkunci/); });
   await t("Pity 0 → catch non-Mythic → 1 ... 19→20; HUD info mengikuti", async () => { const o = mk(R(0.1, 0, 0)); await player(o, "a"); let r; for (let i = 0; i < 20; i++) { o.e = mk(R(0.1, 0, 0), null, o.db).e; r = await go(o, "a"); assert.equal(r.pity, i + 1); assert.equal(r.pityBefore, i); }
-    const inf = await o.e.ecoSf2Info({ uid: "a" }); assert.equal(inf.pity, 20); assert.equal(inf.band, 1); assert.equal(inf.odds.mythic, 5.2); assert.equal(inf.odds.epic, 5.2); });
-  await t("Pity 19: undian ke-20 memakai 5,00%; Pity 20: undian berikutnya memakai 5,20% (batas Mythic 0,9480 vs 0,9500)", async () => {
-    const o = mk(R(0.9490, 0, 0)); await player(o, "a"); setEco(o.db, "a", (e) => { e.sf2 = { p: 19, n: 19, base: 0, d: {}, f: {}, h: [] }; }); let r = await go(o, "a"); assert.equal(r.fish.rarity, "epic", "p19: 0.949 masih Epic (<0.95)");
-    const o2 = mk(R(0.9490, 0, 0)); await player(o2, "b"); setEco(o2.db, "b", (e) => { e.sf2 = { p: 20, n: 20, base: 0, d: {}, f: {}, h: [] }; }); r = await go(o2, "b"); assert.equal(r.fish.rarity, "mythic", "p20: 0.949 → Mythic (batas 0,948)"); });
+    const inf = await o.e.ecoSf2Info({ uid: "a" }); assert.equal(inf.pity, 20); assert.equal(inf.band, 1); assert.equal(inf.odds.mythic, 2.2); assert.equal(inf.odds.epic, 5.35); });
+  await t("Pity 19: undian ke-20 memakai 2,00%; Pity 20: undian berikutnya memakai 2,20% (batas Mythic 0,9780 vs 0,9800)", async () => {
+    const o = mk(R(0.9790, 0, 0)); await player(o, "a"); setEco(o.db, "a", (e) => { e.sf2 = { p: 19, n: 19, base: 0, d: {}, f: {}, h: [] }; }); let r = await go(o, "a"); assert.equal(r.fish.rarity, "epic", "p19: 0.979 masih Epic (<0.98)");
+    const o2 = mk(R(0.9790, 0, 0)); await player(o2, "b"); setEco(o2.db, "b", (e) => { e.sf2 = { p: 20, n: 20, base: 0, d: {}, f: {}, h: [] }; }); r = await go(o2, "b"); assert.equal(r.fish.rarity, "mythic", "p20: 0.979 → Mythic (batas 0,978)"); });
   await t("Owner: El Gran Maja nyata diundi server (Mythic Laut Dalam), harga rarity dan Pity aman", async () => {
     const o = mk(R(0.99, 0.999, 0.5)); await player(o, "maja");
     const r = await go(o, "maja", "dalam");
     assert.equal(r.fish.id, "sf2_el_gran_maja");
     assert.equal(r.fish.rarity, "mythic");
-    assert.ok(r.fish.value >= SF2.PRICE.mythic[0] && r.fish.value <= SF2.PRICE.mythic[1]);
+    assert.ok(inBand(r.fish.value, "mythic"));
     assert.equal(r.pity, 0); assert.ok(r.first);
   });
   await t("Owner: Udang Jala nyata diundi server (Uncommon Muara), harga rarity dan Pity aman", async () => {
@@ -77,7 +78,7 @@ const R = (r1, r2, r3) => { let i = 0; return () => { const j = i++ % 6; return 
     const r = await go(o, "udang", "muara");
     assert.equal(r.fish.id, "sf2_udang_jala");
     assert.equal(r.fish.rarity, "uncommon");
-    assert.ok(r.fish.value >= SF2.PRICE.uncommon[0] && r.fish.value <= SF2.PRICE.uncommon[1]);
+    assert.ok(inBand(r.fish.value, "uncommon"));
     assert.equal(r.pity, 1); assert.ok(r.first);
   });
   await t("Mythic pada Pity 73 → reset 0 langsung", async () => { const o = mk(R(0.99, 0, 0)); await player(o, "a"); setEco(o.db, "a", (e) => { e.sf2 = { p: 73, n: 73, base: 0, d: {}, f: {}, h: [] }; }); const r = await go(o, "a"); assert.ok(r.mythic); assert.equal(r.pity, 0); assert.equal(r.pityBefore, 73); assert.equal((await o.e.ecoSf2Info({ uid: "a" })).pity, 0); });
@@ -98,14 +99,13 @@ const R = (r1, r2, r3) => { let i = 0; return () => { const j = i++ % 6; return 
     const winner = ra.first ? "a" : "b"; assert.equal(F.sf2_leviathan.u, winner); const again = await go(mk(R(0.99, 0, 0), null, db), winner, "dalam"); assert.equal(again.fish.id, "sf2_leviathan"); assert.ok(!again.first); assert.ok(ecoOf(db, winner).sf2.f.sf2_leviathan);
     const loser = winner === "a" ? "b" : "a"; assert.ok(!ecoOf(db, loser).sf2.f.sf2_leviathan); const inf = await a.e.ecoSf2Info({ uid: "a" }); assert.equal(inf.firsts.sf2_leviathan.mine, winner === "a"); });
   await t("spesies non-komunitas tidak memberi gelar Penemu Pertama", async () => { const o = mk(R(0.1, 0, 0)); await player(o, "a"); const r = await go(o, "a", "karang"); assert.ok(!SF2.BY_ID[r.fish.id].community); assert.ok(!r.first); assert.equal(o.db.m.has("sf2/firsts"), false); });
-  await t("Orca/Narwhal = observasi: tercatat di koleksi, TIDAK masuk Coolbox, nilai 0", async () => { const o = mk(R(0.92, 0, 0)); await player(o, "a"); const r = await go(o, "a", "dalam"); assert.equal(r.fish.id, "sf2_orca"); assert.ok(r.fish.obs); assert.equal(r.fish.uid, null); assert.equal(r.fish.value, 0);
+  await t("Orca/Narwhal = observasi: tercatat di koleksi, TIDAK masuk Coolbox, nilai 0", async () => { const o = mk(R(0.95, 0, 0)); await player(o, "a"); const r = await go(o, "a", "dalam"); assert.equal(r.fish.id, "sf2_orca"); assert.ok(r.fish.obs); assert.equal(r.fish.uid, null); assert.equal(r.fish.value, 0);
     const e = ecoOf(o.db, "a"); assert.equal(e.box.length, 0); assert.equal(e.sf2.d.sf2_orca.n, 1); assert.ok(r.first); });
   await t("jual: nilai server = value saat tangkap (rentang rarity), jual ulang tidak menambah koin; kolam menolak ikan pulau", async () => { const o = mk(R(0.3, 0, 0.5)); await player(o, "a"); const r = await go(o, "a", "karang"); const [a, b] = SF2.PRICE[r.fish.rarity];
-    assert.ok(r.fish.value >= a - 1 && r.fish.value <= b + 1, "nilai " + r.fish.value); const bal = (await o.e.ecoState({ uid: "a" })).balance; const s = await o.e.ecoSell({ uid: "a" }, { opId: op(), uids: [r.fish.uid], day: 3 });
+    assert.ok(inBand(r.fish.value, r.fish.rarity), "nilai " + r.fish.value); const bal = (await o.e.ecoState({ uid: "a" })).balance; const s = await o.e.ecoSell({ uid: "a" }, { opId: op(), uids: [r.fish.uid], day: 3 });
     assert.equal(s.total, r.fish.value); assert.equal(s.balance, bal + r.fish.value); const s2 = await o.e.ecoSell({ uid: "a" }, { opId: op(), uids: [r.fish.uid], day: 3 }); assert.equal(s2.sold.length, 0); assert.equal(s2.total, 0); });
   await t("nilai jual SEMUA spesies × berat min/maks tepat sesuai rentang (harga akhir konsisten, tanpa jutaan koin)", async () => {
-    for (const s of SF2.SPECIES) { if (s.obs) continue; for (const w of [s.wMin, s.wMax]) { const cv = SF2.coinValue(s, w); let spk = cv / (FM.priceFor({ price: 1e6 }, w, 1, 3) / 1e6); for (let k = 0; k < 4 && FM.priceFor({ price: spk }, w, 1, 3) !== cv; k++) spk *= cv / FM.priceFor({ price: spk }, w, 1, 3);
-      const got = FM.priceFor({ price: Math.round(spk * 1e6) / 1e6 }, w, 1, 3); assert.ok(Math.abs(got - cv) <= 1, s.id + " w=" + w + " cv=" + cv + " got=" + got); assert.ok(got <= 251); } } });
+    for (const s of SF2.SPECIES) { if (s.obs) continue; for (const w of [s.wMin, s.wMax]) { const cv = SF2.coinValue(s, w), got = FM.sf2Price(FM.lockSp(cv, w, 3), w, 3); assert.ok(Math.abs(got - cv * 0.75) <= 1, s.id + " w=" + w + " cv=" + cv + " got=" + got); assert.ok(got <= 251 * 0.75 + 1); } } });
   await t("spot tidak valid / tanpa opId ditolak; habitat menentukan spesies (danau tidak memunculkan ikan laut)", async () => { const o = mk(R(0.1, 0, 0)); await player(o, "a"); now += 2000;
     await assert.rejects(() => o.e.ecoSf2Catch({ uid: "a" }, { opId: op(), spot: "laut" }), /tidak valid/); await assert.rejects(() => o.e.ecoSf2Catch({ uid: "a" }, { spot: "dalam" }), /opId/);
     for (let i = 0; i < 40; i++) { const o2 = mk(null, null, o.db); o2.e = EC.makeEconomyServer(o.db, { clock: () => now, tables: T, fishmath: FM, trustClientInit: true, sf2: SF2, rand: SEQ(Math.random() * 0.999, Math.random(), Math.random(), Math.random()) }); setEco(o.db, "a", (e) => { e.lastCatchAt = 0; if (e.sf2) e.sf2.h = []; e.box = []; });

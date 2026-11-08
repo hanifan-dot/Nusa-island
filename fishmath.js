@@ -11,8 +11,14 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 // ---- Harga: berat > 100 kg dikompres supaya ikan raksasa tidak merusak ekonomi ----
 const FULL_PRICE_KG = 100, PRICE_EXP = 0.7;
 function effectiveKg(w) { return w <= FULL_PRICE_KG ? w : FULL_PRICE_KG + Math.pow(w - FULL_PRICE_KG, PRICE_EXP); }
-const FISH_SALE_MULT = 0.8; // -20% koin dari penjualan ikan; hadiah pelepasan ikan dilindungi tetap.
+// Nerf harga jual: TOTAL -25% dari harga asli (pengali 0,75). SATU konstanta, dipakai server & klien, dihitung saat jual (tidak pernah disimpan/ditumpuk).
+// Riwayat: sebelumnya 0,8 (-20%); instruksi Owner: harga baru = harga asli x 0,75 (BUKAN 0,8 x 0,75). Hadiah pelepasan ikan dilindungi tetap.
+const FISH_SALE_MULT = 0.75;
 function priceFor(fish, w, mult, scale) { return Math.max(1, Math.round(fish.price * scale * effectiveKg(w) * mult * FISH_SALE_MULT)); }
+// SF2: harga/kg terkunci (sp) memakai basis tetap 0,8 (data lama sudah tersimpan begitu) → nilai jual = nilai katalog x 0,75 untuk ikan lama MAUPUN baru, tanpa migrasi data pemain.
+const SF2_LOCK_MULT = 0.8;
+const sf2Price = (sp, w, scale) => priceFor({ price: sp }, w, SF2_LOCK_MULT, scale);
+const lockSp = (cv, w, scale) => Math.round((cv / (scale * effectiveKg(w) * SF2_LOCK_MULT)) * 1e6) / 1e6;
 
 // ---- Berat ikan: kecil paling sering; ekstrem sangat langka (hanya spesies tertentu) ----
 // Rentang biasa: wMin..wMax dengan kurva pangkat 2,3 (seperti dulu). Spesies yang punya xMax/xP
@@ -45,7 +51,7 @@ function overloadMuls(w, cap) {
   return { o, weak: o > 0, rise: 1 + Math.min(TUNE.ovRiseMax, TUNE.ovRise * k), reel: 1 / (1 + Math.min(TUNE.ovReelMax, TUNE.ovReel * k)) };
 }
 
-const API = { TUNE, FULL_PRICE_KG, PRICE_EXP, effectiveKg, priceFor, rollWeight, bigness, sizeMul, fatigue, fightPower, overload, overloadMuls, clamp };
+const API = { TUNE, FULL_PRICE_KG, PRICE_EXP, FISH_SALE_MULT, SF2_LOCK_MULT, sf2Price, lockSp, effectiveKg, priceFor, rollWeight, bigness, sizeMul, fatigue, fightPower, overload, overloadMuls, clamp };
 if (typeof module !== "undefined" && module.exports) module.exports = API;
 else { root.NW = root.NW || {}; root.NW.FM = API; }
 })(typeof window !== "undefined" ? window : globalThis);

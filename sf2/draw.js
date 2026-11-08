@@ -145,6 +145,44 @@ F.maja = function (c, s, t, pal) {
   c.fillStyle = "#f6f2e2"; for (let i = 0; i < 6; i++) { const x = -rx * 0.98 + i * rx * 0.085; c.beginPath(); c.moveTo(x, ry * 0.4); c.lineTo(x + rx * 0.03, ry * 0.72); c.lineTo(x + rx * 0.06, ry * 0.4); c.fill(); }
   ell(c, -rx * 0.62, -ry * 0.22, ry * 0.2, ry * 0.2); c.fillStyle = pal[2]; c.shadowColor = pal[2]; c.shadowBlur = 8; c.fill(); c.shadowBlur = 0; c.strokeStyle = OUT; c.stroke(); ell(c, -rx * 0.64, -ry * 0.2, ry * 0.07, ry * 0.12); c.fillStyle = "#1a1208"; c.fill();
 };
+// OWNER FISH: ikan istimewa orisinal Nusa Island — badan biru-kerajaan dengan sisik emas, MAHKOTA EMAS bertakhta permata, mata menyala, sirip berkilau; cahaya elegan (aura + kerlip bintang kecil) ringan untuk Android.
+F.owner = function (c, s, t, pal) {
+  const sw = sin(t * 2.4) * s * 0.025, rx = s * 0.34, ry = s * 0.17, gold = pal[2], blue = pal[0], cream = pal[1];
+  // aura lembut
+  const ag = c.createRadialGradient(0, 0, ry * 0.4, 0, 0, s * 0.5); ag.addColorStop(0, "rgba(255,214,90," + (0.28 + 0.1 * sin(t * 2.2)).toFixed(3) + ")"); ag.addColorStop(1, "rgba(255,214,90,0)");
+  c.fillStyle = ag; c.beginPath(); c.arc(0, 0, s * 0.5, 0, TAU); c.fill();
+  // ekor kipas emas-biru (mengalir)
+  c.beginPath(); c.moveTo(rx * 0.75, 0); c.quadraticCurveTo(rx + s * 0.08, -ry * 0.5 + sw, rx + s * 0.2, -ry * 1.6 + sw * 1.4); c.quadraticCurveTo(rx + s * 0.13, sw * 0.4, rx + s * 0.21, ry * 1.5 + sw * 1.4); c.quadraticCurveTo(rx + s * 0.08, ry * 0.5 + sw, rx * 0.75, 0); c.closePath();
+  c.fillStyle = lg(c, rx * 0.7, 0, rx + s * 0.22, 0, [[0, blue], [0.55, gold], [1, lit(gold, 0.45)]]); c.fill(); c.strokeStyle = OUT; c.lineWidth = 1.1; c.stroke();
+  // sirip punggung & perut (gradasi emas)
+  c.fillStyle = lg(c, 0, -ry * 2, 0, -ry, [[0, lit(gold, 0.35)], [1, dark(gold, 0.1)]]);
+  c.beginPath(); c.moveTo(-rx * 0.15, -ry * 0.92); c.quadraticCurveTo(rx * 0.05, -ry * 2.1 + sw, rx * 0.5, -ry * 0.8); c.closePath(); c.fill(); c.stroke();
+  c.beginPath(); c.moveTo(-rx * 0.05, ry * 0.9); c.quadraticCurveTo(rx * 0.2, ry * 1.75 - sw, rx * 0.4, ry * 0.8); c.closePath(); c.fill(); c.stroke();
+  // badan: biru kerajaan di punggung → emas pucat di perut
+  const g = lg(c, 0, -ry, 0, ry, [[0, dark(blue, 0.15)], [0.42, blue], [0.58, mixc(blue, gold, 0.55)], [1, lit(cream, 0.25)]]);
+  ell(c, 0, 0, rx, ry); c.fillStyle = g; c.fill(); c.strokeStyle = OUT; c.lineWidth = 1.3; c.stroke();
+  // sisik emas (busur bertumpuk, dipotong ke dalam badan)
+  c.save(); ell(c, 0, 0, rx * 0.98, ry * 0.98); c.clip();
+  for (let row = 0; row < 5; row++) for (let i = 0; i < 9; i++) { const x = -rx * 0.55 + i * rx * 0.15 + (row % 2) * rx * 0.075, y = -ry * 0.7 + row * ry * 0.36, r = ry * 0.2;
+    c.beginPath(); c.arc(x, y, r, 0.15, Math.PI - 0.15); c.strokeStyle = "rgba(255,214,90," + (0.55 + 0.25 * sin(t * 2 + i * 0.7 + row)).toFixed(2) + ")"; c.lineWidth = 1.2; c.stroke(); }
+  c.restore();
+  // kilau punggung
+  c.save(); ell(c, -rx * 0.1, -ry * 0.5, rx * 0.55, ry * 0.18, -0.04); c.fillStyle = "rgba(255,255,255,.3)"; c.fill(); c.restore();
+  // insang emas
+  c.strokeStyle = gold; c.lineWidth = 1.6; c.beginPath(); c.arc(-rx * 0.4, 0, ry * 0.8, -0.9, 0.9); c.stroke();
+  // MAHKOTA EMAS (di kepala, menghadap kiri): 5 ujung + permata
+  const cx0 = -rx * 0.6, cy0 = -ry * 0.9, cw = rx * 0.52, ch = ry * 1.2, bob = sin(t * 2.4) * 0.8;
+  c.save(); c.translate(0, bob); c.beginPath(); c.moveTo(cx0 - cw * 0.5, cy0 + ch * 0.1); c.lineTo(cx0 - cw * 0.5, cy0 - ch * 0.55); c.lineTo(cx0 - cw * 0.25, cy0 - ch * 0.2); c.lineTo(cx0, cy0 - ch * 0.95); c.lineTo(cx0 + cw * 0.25, cy0 - ch * 0.2); c.lineTo(cx0 + cw * 0.5, cy0 - ch * 0.55); c.lineTo(cx0 + cw * 0.5, cy0 + ch * 0.1); c.closePath();
+  c.fillStyle = lg(c, 0, cy0 - ch, 0, cy0 + ch * 0.1, [[0, "#fff3b0"], [0.5, gold], [1, dark(gold, 0.25)]]); c.shadowColor = gold; c.shadowBlur = 7; c.fill(); c.shadowBlur = 0; c.strokeStyle = "rgba(90,60,5,.7)"; c.lineWidth = 1.1; c.stroke();
+  for (const [gx, gy, gc] of [[cx0, cy0 - ch * 0.35, "#ff4f6a"], [cx0 - cw * 0.3, cy0 - ch * 0.05, "#35e8ff"], [cx0 + cw * 0.3, cy0 - ch * 0.05, "#35e8ff"]]) { ell(c, gx, gy, cw * 0.09, cw * 0.09); c.fillStyle = gc; c.fill(); }
+  c.restore();
+  // mata berkilau
+  const ex = -rx * 0.68, ey = -ry * 0.12; ell(c, ex, ey, ry * 0.3, ry * 0.3); c.fillStyle = "#fff6c8"; c.shadowColor = "#fff0a0"; c.shadowBlur = 9 + 4 * sin(t * 3); c.fill(); c.shadowBlur = 0; c.strokeStyle = OUT; c.stroke();
+  ell(c, ex - ry * 0.03, ey + ry * 0.02, ry * 0.17, ry * 0.17); c.fillStyle = "#1b2b66"; c.fill(); ell(c, ex - ry * 0.1, ey - ry * 0.08, ry * 0.07, ry * 0.07); c.fillStyle = "#fff"; c.fill();
+  // kerlip bintang kecil (6 titik, ringan)
+  for (let i = 0; i < 6; i++) { const a = t * 0.9 + i * 1.05, px = cos(a * 1.3 + i) * s * 0.4, py = sin(a * 0.9 + i * 2) * ry * 1.8, k = Math.max(0, sin(t * 3 + i * 1.7)); if (k < 0.15) continue;
+    c.fillStyle = "rgba(255,240,170," + k.toFixed(2) + ")"; c.beginPath(); c.moveTo(px, py - 3 * k); c.lineTo(px + 1.2, py - 1.2); c.lineTo(px + 3 * k, py); c.lineTo(px + 1.2, py + 1.2); c.lineTo(px, py + 3 * k); c.lineTo(px - 1.2, py + 1.2); c.lineTo(px - 3 * k, py); c.lineTo(px - 1.2, py - 1.2); c.closePath(); c.fill(); }
+};
 function draw(c, id, cx, cy, L, t) {
   const sp = C.BY_ID[id]; if (!sp) return; const fn = F[sp.shape] || F.ikan, s = L * 1.05;
   c.save(); c.translate(cx, cy); c.save(); c.fillStyle = "rgba(10,40,60,.16)"; ell(c, 0, s * 0.3, s * 0.38, s * 0.04); c.fill(); c.restore();

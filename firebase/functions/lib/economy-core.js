@@ -77,7 +77,7 @@
     const needInit = (eco) => { if (!eco.init) throw E("failed-precondition", "Ekonomi belum diaktifkan untuk akun ini."); };
     const maxKg = (f) => f.xMax || f.wMax;
     // Harga jual ikan SF: harga/kg terkunci saat tangkap (b.sp, ditulis server), tanpa pengali harian. Entri tanpa sp valid → tidak bernilai (1 koin), bukan crash.
-    const sfSale = (b) => (((SFX && SFX.isSF(b.id)) || (SF2 && SF2.isSpecies(b.id))) && Number.isFinite(b.sp) && b.sp > 0 ? FM.priceFor({ price: b.sp }, b.w, 1, PRICE_SCALE) : 1);
+    const sfSale = (b) => (((SFX && SFX.isSF(b.id)) || (SF2 && SF2.isSpecies(b.id))) && Number.isFinite(b.sp) && b.sp > 0 ? (SF2 && SF2.isSpecies(b.id) ? FM.sf2Price(b.sp, b.w, PRICE_SCALE) : FM.priceFor({ price: b.sp }, b.w, 1, PRICE_SCALE)) : 1);
     // Acak tepercaya milik SERVER (bukan JavaScript browser). Bisa diganti lewat opts.rand (hanya untuk tes deterministik).
     const secureRand = () => {
       const g = typeof globalThis !== "undefined" && globalThis.crypto && globalThis.crypto.getRandomValues ? globalThis.crypto : null;
@@ -227,7 +227,7 @@
         const p = Math.min(SF2.PITY_MAX - 1, s2.p || 0), o = SF2.odds(p), firsts = {};
         for (const id of Object.keys(fm)) firsts[id] = { mine: fm[id].u === uid };
         return { on: true, init: !!eco.init, need: SF2.UNLOCK_CATCHES, have, unlocked: have >= SF2.UNLOCK_CATCHES, pity: p, pityMax: SF2.PITY_MAX, band: SF2.band(p),
-          odds: { epic: SF2.pct(o.epic), mythic: SF2.pct(o.mythic), common: SF2.pct(o.common), uncommon: SF2.pct(o.uncommon), rare: SF2.pct(o.rare), guaranteed: o.guaranteed },
+          owner: { pct: SF2.OWNER_BP / 100, n: (s2.d || {})[SF2.OWNER_ID] ? s2.d[SF2.OWNER_ID].n : 0 }, odds: { epic: SF2.pct(o.epic), mythic: SF2.pct(o.mythic), common: SF2.pct(o.common), uncommon: SF2.pct(o.uncommon), rare: SF2.pct(o.rare), guaranteed: o.guaranteed },
           caught: s2.n || 0, disc: s2.d || {}, firsts, mine: s2.f || {}, cv: SF2.CATALOG_VERSION };
       },
       async ecoSf2Catch(auth, p) {
@@ -259,12 +259,14 @@
           if (!sp.obs) {
             const su = "s2" + Math.floor(rand() * 4294967296).toString(36) + Math.floor(rand() * 4294967296).toString(36);
             if (eco.box.some((b) => b.u === su)) throw E("aborted", "Coba lagi.");
-            let spk = cv / (FM.priceFor({ price: 1e6 }, w, 1, PRICE_SCALE) / 1e6);
-            for (let k = 0; k < 4 && FM.priceFor({ price: spk }, w, 1, PRICE_SCALE) !== cv; k++) spk *= cv / FM.priceFor({ price: spk }, w, 1, PRICE_SCALE);
-            spk = Math.round(spk * 1e6) / 1e6;
+            const spk = FM.lockSp(cv, w, PRICE_SCALE);   // harga/kg terkunci; nilai jual = cv x 0,75 (nerf total) via FM.sf2Price
             item = { uid: su, id: sp.id, w, sp: spk }; eco.box.push({ u: su, id: sp.id, w, sp: spk });
           }
-          const res = { ok: true, fish: { id: sp.id, rarity, w, uid: item ? item.uid : null, sp: item ? item.sp : 0, value: item ? FM.priceFor({ price: item.sp }, w, 1, PRICE_SCALE) : 0, obs: !!sp.obs }, isNew, first,
+          // OWNER FISH: undian bonus INDEPENDEN (r5) — tidak menyentuh rarity/Pity/limit/Coolbox; hanya server yang memutuskan; hasil ikut tersimpan di catatan opId (retry = hasil sama, tidak digandakan).
+          const r5 = rand(), r6 = rand(); if (!(r5 < 1 && r6 < 1)) throw E("unavailable", "Pengacak server tidak tersedia. Coba lagi.");
+          let bonus = null;
+          if (r5 < SF2.OWNER_P) { const ow = SF2.BY_ID[SF2.OWNER_ID], ow_w = SF2.weightFor(ow, r6), od = s2.d[ow.id] || (s2.d[ow.id] = { n: 0, b: 0, t: now }), ownNew = od.n === 0; od.n++; od.b = Math.max(od.b, ow_w); bonus = { id: ow.id, w: ow_w, isNew: ownNew, rarity: "owner", n: od.n }; }
+          const res = { ok: true, bonus, fish: { id: sp.id, rarity, w, uid: item ? item.uid : null, sp: item ? item.sp : 0, value: item ? FM.sf2Price(item.sp, w, PRICE_SCALE) : 0, obs: !!sp.obs }, isNew, first,
             pity: s2.p, pityBefore: pBefore, mythic: rarity === "mythic", guaranteed: !!o.guaranteed, caught: s2.n, band: SF2.band(s2.p) };
           await t.set(ECO(uid), remember(eco, opId, res) && eco);
           return Object.assign({}, res, view(eco, ent));

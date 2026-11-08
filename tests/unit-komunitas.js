@@ -87,11 +87,11 @@ const OLD10 = { levels: ["Joran Bambu Kampung", "Joran Fiber Muara", "Joran Karb
     assert.equal(sum(deep), 50); assert.equal(sum(river), 34); // deep: lima Mythic w10; muara: 14 + 10 + 10
     const firstM = SF2.odds(0).mythic / 10000 * m.weight / sum(deep);
     const firstU = SF2.odds(0).uncommon / 10000 * u.weight / sum(river);
-    assert.ok(Math.abs(firstM - 0.01) < 1e-12); // 1,00% per tangkapan Laut Dalam pada Pity 0
-    assert.ok(Math.abs(firstU - 0.07941176470588235) < 1e-12); // ~7,94% Muara pada Pity 0
+    assert.ok(Math.abs(firstM - 0.004) < 1e-9); // 0,40% per tangkapan Laut Dalam pada Pity 0
+    assert.ok(Math.abs(firstU - 0.07941176470588235 * 2785 / 2700) < 1e-9); // ~7,94% Muara pada Pity 0
     for (const p of [0, 19, 20, 40, 60, 80, 98, 99]) {
       const o = SF2.odds(p); assert.equal(SF2.RARITIES.reduce((n, k) => n + o[k], 0), 10000);
-      assert.equal(o.uncommon, p === 99 ? 0 : 2700);
+      assert.equal(o.uncommon, p === 99 ? 0 : 2785);
     }
     assert.equal(SF2.odds(99).mythic, 10000);
     assert.equal(SF2.PITY_MAX, 100); assert.equal(SF2.LIM.perHour, 150);
@@ -103,7 +103,7 @@ const OLD10 = { levels: ["Joran Bambu Kampung", "Joran Fiber Muara", "Joran Karb
     }
   });
   await t("peluang/Pity/harga TIDAK berubah: tabel dasar & pita, harga rarity, jumlah ikan server 48", () => {
-    const o0 = SF2.odds(0); assert.deepStrictEqual([o0.common, o0.uncommon, o0.rare, o0.epic, o0.mythic], [5500, 2700, 800, 500, 500]); assert.equal(SF2.odds(99).mythic, 10000); assert.equal(SF2.PITY_MAX, 100);
+    const o0 = SF2.odds(0); assert.deepStrictEqual([o0.common, o0.uncommon, o0.rare, o0.epic, o0.mythic], [5675, 2785, 825, 515, 200]); assert.equal(SF2.odds(99).mythic, 10000); assert.equal(SF2.PITY_MAX, 100);
     assert.deepStrictEqual(SF2.PRICE, { common: [10, 25], uncommon: [25, 50], rare: [60, 100], epic: [100, 140], mythic: [200, 250] }); assert.equal(T.FISH.length, 48);
     const ids = SF2.SPECIES.filter((s) => s.active).map((s) => s.id).sort(); assert.equal(ids.length, 38);   // 36 lama + 2 spesies aktif atas izin Owner
   });

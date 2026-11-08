@@ -7,8 +7,8 @@ const NW = (window.NW = window.NW || {});
 const C = window.NusaSF2Core; if (!C) return;
 const N = () => window.Nusa, S = () => (N() && N().S) || null;
 const $ = (id) => document.getElementById(id);
-const RCOL = { common: "#7fb59f", uncommon: "#5fc77a", rare: "#4aa3df", epic: "#b56ce8", mythic: "#f0b53a" };
-const OLDR = { common: "biasa", uncommon: "biasa", rare: "langka", epic: "epik", mythic: "legenda" };
+const RCOL = { common: "#7fb59f", uncommon: "#5fc77a", rare: "#4aa3df", epic: "#b56ce8", mythic: "#f0b53a", owner: "#ffd24a" };
+const OLDR = { common: "biasa", uncommon: "biasa", rare: "langka", epic: "epik", mythic: "legenda", owner: "legenda" };
 const HLBL = { karang: "Terumbu Karang", muara: "Muara", danau: "Danau Air Tawar", dalam: "Laut Dalam" };
 const LOCK_MSG = "Samudra Follower terkunci. Tangkap 100 ikan untuk membuka perjalanan!";
 const f1 = (n) => String(n).replace(".", ",");
@@ -101,6 +101,11 @@ function applyResult(r, host) {
   if (info) { info.pity = r.pity; info.band = r.band; info.caught = r.caught; info.disc = Object.assign({}, info.disc, { [f.id]: 1 }); if (r.first) info.mine = Object.assign({}, info.mine, { [f.id]: 1 }); if (r.odds) info.odds = r.odds; }
   lastFetch = 0; N().save(); N().refreshHUD && N().refreshHUD();
   const gain = r.pityBefore != null && r.pity > r.pityBefore;
+  const bo = r.bonus && C.isSpecies(r.bonus.id) ? r.bonus : null;   // OWNER FISH: bonus (diundi server, independen dari rarity/Pity) — kartu istimewa; ikan biasa tetap masuk Coolbox
+  if (bo) { const rb = Sx.dex[bo.id] || { n: 0, best: 0 }; rb.n++; rb.best = Math.max(rb.best, bo.w); Sx.dex[bo.id] = rb; if (info) info.disc = Object.assign({}, info.disc, { [bo.id]: 1 }); register(); }
+  if (bo) { const osp = C.BY_ID[bo.id], rr = Object.assign({}, r, { fish: { id: bo.id, rarity: "owner", w: bo.w, obs: true, uid: null, value: 0 }, isNew: !!bo.isNew, first: false, mythic: false, extra: f.id });
+    host.show(N().FISH_BY_ID[bo.id], bo.w, { isNew: !!bo.isNew, isRecord: false, reward: 0, vr: "normal", giant: false, uid: null, locked: false }, () => decorate(rr, osp));
+    paintHud(gain, false); N().sfx("mistis_tangkap"); N().toast("👑 OWNER FISH! Keberuntungan langka 0,02% — selamat!", "good"); refresh(true); return; }
   host.show(N().FISH_BY_ID[f.id], f.w, { isNew: !!r.isNew, isRecord: false, reward: 0, vr: "normal", giant: false, uid: f.uid, locked: !!(f.uid && (f.rarity === "mythic" || f.rarity === "epic")) }, () => decorate(r, sp));
   paintHud(gain, r.mythic);
   if (r.mythic) { N().sfx("mistis_tangkap"); N().toast(r.guaranteed ? "🌟 MYTHIC TERJAMIN! Pity 100/100 terpenuhi!" : "🌟 MYTHIC! Pity kembali ke 0.", "good"); }
@@ -109,26 +114,28 @@ function applyResult(r, host) {
 function decorate(r, sp) {   // ganti label/warna kartu tangkapan bawaan dengan rarity V2 + lencana
   const f = r.fish, col = RCOL[f.rarity], card = $("catchCard"); if (!card) return;
   card.style.setProperty("--rc", col); card.style.setProperty("--glow", col + "99");
-  $("catchRarity").textContent = (f.rarity === "mythic" ? "🌟 " : "") + C.RLABEL[f.rarity];
+  $("catchRarity").textContent = (f.rarity === "mythic" ? "🌟 " : f.rarity === "owner" ? "👑 " : "") + C.RLABEL[f.rarity];
   const b = [];
   if (r.first) b.push("🏅 PENEMU PERTAMA!");
   if (r.isNew) b.push("✨ Baru di koleksi"); if (f.uid && (f.rarity === "mythic" || f.rarity === "epic")) b.push("🔒 Otomatis terkunci");
   b.push(HLBL[sp.hab[0]] ? "📍 " + HLBL[sp.hab[0]] : "");
   b.push(f.obs ? "👁️ Koleksi pengamatan (tidak dijual)" : `🪙 ${f.value} koin`);
+  if (f.rarity === "owner" && r.extra && C.BY_ID[r.extra]) b.push("🎣 Tangkapan biasa: " + C.BY_ID[r.extra].name + " tetap masuk Coolbox");
   b.push(`Pity ${r.pity}/${C.PITY_MAX}`);
   $("catchBadges").innerHTML = b.filter(Boolean).map((x) => `<span>${x}</span>`).join("");
   card.classList.toggle("sf2-mythic", f.rarity === "mythic"); if (f.rarity === "mythic") card.classList.add("playing");
+  card.classList.toggle("sf2-owner", f.rarity === "owner"); if (f.rarity === "owner") card.classList.add("playing");
 }
 
 // ---- HUD Pity (hanya di pulau)
 function buildHud() {
   if (hud) return hud; hud = document.createElement("div"); hud.id = "sf2Hud"; hud.className = "hidden";
-  hud.innerHTML = `<div class="t">SAMUDRA FOLLOWER</div><div class="p"><span id="sf2P">Pity Mythic 0/100</span></div><div class="bar"><i id="sf2B"></i></div><div class="o"><span id="sf2O">Mythic 5,00%</span><button id="sf2I" aria-label="Info peluang">ⓘ</button></div>`;
+  hud.innerHTML = `<div class="t">SAMUDRA FOLLOWER</div><div class="p"><span id="sf2P">Pity Mythic 0/100</span></div><div class="bar"><i id="sf2B"></i></div><div class="o"><span id="sf2O">Mythic 2,00%</span><button id="sf2I" aria-label="Info peluang">ⓘ</button></div>`;
   document.body.appendChild(hud); $("sf2I").addEventListener("click", (e) => { e.stopPropagation(); openOdds(); }); return hud;
 }
 function paintHud(bump, mythic) {
   buildHud(); const on = active() && (!!info && !info.off); hud.classList.toggle("hidden", !on); if (!on) return;
-  const p = info.pity || 0, o = (info.odds && info.odds.mythic) != null ? info.odds.mythic : 5;
+  const p = info.pity || 0, o = (info.odds && info.odds.mythic) != null ? info.odds.mythic : 2;
   $("sf2P").textContent = `Pity Mythic ${p}/${info.pityMax || 100}`; $("sf2B").style.width = Math.min(100, p) + "%"; $("sf2O").textContent = "Mythic " + pc(o);
   hud.classList.toggle("near", p >= 80); if (bump) { hud.classList.remove("bump"); void hud.offsetWidth; hud.classList.add("bump"); }
   if (mythic) { hud.classList.remove("myth"); void hud.offsetWidth; hud.classList.add("myth"); }
@@ -144,8 +151,10 @@ function openOdds() {
   const p = info ? info.pity : 0, o = C.odds(Math.min(99, p)), band = C.band(p);
   const rows = C.RARITIES.map((k) => `<tr><td><b style="color:${RCOL[k]}">${C.RLABEL[k]}</b></td><td>${pc(C.pct(o[k]))}</td></tr>`).join("");
   const tb = [0, 20, 40, 60, 80].map((s, i) => { const q = C.odds(s); return `<tr class="${i === band ? "on" : ""}"><td>${s}–${s + 19}</td><td>${pc(C.pct(q.epic))}</td><td>${pc(C.pct(q.mythic))}</td><td>${pc(C.pct(q.common))}</td></tr>`; }).join("");
-  overlay(`<h3>Peluang Samudra Follower</h3><p class="muted">Pity Mythic <b>${p}/100</b>. Peluang di bawah berlaku untuk tangkapan berikutnya.</p><table>${rows}</table>
-    <p class="muted">Tiap 20 tangkapan tanpa Mythic, Epic dan Mythic naik +0,20% (diambil dari Common). Tangkapan ke-100 tanpa Mythic <b>pasti Mythic</b>. Mythic mengembalikan Pity ke 0. Gagal/batal memancing tidak menambah Pity. Meninggalkan pulau tidak mereset Pity.</p>
+  const own = `<tr class="own"><td><b style="color:${RCOL.owner}">👑 ${C.RLABEL.owner}</b></td><td>${pc(C.OWNER_BP / 100)} <small>bonus terpisah</small></td></tr>`;
+  overlay(`<h3>Peluang Samudra Follower</h3><p class="muted">Pity Mythic <b>${p}/100</b>. Peluang di bawah berlaku untuk tangkapan berikutnya.</p><table>${rows}${own}</table>
+    <p class="muted"><b>OWNER FISH</b>: undian bonus independen ${pc(C.OWNER_BP / 100)} (sekitar 1 dari ${Math.round(10000 / C.OWNER_BP).toLocaleString("id-ID")}) di setiap tangkapan sah, untuk semua pemain. Diundi server, tidak mengubah Pity Mythic atau peluang di atas, tidak bisa dibeli, dan tidak bisa dijual.</p>
+    <p class="muted">Tiap 20 tangkapan tanpa Mythic, Epic dan Mythic naik +0,20% (diambil dari Common). Peluang dasar Mythic 2,00%. Tangkapan ke-100 tanpa Mythic <b>pasti Mythic</b>. Mythic mengembalikan Pity ke 0. Gagal/batal memancing tidak menambah Pity. Meninggalkan pulau tidak mereset Pity.</p>
     <table class="tb"><tr><th>Pity</th><th>Epic</th><th>Mythic</th><th>Common</th></tr>${tb}</table><p class="muted">Peluang ditentukan server, bukan oleh game di ponselmu. Tidak ada kotak/gacha berbayar.</p>`);
 }
 
