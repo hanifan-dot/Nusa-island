@@ -9,20 +9,39 @@ try { const q = new URLSearchParams(location.search).get("sf"); if (q === "previ
 let live = false;   // true bila server (persetujuan Owner) mengaktifkan minimal satu ikan untuk akun ini
 const S_ = () => (window.Nusa && window.Nusa.S) || null;
 const owned = (id) => { const S = S_(), r = S && S.dex && S.dex[id]; return !!(r && r.n > 0); };
-const hasAny = () => C.FISH.some((f) => owned(f.id));
+const hasAny = () => allIds().some((id) => owned(id));
 const on = () => mode !== "off" || live || hasAny();
 const rar = (f) => C.RARITY[f.sfRarity || f.rarity] || { label: "", color: "#9ab" };
 const $ = (id) => document.getElementById(id);
 const reduced = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; } };
 let ov = null, cv = null, raf = 0, curId = null, t0 = 0, frames = 0, catchMode = false;
 
+// ---- Satu sumber data: 4 ikan LAMA (sf/catalog.js) + 11 spesies KOMUNITAS dari katalog SF2 (economy/sf2-core.js; kredit di sana). Urutan tampil = urutan janji Owner.
+const S2 = () => window.NusaSF2Core || null;
+const COMM_ORDER = ["sf2_leviathan", "sf2_mosasaurus", "sf2_el_gran_maja", "sf2_kraken", "sf2_orca", "sf2_narwhal", "sf2_buntal", "sf2_tuna_sirip_biru", "sf2_channa_marulioides", "sf2_barramundi", "sf2_udang_jala"];
+const S2COL = { common: "#7fb59f", uncommon: "#5fc77a", rare: "#4aa3df", epic: "#b56ce8", mythic: "#f0b53a" };
+const credText = (cr) => (cr || []).join(", ");
+const credLine = (cr) => { const ig = (cr || []).some((x) => x[0] === "@"); return ig ? `📸 Ide ikan oleh ${credText(cr)} (${C.IG_NOTE})` : `📸 ${credText(cr)}`; };
+function meta(id) {
+  const f = C.BY_ID[id]; if (f) { const R = C.RARITY[f.rarity]; return { id, nm: f.name, label: R.label, color: R.color, glow: R.glow, desc: f.desc, credit: [f.credit], event: !!f.event, legacy: true, active: false }; }
+  const k = S2(), sp = k && k.BY_ID[id]; if (!sp || sp.kind !== "sf2") return null;
+  return { id, nm: sp.name, label: k.RLABEL[sp.rarity].toUpperCase(), color: S2COL[sp.rarity], glow: S2COL[sp.rarity] + "aa", desc: sp.desc, credit: sp.credit || [], legacy: false, active: sp.active !== false, obs: !!sp.obs };
+}
+const allIds = () => C.FISH.map((f) => f.id).concat(COMM_ORDER.filter((id) => meta(id)));
 const stat = (f) => { const S = S_(), r = S && S.dex && S.dex[f.id]; return r && r.n > 0 ? `Tertangkap ${r.n}× · terbaik ${String(Math.round(r.best * 100) / 100).replace(".", ",")} kg` : (live && f.activeNow ? "Bisa didapat sebagai bonus" : (f.event ? "Ikan event" : "Belum bisa dipancing")); };
 function img(id) { return NW.sfDraw.sprite(id, 150, 90); }
+function cellStat(m) {
+  const S = S_(), r = S && S.dex && S.dex[m.id], i = window.NW && NW.sf2 && NW.sf2.info && NW.sf2.info();
+  if (r && r.n > 0) return `✔ Ditemukan · ${r.n}×${i && i.mine && i.mine[m.id] ? " · 🏅 Penemu Pertama" : ""}`;
+  if (m.legacy) return live && (C.BY_ID[m.id] || {}).activeNow ? "Bisa didapat sebagai bonus" : (m.event ? "Ikan event · belum ditemukan" : "❔ Belum ditemukan");
+  return m.active ? "❔ Belum ditemukan" : "❔ Belum ditemukan · usulan baru";
+}
 function gridHTML() {
-  let h = `<div class="sf-note">🌊 Ikan spesial dari ide pengikut Instagram Nusa Island. ${mode === "preview" && !live ? "<b>Mode pratinjau</b>: belum bisa dipancing." : ""}</div><div class="sf-grid">`;
-  for (const f of C.FISH) {
-    const R = C.RARITY[f.rarity];
-    h += `<button class="sf-cell" data-act="sfOpen" data-arg="${f.id}" style="--sfc:${R.color}"><img src="${img(f.id)}" alt="${f.name}"><div class="nm">${f.name}</div><span class="rb">${R.label}</span><div class="cr">📸 ${f.credit}</div><div class="st">${stat(f)}</div></button>`;
+  const ids = allIds();
+  let h = `<div class="sf-note">🌊 Ikan spesial dari ide pengikut Instagram Nusa Island: <b>${ids.length}</b> spesies. ${mode === "preview" && !live ? "<b>Mode pratinjau</b>: belum bisa dipancing." : ""}</div><div class="sf-grid">`;
+  for (const id of ids) {
+    const m = meta(id), got = owned(id);
+    h += `<button class="sf-cell ${got ? "" : "unseen"}" data-act="sfOpen" data-arg="${id}" style="--sfc:${m.color}"><img src="${img(id)}" alt="${m.nm}"><div class="nm">${m.nm}</div><span class="rb">${m.label}</span><div class="cr">${credLine(m.credit).replace(" (" + C.IG_NOTE + ")", "").replace("Ide ikan oleh ", "")}</div><div class="st">${cellStat(m)}</div></button>`;
   }
   return h + `</div>`;
 }
@@ -35,22 +54,22 @@ function build() {
   $("sfPrev").onclick = () => { catchMode = !catchMode; paintCard(); };
 }
 function paintCard() {
-  const f = C.BY_ID[curId], R = C.RARITY[f.rarity], card = $("sfCard");
+  const f = meta(curId), R = f, card = $("sfCard");
   card.style.setProperty("--sfc", R.color); card.style.setProperty("--sfg", R.glow || "rgba(255,255,255,.4)");
   $("sfRb").textContent = (catchMode ? "✨ TANGKAPAN SPESIAL · " : "") + R.label;
-  $("sfPrev").style.display = realInfo ? "none" : ""; $("sfNm").textContent = f.name; $("sfDs").textContent = f.desc;
-  $("sfCr").textContent = `📸 Ide ikan oleh ${f.credit} (${C.IG_NOTE})`;
+  $("sfPrev").style.display = realInfo ? "none" : ""; $("sfNm").textContent = f.nm; $("sfDs").textContent = f.desc;
+  $("sfCr").textContent = credLine(f.credit);
   const kg = (w) => String(Math.round(w * 100) / 100).replace(".", ",") + " kg";
   if (realInfo) { $("sfTg").textContent = `Berat ${kg(realInfo.w)} · nilai jual ≈ ${Math.round(realInfo.price).toLocaleString("id-ID")} koin · tersimpan di Coolbox (terkunci)`; $("sfX").textContent = "Simpan"; return; }
   $("sfX").textContent = "Tutup";
-  $("sfTg").textContent = catchMode ? "Pratinjau kartu: tidak ada ikan/koin yang ditambahkan." : (f.event ? "Hanya muncul saat event aktif · belum bisa dipancing" : "Belum bisa dipancing (menunggu persetujuan Owner)");
+  $("sfTg").textContent = catchMode ? "Pratinjau kartu: tidak ada ikan/koin yang ditambahkan." : (f.event ? "Hanya muncul saat event aktif · belum bisa dipancing" : f.legacy ? "Belum bisa dipancing (menunggu persetujuan Owner)" : cellStat(f) + (f.active ? "" : " · peluang menunggu persetujuan Owner"));
   $("sfPrev").textContent = catchMode ? "↩ Kembali ke detail" : "✨ Lihat kartu tangkapan";
 }
 function frame(ts) {
   if (!ov || !ov.classList.contains("on")) { raf = 0; return; }
   const t = (ts - t0) / 1000, c = cv.getContext("2d"), W = cv.width, H = cv.height; frames++;
   c.clearRect(0, 0, W, H);
-  const f = C.BY_ID[curId], R = C.RARITY[f.rarity];
+  const R = meta(curId);
   if (catchMode) { const g = c.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, W * 0.6); g.addColorStop(0, R.glow || "#fff"); g.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = g; c.fillRect(0, 0, W, H);
     for (let i = 0; i < 14; i++) { const a = i * 0.9 + t * 0.6, r = 120 + (i % 4) * 30 + sin2(t + i) * 8; c.fillStyle = `rgba(255,255,255,${0.35 + 0.3 * sin2(t * 2 + i)})`; c.beginPath(); c.arc(W / 2 + Math.cos(a) * r * 1.4, H / 2 + Math.sin(a) * r * 0.8, 2.5, 0, 6.3); c.fill(); } }
   const sc = catchMode ? 0.86 : 0.8, bob = catchMode ? 0 : Math.sin(t * 0.8) * 10; const swim = reduced() ? 0 : t;
@@ -60,7 +79,7 @@ function frame(ts) {
 const sin2 = Math.sin;
 let realInfo = null;
 function open(id, real) {
-  if (!on() || !C.BY_ID[id]) return; build(); curId = id; realInfo = real || null; catchMode = !!real; paintCard(); ov.classList.add("on"); t0 = performance.now(); frames = 0;
+  if (!on() || !meta(id)) return; build(); curId = id; realInfo = real || null; catchMode = !!real; paintCard(); ov.classList.add("on"); t0 = performance.now(); frames = 0;
   if (!raf) raf = requestAnimationFrame(frame);
 }
 function close() { if (ov) ov.classList.remove("on"); catchMode = false; realInfo = null; }

@@ -127,14 +127,14 @@ const FISH = [
 const UPGRADES = {
   rod: {
     name: "Joran", icon: "🎣",
-    // Bumbu 1.2: 10 tingkat. Indeks 0-4 = lima joran lama (kepemilikan & harga tidak berubah).
+    // Bumbu 1.2: 10 tingkat; Update Komunitas: +10 tingkat (indeks 10-19 = Level 11-20; USULAN statistik menunggu persetujuan Owner, lihat docs/JORAN-LV11-20.md). Indeks 0-4 = lima joran lama (kepemilikan & harga tidak berubah).
     // cap = batas REKOMENDASI ikan (kg) dengan toleransi 1,5×; lebih berat dari itu senar berisiko putus.
-    levels: ["Joran Bambu Kampung", "Joran Fiber Muara", "Joran Karbon Sungai", "Joran Titanium Pesisir", "Joran Legenda Nusa", "Joran Baja Samudra", "Joran Arus Dalam", "Joran Titan Nelayan", "Joran Raja Laut", "Joran Penakluk Samudra"],
-    cost: [0, 400, 1800, 6500, 22000, 32000, 46000, 62000, 80000, 110000],
-    catalog: [100, 400, 1800, 6500, 22000, 32000, 46000, 62000, 80000, 110000], // harga di katalog (joran 1 diberikan gratis)
-    cap: [8, 18, 40, 80, 150, 200, 260, 330, 420, 500],
-    strength: [1, 1.25, 1.55, 1.9, 2.4, 2.75, 3.1, 3.45, 3.8, 4.2],
-    reel: [1, 1.2, 1.4, 1.65, 1.95, 2.2, 2.45, 2.7, 2.95, 3.2],
+    levels: ["Joran Bambu Kampung", "Joran Fiber Muara", "Joran Karbon Sungai", "Joran Titanium Pesisir", "Joran Legenda Nusa", "Joran Baja Samudra", "Joran Arus Dalam", "Joran Titan Nelayan", "Joran Raja Laut", "Joran Penakluk Samudra", "Joran Badai Laut", "Joran Karang Emas", "Joran Hiu Raja", "Joran Palung Hitam", "Joran Kaisar Samudra", "Joran Naga Laut", "Joran Abyss", "Joran Leviathan", "Joran Penguasa Legenda", "Joran Dewa Samudra"],
+    cost: [0, 400, 1800, 6500, 22000, 32000, 46000, 62000, 80000, 110000, 140000, 175000, 220000, 275000, 350000, 450000, 575000, 700000, 850000, 1000000],
+    catalog: [100, 400, 1800, 6500, 22000, 32000, 46000, 62000, 80000, 110000, 140000, 175000, 220000, 275000, 350000, 450000, 575000, 700000, 850000, 1000000], // harga di katalog (joran 1 diberikan gratis)
+    cap: [8, 18, 40, 80, 150, 200, 260, 330, 420, 500, 525, 550, 575, 600, 625, 650, 675, 700, 725, 750],
+    strength: [1, 1.25, 1.55, 1.9, 2.4, 2.75, 3.1, 3.45, 3.8, 4.2, 4.32, 4.44, 4.56, 4.68, 4.8, 4.92, 5.04, 5.16, 5.28, 5.4],
+    reel: [1, 1.2, 1.4, 1.65, 1.95, 2.2, 2.45, 2.7, 2.95, 3.2, 3.28, 3.36, 3.44, 3.52, 3.6, 3.68, 3.76, 3.84, 3.92, 4.0],
     desc: [
       "Bambu polos dengan tali sederhana. Cukup untuk ikan kampung.",
       "Batang fiber ringan dengan reel kecil. Lentur dan awet.",
@@ -146,8 +146,18 @@ const UPGRADES = {
       "Logam berlapis dengan gagang tebal, dibuat untuk ikan penarik.",
       "Biru dan emas berornamen jangkar. Joran para penguasa laut.",
       "Joran termegah dengan ornamen maritim dan reel besar. Untuk raksasa samudra.",
+      "Batang biru badai dengan gagang karet tebal. Tahan hempasan ombak besar.",
+      "Karang emas berkilau di sepanjang batang; reel berukir bintang laut.",
+      "Bersirip hiu di pangkal batang. Dibuat untuk pemburu predator samudra.",
+      "Hitam pekat bak palung terdalam, dengan garis cahaya biru samar.",
+      "Tahta kaisar di ujung tangan: batang putih-perak berhias mahkota kecil.",
+      "Sisik hijau laut dan gagang bertanduk naga. Setiap tarikan terasa berat.",
+      "Gelap berpendar ungu dari jurang abyssal. Reel berputar tanpa suara.",
+      "Biru tua bersisik cyan, melingkar bagai ular laut purba.",
+      "Batang emas-perunggu penuh ukiran para penguasa legenda.",
+      "Joran tertinggi: batang putih-emas dengan cahaya samudra yang berdenyut lembut.",
     ],
-    info: ["Ikan hingga 8 kg", "Ikan hingga 18 kg", "Ikan hingga 40 kg", "Ikan hingga 80 kg", "Ikan hingga 150 kg", "Ikan hingga 200 kg", "Ikan hingga 260 kg", "Ikan hingga 330 kg", "Ikan hingga 420 kg", "Ikan hingga 500 kg"],
+    info: ["Ikan hingga 8 kg", "Ikan hingga 18 kg", "Ikan hingga 40 kg", "Ikan hingga 80 kg", "Ikan hingga 150 kg", "Ikan hingga 200 kg", "Ikan hingga 260 kg", "Ikan hingga 330 kg", "Ikan hingga 420 kg", "Ikan hingga 500 kg", "Ikan hingga 525 kg", "Ikan hingga 550 kg", "Ikan hingga 575 kg", "Ikan hingga 600 kg", "Ikan hingga 625 kg", "Ikan hingga 650 kg", "Ikan hingga 675 kg", "Ikan hingga 700 kg", "Ikan hingga 725 kg", "Ikan hingga 750 kg"],
   },
   bait: {
     name: "Umpan", icon: "🪱",

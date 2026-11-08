@@ -28,7 +28,7 @@ def main():
         ok("B1 preview: tab Samudra Follower muncul", ev(pg, "[...document.querySelectorAll('.dex-tabs button')].some(x=>/Samudra Follower/.test(x.textContent))"))
         ev(pg, "[...document.querySelectorAll('.dex-tabs button')].find(x=>/Samudra/.test(x.textContent)).click()"); time.sleep(0.4)
         cells = ev(pg, "[...document.querySelectorAll('.sf-cell')].map(c=>c.innerText.replace(/\\n/g,' | '))")
-        ok("B2 4 kartu dengan nama, rarity, kredit IG", len(cells) == 4 and all("@" in c for c in cells) and "MYTHICAL EVENT" in " ".join(cells) and "LEGENDARY" in " ".join(cells) and "EPIC" in " ".join(cells), cells)
+        ok("B2 15 kartu (4 lama + 11 komunitas) dengan nama, rarity, kredit IG", len(cells) == 15 and all(("@" in c or "GRUP NUSA" in c) for c in cells) and "MYTHICAL EVENT" in " ".join(cells) and "LEGENDARY" in " ".join(cells) and "EPIC" in " ".join(cells), cells)
         ok("B3 gambar 4 ikan termuat", ev(pg, "[...document.querySelectorAll('.sf-cell img')].every(i=>i.complete&&i.naturalWidth>50)"))
         pg.screenshot(path=OUT + "1-koleksi-samudra-follower.png")
         ids = ["sf_tempe", "sf_cupang_slayer", "sf_prabowo", "sf_arapaima"]; names = {}

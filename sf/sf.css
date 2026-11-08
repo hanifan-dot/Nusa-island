@@ -20,3 +20,6 @@
 .sf-card button { border: 0; border-radius: 999px; padding: 9px 16px; font: 700 13px var(--font, sans-serif); cursor: pointer; background: #ece6d3; color: var(--ink, #2a2a2a); }
 .sf-card button.pri { background: #2a9bd6; color: #fff; }
 .sf-badge { font-size: 11px; font-weight: 700; color: #b35a00; background: #ffe7b8; border-radius: 6px; padding: 1px 6px; }
+
+.sf-cell.unseen img { filter: brightness(.55) saturate(.7); }
+.sf-cell.unseen .nm { color: #5b5a52; }

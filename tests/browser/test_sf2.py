@@ -144,7 +144,7 @@ with sync_playwright() as p:
         # ===== H. Buku Koleksi =====
         ev(pg2, "async()=>{await NW.sf2.refresh(true)}"); ev(pg2, "()=>{Nusa.setDexTab('samudra');Nusa.openPanel('dex')}"); time.sleep(0.7)
         bk = ev(pg2, "(document.querySelector('.sf2-book')||{}).innerText||''")
-        ok("H1 Buku Koleksi: katalog komunitas 14/1.000 + tangkapan vs spesies ditemukan dibedakan", "14" in bk and "1.000" in bk and "Spesies ditemukan" in bk and "Tangkapan pulau" in bk, bk[:200].replace("\n", " | "))
+        ok("H1 Buku Koleksi: katalog komunitas 16/1.000 + tangkapan vs spesies ditemukan dibedakan", "16" in bk and "1.000" in bk and "Spesies ditemukan" in bk and "Tangkapan pulau" in bk, bk[:200].replace("\n", " | "))
         shot(pg2, "05-buku-koleksi.png")
         ev(pg2, "()=>{document.querySelector('[data-act=sf2o]').click()}"); time.sleep(0.4)
         ok("H2 panel peluang & Pity bisa dibuka", "Peluang Samudra Follower" in ev(pg2, "(document.getElementById('sf2Ov')||{}).innerText||''"))

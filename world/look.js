@@ -63,7 +63,7 @@ function onCatch({ fish }) {
   if (r > t.rank) { t.rank = r; N().toast(`🎣 Gelar baru: ${titleName(r)}!`, "good"); N().sfx("gelar"); }
 }
 
-// ---------- Joran: spesifikasi visual per tingkat (10 tingkat) ----------
+// ---------- Joran: spesifikasi visual per tingkat (20 tingkat) ----------
 // blank  = warna batang, w = tebal batang (px), grip = warna gagang, gripLen = porsi panjang
 // reel   = {col, r} atau null, node = ruas bambu, accent = {kind, col}
 // Nama diambil dari UPGRADES.rod.levels (satu sumber kebenaran), jadi tidak ditulis di sini.
@@ -79,6 +79,17 @@ const RODS = [
   { blank: "#8b96a3", w: 3.2, grip: "#3d2f24", gripLen: 0.35, reel: { col: "#e0c27a", r: 3.1 },  node: false, accent: { kind: "layers", col: "#d9b24a" } }, // 8 metalik, gagang berlapis
   { blank: "#1f4f93", w: 3.3, grip: "#6b4a1c", gripLen: 0.35, reel: { col: "#f0c850", r: 3.2 },  node: false, accent: { kind: "anchor", col: "#f0c850" } }, // 9 biru-emas, jangkar
   { blank: "#16386b", w: 3.5, grip: "#5a3a12", gripLen: 0.36, reel: { col: "#f4d36a", r: 3.5 },  node: false, accent: { kind: "royal", col: "#f4d36a" } },  // 10 termegah, ornamen maritim
+  // ---- Level 11-20 (Update Komunitas): tiap tingkat punya warna + ornamen sendiri; Lv 20 punya kilau lembut ringan ----
+  { blank: "#2b4f7a", w: 3.6, grip: "#1b2a3c", gripLen: 0.36, reel: { col: "#9fd0e8", r: 3.6 }, node: false, accent: { kind: "wave", col: "#9fe3ff" } },    // 11 Badai Laut: biru badai, gelombang terang
+  { blank: "#d8a93c", w: 3.6, grip: "#5a3a14", gripLen: 0.36, reel: { col: "#ffe38a", r: 3.7 }, node: false, accent: { kind: "pearls", col: "#fff2c0" } },   // 12 Karang Emas: manik karang
+  { blank: "#6f7f8c", w: 3.7, grip: "#22303a", gripLen: 0.37, reel: { col: "#d6e2ea", r: 3.8 }, node: false, accent: { kind: "fin", col: "#c2d0da" } },       // 13 Hiu Raja: sirip abu
+  { blank: "#0f1318", w: 3.8, grip: "#05080b", gripLen: 0.37, reel: { col: "#4fb8d8", r: 3.8 }, node: false, accent: { kind: "glowline", col: "#46c8ff" } },  // 14 Palung Hitam: garis cahaya biru
+  { blank: "#e8ecef", w: 3.9, grip: "#3c3250", gripLen: 0.38, reel: { col: "#f1d27a", r: 3.9 }, node: false, accent: { kind: "crown", col: "#f1c84a" } },     // 15 Kaisar Samudra: putih + mahkota
+  { blank: "#1f7a63", w: 4.0, grip: "#3d2c1a", gripLen: 0.38, reel: { col: "#b8f0d8", r: 4.0 }, node: false, accent: { kind: "scales", col: "#7fe0b8" } },    // 16 Naga Laut: sisik hijau
+  { blank: "#24143f", w: 4.0, grip: "#120a22", gripLen: 0.38, reel: { col: "#b48cff", r: 4.1 }, node: false, accent: { kind: "glowline", col: "#b077ff" } },  // 17 Abyss: ungu pendar
+  { blank: "#0f3a6e", w: 4.1, grip: "#0a1f3a", gripLen: 0.39, reel: { col: "#4fe3f0", r: 4.2 }, node: false, accent: { kind: "scales", col: "#33d6ee" } },    // 18 Leviathan: biru tua + cyan
+  { blank: "#a8742a", w: 4.2, grip: "#4a2a10", gripLen: 0.39, reel: { col: "#ffd96a", r: 4.3 }, node: false, accent: { kind: "crown", col: "#ffe08a" } },     // 19 Penguasa Legenda: emas-perunggu
+  { blank: "#f4f1e6", w: 4.3, grip: "#7a5a12", gripLen: 0.4,  reel: { col: "#ffe9a0", r: 4.5 }, node: false, accent: { kind: "dewa", col: "#ffd45a" } },      // 20 Dewa Samudra: putih-emas + kilau ringan
 ];
 function syncNames() { RODS.forEach((r, i) => { r.name = UPGRADES.rod.levels[i]; }); }
 syncNames();
@@ -121,6 +132,30 @@ function accents(c, spec, at, nx, ny, g) {
     c.strokeStyle = `rgba(255,255,255,${(0.22 + 0.18 * sh).toFixed(2)})`; c.lineWidth = 0.7;
     c.beginPath(); c.moveTo(p0[0] + nx * 0.5, p0[1] + ny * 0.5); c.lineTo(p1[0] + nx * 0.5, p1[1] + ny * 0.5); c.stroke();
     const tp = at(1); c.fillStyle = a.col; c.beginPath(); c.arc(tp[0], tp[1], 1.1, 0, 7); c.fill();
+  } else if (a.kind === "pearls") { // manik karang berselang-seling
+    [0.38, 0.48, 0.58, 0.68].forEach((k, i) => { const p = at(k); c.fillStyle = i % 2 ? a.col : "#ff9b7a"; c.beginPath(); c.arc(p[0], p[1], 1.0, 0, 7); c.fill(); });
+    band(g + 0.02, w, a.col, 1.2);
+  } else if (a.kind === "fin") { // sirip kecil di pangkal batang
+    const p = at(g + 0.12); c.fillStyle = a.col; c.beginPath(); c.moveTo(p[0] + nx * w, p[1] + ny * w); c.lineTo(p[0] + nx * (w + 4.2) - (nx * 0) , p[1] + ny * (w + 4.2) - 3.2); c.lineTo(p[0] + nx * w + (-ny) * 3.4, p[1] + ny * w + nx * 3.4); c.closePath(); c.fill();
+    band(0.5, w, a.col, 1.1);
+  } else if (a.kind === "glowline") { // garis cahaya sepanjang batang (denyut lambat, ringan)
+    const sh = 0.5 + 0.5 * Math.sin(performance.now() / 1100), p0 = at(g + 0.04), p1 = at(0.97);
+    c.strokeStyle = a.col; c.globalAlpha = 0.5 + 0.35 * sh; c.lineWidth = 0.9; c.beginPath(); c.moveTo(p0[0], p0[1]); c.lineTo(p1[0], p1[1]); c.stroke(); c.globalAlpha = 1;
+    band(g + 0.02, w, a.col, 1.2);
+  } else if (a.kind === "crown") { // mahkota mungil dekat gagang + pita
+    band(0.5, w, a.col, 1.2); const p = at(g + 0.1);
+    c.fillStyle = a.col; c.beginPath(); c.moveTo(p[0] - 2.2, p[1] + 1.2); c.lineTo(p[0] - 2.2, p[1] - 1.4); c.lineTo(p[0] - 1.1, p[1] - 0.2); c.lineTo(p[0], p[1] - 1.8); c.lineTo(p[0] + 1.1, p[1] - 0.2); c.lineTo(p[0] + 2.2, p[1] - 1.4); c.lineTo(p[0] + 2.2, p[1] + 1.2); c.closePath(); c.fill();
+    band(0.7, w, a.col, 1.1);
+  } else if (a.kind === "scales") { // pola sisik (busur kecil)
+    c.strokeStyle = a.col; c.lineWidth = 0.8;
+    [0.36, 0.44, 0.52, 0.6, 0.68].forEach((k, i) => { const p = at(k), o = (i % 2 ? 1 : -1) * 0.5; c.beginPath(); c.arc(p[0] + nx * o, p[1] + ny * o, w * 0.9, 0.2, 3.0); c.stroke(); });
+    band(g + 0.02, w, a.col, 1.2);
+  } else if (a.kind === "dewa") { // Lv 20: pita emas + kilau berjalan sepanjang batang + 1 titik cahaya (ringan)
+    [0.3, 0.46, 0.62].forEach((k) => band(k, w, a.col, 1.4)); band(g + 0.02, w, a.col, 1.5);
+    const ph = (performance.now() / 1800) % 1, p = at(g + 0.05 + ph * (0.92 - g)); const al = 0.35 + 0.4 * Math.sin(ph * Math.PI);
+    c.fillStyle = `rgba(255,244,190,${al.toFixed(2)})`; c.beginPath(); c.arc(p[0], p[1], 1.9, 0, 7); c.fill();
+    c.strokeStyle = `rgba(255,255,255,${(0.2 + 0.15 * Math.sin(performance.now() / 700)).toFixed(2)})`; c.lineWidth = 0.7; const a0 = at(g + 0.04), a1 = at(0.95); c.beginPath(); c.moveTo(a0[0] + nx * 0.5, a0[1] + ny * 0.5); c.lineTo(a1[0] + nx * 0.5, a1[1] + ny * 0.5); c.stroke();
+    const tp = at(1); c.fillStyle = a.col; c.beginPath(); c.arc(tp[0], tp[1], 1.4, 0, 7); c.fill();
   }
 }
 // Gambar joran tersandang. Koordinat lokal karakter (titik kaki = 0,0). `fx` = arah hadap horizontal

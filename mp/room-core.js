@@ -48,7 +48,7 @@ class Room {
     const pid = "p" + (this.nextId++).toString(36);
     const prof = profile || {};
     const x = Number.isFinite(startPos && startPos.x) ? startPos.x : 19.5, y = Number.isFinite(startPos && startPos.y) ? startPos.y : 20.6;
-    const p = { conn, uid, pid, name: P.cleanName(prof.n, "Nelayan-" + pid.slice(1)), rank: P.clampInt(prof.r, 0, 8, 0), rod: P.clampInt(prof.rd, 0, 9, 0),
+    const p = { conn, uid, pid, name: P.cleanName(prof.n, "Nelayan-" + pid.slice(1)), rank: P.clampInt(prof.r, 0, 8, 0), rod: P.clampInt(prof.rd, 0, 19, 0),
       x: Math.max(0, Math.min(this.mapW, x)), y: Math.max(0, Math.min(this.mapH, y)), d: 2, f: 0, vis: false, role: (extra && extra.role) === "owner" ? "owner" : "visitor", hid: String((extra && extra.hid) || "").slice(0, 8), bKick: new Bucket(0.2, 3, now), dirty: false, last: now, lastMove: now, lastTp: 0,
       lo: false, tickN: 0, bMove: new Bucket(10, 14, now), bChat: new Bucket(0.5, 3, now), bEmote: new Bucket(1, 2, now), bProf: new Bucket(0.2, 2, now), bAny: new Bucket(25, 40, now), bHold: new Bucket(1, 4, now), bOutfit: new Bucket(0.5, 3, now), outfit: "", hold: null, lastChat: "", viol: 0 };
     this.players.set(conn, p); this.byUid.set(uid, conn); this.countDirty = true;
@@ -57,7 +57,7 @@ class Room {
   // dipanggil setelah klien mengirim 'hello' (profil + posisi awal) → pemain tampak oleh yang lain
   hello(conn, m) {
     const p = this.players.get(conn); if (!p) return;
-    p.name = P.cleanName(m.n, p.name); p.rank = P.clampInt(m.r, 0, 8, 0); p.rod = P.clampInt(m.rd, 0, 9, 0);
+    p.name = P.cleanName(m.n, p.name); p.rank = P.clampInt(m.r, 0, 8, 0); p.rod = P.clampInt(m.rd, 0, 19, 0);
     const x = Number(m.x) / P.Q, y = Number(m.y) / P.Q;
     if (Number.isFinite(x) && Number.isFinite(y)) { p.x = Math.max(0, Math.min(this.mapW, x)); p.y = Math.max(0, Math.min(this.mapH, y)); }
     p.d = P.clampInt(m.d, 0, 7, 2); p.f = P.clampInt(m.f, 0, 7 | (this.house ? F.IN : 0), 0) & ~F.TP; p.lastMove = this.now();
@@ -118,8 +118,8 @@ class Room {
       case "v": return m.on ? (p.vis ? undefined : this.show(conn)) : this.hide(conn);
       case "p": { // perbarui profil (nama/gelar/joran), jarang saja
         if (!p.bProf.take(now)) return;
-        const nn = P.cleanName(m.n, p.name), ch = nn !== p.name || p.rank !== P.clampInt(m.r, 0, 8, p.rank) || p.rod !== P.clampInt(m.rd, 0, 9, p.rod);
-        p.name = nn; p.rank = P.clampInt(m.r, 0, 8, p.rank); p.rod = P.clampInt(m.rd, 0, 9, p.rod);
+        const nn = P.cleanName(m.n, p.name), ch = nn !== p.name || p.rank !== P.clampInt(m.r, 0, 8, p.rank) || p.rod !== P.clampInt(m.rd, 0, 19, p.rod);
+        p.name = nn; p.rank = P.clampInt(m.r, 0, 8, p.rank); p.rod = P.clampInt(m.rd, 0, 19, p.rod);
         if (ch && p.vis) { this.bcast({ t: "j", p: this.pub(p) }, conn); }
         return;
       }

@@ -34,3 +34,4 @@
 .sf2-box { width: min(360px, 100%); max-height: 92vh; overflow: auto; background: #fffaf0; border-radius: 16px; padding: 12px 14px; color: var(--ink, #2a2a2a); border-top: 6px solid #f0b53a; }
 .sf2-box h3 { margin: 0 0 4px; } .sf2-box table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 6px 0; } .sf2-box td, .sf2-box th { padding: 3px 4px; text-align: left; border-bottom: 1px solid #eee3c8; }
 .sf2-box tr.on { background: #fff0c4; font-weight: 700; } .sf2-box .row { text-align: center; margin-top: 8px; } .sf2-box .pri { border: 0; border-radius: 99px; padding: 9px 20px; font: 700 13px var(--font, sans-serif); background: #2a9bd6; color: #fff; cursor: pointer; }
+.sf2-row .sf2-cr { color: #7a4a00; font-weight: 600; font-size: 11px; word-break: break-word; }
