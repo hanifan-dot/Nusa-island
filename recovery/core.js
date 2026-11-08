@@ -90,5 +90,15 @@
   const fmtDate = (ts) => { if (!ts) return "waktu tidak tercatat"; try { return new Date(ts).toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (e) { return "—"; } };
   const sentRead = (storage) => { try { const o = JSON.parse(storage.getItem(SENT_KEY) || "null"); return own(o) && typeof o.hash === "string" ? o : null; } catch (e) { return null; } };
 
-  return { KEY_RE, MAX_BYTES, CURRENT_KEY, SENT_KEY, labelOf, describe, parseEntry, scanLocal, candidates, cloudCandidate, fmtDate, sentRead };
+  // Verifikasi pemulihan (Recovery Center V2): game HANYA melapor apa yang dimuatnya; server memeriksa ulang dokumen aslinya.
+  // Dipanggil hanya bila perangkat ini pernah mengirim permohonan (SENT_KEY) dan akun Google aktif. Tidak menulis apa pun.
+  const ISSUES = ["name_prompt", "progress_missing"];
+  const verifyPayload = (sent, meta, issue) => {
+    if (!sent || !meta || meta.mode !== "google" || !meta.uid) return null;
+    const p = {};
+    if (typeof meta.hash === "string" && /^[a-f0-9]{1,64}$/.test(meta.hash)) p.hash = meta.hash;
+    if (ISSUES.indexOf(issue) >= 0) p.issue = issue;
+    return p;
+  };
+  return { KEY_RE, MAX_BYTES, CURRENT_KEY, SENT_KEY, labelOf, describe, parseEntry, scanLocal, candidates, cloudCandidate, fmtDate, sentRead, verifyPayload };
 });
