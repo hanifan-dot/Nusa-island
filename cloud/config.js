@@ -17,4 +17,6 @@ window.NUSA_FIREBASE = {
 // Rumahku Sosial (minta izin berkunjung → pemilik TERIMA/TOLAK, blokir, senyap): MATI sampai Owner menyetujui deploy backend Tahap 4 (fungsi homeVisitRequest/homeInbox/homeVisitRespond/homePrefs di nusa-api).
 window.NUSA_SOCIAL_HOME = false;
 // Samudra Follower: pratinjau koleksi (?sf=preview) MATI di produksi. Ikan belum bisa dipancing sampai Owner menyetujui harga/peluang (shop_config/main.sf) dan jalur klien selesai.
+// D1 (Cloudflare): BAWAAN "off" = nol request D1, perilaku game lama. Hanya "shadow" (baca-saja/bandingkan) yang dikenali; "on"/cutover TIDAK ada.
+if (window.NUSA_D1_MODE !== "shadow") window.NUSA_D1_MODE = "off";   // (uji boleh menyalakan "shadow" sebelum halaman dimuat)
 if (window.NUSA_SF_PREVIEW !== true) window.NUSA_SF_PREVIEW = false;   // (uji boleh menyalakannya sebelum halaman dimuat)

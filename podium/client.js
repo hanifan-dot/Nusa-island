@@ -149,7 +149,7 @@ const isOpen = () => !!st.panel && !st.panel.classList.contains("hidden");
 function render() {
   if (!isOpen()) return;
   const tabs = Object.values(Core.CATEGORIES).map((k) => `<button type="button" role="tab" class="lb-tab ${k.id === st.tab ? "on" : ""}" data-tab="${k.id}" aria-selected="${k.id === st.tab}">${esc(k.label)}</button>`).join("");
-  $("lbTabs").innerHTML = tabs; $("lbTabs").querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { st.tab = b.dataset.tab; st.cat = st.tab; render(); load(st.tab, false); }));
+  $("lbTabs").innerHTML = tabs; $("lbTabs").querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { st.tab = b.dataset.tab; st.cat = st.tab; render(); load(st.tab, false); if (NW.d1) NW.d1.shadowPodium(st.tab); }));
   const k = Core.CATEGORIES[st.tab], d = st.data[st.tab], busy = !!st.inflight && !d;
   let h = `<p class="lb-desc">${esc(k.full)} · ${esc(k.desc)}</p>`;
   if (busy) h += `<div class="lb-state"><i class="lb-spin" aria-hidden="true"></i><span>Memuat peringkat…</span></div>`;
@@ -165,11 +165,11 @@ function render() {
     h += `<p class="lb-upd">Diperbarui ${esc(ago(d.updatedAt))}</p>`;
   }
   h += `<button type="button" class="lb-btn" id="lbRef" ${Date.now() < st.cool || st.inflight ? "disabled" : ""}>Muat Ulang</button>`;
-  $("lbBody").innerHTML = h; $("lbRef").addEventListener("click", () => { st.cool = Date.now() + 15000; load(st.tab, true); render(); setTimeout(render, 15100); });
+  $("lbBody").innerHTML = h; $("lbRef").addEventListener("click", () => { st.cool = Date.now() + 15000; load(st.tab, true); if (NW.d1) NW.d1.shadowPodium(st.tab); render(); setTimeout(render, 15100); });
 }
 function open() {
   build(); st.tab = st.tab || "catch"; st.cat = st.tab; st.panel.classList.remove("hidden"); document.body.classList.add("lb-open"); requestAnimationFrame(() => st.panel.classList.add("show")); render();
-  setTimeout(() => { try { $("lbTitle").focus({ preventScroll: true }); } catch (e) {} }, 40); load(st.tab, false).then(render);
+  setTimeout(() => { try { $("lbTitle").focus({ preventScroll: true }); } catch (e) {} }, 40); load(st.tab, false).then(render); if (NW.d1) NW.d1.shadowPodium(st.tab);   // D1 shadow (bawaan off = tidak ada request)
 }
 function close() { if (!st.panel) return; st.panel.classList.remove("show"); document.body.classList.remove("lb-open"); setTimeout(() => { if (!st.panel.classList.contains("show")) st.panel.classList.add("hidden"); }, 220); }
 

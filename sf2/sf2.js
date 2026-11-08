@@ -40,6 +40,7 @@ async function refresh(force) {
   try { const r = await E.sf2Info(); info = r && r.on ? r : (r && r.off ? { off: true } : null); lastFetch = Date.now(); fails = 0; nextTry = Date.now() + 10000; }
   catch (e) { info = null; lastFetch = Date.now() - 20000; fails++; nextTry = Date.now() + retryGap(fails, 10000); }   // dulu: gagal → info=null → dicoba lagi tiap 700 ms
   finally { fetching = false; }
+  if (NW.d1 && info) NW.d1.shadowSf(info);   // D1 shadow: dibatasi ≥5 mnt di inti; bawaan off = tidak ada request
   paintHud(); const w = $("panelWrap"); if (w && !w.classList.contains("hidden") && NW._sf2Panel) NW._sf2Panel();
   return info;
 }
