@@ -359,13 +359,16 @@ jobs:
             done
             [ "$sready" = "ya" ] || { echo "::error::Aset Samudra Follower V2 belum tampak di Hosting (atau kredit bocor)"; exit 1; }
             echo "OK: aset Samudra Follower V2 live; kredit Instagram tidak ikut."
-          # Verifikasi aset update komunitas + joran Lv20 setelah deploy, tanpa mengubah snapshot/guard.
-          if [ "$MODE" = "deploy" ]; then
-            curl -fsS --max-time 20 "https://nusa-island-d2023.web.app/sf/ui.js?v=$G" | grep -Fq "sf2_udang_jala"
-            curl -fsS --max-time 20 "https://nusa-island-d2023.web.app/sf2/draw.js?v=$G" | grep -Fq "F.leviatan"
-            curl -fsS --max-time 20 "https://nusa-island-d2023.web.app/data.js?v=$G" | grep -Fq "Joran Dewa Samudra"
+            # Verifikasi aset tambahan setelah deploy; retry agar tidak gagal palsu saat propagasi cache Hosting.
+            cready=tidak
+            for i in 1 2 3 4 5 6; do
+              if curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/sf/ui.js?v=$G" | grep -Fq "sf2_udang_jala" && \
+                 curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/sf2/draw.js?v=$G" | grep -Fq "F.leviatan" && \
+                 curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/data.js?v=$G" | grep -Fq "Joran Dewa Samudra"; then cready=ya; break; fi
+              sleep 5
+            done
+            [ "$cready" = "ya" ] || { echo "::error::Aset komunitas/Leviathan/joran 20 belum muncul di Hosting"; exit 1; }
             echo "OK: 15 kartu komunitas, Leviathan baru dan 20 tingkat joran tersedia di Hosting."
-          fi
           fi
           echo "OK: API sehat; fitur yang ON sebelum deploy tetap ON; pengaman toko tidak berubah. Konfigurasi Owner di Firestore tidak disentuh."
             # ROLLBACK: mode=rollback, target=api-dashboard+hosting, multiplayer=ya, konfirmasi=deploy,
