@@ -1,4 +1,4 @@
-# Rilis manual Samudra Follower V2: dari main hanya workflow; game/backend DI-PIN ke pasangan SHA integrasi teruji (game 89d042c, backend 05b9dba).
+# Rilis manual Samudra Follower V2: dari main hanya workflow; game/backend DI-PIN ke pasangan SHA integrasi teruji (game a22cc1c, backend 2094dc6).
 # Berdasarkan workflow sukses "RILIS Nusa Island Quest Owner" (run sukses terbaru). Menambah ecoSf2Info/ecoSf2Catch (Worker) + aset sf2/ (Hosting). Quest Owner, Joran WhatsApp, Tas, Aurora, Cloud Save, SF lama, multiplayer, QRIS, Payment Center, flags & secrets dipertahankan.
 # ROLLBACK ke produksi sebelumnya (SF V2 live): mode=rollback, game_sha=398d29802b43ee9cb7097a58b442c47def23007a, backend_sha=05b9dba79f62cc87a22df66a1849f45741eb4d96, konfirmasi=deploy, target=api-dashboard+hosting, multiplayer=ya.
 name: RILIS Nusa Island Samudra Follower V2
@@ -55,12 +55,12 @@ jobs:
           IN_B: ${{ inputs.backend_sha }}
         run: |
           set -e
-          G="${IN_G:-89d042c49cea870b631dcece44daec724e889fe7}"; B="${IN_B:-05b9dba79f62cc87a22df66a1849f45741eb4d96}"
+          G="${IN_G:-a22cc1cdf8fc0fdfd16bd50547dc02a65b245aad}"; B="${IN_B:-2094dc6d97f6a0d26fbfb554fcc25a0bb06652e2}"
           if [ "$MODE" = "rollback" ]; then
             [ -n "$IN_G" ] && [ -n "$IN_B" ] || { echo "::error::Rollback WAJIB mengisi game_sha dan backend_sha produksi sebelumnya"; exit 1; }
           fi
           if [ "$MODE" = "deploy" ]; then
-            [ "$G" = "89d042c49cea870b631dcece44daec724e889fe7" ] && [ "$B" = "05b9dba79f62cc87a22df66a1849f45741eb4d96" ] || { echo "::error::Hanya pasangan SHA rilis hasil integrasi aman yang diizinkan"; exit 1; }
+            [ "$G" = "a22cc1cdf8fc0fdfd16bd50547dc02a65b245aad" ] && [ "$B" = "2094dc6d97f6a0d26fbfb554fcc25a0bb06652e2" ] || { echo "::error::Hanya pasangan SHA rilis hasil integrasi aman yang diizinkan"; exit 1; }
           fi
           printf '%s' "$G" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::game_sha harus 40 hex"; exit 1; }
           printf '%s' "$B" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::backend_sha harus 40 hex"; exit 1; }
@@ -183,7 +183,7 @@ jobs:
           grep -Fq "power: 3" game/sf2/sf2.js
           grep -Fq "qo-hud" game/questowner/questowner.css
           ! grep -Fq '"questBtn"' game/hud/menu.js
-          for t in sf2_strike quest_owner ui41 sf2 ekonomi hotfix_cloudsave; do test -s "game/tests/browser/test_$t.py"; done
+          for t in sf2_strike quest_owner ui41 sf2 ekonomi hotfix_cloudsave cloud_offline_pulih perf_reads; do test -s "game/tests/browser/test_$t.py"; done
           python3 -m venv /tmp/pwenv
           /tmp/pwenv/bin/pip install -q playwright
           /tmp/pwenv/bin/playwright install --with-deps chromium
@@ -200,6 +200,10 @@ jobs:
           grep -Eq "[0-9]+ PASS, 0 FAIL" /tmp/eko.log
           /tmp/pwenv/bin/python tests/browser/test_hotfix_cloudsave.py | tee /tmp/cs.log
           grep -Eq "[0-9]+ PASS, 0 FAIL" /tmp/cs.log
+          /tmp/pwenv/bin/python tests/browser/test_cloud_offline_pulih.py | tee /tmp/off.log
+          grep -Eq "offline->pulih: [0-9]+ lulus, 0 gagal" /tmp/off.log
+          /tmp/pwenv/bin/python tests/browser/test_perf_reads.py | tee /tmp/perf.log
+          grep -Eq "HASIL: [0-9]+ lulus, 0 gagal" /tmp/perf.log
       - name: Tes backend dan scan rahasia
         run: |
           cd backend
