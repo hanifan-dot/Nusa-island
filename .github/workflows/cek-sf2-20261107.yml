@@ -9,7 +9,7 @@ permissions:
   contents: read
 jobs:
   test:
-    name: Uji pasangan SHA Quest Owner (game a22cc1c + backend 2094dc6)
+    name: Uji pasangan SHA Komunitas/Joran Lv20 (game 3f0c4fa + backend 3254049)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
-          ref: a22cc1cdf8fc0fdfd16bd50547dc02a65b245aad
+          ref: 3f0c4fac470d9823184211724335e4768adab602
           path: game
           persist-credentials: false
       - name: Akses baca backend privat
@@ -29,7 +29,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/nusa-island-control-center
-          ref: 2094dc6d97f6a0d26fbfb554fcc25a0bb06652e2
+          ref: 325404992ba736b9d025256376403c113dbe1f92
           token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
           persist-credentials: false
           path: backend
@@ -131,7 +131,7 @@ jobs:
         run: |
           set -e
           node firebase/scripts/cek-rilis.js
-          for t in unit-sf2 unit-sf2-map unit-quest unit-economy unit-aurora unit-cloud unit-streak unit-shop unit-fashion unit-pond unit-sf-server unit-podium unit-house-social unit-mp-house unit-map-ext unit-mp unit-cf-auth unit-rilis; do node tests/$t.js; done
+          for t in unit-komunitas unit-sf2 unit-sf2-map unit-quest unit-economy unit-aurora unit-cloud unit-streak unit-shop unit-fashion unit-pond unit-sf-server unit-podium unit-house-social unit-mp-house unit-map-ext unit-mp unit-cf-auth unit-rilis; do node tests/$t.js; done
       - name: Build Hosting produksi tiruan memuat aset Quest Owner + SF V2
         working-directory: game
         run: |
@@ -140,7 +140,10 @@ jobs:
           for f in questowner/questowner.js questowner/ui.js questowner/questowner.css economy/quest-core.js bag/bag.js; do test -s "firebase/public/$f"; done
           grep -Fq "NW.quest" firebase/public/questowner/questowner.js
           for f in sf2/sf2.js sf2/area.js sf2/draw.js sf2/sf2.css economy/sf2-core.js; do test -s "firebase/public/$f"; done
-          ! grep -rqF "@ambaleon_12" firebase/public
+          # kredit pengusul kini RESMI tampil (Update Komunitas): harus ada di katalog, tetapi tidak di kode UI SF2 (sf2.js) yang diuji bocor pada live-check
+          grep -Fq "@ambaleon_12" firebase/public/economy/sf2-core.js
+          grep -Fq "Usulan Komunitas GRUP NUSA" firebase/public/economy/sf2-core.js
+          ! grep -Fq "@ambaleon_12" firebase/public/sf2/sf2.js
       - name: Tes backend dan scan rahasia (tanpa kredensial produksi)
         working-directory: backend
         run: |

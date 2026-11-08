@@ -1,6 +1,6 @@
-# Rilis manual Samudra Follower V2: dari main hanya workflow; game/backend DI-PIN ke pasangan SHA integrasi teruji (game a22cc1c, backend 2094dc6).
+# Rilis manual Update Komunitas dan Joran Lv20: dari main hanya workflow; game/backend DI-PIN ke pasangan SHA CI teruji (game 3f0c4fa, backend 3254049).
 # Berdasarkan workflow sukses "RILIS Nusa Island Quest Owner" (run sukses terbaru). Menambah ecoSf2Info/ecoSf2Catch (Worker) + aset sf2/ (Hosting). Quest Owner, Joran WhatsApp, Tas, Aurora, Cloud Save, SF lama, multiplayer, QRIS, Payment Center, flags & secrets dipertahankan.
-# ROLLBACK ke produksi sebelumnya (SF V2 live): mode=rollback, game_sha=398d29802b43ee9cb7097a58b442c47def23007a, backend_sha=05b9dba79f62cc87a22df66a1849f45741eb4d96, konfirmasi=deploy, target=api-dashboard+hosting, multiplayer=ya.
+# ROLLBACK ke produksi sehat terakhir (optimasi Firestore): mode=rollback, game_sha=a22cc1cdf8fc0fdfd16bd50547dc02a65b245aad, backend_sha=2094dc6d97f6a0d26fbfb554fcc25a0bb06652e2, konfirmasi=deploy, target=api-dashboard+hosting, multiplayer=ya.
 name: RILIS Nusa Island Samudra Follower V2
 on:
   workflow_dispatch:
@@ -55,12 +55,12 @@ jobs:
           IN_B: ${{ inputs.backend_sha }}
         run: |
           set -e
-          G="${IN_G:-a22cc1cdf8fc0fdfd16bd50547dc02a65b245aad}"; B="${IN_B:-2094dc6d97f6a0d26fbfb554fcc25a0bb06652e2}"
+          G="${IN_G:-3f0c4fac470d9823184211724335e4768adab602}"; B="${IN_B:-325404992ba736b9d025256376403c113dbe1f92}"
           if [ "$MODE" = "rollback" ]; then
             [ -n "$IN_G" ] && [ -n "$IN_B" ] || { echo "::error::Rollback WAJIB mengisi game_sha dan backend_sha produksi sebelumnya"; exit 1; }
           fi
           if [ "$MODE" = "deploy" ]; then
-            [ "$G" = "a22cc1cdf8fc0fdfd16bd50547dc02a65b245aad" ] && [ "$B" = "2094dc6d97f6a0d26fbfb554fcc25a0bb06652e2" ] || { echo "::error::Hanya pasangan SHA rilis hasil integrasi aman yang diizinkan"; exit 1; }
+            [ "$G" = "3f0c4fac470d9823184211724335e4768adab602" ] && [ "$B" = "325404992ba736b9d025256376403c113dbe1f92" ] || { echo "::error::Hanya pasangan SHA rilis hasil integrasi aman yang diizinkan"; exit 1; }
           fi
           printf '%s' "$G" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::game_sha harus 40 hex"; exit 1; }
           printf '%s' "$B" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::backend_sha harus 40 hex"; exit 1; }
@@ -149,7 +149,7 @@ jobs:
           grep -Fq "'sf2/firsts'" backend/server/shop/db.js
           grep -Fq 'A-Za-z0-9_' backend/worker/index.js
           for f in sf2/sf2.js sf2/area.js sf2/draw.js sf2/sf2.css economy/sf2-core.js firebase/functions/lib/sf2-core.js; do test -s "game/$f" || { echo "::error::Berkas SF V2 hilang: $f"; exit 1; }; done
-          for t in unit-sf2 unit-sf2-map unit-quest unit-streak unit-shop unit-rilis unit-sf-server unit-podium unit-house-social unit-fashion unit-pond; do node game/tests/$t.js; done
+          for t in unit-komunitas unit-sf2 unit-sf2-map unit-quest unit-streak unit-shop unit-rilis unit-sf-server unit-podium unit-house-social unit-fashion unit-pond; do node game/tests/$t.js; done
           node - <<'NODE'
           const fs = require('node:fs'); const rd = (p) => fs.readFileSync(p, 'utf8'); let bad = 0;
           const fail = (m) => { console.error('::error::' + m); bad++; };
@@ -183,7 +183,7 @@ jobs:
           grep -Fq "power: 3" game/sf2/sf2.js
           grep -Fq "qo-hud" game/questowner/questowner.css
           ! grep -Fq '"questBtn"' game/hud/menu.js
-          for t in sf2_strike quest_owner ui41 sf2 ekonomi hotfix_cloudsave cloud_offline_pulih perf_reads; do test -s "game/tests/browser/test_$t.py"; done
+          for t in sf2_strike quest_owner ui41 sf2 sf komunitas ekonomi hotfix_cloudsave cloud_offline_pulih perf_reads; do test -s "game/tests/browser/test_$t.py"; done
           python3 -m venv /tmp/pwenv
           /tmp/pwenv/bin/pip install -q playwright
           /tmp/pwenv/bin/playwright install --with-deps chromium
@@ -196,6 +196,10 @@ jobs:
           grep -Eq "UI 4.1: [0-9]+ lulus, 0 gagal" /tmp/ui41.log
           /tmp/pwenv/bin/python tests/browser/test_sf2.py | tee /tmp/sf2b.log
           grep -Eq "HASIL: [0-9]+ lulus, 0 gagal" /tmp/sf2b.log
+          /tmp/pwenv/bin/python tests/browser/test_sf.py | tee /tmp/sf.log
+          grep -Eq "[0-9]+/[0-9]+ lolos" /tmp/sf.log
+          /tmp/pwenv/bin/python tests/browser/test_komunitas.py | tee /tmp/community.log
+          grep -Fq "TOTAL 14 / 14" /tmp/community.log
           /tmp/pwenv/bin/python tests/browser/test_ekonomi.py | tee /tmp/eko.log
           grep -Eq "[0-9]+ PASS, 0 FAIL" /tmp/eko.log
           /tmp/pwenv/bin/python tests/browser/test_hotfix_cloudsave.py | tee /tmp/cs.log
@@ -355,10 +359,20 @@ jobs:
             done
             [ "$sready" = "ya" ] || { echo "::error::Aset Samudra Follower V2 belum tampak di Hosting (atau kredit bocor)"; exit 1; }
             echo "OK: aset Samudra Follower V2 live; kredit Instagram tidak ikut."
+            # Verifikasi aset tambahan setelah deploy; retry agar tidak gagal palsu saat propagasi cache Hosting.
+            cready=tidak
+            for i in 1 2 3 4 5 6; do
+              if curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/sf/ui.js?v=$G" | grep -Fq "sf2_udang_jala" && \
+                 curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/sf2/draw.js?v=$G" | grep -Fq "F.leviatan" && \
+                 curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/data.js?v=$G" | grep -Fq "Joran Dewa Samudra"; then cready=ya; break; fi
+              sleep 5
+            done
+            [ "$cready" = "ya" ] || { echo "::error::Aset komunitas/Leviathan/joran 20 belum muncul di Hosting"; exit 1; }
+            echo "OK: 15 kartu komunitas, Leviathan baru dan 20 tingkat joran tersedia di Hosting."
           fi
           echo "OK: API sehat; fitur yang ON sebelum deploy tetap ON; pengaman toko tidak berubah. Konfigurasi Owner di Firestore tidak disentuh."
             # ROLLBACK: mode=rollback, target=api-dashboard+hosting, multiplayer=ya, konfirmasi=deploy,
-      #   backend_sha=05b9dba79f62cc87a22df66a1849f45741eb4d96, game_sha=398d29802b43ee9cb7097a58b442c47def23007a (SF V2 live sebelum UI Quest Owner + hotfix Strike).
+      #   backend_sha=2094dc6d97f6a0d26fbfb554fcc25a0bb06652e2, game_sha=a22cc1cdf8fc0fdfd16bd50547dc02a65b245aad (rilis produksi sehat #5 sebelum komunitas + joran Lv20).
       #   Cadangan cepat TANPA deploy: shop_config/main.sf2.off=true menutup pulau (data pemain tidak berubah).
       - name: Bersihkan kredensial sementara
         if: always()
