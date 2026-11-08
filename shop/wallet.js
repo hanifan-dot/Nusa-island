@@ -10,6 +10,10 @@
 window.NW = window.NW || {};
 const N = () => window.Nusa;
 let top = 0, busy = false, retry = null, seeded = false;
+// HEMAT KUOTA: dulu getEntitlements (2 baca Firestore) dipanggil tiap 45 dtk untuk SETIAP pemain (≈160 baca/jam, penyumbang baca terbesar). Kini jeda 3 mnt (≈20 baca/jam).
+// Tidak ada perubahan keamanan: saldo Top Up tetap dari server, belanja tetap diputuskan server (shop_spendCoins). Pesanan menunggu persetujuan tetap dipoll 8 dtk di UI toko (shop/ui.js),
+// dan setiap pembacaan hak milik oleh bagian lain (toko, login, perubahan cloud) tetap memperbarui dompet seketika lewat hook → wLast.
+const WALLET_POLL_MS = 180000, WALLET_VIS_GAP = 60000; let wLast = 0;
 const A = () => NW.shopApi;
 const live = () => { const a = A(); return !!(a && a.live && !a.sim && !a.isGuest()); };
 const local = () => { const S = N().S; return Math.max(0, Math.floor(Number(S.money) || 0)); };
@@ -17,6 +21,7 @@ const eco = () => !!(NW.eco && NW.eco.active());
 const bal = () => (eco() ? NW.eco.balance() : local() + top);
 
 function setFrom(e) {
+  wLast = Date.now();
   const v = e && e.env === "NYATA" && e.wallet ? Math.max(0, Math.floor(Number(e.wallet.NYATA) || 0)) : 0;
   if (v !== top) {
     const up = v - top; top = v;
@@ -56,6 +61,6 @@ NW.wallet = { bal, local, topup: () => top, charge, refresh, setFrom, isBusy: ()
 // ikut mengamati setiap pembacaan hak milik (toko, login, polling pesanan) agar saldo Top Up selalu mutakhir
 function hook() { const a = A(); if (!a || a._wallet) return; a._wallet = true; const g = a.getEntitlements; a.getEntitlements = async function (d) { const e = await g.call(a, d); setFrom(e); return e; }; }
 hook(); NW.wallet.hook = hook;
-setInterval(() => { if (!document.hidden && live() && Date.now() >= wAt) refresh(); }, 45000);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+setInterval(() => { if (!document.hidden && live() && Date.now() - wLast >= WALLET_POLL_MS && Date.now() >= wAt) refresh(); }, 45000);   // pemeriksaan lokal murah tiap 45 dtk; permintaan ke server paling cepat tiap 3 mnt
+document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() - wLast >= WALLET_VIS_GAP) refresh(); });
 })();
