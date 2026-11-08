@@ -1,4 +1,4 @@
-# Rilis manual Recovery Center V2: backend dashboard status/identitas nama + game recoveryVerify; pertahankan OWNER FISH 0,02%, Mythic 2%, harga x0,75. Pin ke game ed0c430 + backend bb73464.
+# Rilis manual Recovery Center V2: backend dashboard status/identitas nama + game recoveryVerify; pertahankan OWNER FISH 0,02%, Mythic 2%, harga x0,75. Pin ke game ed0c430 + backend 3699959.
 # Berdasarkan workflow sukses "RILIS Nusa Island Quest Owner" (run sukses terbaru). Menambah ecoSf2Info/ecoSf2Catch (Worker) + aset sf2/ (Hosting). Quest Owner, Joran WhatsApp, Tas, Aurora, Cloud Save, SF lama, multiplayer, QRIS, Payment Center, flags & secrets dipertahankan.
 # ROLLBACK ke paket sebelum Recovery V2 (rilis OWNER FISH): mode=rollback, game_sha=94e799b6908f85e230936b513d7ee93108078bf3, backend_sha=9644efc22593b65f26d9baae6459e86296f6873a, konfirmasi=deploy, target=api-dashboard+hosting, multiplayer=ya.
 name: RILIS Nusa Island Samudra Follower V2
@@ -55,12 +55,12 @@ jobs:
           IN_B: ${{ inputs.backend_sha }}
         run: |
           set -e
-          G="${IN_G:-ed0c430c63a9a6f54a3527e6134d70b52d73eba8}"; B="${IN_B:-bb73464936edb63f05f6bfff3015792ddf15f284}"
+          G="${IN_G:-ed0c430c63a9a6f54a3527e6134d70b52d73eba8}"; B="${IN_B:-3699959c0f1749ee7c0f4bea621c874351c8a325}"
           if [ "$MODE" = "rollback" ]; then
             [ -n "$IN_G" ] && [ -n "$IN_B" ] || { echo "::error::Rollback WAJIB mengisi game_sha dan backend_sha produksi sebelumnya"; exit 1; }
           fi
           if [ "$MODE" = "deploy" ]; then
-            [ "$G" = "ed0c430c63a9a6f54a3527e6134d70b52d73eba8" ] && [ "$B" = "bb73464936edb63f05f6bfff3015792ddf15f284" ] || { echo "::error::Hanya pasangan SHA rilis hasil integrasi aman yang diizinkan"; exit 1; }
+            [ "$G" = "ed0c430c63a9a6f54a3527e6134d70b52d73eba8" ] && [ "$B" = "3699959c0f1749ee7c0f4bea621c874351c8a325" ] || { echo "::error::Hanya pasangan SHA rilis hasil integrasi aman yang diizinkan"; exit 1; }
           fi
           printf '%s' "$G" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::game_sha harus 40 hex"; exit 1; }
           printf '%s' "$B" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::backend_sha harus 40 hex"; exit 1; }
@@ -160,7 +160,7 @@ jobs:
           grep -Fq "'sf2/firsts'" backend/server/shop/db.js
           grep -Fq 'A-Za-z0-9_' backend/worker/index.js
           for f in sf2/sf2.js sf2/area.js sf2/draw.js sf2/sf2.css economy/sf2-core.js firebase/functions/lib/sf2-core.js; do test -s "game/$f" || { echo "::error::Berkas SF V2 hilang: $f"; exit 1; }; done
-          for t in unit-komunitas unit-owner-fish unit-fishmath unit-recovery-ui unit-recovery-portal unit-fishmath unit-sf2 unit-sf2-map unit-quest unit-streak unit-shop unit-rilis unit-sf-server unit-podium unit-house-social unit-fashion unit-pond; do node game/tests/$t.js; done
+          for t in unit-komunitas unit-owner-fish unit-fishmath unit-recovery-ui unit-recovery-portal unit-sf2 unit-sf2-map unit-quest unit-streak unit-shop unit-rilis unit-sf-server unit-podium unit-house-social unit-fashion unit-pond; do node game/tests/$t.js; done
           node - <<'NODE'
           const fs = require('node:fs'); const rd = (p) => fs.readFileSync(p, 'utf8'); let bad = 0;
           const fail = (m) => { console.error('::error::' + m); bad++; };
