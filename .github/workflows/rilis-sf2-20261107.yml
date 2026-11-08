@@ -1,6 +1,6 @@
-# Rilis manual OWNER FISH (0,02%) + nerf Mythic (2%) + harga ikan x0,75: game/backend DIPIN ke CI hijau #42475119366 (game 94e799b, backend 9644efc).
+# Rilis manual Recovery Center V2: backend dashboard status/identitas nama + game recoveryVerify; pertahankan OWNER FISH 0,02%, Mythic 2%, harga x0,75. Pin ke game d8f88d9 + backend 3699959.
 # Berdasarkan workflow sukses "RILIS Nusa Island Quest Owner" (run sukses terbaru). Menambah ecoSf2Info/ecoSf2Catch (Worker) + aset sf2/ (Hosting). Quest Owner, Joran WhatsApp, Tas, Aurora, Cloud Save, SF lama, multiplayer, QRIS, Payment Center, flags & secrets dipertahankan.
-# ROLLBACK ke produksi sehat terakhir (optimasi Firestore): mode=rollback, game_sha=a22cc1cdf8fc0fdfd16bd50547dc02a65b245aad, backend_sha=2094dc6d97f6a0d26fbfb554fcc25a0bb06652e2, konfirmasi=deploy, target=api-dashboard+hosting, multiplayer=ya.
+# ROLLBACK ke paket sebelum Recovery V2 (rilis OWNER FISH): mode=rollback, game_sha=94e799b6908f85e230936b513d7ee93108078bf3, backend_sha=9644efc22593b65f26d9baae6459e86296f6873a, konfirmasi=deploy, target=api-dashboard+hosting, multiplayer=ya.
 name: RILIS Nusa Island Samudra Follower V2
 on:
   workflow_dispatch:
@@ -10,17 +10,17 @@ on:
         type: string
         required: true
       mode:
-        description: "deploy = rilis OWNER FISH + nerf25 (SHA teruji). rollback = isi SHA game/backend versi sebelumnya."
+        description: "deploy = Recovery Center V2 + game verify (SHA teruji). rollback = isi SHA sebelum Recovery V2."
         type: choice
         options: ["deploy", "rollback"]
         default: "deploy"
       game_sha:
-        description: "Kosong = game OWNER FISH teruji; rollback isi SHA game sebelumnya."
+        description: "Kosong = game Recovery V2 teruji; rollback isi SHA game sebelumnya."
         type: string
         required: false
         default: ""
       backend_sha:
-        description: "Kosong = backend OWNER FISH teruji; rollback isi SHA backend sebelumnya."
+        description: "Kosong = backend Recovery V2 teruji; rollback isi SHA backend sebelumnya."
         type: string
         required: false
         default: ""
@@ -55,12 +55,12 @@ jobs:
           IN_B: ${{ inputs.backend_sha }}
         run: |
           set -e
-          G="${IN_G:-94e799b6908f85e230936b513d7ee93108078bf3}"; B="${IN_B:-9644efc22593b65f26d9baae6459e86296f6873a}"
+          G="${IN_G:-d8f88d9f8b5d32fbd46300b0f1da81f915febf15}"; B="${IN_B:-3699959c0f1749ee7c0f4bea621c874351c8a325}"
           if [ "$MODE" = "rollback" ]; then
             [ -n "$IN_G" ] && [ -n "$IN_B" ] || { echo "::error::Rollback WAJIB mengisi game_sha dan backend_sha produksi sebelumnya"; exit 1; }
           fi
           if [ "$MODE" = "deploy" ]; then
-            [ "$G" = "94e799b6908f85e230936b513d7ee93108078bf3" ] && [ "$B" = "9644efc22593b65f26d9baae6459e86296f6873a" ] || { echo "::error::Hanya pasangan SHA rilis hasil integrasi aman yang diizinkan"; exit 1; }
+            [ "$G" = "d8f88d9f8b5d32fbd46300b0f1da81f915febf15" ] && [ "$B" = "3699959c0f1749ee7c0f4bea621c874351c8a325" ] || { echo "::error::Hanya pasangan SHA rilis hasil integrasi aman yang diizinkan"; exit 1; }
           fi
           printf '%s' "$G" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::game_sha harus 40 hex"; exit 1; }
           printf '%s' "$B" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::backend_sha harus 40 hex"; exit 1; }
@@ -146,13 +146,22 @@ jobs:
           for f in questowner/questowner.js questowner/ui.js questowner/questowner.css economy/quest-core.js firebase/functions/lib/quest-core.js; do test -s "game/$f" || { echo "::error::Berkas Quest Owner hilang: $f"; exit 1; }; done
           for fn in ecoSf2Info ecoSf2Catch; do grep -Fq "'$fn'" backend/worker/index.js; grep -Fq "async $fn(auth" backend/server/vendor/economy-core.cjs; done
           grep -Fq "sf2: sf2Core" backend/worker/index.js
+          # Recovery V2: game & backend harus terpasang berpasangan; tanpa ini jangan ubah produksi.
+          grep -Fq "recoveryVerify" backend/worker/index.js
+          grep -Fq "recoveryVerify" game/recovery/client.js
+          grep -Fq "verifyPayload" game/recovery/core.js
+          test -s backend/public/js/views/recovery.js
+          grep -Fq "Pemulihan Akun" backend/public/js/views/recovery.js
+          grep -Fq "server_changed" backend/worker/recovery.js
+          grep -Fq "state === 'ok'" backend/worker/recovery.js
           grep -Fq 'OWNER_P = 0.0002' game/economy/sf2-core.js
           grep -Fq 'FISH_SALE_MULT = 0.75' game/fishmath.js
           grep -Fq 'OWNER FISH' game/sf2/sf2.js
           grep -Fq "'sf2/firsts'" backend/server/shop/db.js
           grep -Fq 'A-Za-z0-9_' backend/worker/index.js
           for f in sf2/sf2.js sf2/area.js sf2/draw.js sf2/sf2.css economy/sf2-core.js firebase/functions/lib/sf2-core.js; do test -s "game/$f" || { echo "::error::Berkas SF V2 hilang: $f"; exit 1; }; done
-          for t in unit-komunitas unit-owner-fish unit-fishmath unit-sf2 unit-sf2-map unit-quest unit-streak unit-shop unit-rilis unit-sf-server unit-podium unit-house-social unit-fashion unit-pond; do node game/tests/$t.js; done
+          for t in unit-komunitas unit-owner-fish unit-fishmath unit-recovery-ui unit-sf2 unit-sf2-map unit-quest unit-streak unit-shop unit-rilis unit-sf-server unit-podium unit-house-social unit-fashion unit-pond; do node game/tests/$t.js; done
+          (cd game && node tests/unit-recovery-portal.js)  # mengandalkan root game untuk membaca ajukan-pemulihan.html
           node - <<'NODE'
           const fs = require('node:fs'); const rd = (p) => fs.readFileSync(p, 'utf8'); let bad = 0;
           const fail = (m) => { console.error('::error::' + m); bad++; };
@@ -186,7 +195,7 @@ jobs:
           grep -Fq "power: 3" game/sf2/sf2.js
           grep -Fq "qo-hud" game/questowner/questowner.css
           ! grep -Fq '"questBtn"' game/hud/menu.js
-          for t in sf2_strike quest_owner ui41 sf2 sf komunitas sf_play ekonomi hotfix_cloudsave cloud_offline_pulih perf_reads; do test -s "game/tests/browser/test_$t.py"; done
+          for t in sf2_strike quest_owner ui41 sf2 sf komunitas sf_play pulihkan ekonomi hotfix_cloudsave cloud_offline_pulih perf_reads; do test -s "game/tests/browser/test_$t.py"; done
           python3 -m venv /tmp/pwenv
           /tmp/pwenv/bin/pip install -q playwright
           /tmp/pwenv/bin/playwright install --with-deps chromium
@@ -207,6 +216,8 @@ jobs:
           grep -Eq "TOTAL [0-9]+/[0-9]+ lulus" /tmp/sfplay.log
           /tmp/pwenv/bin/python tests/browser/test_ekonomi.py | tee /tmp/eko.log
           grep -Eq "[0-9]+ PASS, 0 FAIL" /tmp/eko.log
+          /tmp/pwenv/bin/python tests/browser/test_pulihkan.py | tee /tmp/pulih.log
+          ! grep -Eq "(FAIL|GAGAL|AssertionError|Traceback)" /tmp/pulih.log
           /tmp/pwenv/bin/python tests/browser/test_hotfix_cloudsave.py | tee /tmp/cs.log
           grep -Eq "[0-9]+ PASS, 0 FAIL" /tmp/cs.log
           /tmp/pwenv/bin/python tests/browser/test_cloud_offline_pulih.py | tee /tmp/off.log
@@ -218,6 +229,7 @@ jobs:
           cd backend
           npm install --no-package-lock --no-audit --no-fund
           npm test
+          node --test test/recovery-v2.test.js
           npm run scan:secrets
       - name: Bandingkan dengan situs live, cegah fitur hilang (dilewati saat rollback)
         if: ${{ needs.pin.outputs.mode == 'deploy' }}
@@ -383,10 +395,19 @@ jobs:
             done
             [ "$nready" = "ya" ] || { echo "::error::OWNER FISH / nerf harga belum tampak di Hosting"; exit 1; }
             echo "OK: OWNER FISH dan nerf harga x0,75 live di Hosting."
+            # Recovery Center V2: cek aset publik tanpa meminta UID atau membaca permohonan pemain.
+            rready=tidak
+            for i in 1 2 3 4 5 6; do
+              if curl -fsS --max-time 20 -H "Cache-Control: no-cache" "$NUSA_API_BASE/js/views/recovery.js?v=$G" | grep -Fq "Pemulihan Akun" && \
+                 curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/recovery/client.js?v=$G" | grep -Fq "recoveryVerify"; then rready=ya; break; fi
+              sleep 5
+            done
+            [ "$rready" = "ya" ] || { echo "::error::Aset Recovery Center V2/game verify belum tampak live"; exit 1; }
+            echo "OK: Recovery Center V2 dan hook verifikasi termuat.";
           fi
           echo "OK: API sehat; fitur yang ON sebelum deploy tetap ON; pengaman toko tidak berubah. Konfigurasi Owner di Firestore tidak disentuh."
             # ROLLBACK: mode=rollback, target=api-dashboard+hosting, multiplayer=ya, konfirmasi=deploy,
-      #   backend_sha=2094dc6d97f6a0d26fbfb554fcc25a0bb06652e2, game_sha=a22cc1cdf8fc0fdfd16bd50547dc02a65b245aad (rilis produksi sehat #5 sebelum komunitas + joran Lv20).
+      #   backend_sha=9644efc22593b65f26d9baae6459e86296f6873a, game_sha=94e799b6908f85e230936b513d7ee93108078bf3 (rilis OWNER FISH sebelum Recovery V2).
       #   Cadangan cepat TANPA deploy: shop_config/main.sf2.off=true menutup pulau (data pemain tidak berubah).
       - name: Bersihkan kredensial sementara
         if: always()
