@@ -23,8 +23,10 @@ t("cloudCandidate: progres identik (urutan kunci beda) → same; beda → tidak 
 t("cloudCandidate: tanpa data → null", () => assert.strictEqual(R.cloudCandidate({ exists: false }, mk()), null));
 t("pagar statis: client.js hanya memanggil peek/restoreCloud/recoveryRequest — tidak ada tulis Cloud/ekonomi/top-up", () => {
   const src = fs.readFileSync(path.join(__dirname, "../recovery/client.js"), "utf8");
-  assert(!/writeSave|restoreBackup|walletAdd|topup|topUp|grantCoins|removeItem|localStorage\.clear/i.test(src), "client.js memuat panggilan terlarang");
-  const calls = [...src.matchAll(/cloud\(\)\.call\("([A-Za-z]+)"/g)].map((m) => m[1]); assert.deepStrictEqual([...new Set(calls)].sort(), ["recoveryRequest", "recoveryVerify"]); });
+  assert(!/writeSave|restoreBackup|walletAdd|topup|topUp|grantCoins|localStorage\.clear/i.test(src), "client.js memuat panggilan terlarang");
+  const removed = [...src.matchAll(/localStorage\.removeItem\(([^)]+)\)/g)].map((m) => m[1].trim());
+  assert.deepStrictEqual(removed, ["R.SENT_KEY"], "hanya boleh menghapus penanda pengajuan setelah verifikasi; data game tidak boleh dihapus");
+  const calls = [...src.matchAll(/(?:cloud\(\)|c)\.call\("([A-Za-z]+)"/g)].map((m) => m[1]); assert.deepStrictEqual([...new Set(calls)].sort(), ["recoveryRequest", "recoveryVerify"]); });
 t("pagar statis: core.js tidak punya setItem/removeItem/clear", () => { const src = fs.readFileSync(path.join(__dirname, "../recovery/core.js"), "utf8"); assert(!/setItem|removeItem|\.clear\(/.test(src.replace(/\/\/.*$/gm, ""))); });
 t("verifyPayload: hanya akun Google yang pernah mengirim permohonan; tanpa data tulis; issue dibatasi", () => {
   const sent = { hash: "abc", at: 1 }, meta = { mode: "google", uid: "u1", hash: "0a1b2c3d" };
