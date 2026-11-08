@@ -1,6 +1,6 @@
-# Rilis manual Samudra Follower V2: dari main hanya workflow; game/backend DI-PIN ke pasangan SHA integrasi teruji (game a9db5a9, backend 05b9dba).
+# Rilis manual Samudra Follower V2: dari main hanya workflow; game/backend DI-PIN ke pasangan SHA integrasi teruji (game 89d042c, backend 05b9dba).
 # Berdasarkan workflow sukses "RILIS Nusa Island Quest Owner" (run sukses terbaru). Menambah ecoSf2Info/ecoSf2Catch (Worker) + aset sf2/ (Hosting). Quest Owner, Joran WhatsApp, Tas, Aurora, Cloud Save, SF lama, multiplayer, QRIS, Payment Center, flags & secrets dipertahankan.
-# ROLLBACK ke produksi sebelumnya (Quest Owner): mode=rollback, game_sha=8d9afbf5cdfce45fcf1557bdb7f5e614e8dc26e2, backend_sha=65b131e25f6af388171ac432626ff1bd385924a1, konfirmasi=deploy, target=api-dashboard+hosting, multiplayer=ya.
+# ROLLBACK ke produksi sebelumnya (SF V2 live): mode=rollback, game_sha=398d29802b43ee9cb7097a58b442c47def23007a, backend_sha=05b9dba79f62cc87a22df66a1849f45741eb4d96, konfirmasi=deploy, target=api-dashboard+hosting, multiplayer=ya.
 name: RILIS Nusa Island Samudra Follower V2
 on:
   workflow_dispatch:
@@ -55,12 +55,12 @@ jobs:
           IN_B: ${{ inputs.backend_sha }}
         run: |
           set -e
-          G="${IN_G:-a9db5a919c614ef66d22db1ecbcb05c4fed96ebf}"; B="${IN_B:-05b9dba79f62cc87a22df66a1849f45741eb4d96}"
+          G="${IN_G:-89d042c49cea870b631dcece44daec724e889fe7}"; B="${IN_B:-05b9dba79f62cc87a22df66a1849f45741eb4d96}"
           if [ "$MODE" = "rollback" ]; then
             [ -n "$IN_G" ] && [ -n "$IN_B" ] || { echo "::error::Rollback WAJIB mengisi game_sha dan backend_sha produksi sebelumnya"; exit 1; }
           fi
           if [ "$MODE" = "deploy" ]; then
-            [ "$G" = "a9db5a919c614ef66d22db1ecbcb05c4fed96ebf" ] && [ "$B" = "05b9dba79f62cc87a22df66a1849f45741eb4d96" ] || { echo "::error::Hanya pasangan SHA rilis hasil integrasi aman yang diizinkan"; exit 1; }
+            [ "$G" = "89d042c49cea870b631dcece44daec724e889fe7" ] && [ "$B" = "05b9dba79f62cc87a22df66a1849f45741eb4d96" ] || { echo "::error::Hanya pasangan SHA rilis hasil integrasi aman yang diizinkan"; exit 1; }
           fi
           printf '%s' "$G" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::game_sha harus 40 hex"; exit 1; }
           printf '%s' "$B" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::backend_sha harus 40 hex"; exit 1; }
@@ -176,16 +176,30 @@ jobs:
           node game/tests/unit-cloud.js
           node game/tests/unit-economy.js
           node game/tests/unit-aurora.js
-      - name: Tes reproduksi Strike SF V2 di browser 360/375/390px (dilewati saat rollback)
+      - name: Tes browser pra-deploy - Strike, Quest Owner HUD (360/390/landscape), SF V2, ekonomi, Cloud Save (dilewati saat rollback)
         if: ${{ needs.pin.outputs.mode == 'deploy' }}
         run: |
           set -euo pipefail
-          test -s game/tests/browser/test_sf2_strike.py
+          grep -Fq "power: 3" game/sf2/sf2.js
+          grep -Fq "qo-hud" game/questowner/questowner.css
+          ! grep -Fq '"questBtn"' game/hud/menu.js
+          for t in sf2_strike quest_owner ui41 sf2 ekonomi hotfix_cloudsave; do test -s "game/tests/browser/test_$t.py"; done
           python3 -m venv /tmp/pwenv
           /tmp/pwenv/bin/pip install -q playwright
           /tmp/pwenv/bin/playwright install --with-deps chromium
-          (cd game && /tmp/pwenv/bin/python tests/browser/test_sf2_strike.py | tee /tmp/strike.log)
+          cd game
+          /tmp/pwenv/bin/python tests/browser/test_sf2_strike.py | tee /tmp/strike.log
           grep -Eq "HASIL: [0-9]+ lulus, 0 gagal" /tmp/strike.log
+          /tmp/pwenv/bin/python tests/browser/test_quest_owner.py | tee /tmp/qo.log
+          grep -Eq "^[0-9]+ lulus, 0 gagal" /tmp/qo.log
+          /tmp/pwenv/bin/python tests/browser/test_ui41.py | tee /tmp/ui41.log
+          grep -Eq "UI 4.1: [0-9]+ lulus, 0 gagal" /tmp/ui41.log
+          /tmp/pwenv/bin/python tests/browser/test_sf2.py | tee /tmp/sf2b.log
+          grep -Eq "HASIL: [0-9]+ lulus, 0 gagal" /tmp/sf2b.log
+          /tmp/pwenv/bin/python tests/browser/test_ekonomi.py | tee /tmp/eko.log
+          grep -Eq "[0-9]+ PASS, 0 FAIL" /tmp/eko.log
+          /tmp/pwenv/bin/python tests/browser/test_hotfix_cloudsave.py | tee /tmp/cs.log
+          grep -Eq "[0-9]+ PASS, 0 FAIL" /tmp/cs.log
       - name: Tes backend dan scan rahasia
         run: |
           cd backend
@@ -340,7 +354,7 @@ jobs:
           fi
           echo "OK: API sehat; fitur yang ON sebelum deploy tetap ON; pengaman toko tidak berubah. Konfigurasi Owner di Firestore tidak disentuh."
             # ROLLBACK: mode=rollback, target=api-dashboard+hosting, multiplayer=ya, konfirmasi=deploy,
-      #   backend_sha=65b131e25f6af388171ac432626ff1bd385924a1, game_sha=8d9afbf5cdfce45fcf1557bdb7f5e614e8dc26e2 (Quest Owner).
+      #   backend_sha=05b9dba79f62cc87a22df66a1849f45741eb4d96, game_sha=398d29802b43ee9cb7097a58b442c47def23007a (SF V2 live sebelum UI Quest Owner + hotfix Strike).
       #   Cadangan cepat TANPA deploy: shop_config/main.sf2.off=true menutup pulau (data pemain tidak berubah).
       - name: Bersihkan kredensial sementara
         if: always()
