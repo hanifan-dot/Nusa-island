@@ -9,7 +9,7 @@ permissions:
   contents: read
 jobs:
   test:
-    name: Uji pasangan SHA Komunitas/Joran Lv20 (game ca41f4a + backend 3254049)
+    name: Uji pasangan SHA Komunitas/Joran Lv20 (game 3f0c4fa + backend 3254049)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -140,7 +140,10 @@ jobs:
           for f in questowner/questowner.js questowner/ui.js questowner/questowner.css economy/quest-core.js bag/bag.js; do test -s "firebase/public/$f"; done
           grep -Fq "NW.quest" firebase/public/questowner/questowner.js
           for f in sf2/sf2.js sf2/area.js sf2/draw.js sf2/sf2.css economy/sf2-core.js; do test -s "firebase/public/$f"; done
-          ! grep -rqF "@ambaleon_12" firebase/public
+          # kredit pengusul kini RESMI tampil (Update Komunitas): harus ada di katalog, tetapi tidak di kode UI SF2 (sf2.js) yang diuji bocor pada live-check
+          grep -Fq "@ambaleon_12" firebase/public/economy/sf2-core.js
+          grep -Fq "Usulan Komunitas GRUP NUSA" firebase/public/economy/sf2-core.js
+          ! grep -Fq "@ambaleon_12" firebase/public/sf2/sf2.js
       - name: Tes backend dan scan rahasia (tanpa kredensial produksi)
         working-directory: backend
         run: |
