@@ -9,7 +9,7 @@ permissions:
   contents: read
 jobs:
   test:
-    name: Uji pasangan SHA Komunitas/Joran Lv20 (game 94e799b + backend 9644efc, Mythic 2% + OWNER FISH + harga x0,75)
+    name: Uji pasangan SHA Recovery V2 (game ed0c430 + backend 3699959, identitas + Cloud Save)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
-          ref: 94e799b6908f85e230936b513d7ee93108078bf3
+          ref: ed0c430c63a9a6f54a3527e6134d70b52d73eba8
           path: game
           persist-credentials: false
       - name: Akses baca backend privat
@@ -29,7 +29,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/nusa-island-control-center
-          ref: 9644efc22593b65f26d9baae6459e86296f6873a
+          ref: 3699959c0f1749ee7c0f4bea621c874351c8a325
           token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
           persist-credentials: false
           path: backend
