@@ -82,7 +82,7 @@ with sync_playwright() as p:
         pg.screenshot(path=os.path.join(SHOTS, "13-coolbox-ikan-tempe.png")); ev(pg, "()=>Nusa.closePanel()")
         ev(pg, "()=>{Nusa.openPanel('dex')}"); time.sleep(0.4); ev(pg, "[...document.querySelectorAll('.dex-tabs button')].find(x=>/Samudra/.test(x.textContent)).click()"); time.sleep(0.5)
         t = ev(pg, "document.getElementById('panelBody').innerText")
-        ok("C5 koleksi Samudra Follower: Tempe 'Tertangkap 1×', kredit IG tampil, 4 kartu", "Tertangkap 1×" in t and t.count("@") >= 4 and ev(pg, "document.querySelectorAll('.sf-cell').length") == 4, t[:160])
+        ok("C5 koleksi Samudra Follower: Tempe 'Tertangkap 1×', kredit IG tampil, 15 kartu", "Ditemukan · 1×" in t and t.count("@") >= 4 and ev(pg, "document.querySelectorAll('.sf-cell').length") >= 15, t[:160])
         pg.screenshot(path=os.path.join(SHOTS, "14-koleksi-tertangkap.png")); ev(pg, "()=>Nusa.closePanel()")
         # blokir fitur yang belum didukung
         ev(pg, "()=>{Nusa.openPanel('inventory')}"); time.sleep(0.3)

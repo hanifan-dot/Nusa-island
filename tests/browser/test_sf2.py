@@ -83,7 +83,7 @@ with sync_playwright() as p:
         ok("B2 berlayar → tiba di Pulau Para Legenda (area sf2)", island_url_ready(pg), ev(pg, "NW.areas.cur&&NW.areas.cur.id"))
         wait_for(pg, "!NW.adv.isBusy()&&!document.getElementById('fade').classList.contains('on')", 20); time.sleep(2.0); ev(pg, "async()=>{await NW.sf2.refresh(true)}"); time.sleep(0.8)
         hud = ev(pg, "(document.getElementById('sf2Hud')||{}).innerText||''")
-        ok("B3 HUD: SAMUDRA FOLLOWER / Pity Mythic 0/100 / Mythic 5,00%", "SAMUDRA FOLLOWER" in hud and "Pity Mythic 0/100" in hud and "Mythic 5,00%" in hud, hud)
+        ok("B3 HUD: SAMUDRA FOLLOWER / Pity Mythic 0/100 / Mythic 2,00%", "SAMUDRA FOLLOWER" in hud and "Pity Mythic 0/100" in hud and "Mythic 2,00%" in hud, hud)
         r = ev(pg, "(()=>{const h=document.getElementById('sf2Hud').getBoundingClientRect();return {x:h.x,y:h.y,w:h.width,h:h.height,vw:innerWidth,vh:innerHeight}})()")
         ok("B4 HUD kecil, di atas (tidak menutup joystick kiri-bawah)", r["h"] < 90 and r["w"] < 200 and r["y"] < 200, r)
         ok("B4b prompt Dunia Bersama ('terlihat di Muara') tidak muncul di pulau", ev(pg, "(()=>{const a=document.getElementById('mpAsk');return !a||a.classList.contains('hidden')})()"))
@@ -91,7 +91,7 @@ with sync_playwright() as p:
         ok("B5 tanpa error halaman", not errs, errs[:2])
         # ===== C. empat spot memancing sungguhan =====
         res = {}
-        plan = [("dalam", [0.97, 0.1, 0.5, 0.5], "mythic", "laut dalam"), ("karang", [0.1, 0.1, 0.5, 0.5], "common", ""), ("danau", [0.6, 0.1, 0.5, 0.5], "uncommon", ""), ("muara", [0.9, 0.0, 0.5, 0.5], "epic", "")]
+        plan = [("dalam", [0.99, 0.1, 0.5, 0.5], "mythic", "laut dalam"), ("karang", [0.1, 0.1, 0.5, 0.5], "common", ""), ("danau", [0.6, 0.1, 0.5, 0.5], "uncommon", ""), ("muara", [0.95, 0.0, 0.5, 0.5], "epic", "")]
         for spot, rs, rar, _ in plan:
             good = fish_here(pg, spot, rs)
             got = ev(pg, "(()=>{const c=window.__nusa.S.cooler;const it=c[c.length-1];return it?{id:it.id,w:it.w,sp:it.sp}:null})()")
@@ -110,7 +110,7 @@ with sync_playwright() as p:
         base = info["pity"]
         for i in range(17): srv_catch(pg, [0.0, 0.0, 0.5, 0.5])        # common terus → Pity 20
         i20 = ev(pg, "async()=>NW.eco.sf2Info()")
-        ok("D1 Pity 19→20: peluang Epic & Mythic naik dari 5,00% ke 5,20%", i20["pity"] == 20 and i20["odds"]["mythic"] == 5.2 and i20["odds"]["epic"] == 5.2 and i20["odds"]["common"] == 54.6, i20["odds"])
+        ok("D1 Pity 19→20: peluang Epic & Mythic naik (Mythic 2,00% → 2,20%, Epic 5,15% → 5,35%)", i20["pity"] == 20 and i20["odds"]["mythic"] == 2.2 and i20["odds"]["epic"] == 5.35 and i20["odds"]["common"] == 56.35, i20["odds"])
         for i in range(53): srv_catch(pg, [0.0, 0.0, 0.5, 0.5])
         ok("D2 Pity 73 sebelum Mythic", ev(pg, "async()=>(await NW.eco.sf2Info()).pity") == 73)
         r = srv_catch(pg, [0.99, 0.2, 0.5, 0.5])
@@ -135,16 +135,16 @@ with sync_playwright() as p:
         r2 = ev(pg2, "async()=>{const i=await window.__srv.ecoSf2Info({uid:'u-lain'});return {pity:i.pity,unlocked:i.unlocked}}")
         ok("F2 pemain lain punya Pity terpisah (0) dan akses sendiri", r2["pity"] == 0 and r2["unlocked"], r2)
         # ===== G. Penemu Pertama atomik =====
-        tick(pg2, 5000); seq(pg2, 0.97, 0.99, 0.5, 0.5)   # Mythic + spesies pertama (komunitas) untuk u-lain
+        tick(pg2, 5000); seq(pg2, 0.99, 0.99, 0.5, 0.5)   # Mythic + spesies pertama (komunitas) untuk u-lain
         a = ev(pg2, "async()=>{const r=await window.__srv.ecoSf2Catch({uid:'u-lain'},{opId:'oplain00001xx',spot:'dalam'});return {id:r.fish.id,first:r.first}}")
         com = ev(pg2, "(id)=>NusaSF2Core.BY_ID[id].community", a["id"])
-        ev(pg2, "()=>{window.__srvNow+=5000}"); seq(pg2, 0.97, 0.99, 0.5, 0.5)
+        ev(pg2, "()=>{window.__srvNow+=5000}"); seq(pg2, 0.99, 0.99, 0.5, 0.5)
         b2 = ev(pg2, "async()=>{try{const r=await window.__srv.ecoSf2Catch({uid:U0},{opId:'opsatu000001xx',spot:'dalam'});return {id:r.fish.id,first:r.first}}catch(e){return {err:e.message}}}".replace("U0", "'u-sf2'"))
         ok("G1 Penemu Pertama hanya SATU akun per spesies komunitas", (not com) or (a["first"] and b2.get("id") == a["id"] and not b2.get("first")) or (a["first"] and b2.get("id") != a["id"]), (a, b2, com))
         # ===== H. Buku Koleksi =====
         ev(pg2, "async()=>{await NW.sf2.refresh(true)}"); ev(pg2, "()=>{Nusa.setDexTab('samudra');Nusa.openPanel('dex')}"); time.sleep(0.7)
         bk = ev(pg2, "(document.querySelector('.sf2-book')||{}).innerText||''")
-        ok("H1 Buku Koleksi: katalog komunitas 14/1.000 + tangkapan vs spesies ditemukan dibedakan", "14" in bk and "1.000" in bk and "Spesies ditemukan" in bk and "Tangkapan pulau" in bk, bk[:200].replace("\n", " | "))
+        ok("H1 Buku Koleksi: katalog komunitas 16/1.000 + tangkapan vs spesies ditemukan dibedakan", "16" in bk and "1.000" in bk and "Spesies ditemukan" in bk and "Tangkapan pulau" in bk, bk[:200].replace("\n", " | "))
         shot(pg2, "05-buku-koleksi.png")
         ev(pg2, "()=>{document.querySelector('[data-act=sf2o]').click()}"); time.sleep(0.4)
         ok("H2 panel peluang & Pity bisa dibuka", "Peluang Samudra Follower" in ev(pg2, "(document.getElementById('sf2Ov')||{}).innerText||''"))

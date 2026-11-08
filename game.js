@@ -317,7 +317,7 @@ function chooseFish() {
 function priceMult(id, day = S.day) { return 0.7 + seeded(hashStr(id + ":" + day))() * 0.75; }
 const PRICE_SCALE = 3;
 // Bumbu 1.2: berat di atas 100 kg dikompres (NW.FM.effectiveKg) agar ikan raksasa tidak merusak ekonomi
-function priceOf(item) { const f = FISH_BY_ID[item.id]; if (f && f.sf) return NW.FM.priceFor({ price: item.sp || 0 }, item.w, 1, PRICE_SCALE); return NW.FM.priceFor(f, item.w, priceMult(item.id), PRICE_SCALE); }   // ikan Samudra Follower: harga/kg dikunci server saat tangkap (item.sp), tanpa pengali harian
+function priceOf(item) { const f = FISH_BY_ID[item.id]; if (f && f.sf) return f.sf2 ? NW.FM.sf2Price(item.sp || 0, item.w, PRICE_SCALE) : NW.FM.priceFor({ price: item.sp || 0 }, item.w, 1, PRICE_SCALE); return NW.FM.priceFor(f, item.w, priceMult(item.id), PRICE_SCALE); }   // ikan Samudra Follower: harga/kg dikunci server saat tangkap (item.sp), tanpa pengali harian
 
 // ---------- Input ----------
 function press(px) {

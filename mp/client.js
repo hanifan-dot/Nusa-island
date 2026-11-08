@@ -58,7 +58,7 @@ function local() {
 }
 function profile() {
   let name = "Pemancing", rank = 0; try { name = NW.look.playerName(); rank = NW.look.rank ? NW.look.rank() : 0; } catch (e) {}
-  return { n: name, r: rank | 0, rd: Math.max(0, Math.min(9, (N().S.up && N().S.up.rod) | 0)) };
+  return { n: name, r: rank | 0, rd: Math.max(0, Math.min(19, (N().S.up && N().S.up.rod) | 0)) };
 }
 
 // ---------- jam server (siang/malam sama untuk semua pemain di server yang sama) ----------

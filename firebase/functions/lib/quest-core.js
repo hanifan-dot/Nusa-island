@@ -56,7 +56,7 @@
    *  yang bisa: menolak klaim yang mustahil bagi kemampuan joran TERVERIFIKASI. Kemampuan = max(joran upgrade reguler (level dari server) x 1,15 [maks Joran Pelaut],
    *  100 kg bila Joran WhatsApp DIMILIKI [bukan sekadar terpasang: laporan tertunda saat dilepas tetap sah]). Pengali PLAUS (toleransi 2x + overload besar)
    *  sengaja longgar supaya tangkapan sah joran mana pun, ikan lama, dan overload tidak ditolak. */
-  const ROD_CAP = [8, 18, 40, 80, 150, 200, 260, 330, 420, 500];          // cermin data.js UPGRADES.rod.cap (dijaga uji kesamaan)
+  const ROD_CAP = [8, 18, 40, 80, 150, 200, 260, 330, 420, 500, 525, 550, 575, 600, 625, 650, 675, 700, 725, 750];          // cermin data.js UPGRADES.rod.cap (dijaga uji kesamaan)
   const STREAK_CAP_MUL = 1.15, PLAUS = 20;
   function plausKg(rodLv, doc) {
     const lv = Math.max(0, Math.min(ROD_CAP.length - 1, Number.isInteger(rodLv) ? rodLv : 0));
