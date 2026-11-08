@@ -54,6 +54,12 @@ const ownerTok = { role: "owner" };
   ok("s2 tulis pertama rev 1", w1.ok && w1.rev === 1, w1);
   const l1 = await S.loadSave(a);
   ok("s3 baca kembali identik", l1.exists && l1.data === d1 && l1.rev === 1 && l1.summary.money === 120);
+  // HEMAT BACA: loadSave{metaOnly} tidak menjalankan overlay ekonomi (dulu 2 baca → 1), muat penuh tetap menerapkan overlay + enforce
+  { let ov = 0; const S2 = core.makeServer(db, { now: () => T, overlay: async () => { ov++; return null; }, enforce: (x) => ({ save: x }) });
+    const m = await S2.loadSave(a, { metaOnly: true });
+    ok("s3a metaOnly: tanpa data & tanpa overlay (hemat 1 baca)", m.exists && m.data === undefined && m.rev === 1 && ov === 0, { ov });
+    const f = await S2.loadSave(a);
+    ok("s3b muat penuh tetap menjalankan overlay ekonomi", f.data === d1 && ov === 1, { ov }); }
   ok("s4 akun B tidak melihat data A", (await S.loadSave(b)).exists === false);
   ok("s5 UID di payload diabaikan (tidak ada jalur baca uid lain)", (await S.loadSave(Object.assign({}, b, {}))).exists === false);
   await rej("s6 tanpa login ditolak", S.loadSave(null), "unauthenticated");

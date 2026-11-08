@@ -229,7 +229,8 @@
       // --- pemain biasa: hanya data milik uid yang terverifikasi ---
       async loadSave(auth, p) {
         const uid = requireAuth(auth); const r = await readDoc(`users/${uid}/saves/current`);
-        if (r.data && opts && typeof opts.overlay === "function") {   // koin/upgrade/rumah selalu dari server saat dimuat
+        // HEMAT BACA: pemeriksaan versi (metaOnly) membuang `data`, jadi overlay ekonomi (1 baca dokumen ekonomi) tidak perlu dijalankan.
+        if (r.data && !(p && p.metaOnly === true) && opts && typeof opts.overlay === "function") {   // koin/upgrade/rumah selalu dari server saat dimuat
           const au = await opts.overlay(uid);
           if (au) { try { const e = opts.enforce(JSON.parse(r.data), au); r.data = JSON.stringify(e.save); r.eco = true; } catch (e) {} }
         }

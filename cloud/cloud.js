@@ -215,7 +215,8 @@
     push().then(checkRemote);
   }
   function wire() {
-    document.addEventListener("visibilitychange", () => { if (document.hidden) { cloud.flush(); } else checkRemote(); });
+    let lastVis = 0;   // HEMAT BACA: kembali ke tab berulang kali (ganti aplikasi) tidak memicu cek versi lebih dari sekali per 60 dtk; polling berkala tetap berjalan
+    document.addEventListener("visibilitychange", () => { if (document.hidden) { cloud.flush(); } else if (Date.now() - lastVis > 60000) { lastVis = Date.now(); checkRemote(); } });
     window.addEventListener("online", () => { retryN = 0; push().then(checkRemote); });
     window.addEventListener("offline", () => setStatus("offline", cloud.errText({ network: true })));
     pollT = setInterval(() => { if (!document.hidden) checkRemote(); }, REMOTE_POLL);

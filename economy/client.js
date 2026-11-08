@@ -9,7 +9,7 @@
 window.NW = window.NW || {};
 const N = () => window.Nusa;
 const A = () => NW.shopApi;
-let st = null, busy = false, booting = false, q = [], rq = [], lastErr = "", inflight = null, timer = null;
+let lastState = 0, st = null, busy = false, booting = false, q = [], rq = [], lastErr = "", inflight = null, timer = null;
 const schedule = (ms) => { if (timer) return; timer = setTimeout(() => { timer = null; flush(); }, ms); };
 const rid = () => "E" + Date.now().toString(36) + Math.floor(Math.random() * 1e9).toString(36) + Math.floor(Math.random() * 1e9).toString(36);
 const live = () => { const a = A(); return !!(a && a.live && !a.sim && !a.isGuest() && !(NW.cloud && NW.cloud.sandbox)); };
@@ -35,7 +35,7 @@ async function ensure() {
       const S = N().S, fish = (S.cooler || []).concat((S.home && S.home.placedFish) || []).filter((x) => x && x.uid && !(NW.sf && NW.sf.isSF(x.id)) && !(NW.sf2 && NW.sf2.isSf2(x.id))).map((x) => ({ uid: x.uid, id: x.id, w: x.w }));
       v = await call("ecoInit", { money: S.money, up: S.up, homeLv: S.home && S.home.level, cooler: fish });
     }
-    apply(v); await flush();
+    apply(v); lastState = Date.now(); await flush();
     // ikan di coolbox yang belum tercatat server (mis. tangkapan saat offline) dilaporkan ulang — tetap kena batas laju server
     const have = new Set(st.box || []);
     for (const it of N().S.cooler || []) if (it && it.uid && !(NW.sf && NW.sf.isSF(it.id)) && !(NW.sf2 && NW.sf2.isSf2(it.id)) && !have.has(it.uid) && !q.some((x) => x.uid === it.uid)) q.push({ id: it.id, w: it.w, uid: it.uid });
@@ -119,8 +119,14 @@ async function equip(slot, on) { if (!active()) throw new Error("offline"); cons
 async function sf2Info() { if (!active()) return { on: false }; return call("ecoSf2Info", {}); }
 async function sf2Catch(spot, opId) { if (!active()) throw new Error("Masuk akun dulu untuk memancing di Samudra Follower."); const r = await call("ecoSf2Catch", { opId, spot }); apply(r); return r; }
 async function sfInfo() { if (!active()) return { on: false, fish: [] }; return call("ecoSfInfo", {}); }
-NW.eco = { equip, sfInfo, sf2Info, sf2Catch, aur: () => (st && st.aur) || null, applyState: apply, active, ensure, flush, onCatch, release, sell, drop, reward, mission, buy, balance: () => (st ? st.balance : 0), state: () => st, lastError: () => lastErr, _reset: () => { st = null; q = []; rq = []; inflight = null; } };
-setInterval(() => { if (!document.hidden && live()) ensure().then(() => flush()); }, 45000);
-document.addEventListener("visibilitychange", () => { if (!document.hidden && live()) ensure(); });
+NW.eco = { equip, sfInfo, sf2Info, sf2Catch, aur: () => (st && st.aur) || null, applyState: apply, active, ensure, flush, onCatch, release, sell, drop, reward, mission, buy, balance: () => (st ? st.balance : 0), state: () => st, lastError: () => lastErr, _reset: () => { lastState = 0; st = null; q = []; rq = []; inflight = null; } };
+// HEMAT BACA FIRESTORE: dulu `ensure()` (= ecoState, 2 baca) dipanggil tiap 45 dtk dan tiap kembali ke tab (~160 baca/jam/pemain).
+// Sekarang: antrean tangkapan/hadiah tetap dikirim tiap 45 dtk (tanpa baca bila kosong; jawaban server sudah memuat saldo terbaru),
+// sedangkan penyegaran ecoState hanya bila state lokal sudah basi (>5 mnt) atau tab kembali setelah >60 dtk. Setiap jawaban server
+// (tangkap, jual, beli, hadiah, SF2…) tetap memperbarui saldo seketika lewat apply(), jadi tampilan tidak menjadi basi saat bermain.
+const ECO_STALE_MS = 300000, ECO_VIS_GAP = 60000;
+const refreshIfStale = (minAge) => { if (live() && !(st && Date.now() - lastState < minAge)) return ensure(); };
+setInterval(() => { if (!document.hidden && live()) { flush(); refreshIfStale(ECO_STALE_MS); } }, 45000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && live()) refreshIfStale(ECO_VIS_GAP); });
 setInterval(() => { if (!st && live() && !booting) ensure(); }, 2500);   // begitu login terdeteksi → aktifkan ekonomi server
 })();
