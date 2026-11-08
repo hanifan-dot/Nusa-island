@@ -415,7 +415,7 @@ jobs:
             wready=tidak
             for i in 1 2 3 4 5 6; do
               if curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/shop/wallet.js?v=$G" | grep -Fq "WALLET_POLL_MS = 180000" && \
-                 curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/sf2/sf2.js?v=$G" | grep -Fq "bo("; then wready=ya; break; fi
+                 curl -fsS --max-time 20 -H "Cache-Control: no-cache" "https://nusa-island-d2023.web.app/sf2/sf2.js?v=$G" | grep -Fq "retryGap(fails, 10000)"; then wready=ya; break; fi
               sleep 5
             done
             [ "$wready" = "ya" ] || { echo "::error::Backoff klien atau dompet 180 detik belum termuat live"; exit 1; }
