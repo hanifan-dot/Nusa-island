@@ -160,7 +160,8 @@ jobs:
           grep -Fq "'sf2/firsts'" backend/server/shop/db.js
           grep -Fq 'A-Za-z0-9_' backend/worker/index.js
           for f in sf2/sf2.js sf2/area.js sf2/draw.js sf2/sf2.css economy/sf2-core.js firebase/functions/lib/sf2-core.js; do test -s "game/$f" || { echo "::error::Berkas SF V2 hilang: $f"; exit 1; }; done
-          for t in unit-komunitas unit-owner-fish unit-fishmath unit-recovery-ui unit-recovery-portal unit-sf2 unit-sf2-map unit-quest unit-streak unit-shop unit-rilis unit-sf-server unit-podium unit-house-social unit-fashion unit-pond; do node game/tests/$t.js; done
+          for t in unit-komunitas unit-owner-fish unit-fishmath unit-recovery-ui unit-sf2 unit-sf2-map unit-quest unit-streak unit-shop unit-rilis unit-sf-server unit-podium unit-house-social unit-fashion unit-pond; do node game/tests/$t.js; done
+          (cd game && node tests/unit-recovery-portal.js)  # mengandalkan root game untuk membaca ajukan-pemulihan.html
           node - <<'NODE'
           const fs = require('node:fs'); const rd = (p) => fs.readFileSync(p, 'utf8'); let bad = 0;
           const fail = (m) => { console.error('::error::' + m); bad++; };
