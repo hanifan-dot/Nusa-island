@@ -1,19 +1,22 @@
-# D1 TAHAP — manual, hanya Owner. Menaikkan/menurunkan tahap D1 pada nusa-api TANPA menyentuh data, game, Hosting, atau multiplayer.
-#  kode-off    : deploy backend_sha dengan NUSA_D1_MODE=off, NUSA_D1_MIGRATE=tidak (mis. agar /api/d1/reconcile tersedia).
-#  buka-salin  : NUSA_D1_MODE=off + NUSA_D1_MIGRATE=ya  (membuka kunci SALIN data; hanya Owner yang bisa memicunya lewat scripts/d1-tahap.mjs salin).
-#  tutup-salin : NUSA_D1_MIGRATE=tidak (mengunci kembali).
-#  shadow      : NUSA_D1_MODE=shadow + NUSA_D1_MIGRATE=tidak. Firebase TETAP sumber utama. Wajib input bukti = "rekonsiliasi-go" (atestasi Owner bahwa scripts/d1-tahap.mjs rekonsiliasi memberi VERDICT: GO).
-#  kembali-off : NUSA_D1_MODE=off + NUSA_D1_MIGRATE=tidak (rollback tahap; data D1 tidak dihapus).
-# Mode ON tidak ada (ditolak kode). Semua tahap: release-status & probe jalur lama (health, Cloud Save, pembayaran/QRIS, SF, Podium) dibandingkan sebelum/sesudah; variable & secret produksi dipertahankan (--keep-vars) kecuali dua variable D1 yang sengaja diubah.
+# D1 TAHAP — manual, hanya Owner. Mengatur HANYA variable NUSA_D1_MODE pada nusa-api; tidak menyentuh data, game, Hosting, atau multiplayer.
+#  kode-off    : deploy backend_sha dengan NUSA_D1_MODE=off (mis. agar /api/d1/reconcile tersedia).
+#  shadow      : NUSA_D1_MODE=shadow. Firebase TETAP sumber utama. Wajib bukti = "rekonsiliasi-go" (atestasi Owner: scripts/d1-tahap.mjs rekonsiliasi memberi VERDICT: GO). Ditolak bila kunci salin NUSA_D1_MIGRATE masih "ya".
+#  kembali-off : NUSA_D1_MODE=off (rollback tahap; data D1 tidak dihapus).
+# Mode ON tidak ada (ditolak kode). NUSA_D1_MIGRATE TIDAK diubah workflow ini (nilai live dipertahankan apa adanya); membuka/menutup kunci salin dilakukan Owner di dasbor Cloudflare (Workers > nusa-api > Settings > Variables).
+# POLA DEPLOY AMAN (bukan --keep-vars/--var): config deploy disusun dari variable plain_text LIVE (semuanya, nilai persis) + NUSA_D1_MODE=target + binding D1/assets dari repo, lalu DIBUKTIKAN SEBELUM deploy:
+#   (1) .github/scripts/d1-tahap-config.py verify  : tiap variable live ada & sama, tidak ada variable asing, tidak ada nama secret di variable, NUSA_DB id benar, assets ada;
+#   (2) wrangler deploy --dry-run                  : daftar binding menurut wrangler = live (+NUSA_D1_MODE) + NUSA_DB + ASSETS.
+#   Bila salah satu gagal, atau ada binding live yang tipenya tak bisa dijamin, workflow berhenti SEBELUM deploy. Secret tidak ada di config (wrangler deploy tidak menyentuh secret; terbukti utuh pada Run #2 dan diverifikasi lagi sesudah deploy).
+# Sesudah deploy: variable/secret/binding dibandingkan dengan snapshot sebelum; release-status (release-guard compare) dan probe jalur lama (health, Cloud Save, pembayaran/QRIS, SF, Podium) sebelum = sesudah.
 # Secret (sudah ada): CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, NUSA_BACKEND_READ_TOKEN; tidak pernah dicetak.
-name: D1 Tahap (kode-off / buka-salin / tutup-salin / shadow / kembali-off)
+name: D1 Tahap (kode-off / shadow / kembali-off)
 on:
   workflow_dispatch:
     inputs:
       tahap:
-        description: "kode-off | buka-salin | tutup-salin | shadow | kembali-off"
+        description: "kode-off | shadow | kembali-off"
         type: choice
-        options: ["kode-off", "buka-salin", "tutup-salin", "shadow", "kembali-off"]
+        options: ["kode-off", "shadow", "kembali-off"]
         default: "kode-off"
       backend_sha:
         description: "SHA 40 heksadesimal backend (repo control-center) yang akan ter-deploy; wajib memuat /api/d1/reconcile"
@@ -47,7 +50,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - name: Hanya Owner, hanya dari main, konfirmasi & SHA benar, tentukan nilai variable
+      - name: Hanya Owner, hanya dari main, konfirmasi & SHA benar, tentukan target mode
         env:
           ACTOR: ${{ github.actor }}
           OWNER: ${{ github.repository_owner }}
@@ -60,12 +63,11 @@ jobs:
           [ "$CONFIRM" = "$TAHAP" ] || { echo "::error::Konfirmasi harus persis nama tahap ($TAHAP)."; exit 1; }
           printf '%s' "$BACKEND_SHA" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::backend_sha harus 40 heksadesimal huruf kecil."; exit 1; }
           case "$TAHAP" in
-            kode-off|tutup-salin|kembali-off) M=off; G=tidak ;;
-            buka-salin) M=off; G=ya ;;
-            shadow) M=shadow; G=tidak; [ "$BUKTI" = "rekonsiliasi-go" ] || { echo "::error::Tahap shadow wajib bukti=rekonsiliasi-go (hasil scripts/d1-tahap.mjs rekonsiliasi: VERDICT GO)."; exit 1; } ;;
+            kode-off|kembali-off) M=off ;;
+            shadow) M=shadow; [ "$BUKTI" = "rekonsiliasi-go" ] || { echo "::error::Tahap shadow wajib bukti=rekonsiliasi-go (hasil scripts/d1-tahap.mjs rekonsiliasi: VERDICT GO)."; exit 1; } ;;
             *) echo "::error::Tahap tidak dikenal"; exit 1 ;;
           esac
-          echo "MODE_TARGET=$M" >> "$GITHUB_ENV"; echo "MIGRATE_TARGET=$G" >> "$GITHUB_ENV"; echo "Target: NUSA_D1_MODE=$M NUSA_D1_MIGRATE=$G (mode on tidak ada)"
+          echo "MODE_TARGET=$M" >> "$GITHUB_ENV"; echo "Target: NUSA_D1_MODE=$M (satu-satunya variable yang diubah; mode on tidak ada)"
       - name: Verifikasi secret tersedia (tanpa menampilkan nilai)
         env:
           RT: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
@@ -78,6 +80,16 @@ jobs:
           echo "::add-mask::$T"; echo "::add-mask::$A"
           printf '%s' "$A" | grep -Eq '^[a-fA-F0-9]{32}$' || { echo "::error::CLOUDFLARE_ACCOUNT_ID bukan 32 heksadesimal."; exit 1; }
           echo "CLOUDFLARE_API_TOKEN=$T" >> "$GITHUB_ENV"; echo "CLOUDFLARE_ACCOUNT_ID=$A" >> "$GITHUB_ENV"
+      - name: Ambil skrip pengaman dari main
+        uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/Nusa-island
+          ref: ${{ github.sha }}
+          path: _ci
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: Tes pengaman config (pembayaran/QRIS, Firebase, Cloud Save, SF, Podium, secret, binding D1 tidak boleh hilang) — sebelum menyentuh Cloudflare
+        run: python3 -W error _ci/.github/scripts/test-d1-tahap-config.py
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/nusa-island-control-center
@@ -161,24 +173,36 @@ jobs:
           const ok = new Set(['plain_text', 'secret_text', 'assets', 'd1']);
           for (const b of d.result.bindings) if (!ok.has(b.type)) throw Error('Binding memerlukan penanganan khusus: ' + b.type);
           const cur = by.NUSA_D1_MODE?.text ?? '(tidak ada)', mig = by.NUSA_D1_MIGRATE?.text ?? '(tidak ada)';
-          console.log('Sekarang: NUSA_D1_MODE=' + cur + ' NUSA_D1_MIGRATE=' + mig + ' → target: ' + process.env.MODE_TARGET + ' / ' + process.env.MIGRATE_TARGET);
+          console.log('Sekarang: NUSA_D1_MODE=' + cur + ' NUSA_D1_MIGRATE=' + mig + ' → target mode: ' + process.env.MODE_TARGET + ' (NUSA_D1_MIGRATE tidak diubah)');
           if (!['off', 'shadow', '(tidak ada)'].includes(cur)) throw Error('NUSA_D1_MODE produksi bernilai tak dikenal; berhenti.');
-          if (process.env.TAHAP === 'buka-salin' && cur === 'shadow') throw Error('Buka-salin hanya dari mode off (jalankan kembali-off dulu).');
-          fs.writeFileSync(process.argv[3], JSON.stringify(d.result.bindings.filter(b => ['plain_text', 'secret_text'].includes(b.type) && !['NUSA_D1_MODE', 'NUSA_D1_MIGRATE'].includes(b.name)).map(b => ({ name: b.name, type: b.type, text: b.type === 'plain_text' ? b.text : null }))), { mode: 0o600 });
+          if (process.env.TAHAP === 'shadow' && mig === 'ya') throw Error('Kunci salin NUSA_D1_MIGRATE masih "ya": tutup dulu di dasbor Cloudflare (ubah ke tidak), lalu ulangi.');
+          fs.writeFileSync(process.argv[3], JSON.stringify(d.result.bindings.filter(b => ['plain_text', 'secret_text'].includes(b.type) && b.name !== 'NUSA_D1_MODE').map(b => ({ name: b.name, type: b.type, text: b.type === 'plain_text' ? b.text : null }))), { mode: 0o600 });
           NODE
-      - name: Deploy nusa-api (variable live dipertahankan; hanya NUSA_D1_MODE & NUSA_D1_MIGRATE diatur; tanpa Hosting/multiplayer)
+      - name: Susun config deploy dari variable LIVE dan buktikan utuh (variable, binding NUSA_DB, assets, secret) — SEBELUM deploy
         run: |
           set -e
           cd backend/worker
-          CONFIG=".nusa-d1-tahap-$$.toml"; trap 'rm -f "$CONFIG"' EXIT
-          awk '/^\[vars\][[:space:]]*$/ {skip=1; next} /^\[+[^]]+\]+[[:space:]]*$/ {skip=0} !skip {print}' wrangler.toml > "$CONFIG"
-          grep -Fxq 'name = "nusa-api"' "$CONFIG"
-          grep -Fxq '[[d1_databases]]' "$CONFIG" || { echo "::error::Blok D1 hilang dari config sementara."; exit 1; }
-          ! grep -Fq '[vars]' "$CONFIG" || { echo "::error::vars masih ada."; exit 1; }
-          npx --yes wrangler@4 deploy --config "$CONFIG" --keep-vars --strict --var "NUSA_D1_MODE:$MODE_TARGET" --var "NUSA_D1_MIGRATE:$MIGRATE_TARGET" --dry-run >/dev/null
-          npx --yes wrangler@4 deploy --config "$CONFIG" --keep-vars --strict --var "NUSA_D1_MODE:$MODE_TARGET" --var "NUSA_D1_MIGRATE:$MIGRATE_TARGET" > "$RUNNER_TEMP/deploy.log" 2>&1 || { grep -v '^env\.' "$RUNNER_TEMP/deploy.log" | tail -20; echo "::error::Deploy gagal."; exit 1; }
+          CONFIG=".nusa-d1-tahap-$$.toml"; echo "CONFIG=$CONFIG" >> "$GITHUB_ENV"
+          awk '/^\[vars\][[:space:]]*$/ {skip=1; next} /^\[+[^]]+\]+[[:space:]]*$/ {skip=0} !skip {print}' wrangler.toml > ".base-$$.toml"
+          grep -Fxq 'name = "nusa-api"' ".base-$$.toml"
+          grep -Fxq '[[d1_databases]]' ".base-$$.toml" || { echo "::error::Blok D1 hilang dari config dasar."; exit 1; }
+          P="$GITHUB_WORKSPACE/_ci/.github/scripts/d1-tahap-config.py"; SB="$RUNNER_TEMP/rg/set_before.json"
+          python3 "$P" build "$SB" ".base-$$.toml" "$CONFIG" "$MODE_TARGET"
+          rm -f ".base-$$.toml"
+          python3 "$P" verify "$SB" "$CONFIG" "$MODE_TARGET" "$D1_ID"
+      - name: Dry-run wrangler dan buktikan daftar binding = live (tanpa --keep-vars/--var; nilai tidak ditampilkan)
+        run: |
+          set -e
+          cd backend/worker
+          npx --yes wrangler@4 deploy --config "$CONFIG" --strict --dry-run > "$RUNNER_TEMP/dry.log" 2>&1 || { grep -v '^env\.' "$RUNNER_TEMP/dry.log" | tail -15; echo "::error::Dry-run gagal; deploy dibatalkan."; rm -f "$CONFIG"; exit 1; }
+          python3 "$GITHUB_WORKSPACE/_ci/.github/scripts/d1-tahap-config.py" dryrun "$RUNNER_TEMP/rg/set_before.json" "$RUNNER_TEMP/dry.log" "$MODE_TARGET" "$D1_ID" || { rm -f "$CONFIG"; exit 1; }
+      - name: Deploy nusa-api (config terbukti utuh; hanya NUSA_D1_MODE berubah; tanpa Hosting/multiplayer)
+        run: |
+          set -e
+          cd backend/worker; trap 'rm -f "$CONFIG"' EXIT
+          npx --yes wrangler@4 deploy --config "$CONFIG" --strict > "$RUNNER_TEMP/deploy.log" 2>&1 || { grep -v '^env\.' "$RUNNER_TEMP/deploy.log" | tail -20; echo "::error::Deploy gagal. Periksa health lalu jalankan tahap kembali-off bila perlu."; exit 1; }
           grep -v '^env\.' "$RUNNER_TEMP/deploy.log" | tail -8
-      - name: Verifikasi SESUDAH (variable/secret utuh, mode & kunci salin sesuai target, release-status sama, jalur lama hidup)
+      - name: Verifikasi SESUDAH (variable/secret/binding utuh, mode sesuai target, release-status sama, jalur lama hidup)
         run: |
           set -e
           curl -fsS --retry 3 --max-time 20 "$NUSA_API_BASE/api/health" >/dev/null || { echo "::error::Health gagal. Jalankan tahap kembali-off."; exit 1; }
@@ -192,9 +216,8 @@ jobs:
             if (!n || n.type !== old.type || (old.type === 'plain_text' && n.text !== old.text)) throw Error('PENTING: konfigurasi produksi berubah (' + old.name + '). Periksa rollback nusa-api.');
           }
           const db = by.NUSA_DB; if (!db || db.type !== 'd1' || db.id !== process.env.D1_ID) throw Error('Binding NUSA_DB hilang/berubah');
-          if (by.NUSA_D1_MODE?.text !== process.env.MODE_TARGET) throw Error('NUSA_D1_MODE bukan ' + process.env.MODE_TARGET + ' (override --var tidak berlaku? atur manual di dasbor lalu ulangi verifikasi)');
-          if (by.NUSA_D1_MIGRATE?.text !== process.env.MIGRATE_TARGET) throw Error('NUSA_D1_MIGRATE bukan ' + process.env.MIGRATE_TARGET);
-          console.log('OK: variabel/secret produksi utuh; NUSA_DB terikat; NUSA_D1_MODE=' + process.env.MODE_TARGET + '; NUSA_D1_MIGRATE=' + process.env.MIGRATE_TARGET + '.');
+          if (by.NUSA_D1_MODE?.text !== process.env.MODE_TARGET) throw Error('NUSA_D1_MODE bukan ' + process.env.MODE_TARGET + ' (atur manual di dasbor lalu ulangi verifikasi)');
+          console.log('OK: variabel/secret produksi utuh (termasuk NUSA_D1_MIGRATE); NUSA_DB terikat; NUSA_D1_MODE=' + process.env.MODE_TARGET + '.');
           NODE
           CODE=$(curl -sS --retry 3 --max-time 20 -o "$RUNNER_TEMP/rg/rs_after.raw" -w '%{http_code}' "$NUSA_API_BASE/api/release-status" || echo 000)
           [ "$CODE" = "200" ] || { echo "::error::release-status SESUDAH = HTTP $CODE"; exit 1; }
