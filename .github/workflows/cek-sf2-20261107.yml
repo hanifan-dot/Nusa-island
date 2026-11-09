@@ -9,7 +9,7 @@ permissions:
   contents: read
 jobs:
   test:
-    name: Uji pasangan SHA Recovery V2 (game d8f88d9 + backend 3699959, identitas + Cloud Save)
+    name: Uji paket Recovery V2 + kuota (game 71290dd + backend 25e827b, backoff + cache)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
-          ref: d8f88d9f8b5d32fbd46300b0f1da81f915febf15
+          ref: 71290ddeac4d26e29eecb26f257609e107eae4e5
           path: game
           persist-credentials: false
       - name: Akses baca backend privat
@@ -29,7 +29,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/nusa-island-control-center
-          ref: 3699959c0f1749ee7c0f4bea621c874351c8a325
+          ref: 25e827b63c4fc579f293db49b0ca48972c0cffc6
           token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
           persist-credentials: false
           path: backend
