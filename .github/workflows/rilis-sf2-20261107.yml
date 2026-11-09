@@ -1,4 +1,4 @@
-# Rilis manual Recovery Center V2 + hotfix KUOTA (game a123aed, backend 25e827b): cache config 15 dtk, breaker Firestore 429, backoff klien, dompet 180 dtk. Guard snapshot live tetap wajib; OWNER FISH, Mythic 2%, harga ikan x0,75 tetap.
+# Rilis manual Recovery Center V2 + hotfix KUOTA (game 71290dd, backend 25e827b): cache config 15 dtk, breaker Firestore 429, backoff klien, dompet 180 dtk. Guard snapshot live tetap wajib; OWNER FISH, Mythic 2%, harga ikan x0,75 tetap.
 # Berdasarkan workflow sukses "RILIS Nusa Island Quest Owner" (run sukses terbaru). Menambah ecoSf2Info/ecoSf2Catch (Worker) + aset sf2/ (Hosting). Quest Owner, Joran WhatsApp, Tas, Aurora, Cloud Save, SF lama, multiplayer, QRIS, Payment Center, flags & secrets dipertahankan.
 # ROLLBACK ke paket sebelum Recovery V2 (rilis OWNER FISH): mode=rollback, game_sha=94e799b6908f85e230936b513d7ee93108078bf3, backend_sha=9644efc22593b65f26d9baae6459e86296f6873a, konfirmasi=deploy, target=api-dashboard+hosting, multiplayer=ya.
 name: RILIS Nusa Island Samudra Follower V2
@@ -55,12 +55,12 @@ jobs:
           IN_B: ${{ inputs.backend_sha }}
         run: |
           set -e
-          G="${IN_G:-a123aed8b40fb57f132497f4f5e60457903ffc89}"; B="${IN_B:-25e827b63c4fc579f293db49b0ca48972c0cffc6}"
+          G="${IN_G:-71290ddeac4d26e29eecb26f257609e107eae4e5}"; B="${IN_B:-25e827b63c4fc579f293db49b0ca48972c0cffc6}"
           if [ "$MODE" = "rollback" ]; then
             [ -n "$IN_G" ] && [ -n "$IN_B" ] || { echo "::error::Rollback WAJIB mengisi game_sha dan backend_sha produksi sebelumnya"; exit 1; }
           fi
           if [ "$MODE" = "deploy" ]; then
-            [ "$G" = "a123aed8b40fb57f132497f4f5e60457903ffc89" ] && [ "$B" = "25e827b63c4fc579f293db49b0ca48972c0cffc6" ] || { echo "::error::Hanya pasangan SHA rilis hasil integrasi aman yang diizinkan"; exit 1; }
+            [ "$G" = "71290ddeac4d26e29eecb26f257609e107eae4e5" ] && [ "$B" = "25e827b63c4fc579f293db49b0ca48972c0cffc6" ] || { echo "::error::Hanya pasangan SHA rilis hasil integrasi aman yang diizinkan"; exit 1; }
           fi
           printf '%s' "$G" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::game_sha harus 40 hex"; exit 1; }
           printf '%s' "$B" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::backend_sha harus 40 hex"; exit 1; }
