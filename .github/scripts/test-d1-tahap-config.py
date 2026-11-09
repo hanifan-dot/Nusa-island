@@ -22,6 +22,40 @@ def live(vars_=VARS, secrets=SECRETS, d1=True, extra=()):
     if d1: b.append({"type": "d1", "name": "NUSA_DB", "id": D1})
     return {"success": True, "result": {"bindings": b + list(extra)}}
 
+class Salin(unittest.TestCase):
+    """buka-salin / tutup-salin: HANYA NUSA_D1_MIGRATE berubah; mode live, semua variable, secret, NUSA_DB, assets utuh."""
+    def setUp(self):
+        self.d = tempfile.mkdtemp(); self.p = lambda n: os.path.join(self.d, n); wr(self.p("base.toml"), BASE)
+    def run_(self, mig, *a):
+        env = dict(os.environ, MIG_TARGET=mig); r = subprocess.run([sys.executable, TOOL, *a], capture_output=True, text=True, env=env); return r.returncode, r.stdout + r.stderr
+    def go(self, mig, vars_=None):
+        wr(self.p("live.json"), json.dumps(live(vars_ or {k: v for k, v in VARS.items() if k != "NUSA_D1_MIGRATE"})))
+        return self.run_(mig, "build", self.p("live.json"), self.p("base.toml"), self.p("out.toml"), "keep")
+    def test_buka_dan_tutup_hanya_ubah_kunci(self):
+        import tomllib
+        for mig in ("ya", "tidak"):
+            rc, out = self.go(mig); self.assertEqual(rc, 0, out)
+            with open(self.p("out.toml"), "rb") as fh: v = tomllib.load(fh)["vars"]
+            for k, val in VARS.items():
+                if k != "NUSA_D1_MIGRATE": self.assertEqual(v[k], val, k)
+            self.assertEqual(v["NUSA_D1_MIGRATE"], mig); self.assertEqual(v["NUSA_D1_MODE"], "off")
+            rc, out = self.run_(mig, "verify", self.p("live.json"), self.p("out.toml"), "keep", D1); self.assertEqual(rc, 0, out)
+    def test_mode_shadow_live_dipertahankan(self):
+        import tomllib
+        rc, out = self.go("tidak", {**VARS, "NUSA_D1_MODE": "shadow"}); self.assertEqual(rc, 0, out)
+        with open(self.p("out.toml"), "rb") as fh: self.assertEqual(tomllib.load(fh)["vars"]["NUSA_D1_MODE"], "shadow")
+    def test_mode_aneh_atau_target_aneh_ditolak(self):
+        self.assertEqual(self.go("ya", {**VARS, "NUSA_D1_MODE": "on"})[0], 1)
+        for bad in ("YA", "on", "1"): self.assertEqual(self.go(bad)[0], 1, bad)
+    def test_kunci_diubah_di_luar_target_dan_variabel_hilang_terdeteksi(self):
+        self.assertEqual(self.go("ya")[0], 0); t = rd(self.p("out.toml"))
+        wr(self.p("out.toml"), t.replace('NUSA_D1_MIGRATE = "ya"', 'NUSA_D1_MIGRATE = "tidak"')); rc, out = self.run_("ya", "verify", self.p("live.json"), self.p("out.toml"), "keep", D1); self.assertEqual(rc, 1); self.assertIn("berbeda", out)
+        wr(self.p("out.toml"), re.sub(r"^ENABLE_SHOP_PRODUCTION = .*\n", "", t, flags=re.M)); rc, out = self.run_("ya", "verify", self.p("live.json"), self.p("out.toml"), "keep", D1); self.assertEqual(rc, 1); self.assertIn("HILANG", out)
+    def test_tanpa_target_kunci_dipertahankan(self):
+        import tomllib
+        rc, out = self.go("", VARS); self.assertEqual(rc, 0, out)
+        with open(self.p("out.toml"), "rb") as fh: self.assertEqual(tomllib.load(fh)["vars"]["NUSA_D1_MIGRATE"], "ya")
+
 class T(unittest.TestCase):
     def setUp(self):
         self.d = tempfile.mkdtemp(); self.p = lambda n: os.path.join(self.d, n)

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Pengaman deploy D1 Tahap: membangun config deploy dari konfigurasi LIVE dan MEMBUKTIKAN, sebelum deploy, bahwa variable,
+"""Pengaman deploy D1 Tahap (mode: off|shadow|keep; env MIG_TARGET=ya|tidak mengatur NUSA_D1_MIGRATE, selain itu semua variable live dipertahankan persis): membangun config deploy dari konfigurasi LIVE dan MEMBUKTIKAN, sebelum deploy, bahwa variable,
 binding (termasuk NUSA_DB) dan secret tidak hilang. Tidak mencetak nilai variable/secret (hanya nama).
   build   SET_BEFORE BASE_TOML OUT MODE   : OUT = BASE_TOML (tanpa [vars]) + [vars] berisi SEMUA plain_text live, NUSA_D1_MODE=MODE (nilai lain persis live, termasuk NUSA_D1_MIGRATE)
   verify  SET_BEFORE OUT MODE D1_ID       : parse OUT (TOML) dan buktikan: vars == live (kecuali NUSA_D1_MODE=MODE), tidak ada nama secret di vars, d1 NUSA_DB id benar, assets ASSETS, name nusa-api
   dryrun  SET_BEFORE DRYLOG MODE D1_ID    : buktikan daftar binding hasil `wrangler deploy --dry-run` = live plain_text (+NUSA_D1_MODE) + NUSA_DB (D1) + ASSETS; nilai tidak dibaca/dicetak
 Setiap kegagalan = exit 1 SEBELUM deploy."""
-import json, re, sys, tomllib
+import json, os, re, sys, tomllib
 
 ALLOWED = {"plain_text", "secret_text", "assets", "d1"}
 NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -28,11 +28,21 @@ def live(path):
     return plain, secrets, d1, assets
 
 def expected_vars(plain, mode):
-    e = dict(plain); e["NUSA_D1_MODE"] = mode; return e
+    """mode 'keep' = pertahankan NUSA_D1_MODE live (tahap buka-salin/tutup-salin). Env MIG_TARGET (ya|tidak) = satu-satunya perubahan NUSA_D1_MIGRATE; kosong = tidak diubah."""
+    e = dict(plain)
+    if mode == "keep":
+        if plain.get("NUSA_D1_MODE", "off") not in ("off", "shadow"): die("NUSA_D1_MODE live bernilai tak dikenal; berhenti.")
+        mode = plain.get("NUSA_D1_MODE", "off")
+    e["NUSA_D1_MODE"] = mode
+    mig = os.environ.get("MIG_TARGET", "")
+    if mig:
+        if mig not in ("ya", "tidak"): die("MIG_TARGET harus ya atau tidak.")
+        e["NUSA_D1_MIGRATE"] = mig
+    return e
 
 def build(set_before, base, out, mode):
     plain, _, _, _ = live(set_before)
-    if mode not in ("off", "shadow"): die("Mode tidak diizinkan.")
+    if mode not in ("off", "shadow", "keep"): die("Mode tidak diizinkan.")
     text = open(base).read()
     if re.search(r"^\[vars\]", text, re.M): die("Config dasar masih memuat [vars].")
     ev = expected_vars(plain, mode)
