@@ -1,15 +1,23 @@
-# D1 FONDASI REMOTE (mode OFF) — manual, hanya Owner. Backend DIPIN ke 2283d49 (merge PR #46 + #47).
-# Melakukan HANYA: (1) migrasi skema D1 0001-0003 ke nusa-player-data (remote), (2) deploy Worker nusa-api dengan NUSA_D1_MODE="off".
-# TIDAK: deploy game/Hosting/multiplayer, mengaktifkan shadow/on, NUSA_D1_MIGRATE, migrasi data pemain, menulis Firestore.
-# Berhenti sebelum menyentuh apa pun bila /api/release-status tidak 200. Secret yang dipakai (sudah ada): CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, NUSA_BACKEND_READ_TOKEN. Token tidak pernah dicetak.
-# Verifikasi /api/d1/status & /api/d1/probe butuh token Owner Firebase yang TIDAK ada di CI: CI membuktikan bound/mode lewat daftar binding Worker di Cloudflare + rute terproteksi (tanpa token = 401/403, bukan 404); Owner mengecek status/probe manual sesudahnya.
-# ROLLBACK: jalankan rilis nusa-api sebelumnya dengan workflow rilis biasa (mode=rollback), atau hapus blok [[d1_databases]] lalu deploy. Tabel D1 kosong tidak memengaruhi game.
-name: D1 Fondasi Remote (mode OFF)
+# D1 FONDASI REMOTE — manual, hanya Owner. Dua mode:
+#  pasang-d1-off  : (konfirmasi "migrasi-d1-off") backend dipin 2283d49 (merge PR #46 + #47). Migrasi skema D1 0001-0003 ke nusa-player-data (remote) lalu deploy nusa-api dengan NUSA_D1_MODE="off".
+#  rollback-pre-d1: (konfirmasi "rollback-pre-d1") kembalikan kode nusa-api ke backend produksi sebelumnya 25e827b, mempertahankan SEMUA variable/secret produksi,
+#                   dan MENGHAPUS binding NUSA_DB + variable NUSA_D1_MODE dari Worker. Tabel/data di D1 TIDAK dihapus dan D1 tidak disentuh. Bisa dijalankan meski Worker live sudah punya binding bertipe d1.
+# Kedua mode: berhenti sebelum menyentuh produksi bila /api/release-status tidak 200; release-status dibandingkan sebelum/sesudah.
+# TIDAK: deploy game/Hosting/multiplayer, mengaktifkan shadow/on, NUSA_D1_MIGRATE, migrasi data pemain, menulis Firestore. Secret (sudah ada): CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, NUSA_BACKEND_READ_TOKEN; tidak pernah dicetak.
+# Verifikasi /api/d1/status & /api/d1/probe butuh token Owner Firebase yang TIDAK ada di CI: CI membuktikan bound/mode lewat daftar binding Worker di Cloudflare + rute terproteksi; Owner mengecek manual sesudahnya.
+# CATATAN: workflow rilis biasa (rilis-*.yml / deploy-api-kandidat.sh) BELUM bisa dipakai untuk rollback setelah binding d1 terpasang: skripnya menolak binding selain plain_text/secret_text/assets
+#   ("Binding memerlukan penanganan khusus: d1"). Gunakan mode rollback-pre-d1 di workflow ini.
+name: D1 Fondasi Remote (pasang OFF / rollback)
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: "pasang-d1-off = migrasi D1 + deploy mode OFF. rollback-pre-d1 = kode pra-D1 (25e827b), hapus binding NUSA_DB + NUSA_D1_MODE (tabel D1 tidak dihapus)."
+        type: choice
+        options: ["pasang-d1-off", "rollback-pre-d1"]
+        default: "pasang-d1-off"
       konfirmasi:
-        description: "Ketik persis migrasi-d1-off"
+        description: "Ketik persis: migrasi-d1-off (mode pasang) ATAU rollback-pre-d1 (mode rollback)"
         type: string
         required: true
 concurrency:
@@ -19,12 +27,15 @@ permissions:
   contents: read
 jobs:
   d1-off:
-    name: Migrasi D1 remote 0001-0003 + deploy nusa-api (NUSA_D1_MODE=off)
+    name: D1 Fondasi Remote (${{ inputs.mode }})
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 25
     env:
+      MODE: ${{ inputs.mode }}
       BACKEND_SHA: 2283d49cbef5a2e02961e88503636d44dc3741cb
+      ROLLBACK_SHA: 25e827b63c4fc579f293db49b0ca48972c0cffc6
+      TARGET_SHA: ${{ inputs.mode == 'rollback-pre-d1' && '25e827b63c4fc579f293db49b0ca48972c0cffc6' || '2283d49cbef5a2e02961e88503636d44dc3741cb' }}
       GUARD_SHA: ff3ab0b574bb4cd8b40b5438826b0049c8737dbb
       D1_NAME: nusa-player-data
       D1_ID: 7061d250-a90e-4d42-8374-2a58b5041424
@@ -37,10 +48,15 @@ jobs:
           OWNER: ${{ github.repository_owner }}
           REF: ${{ github.ref }}
           CONFIRM: ${{ inputs.konfirmasi }}
+          IN_MODE: ${{ inputs.mode }}
         run: |
           [ "$ACTOR" = "$OWNER" ] || { echo "::error::Hanya Owner repo yang boleh menjalankan workflow ini."; exit 1; }
           [ "$REF" = "refs/heads/main" ] || { echo "::error::Jalankan hanya dari branch main."; exit 1; }
-          [ "$CONFIRM" = "migrasi-d1-off" ] || { echo "::error::Konfirmasi harus persis: migrasi-d1-off"; exit 1; }
+          case "$IN_MODE" in
+            pasang-d1-off)   [ "$CONFIRM" = "migrasi-d1-off" ] || { echo "::error::Mode pasang-d1-off: konfirmasi harus persis migrasi-d1-off"; exit 1; } ;;
+            rollback-pre-d1) [ "$CONFIRM" = "rollback-pre-d1" ] || { echo "::error::Mode rollback-pre-d1: konfirmasi harus persis rollback-pre-d1"; exit 1; } ;;
+            *) echo "::error::Mode tidak dikenal"; exit 1 ;;
+          esac
       - name: Verifikasi secret tersedia (tanpa menampilkan nilai)
         env:
           RT: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
@@ -56,7 +72,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/nusa-island-control-center
-          ref: ${{ env.BACKEND_SHA }}
+          ref: ${{ env.TARGET_SHA }}
           token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
           persist-credentials: false
           path: backend
@@ -71,6 +87,7 @@ jobs:
         with:
           node-version: "22"
       - name: Pastikan backend tepat pada SHA terpin dan berisi fondasi + binding D1 (OFF)
+        if: ${{ inputs.mode == 'pasang-d1-off' }}
         run: |
           set -e
           [ "$(git -C backend rev-parse HEAD)" = "$BACKEND_SHA" ] || { echo "::error::Commit backend bukan SHA terpin."; exit 1; }
@@ -88,6 +105,16 @@ jobs:
           for f in 0001_d1_foundation 0002_d1_samudra_podium 0003_d1_migration_jobs; do test -s "backend/migrations/$f.sql"; done
           for f in api store migrator d1db project fs-source; do test -s "backend/worker/d1/$f.js"; done
           ! grep -Eiq 'DROP[[:space:]]|DELETE[[:space:]]+FROM' backend/migrations/*.sql || { echo "::error::SQL migrasi mengandung DROP/DELETE."; exit 1; }
+      - name: Pastikan backend rollback = 25e827b dan BEBAS D1 (tanpa binding/mode D1)
+        if: ${{ inputs.mode == 'rollback-pre-d1' }}
+        run: |
+          set -e
+          [ "$(git -C backend rev-parse HEAD)" = "$ROLLBACK_SHA" ] || { echo "::error::Commit backend bukan 25e827b."; exit 1; }
+          T=backend/worker/wrangler.toml
+          grep -Fxq 'name = "nusa-api"' "$T"
+          ! grep -Eiq 'd1_databases|NUSA_DB|NUSA_D1' "$T" || { echo "::error::Config rollback mengandung D1."; exit 1; }
+          ! test -e backend/worker/d1 || { echo "::error::Kode D1 ada di backend rollback."; exit 1; }
+          [ "$(grep -c '^\[vars\]' "$T")" = "1" ]
       - name: Tes backend dan scan rahasia (tanpa kunci produksi)
         run: |
           cd backend
@@ -107,10 +134,31 @@ jobs:
           CODE=$(curl -sS --retry 3 --max-time 20 -o "$RUNNER_TEMP/rg/rs_before.raw" -w '%{http_code}' "$NUSA_API_BASE/api/release-status" || echo 000)
           [ "$CODE" = "200" ] || { echo "::error::release-status SEBELUM = HTTP $CODE (bukan 200). Berhenti; produksi tidak disentuh."; exit 1; }
           node guard/scripts/release-guard.mjs normalize < "$RUNNER_TEMP/rg/rs_before.raw" > "$RUNNER_TEMP/rg/before.json"
-          for p in /d1/v1/status /d1/v1/save; do
-            C=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' "$NUSA_API_BASE$p" || echo 000)
-            echo "Baseline $p = HTTP $C"; [ "$C" = "404" ] || { echo "::error::Baseline $p harus 404 (D1 belum aktif); dapat $C."; exit 1; }
-          done
+          if [ "$MODE" = "pasang-d1-off" ]; then
+            for p in /d1/v1/status /d1/v1/save; do
+              C=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' "$NUSA_API_BASE$p" || echo 000)
+              echo "Baseline $p = HTTP $C"; [ "$C" = "404" ] || { echo "::error::Baseline $p harus 404 (D1 belum aktif); dapat $C."; exit 1; }
+            done
+          fi
+          # Probe kehidupan jalur lama (tanpa token, tanpa menulis): kode HTTP dicatat sebelum, dibandingkan sesudah.
+          cat > "$RUNNER_TEMP/probe.sh" <<'PROBE'
+          #!/usr/bin/env bash
+          # pemakaian: probe.sh <tag>  -> menulis $RUNNER_TEMP/probe_<tag>.txt
+          set -u
+          out="$RUNNER_TEMP/probe_$1.txt"; : > "$out"
+          get(){ printf '%s GET %s\n' "$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' "$NUSA_API_BASE$1" || echo 000)" "$1" >> "$out"; }
+          post(){ printf '%s POST %s\n' "$(curl -sS --max-time 20 -X POST -H 'content-type: application/json' -d '{"data":{}}' -o /dev/null -w '%{http_code}' "$NUSA_API_BASE$1" || echo 000)" "$1" >> "$out"; }
+          get /api/health; get /api/public-config; get /api/release-status
+          post /fn/loadSave; post /fn/writeSave                 # Cloud Save lama
+          post /fn/shop_createOrder; post /fn/shop_listOrders   # pembayaran / QRIS (pesanan)
+          post /fn/ecoSf2Info; post /fn/ecoSfInfo               # Samudra Follower
+          post /fn/leaderboardTop                               # Podium
+          cat "$out"
+          PROBE
+          chmod +x "$RUNNER_TEMP/probe.sh"
+          bash "$RUNNER_TEMP/probe.sh" before
+          grep -q '^200 GET /api/health' "$RUNNER_TEMP/probe_before.txt" || { echo "::error::Health SEBELUM tidak 200; berhenti."; exit 1; }
+          curl -fsS --max-time 20 "$NUSA_API_BASE/api/public-config" -o "$RUNNER_TEMP/rg/pc_before.json"
       - name: Baca konfigurasi Worker SEBELUM (binding tipe aman saja; tanpa mencetak nilai/secret)
         run: |
           set -e
@@ -124,20 +172,23 @@ jobs:
           for (const n of ['FIREBASE_PROJECT_ID', 'NUSA_SHOP_LIVE', 'ENABLE_SHOP_PRODUCTION', 'NUSA_PUBLIC_OPEN', 'NUSA_ECO_INIT_CAP', 'ALLOWED_ORIGINS']) if (by[n]?.type !== 'plain_text') throw Error('Konfigurasi produksi hilang: ' + n);
           if (by.FIREBASE_PROJECT_ID.text !== 'nusa-island-d2023') throw Error('Firebase project salah');
           for (const n of ['GOOGLE_CLIENT_EMAIL', 'GOOGLE_PRIVATE_KEY']) if (by[n]?.type !== 'secret_text') throw Error('Secret produksi tidak tersedia: ' + n);
-          if (by.NUSA_D1_MODE && by.NUSA_D1_MODE.text !== 'off') throw Error('NUSA_D1_MODE produksi bukan off; berhenti.');
-          for (const n of ['NUSA_D1_MIGRATE']) if (by[n]) throw Error(n + ' sudah ada di produksi; berhenti.');
+          if (process.env.MODE === 'pasang-d1-off' && by.NUSA_D1_MODE && by.NUSA_D1_MODE.text !== 'off') throw Error('NUSA_D1_MODE produksi bukan off; berhenti.');
+          for (const n of ['NUSA_D1_MIGRATE']) if (by[n]) throw Error(n + ' ada di produksi; berhenti (hapus dulu secara sadar).');
           const ok = new Set(['plain_text', 'secret_text', 'assets', 'd1']);
           for (const b of d.result.bindings) if (!ok.has(b.type)) throw Error('Binding memerlukan penanganan khusus: ' + b.type);
+          fs.writeFileSync(process.argv[3] + '.assets', JSON.stringify(d.result.bindings.filter(b => b.type === 'assets').map(b => b.name)));
           fs.writeFileSync(process.argv[3], JSON.stringify(d.result.bindings.filter(b => ['plain_text', 'secret_text'].includes(b.type) && b.name !== 'NUSA_D1_MODE').map(b => ({ name: b.name, type: b.type, text: b.type === 'plain_text' ? b.text : null }))), { mode: 0o600 });
           console.log('OK: konfigurasi produksi terdeteksi; D1 binding sudah ada: ' + (by.NUSA_DB ? 'ya' : 'belum'));
           NODE
       - name: Migrasi D1 REMOTE 0001-0003 (hanya skema; tanpa data pemain)
+        if: ${{ inputs.mode == 'pasang-d1-off' }}
         working-directory: backend/worker
         run: |
           set -e
           npx --yes wrangler@4 d1 migrations list "$D1_NAME" --remote
           npx --yes wrangler@4 d1 migrations apply "$D1_NAME" --remote
       - name: Verifikasi migrasi 0001-0003 dan schema_version=3 (query baca-saja di D1 remote)
+        if: ${{ inputs.mode == 'pasang-d1-off' }}
         working-directory: backend/worker
         run: |
           set -e
@@ -151,6 +202,7 @@ jobs:
           q "SELECT (SELECT COUNT(*) FROM save_current) AS saves, (SELECT COUNT(*) FROM sf_state) AS sf, (SELECT COUNT(*) FROM podium_entry) AS podium"
           node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const x=r[0].results[0];console.log("Baris data pemain:",JSON.stringify(x));if(x.saves||x.sf||x.podium){console.error("::error::Data pemain seharusnya 0 (tidak ada migrasi data).");process.exit(1)}' "$RUNNER_TEMP/q.json"
       - name: Deploy nusa-api dengan NUSA_D1_MODE="off" (variabel live dipertahankan; tanpa Hosting/multiplayer)
+        if: ${{ inputs.mode == 'pasang-d1-off' }}
         run: |
           set -e
           cd backend/worker
@@ -163,6 +215,7 @@ jobs:
           npx --yes wrangler@4 deploy --config "$CONFIG" --keep-vars --strict --var NUSA_D1_MODE:off --dry-run >/dev/null
           npx --yes wrangler@4 deploy --config "$CONFIG" --keep-vars --strict --var NUSA_D1_MODE:off
       - name: Verifikasi SESUDAH deploy (binding, mode off, rute D1 404, release-status tidak berubah, Cloud Save/health utuh)
+        if: ${{ inputs.mode == 'pasang-d1-off' }}
         run: |
           set -e
           curl -fsS --retry 3 --max-time 20 "$NUSA_API_BASE/api/health" >/dev/null || { echo "::error::Health gagal"; exit 1; }
@@ -202,3 +255,62 @@ jobs:
           C=$(curl -sS --max-time 20 -X POST -H 'content-type: application/json' -d '{"data":{}}' -o /dev/null -w '%{http_code}' "$NUSA_API_BASE/fn/loadSave" || echo 000)
           echo "/fn/loadSave tanpa token = HTTP $C"; [ "$C" = "401" ] || { echo "::error::Jalur Cloud Save lama tidak merespons 401 (dapat $C)."; exit 1; }
           echo "Selesai. Langkah Owner: panggil GET /api/d1/status (mode:off, bound:true) dan GET /api/d1/probe (schemaVersion:3) dengan token Owner. JANGAN aktifkan shadow/on."
+      - name: ROLLBACK nusa-api ke 25e827b (variable + secret produksi dipertahankan; NUSA_DB dan NUSA_D1_MODE dihapus dari Worker)
+        if: ${{ inputs.mode == 'rollback-pre-d1' }}
+        run: |
+          set -e
+          cd backend/worker
+          CONFIG=".nusa-rollback-config-$$.toml"; LOG="$RUNNER_TEMP/rollback-deploy.log"
+          trap 'rm -f "$CONFIG"' EXIT
+          # Config sementara: toml 25e827b TANPA [vars]; lalu [vars] disusun dari variable LIVE (sebelum), KECUALI NUSA_D1_MODE.
+          # Tanpa --keep-vars supaya NUSA_D1_MODE benar-benar hilang; tanpa [[d1_databases]] supaya NUSA_DB hilang. Secret dipertahankan Cloudflare (tidak diubah).
+          awk '/^\[vars\][[:space:]]*$/ {skip=1; next} /^\[+[^]]+\]+[[:space:]]*$/ {skip=0} !skip {print}' wrangler.toml > "$CONFIG"
+          node --input-type=commonjs - "$RUNNER_TEMP/rg/set_before.json" "$CONFIG" <<'NODE'
+          const fs = require('node:fs');
+          const d = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const vars = d.result.bindings.filter(b => b.type === 'plain_text' && b.name !== 'NUSA_D1_MODE');
+          if (!vars.length) throw Error('Tidak ada variable live; berhenti.');
+          let out = '\n[vars]\n';
+          for (const v of vars) { if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(v.name)) throw Error('Nama variable tidak aman'); out += v.name + ' = ' + JSON.stringify(String(v.text)) + '\n'; }
+          fs.appendFileSync(process.argv[3], out);
+          NODE
+          grep -Fxq 'name = "nusa-api"' "$CONFIG"
+          ! grep -Eiq 'd1_databases|NUSA_DB|NUSA_D1' "$CONFIG" || { echo "::error::Config rollback masih memuat D1."; exit 1; }
+          # keluaran wrangler memuat nilai variable plain-text: simpan ke berkas, jangan ke log; tampilkan hanya baris non-"env."
+          show(){ grep -v '^[[:space:]]*env\.' "$LOG" | tail -40 || true; }
+          npx --yes wrangler@4 deploy --config "$CONFIG" --strict --dry-run > "$LOG" 2>&1 || { show; echo "::error::Build rollback gagal. Produksi belum disentuh."; exit 1; }
+          npx --yes wrangler@4 deploy --config "$CONFIG" --strict > "$LOG" 2>&1 || { show; echo "::error::Deploy rollback gagal. Periksa produksi segera."; exit 1; }
+          show
+      - name: Verifikasi SESUDAH rollback (binding D1 hilang, variable/secret utuh, release-status sama, jalur lama hidup)
+        if: ${{ inputs.mode == 'rollback-pre-d1' }}
+        run: |
+          set -e
+          curl -fsS --retry 3 --max-time 20 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/nusa-api/settings" -o "$RUNNER_TEMP/rg/set_after.json"
+          node --input-type=commonjs - "$RUNNER_TEMP/rg/set_after.json" "$RUNNER_TEMP/rg/expected.json" <<'NODE'
+          const fs = require('node:fs');
+          const d = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const list = d.result.bindings, by = Object.fromEntries(list.map(b => [b.name, b]));
+          for (const old of JSON.parse(fs.readFileSync(process.argv[3], 'utf8'))) {
+            const n = by[old.name];
+            if (!n || n.type !== old.type || (old.type === 'plain_text' && n.text !== old.text)) throw Error('PENTING: konfigurasi produksi berubah (' + old.name + '). Pulihkan segera.');
+          }
+          for (const a of JSON.parse(fs.readFileSync(process.argv[3] + '.assets', 'utf8'))) if (by[a]?.type !== 'assets') throw Error('Binding assets hilang: ' + a);
+          if (by.NUSA_DB || by.NUSA_D1_MODE) throw Error('Binding/variable D1 masih ada setelah rollback');
+          if (list.some(b => b.type === 'd1')) throw Error('Masih ada binding bertipe d1');
+          console.log('OK: variable + secret produksi utuh; NUSA_DB dan NUSA_D1_MODE sudah dihapus dari Worker. Tabel D1 tidak disentuh.');
+          NODE
+          bash "$RUNNER_TEMP/probe.sh" after
+          # kode HTTP tiap probe harus sama dengan sebelum (health, public-config, release-status, Cloud Save, pembayaran/QRIS, SF, Podium)
+          diff "$RUNNER_TEMP/probe_before.txt" "$RUNNER_TEMP/probe_after.txt" || { echo "::error::Perilaku endpoint lama berubah sesudah rollback."; exit 1; }
+          grep -q '^200 GET /api/health' "$RUNNER_TEMP/probe_after.txt"
+          for p in /d1/v1/status /d1/v1/save /d1/v1/sf /d1/v1/podium/top; do
+            C=$(curl -sS --max-time 20 -X GET -H 'Authorization: Bearer x.y.z' -o /dev/null -w '%{http_code}' "$NUSA_API_BASE$p" || echo 000)
+            [ "$C" = "404" ] || { echo "::error::$p = HTTP $C (harus 404)."; exit 1; }
+          done
+          CODE=$(curl -sS --retry 3 --max-time 20 -o "$RUNNER_TEMP/rg/rs_after.raw" -w '%{http_code}' "$NUSA_API_BASE/api/release-status" || echo 000)
+          [ "$CODE" = "200" ] || { echo "::error::release-status SESUDAH = HTTP $CODE"; exit 1; }
+          node guard/scripts/release-guard.mjs normalize < "$RUNNER_TEMP/rg/rs_after.raw" > "$RUNNER_TEMP/rg/after.json"
+          node guard/scripts/release-guard.mjs compare "$RUNNER_TEMP/rg/before.json" "$RUNNER_TEMP/rg/after.json"
+          curl -fsS --max-time 20 "$NUSA_API_BASE/api/public-config" -o "$RUNNER_TEMP/rg/pc_after.json"
+          node guard/scripts/release-guard.mjs shop "$RUNNER_TEMP/rg/pc_before.json" "$RUNNER_TEMP/rg/pc_after.json"
+          echo "OK: rollback selesai. release-status sama; health, Cloud Save, pembayaran/QRIS, SF dan Podium tetap hidup; /d1/v1/* = 404. D1 (tabel/data) tidak dihapus."
