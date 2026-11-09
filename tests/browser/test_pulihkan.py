@@ -49,6 +49,10 @@ INSTR = """
       return orig(name, payload); }; return true; };
   const iv = setInterval(() => { if (wrap()) clearInterval(iv); }, 5); })();
 """
+LSHOOK = """(() => { window.__lsw = []; const sI = Storage.prototype.setItem, rI = Storage.prototype.removeItem, cl = Storage.prototype.clear;
+  Storage.prototype.setItem = function (k, v) { window.__lsw.push(['set', String(k)]); return sI.call(this, k, v); };
+  Storage.prototype.removeItem = function (k) { window.__lsw.push(['del', String(k)]); return rI.call(this, k); };
+  Storage.prototype.clear = function () { window.__lsw.push(['clear', '*']); return cl.call(this); }; })();"""
 def init_script(acc, seeds, current=None, once=True):
     s = f"window.__demoAuto='{acc}';" + INSTR
     body = ""
@@ -70,6 +74,13 @@ def open_page(b, acc, seeds, current, login=True, vp=(360, 740), ctx=None, extra
     if ev(pg, "!document.getElementById('splash').classList.contains('hidden')"): pg.click("#startBtn"); time.sleep(0.4)
     return ctx, pg, errs
 def ls_all(pg): return ev(pg, "(()=>{const o={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);o[k]=localStorage.getItem(k)}return o})()")
+class frozen:
+    """Bekukan AUTOSAVE game (flag resmi NW.cloud.saveFrozen: save() langsung return) selama jendela uji.
+    Penyebab FAIL 4h: game.js tickTime() menulis ulang 'nusa-island-v1' tiap 5 dtk-game (jam dunia + posisi pemain bergeser) - itu BUKAN Recovery.
+    Dengan autosave dibeku, simpanan harus identik BYTE-PER-BYTE (tanpa daftar-putih bidang); tulisan apa pun oleh Recovery ke simpanan akan tertangkap."""
+    def __init__(self, pg): self.pg = pg
+    def __enter__(self): self.prev = ev(self.pg, "(()=>{const p=NW.cloud.saveFrozen;NW.cloud.saveFrozen=true;return p})()"); return self
+    def __exit__(self, *a): ev(self.pg, "NW.cloud.saveFrozen=%s" % ("true" if self.prev else "false"))
 def open_panel(pg):
     pg.click("#hudMenuBtn"); time.sleep(0.25); pg.click("#hmList [data-for='recoverBtn']"); wait_for(pg, "NW.recovery.isOpen", 3)
 def go(pg):
@@ -83,7 +94,7 @@ def main():
     with sync_playwright() as p:
         b = p.chromium.launch()
         # ===== 1+2. Menu ☰ dan panel (HP Android 360x740) =====
-        ctx, A, errs = open_page(b, "demo-a", SEEDS_BAK, save("Budi"))
+        ctx, A, errs = open_page(b, "demo-a", SEEDS_BAK, save("Budi"), extra_init=LSHOOK)
         A.click("#hudMenuBtn"); time.sleep(0.3)
         tiles = ev(A, "[...document.querySelectorAll('#hmList .hm-tile')].map(t=>({id:t.dataset.for,label:t.querySelector('.hm-lb').textContent,ic:t.querySelector('.hm-ic').textContent}))")
         rec = next((t for t in tiles if t["id"] == "recoverBtn"), None)
@@ -102,14 +113,14 @@ def main():
         A.screenshot(path=OUT + "2-panel-awal.png")
 
         # ===== 3. Pencarian: HANYA BACA, persentase nyata, cadangan rusak ditolak =====
-        before = ls_all(A); A.evaluate("window.__calls.length=0")
+        FZ = frozen(A).__enter__(); before = ls_all(A); A.evaluate("window.__calls.length=0")
         A.evaluate("window.__seen=[];new MutationObserver(()=>{const e=document.querySelector('.rec-pct');if(e&&window.__seen[window.__seen.length-1]!==e.textContent)window.__seen.push(e.textContent)}).observe(document.getElementById('recBody'),{childList:true,subtree:true})")
         done = go(A); seen = ev(A, "window.__seen")
         ok("3a pencarian selesai", done, seen)
         pcts = [int(x.split("%")[0]) for x in seen if "%" in x.split("—")[0]]
         ok("3b persentase naik bertahap sesuai tahap (0→…→75), tidak lompat ke 100", pcts[0] == 0 and pcts == sorted(pcts) and max(pcts) == 75 and 100 not in pcts, pcts)
         ok("3c ada indikator tanpa persentase saat menunggu server", any(x.startswith("⏳") for x in seen), seen)
-        after = ls_all(A)
+        after = ls_all(A); FZ.__exit__()
         game_keys = lambda d: {k: v for k, v in d.items() if k.startswith("nusa-island-v1") or k == "nusa-lain-yang-bukan-cadangan"}
         ok("3d pencarian TIDAK mengubah/menghapus apa pun di localStorage (simpanan & semua cadangan identik)", game_keys(before) == game_keys(after), set(before) ^ set(after))
         ok("3e pencarian hanya membaca server (loadSave); tidak ada tulis/pemulihan", set(calls(A)) <= {"loadSave"} and "writeSave" not in calls(A), calls(A))
@@ -127,23 +138,28 @@ def main():
         ok("4b teks jujur: belum kembali, tidak dipasang otomatis", "belum kembali" in t and "tidak dipasang ke akunmu otomatis" in t)
         A.screenshot(path=OUT + "4-konfirmasi-ajukan.png")
         A.check("#recConsent"); ok("4c tombol aktif setelah setuju", not ev(A, "document.getElementById('recOk').disabled"))
-        before2 = ls_all(A); A.evaluate("window.__calls.length=0"); A.click("#recOk"); wait_for(A, "document.body.innerText.includes('PERMOHONAN PEMULIHAN DIKIRIM')", 8); time.sleep(0.2); t = txt(A)
+        # 4h0 KONTROL (penyebab FAIL 4h): TANPA Recovery pun autosave game menulis ulang simpanan; yang bergeser hanya keadaan dunia (jam, posisi pemain).
+        raw0 = ls_all(A)["nusa-island-v1"]; c0 = json.loads(raw0); wait_for(A, "localStorage.getItem('nusa-island-v1')!==" + json.dumps(raw0), 12)
+        c1 = json.loads(ls_all(A)["nusa-island-v1"]); drift = {f for f in set(c0) | set(c1) if c0.get(f) != c1.get(f)}
+        ok("4h0 kontrol: autosave game (bukan Recovery) menggeser hanya keadaan dunia (jam/posisi)", bool(drift) and drift <= {"hour", "world"}, drift)
+        FZ = frozen(A).__enter__()
+        before2 = ls_all(A); A.evaluate("window.__calls.length=0"); A.evaluate("window.__lsw.length=0")
+        # klik ganda pada tombol yang SAMA (referensi lama tetap menerima klik walau sudah diganti tampilan) -> penjaga 'busy' harus mencegah kirim ganda
+        A.evaluate("(()=>{const b=document.getElementById('recOk');b.click();b.click();})()"); wait_for(A, "document.body.innerText.includes('PERMOHONAN PEMULIHAN DIKIRIM')", 8); time.sleep(0.2); t = txt(A)
         ok("4d tampil '⏳ PERMOHONAN PEMULIHAN DIKIRIM'", "PERMOHONAN PEMULIHAN DIKIRIM" in t and "⏳" in t, t[:200])
         ok("4e TIDAK ada klaim berhasil/ tombol refresh", "BERHASIL" not in t and "REFRESH" not in t and not ev(A, "!!document.getElementById('recRefresh')"))
         payloads = ev(A, "window.__rrPayloads||[]"); ok("4f yang dikirim persis isi cadangan terpilih (satu permohonan)", payloads == [GUEST_BAK], len(payloads))
         ok("4g tidak ada tulis ke Cloud Save / ekonomi / pemulihan langsung", [c for c in calls(A) if c != "recoveryRequest"] == [] , calls(A))
-        after2 = ls_all(A)
-        # Autosave game (tiap 5 dtk waktu-game) menulis ulang 'nusa-island-v1' dengan jam dunia (S.hour) yang terus berjalan — itu BUKAN perubahan oleh Recovery.
-        # Karena itu simpanan dibandingkan tanpa S.hour (semua progres lain tetap harus identik); cadangan & kunci lain dibandingkan apa adanya.
-        import json as _j
-        def stable(d):
-            o = dict(d)
-            try:
-                g = _j.loads(o["nusa-island-v1"]); g.pop("hour", None); o["nusa-island-v1"] = _j.dumps(g, sort_keys=True)
-            except Exception: pass
-            return o
-        sb, sa = stable(before2), stable(after2); ch = {k for k in set(sb) | set(sa) if sb.get(k) != sa.get(k)}
-        ok("4h simpanan & cadangan lokal tidak berubah (hanya catatan 'permohonan terkirim' ditambahkan; jam dunia autosave diabaikan)", ch <= {"nusa-recovery-v1"} and "nusa-recovery-v1" in after2, ch)
+        after2 = ls_all(A); lsw = ev(A, "window.__lsw"); FZ.__exit__()
+        ch = {k for k in set(before2) | set(after2) if before2.get(k) != after2.get(k)}
+        ok("4h simpanan & cadangan lokal tidak berubah (hanya catatan 'permohonan terkirim' ditambahkan) - perbandingan BYTE-PER-BYTE", ch == {"nusa-recovery-v1"} and "nusa-recovery-v1" not in before2, ch)
+        G0, G1 = json.loads(before2["nusa-island-v1"]), json.loads(after2["nusa-island-v1"])
+        bidang = {"koin": "money", "tangkapan": "stats", "joran+kapal": "up", "rumah": "home", "cooler": "cooler", "koleksi": "dex", "hari": "day", "profil": "profile"}
+        ok("4h2 koin, tangkapan, joran, kapal, rumah, cooler, koleksi, hari, profil identik (per bidang)", all(G0.get(v) == G1.get(v) for v in bidang.values()) and G0 == G1, [k for k, v in bidang.items() if G0.get(v) != G1.get(v)])
+        bk = lambda d: {k: v for k, v in d.items() if "-bak-" in k or "-backup-" in k}
+        ok("4h3 semua cadangan lokal identik (tak ada yang berubah/hilang/bertambah)", bk(before2) == bk(after2) and len(bk(after2)) >= 3, sorted(set(bk(before2)) ^ set(bk(after2))))
+        ok("4h4 satu-satunya tulisan localStorage oleh Recovery = catatan permohonan (1x); tanpa hapus/clear", lsw == [["set", "nusa-recovery-v1"]], lsw)
+        rec = json.loads(after2["nusa-recovery-v1"]); ok("4h5 catatan permohonan hanya {hash, at} (tanpa isi progres)", set(rec) == {"hash", "at"} and len(str(rec)) < 120, rec)
         ok("4i Cloud Save akun tetap kosong (tidak ada progres masuk tanpa persetujuan Owner)", ev(A, "(async()=>{const c=window.__demoCloud;const r=await c.server.loadSave(c.tokenOf('demo-a'),{});return !r.exists})()"))
         A.screenshot(path=OUT + "5-permohonan-dikirim.png")
         A.click("#recDone"); open_panel(A); go(A); t = txt(A)
@@ -152,6 +168,26 @@ def main():
         ok("4k tombol kirim untuk cadangan yang sama tetap nonaktif ('Sudah dikirim')", ev(A, "document.getElementById('recOk').disabled") and "Sudah dikirim" in txt(A))
         ok("4l tidak ada error JS", errs == [], errs)
         ctx.close()
+
+        # ===== 4m. REGRESI: pemain dengan progres AKTIF kaya (koin, tangkapan, joran, kapal, rumah) mengirim permohonan -> semuanya IDENTIK =====
+        RICH = save("Aktif", money=4321, caught=12, rod=3, boat=1, home=2, day=4, cooler=[{"id": "nila", "w": 2}], extra={"dex": {"nila": {"n": 12, "best": 2}}})
+        ctxM, M, errsM = open_page(b, "demo-a", SEEDS_BAK, RICH, extra_init=LSHOOK)
+        open_panel(M); go(M); M.click("[data-pick='0']"); time.sleep(0.2); M.check("#recConsent")
+        cloudM0 = ev(M, "(async()=>{const c=window.__demoCloud;const r=await c.server.loadSave(c.tokenOf('demo-a'),{metaOnly:true});return JSON.stringify([r.exists,r.rev||0])})()")
+        with frozen(M):
+            sM0 = ls_all(M); M.evaluate("window.__calls.length=0"); M.evaluate("window.__lsw.length=0")
+            M.evaluate("(()=>{const b=document.getElementById('recOk');b.click();b.click();})()")             # klik ganda -> tetap SATU permohonan
+            wait_for(M, "document.body.innerText.includes('PERMOHONAN PEMULIHAN DIKIRIM')", 8); time.sleep(0.3)
+            sM1 = ls_all(M); lswM = ev(M, "window.__lsw"); payM = ev(M, "window.__rrPayloads||[]"); callM = calls(M)
+        g0, g1 = json.loads(sM0["nusa-island-v1"]), json.loads(sM1["nusa-island-v1"])
+        ok("4m1 progres aktif kaya sungguh ada sebelum kirim (koin 4321, 12 tangkapan, joran 3, kapal 1, rumah ada)", g0["money"] == 4321 and g0["stats"]["caught"] == 12 and g0["up"]["rod"] == 3 and g0["up"]["boat"] == 1 and bool(g0["home"].get("houseId")), {k: g0.get(k) for k in ("money", "up", "stats", "home")})
+        ok("4m2 koin, tangkapan, joran, kapal, rumah, cooler, koleksi IDENTIK sesudah kirim (byte-per-byte, seluruh simpanan)", sM0["nusa-island-v1"] == sM1["nusa-island-v1"] and g0 == g1, [k for k in g0 if g0[k] != g1.get(k)])
+        okBak = lambda d: {k: v for k, v in d.items() if "-bak-" in k or "-backup-" in k}
+        ok("4m3 semua cadangan lokal identik", okBak(sM0) == okBak(sM1) and len(okBak(sM1)) >= 3)
+        ok("4m4 hanya catatan permohonan yang berubah", {k for k in set(sM0) | set(sM1) if sM0.get(k) != sM1.get(k)} == {"nusa-recovery-v1"}, lswM)
+        ok("4m5 klik ganda = SATU permohonan, SATU tulisan, tanpa Cloud Save/ekonomi/pemulihan langsung", len(payM) == 1 and lswM == [["set", "nusa-recovery-v1"]] and callM == ["recoveryRequest"], (len(payM), lswM, callM))
+        ok("4m6 Cloud Save server tidak ditimpa oleh permohonan (rev sama sebelum/sesudah)", cloudM0 == ev(M, "(async()=>{const c=window.__demoCloud;const r=await c.server.loadSave(c.tokenOf('demo-a'),{metaOnly:true});return JSON.stringify([r.exists,r.rev||0])})()"), cloudM0)
+        ctxM.close()
 
         # ===== 5. Server tak terjangkau / ditolak: aman, tidak menandai terkirim =====
         ctx, B, errs = open_page(b, "demo-a", SEEDS_BAK, save("Budi"))
