@@ -225,9 +225,12 @@ jobs:
           node guard/scripts/release-guard.mjs compare "$RUNNER_TEMP/rg/before.json" "$RUNNER_TEMP/rg/after.json"
           bash "$RUNNER_TEMP/probe.sh" after
           diff -u "$RUNNER_TEMP/probe_before.txt" "$RUNNER_TEMP/probe_after.txt" || { echo "::error::Kode HTTP jalur lama berubah (health/Cloud Save/pembayaran/SF/Podium)."; exit 1; }
-          for p in /api/d1/status /api/d1/probe /api/d1/reconcile; do
-            C=$(curl -sS --max-time 20 -X POST -H 'content-type: application/json' -d '{}' -o /dev/null -w '%{http_code}' "$NUSA_API_BASE$p" || echo 000)
-            echo "$p tanpa token = HTTP $C"; case "$C" in 401|403|405) ;; *) echo "::error::Rute Owner $p harus terproteksi (401/403/405), dapat $C."; exit 1 ;; esac
+          # metode sesuai rute: status/probe = GET, reconcile = POST (POST ke rute GET-saja memberi 404 dan menyesatkan)
+          for r in "GET /api/d1/status" "GET /api/d1/probe" "POST /api/d1/reconcile"; do
+            set -- $r
+            C=$(curl -sS --max-time 20 -X "$1" -H 'content-type: application/json' ${3:+-d '{}'} -o /dev/null -w '%{http_code}' "$NUSA_API_BASE$2" || echo 000)
+            [ "$1" = POST ] && C=$(curl -sS --max-time 20 -X POST -H 'content-type: application/json' -d '{}' -o /dev/null -w '%{http_code}' "$NUSA_API_BASE$2" || echo 000)
+            echo "$1 $2 tanpa token = HTTP $C"; case "$C" in 401|403) ;; *) echo "::error::Rute Owner $2 harus terproteksi (401/403), dapat $C."; exit 1 ;; esac
           done
           for p in /d1/v1/status /d1/v1/save /d1/v1/sf; do
             C=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' "$NUSA_API_BASE$p" || echo 000)
