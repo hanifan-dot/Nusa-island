@@ -1,0 +1,204 @@
+# D1 FONDASI REMOTE (mode OFF) — manual, hanya Owner. Backend DIPIN ke 2283d49 (merge PR #46 + #47).
+# Melakukan HANYA: (1) migrasi skema D1 0001-0003 ke nusa-player-data (remote), (2) deploy Worker nusa-api dengan NUSA_D1_MODE="off".
+# TIDAK: deploy game/Hosting/multiplayer, mengaktifkan shadow/on, NUSA_D1_MIGRATE, migrasi data pemain, menulis Firestore.
+# Berhenti sebelum menyentuh apa pun bila /api/release-status tidak 200. Secret yang dipakai (sudah ada): CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, NUSA_BACKEND_READ_TOKEN. Token tidak pernah dicetak.
+# Verifikasi /api/d1/status & /api/d1/probe butuh token Owner Firebase yang TIDAK ada di CI: CI membuktikan bound/mode lewat daftar binding Worker di Cloudflare + rute terproteksi (tanpa token = 401/403, bukan 404); Owner mengecek status/probe manual sesudahnya.
+# ROLLBACK: jalankan rilis nusa-api sebelumnya dengan workflow rilis biasa (mode=rollback), atau hapus blok [[d1_databases]] lalu deploy. Tabel D1 kosong tidak memengaruhi game.
+name: D1 Fondasi Remote (mode OFF)
+on:
+  workflow_dispatch:
+    inputs:
+      konfirmasi:
+        description: "Ketik persis migrasi-d1-off"
+        type: string
+        required: true
+concurrency:
+  group: nusa-island-production
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  d1-off:
+    name: Migrasi D1 remote 0001-0003 + deploy nusa-api (NUSA_D1_MODE=off)
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 25
+    env:
+      BACKEND_SHA: 2283d49cbef5a2e02961e88503636d44dc3741cb
+      GUARD_SHA: ff3ab0b574bb4cd8b40b5438826b0049c8737dbb
+      D1_NAME: nusa-player-data
+      D1_ID: 7061d250-a90e-4d42-8374-2a58b5041424
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Hanya Owner, hanya dari main, konfirmasi persis
+        env:
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+          REF: ${{ github.ref }}
+          CONFIRM: ${{ inputs.konfirmasi }}
+        run: |
+          [ "$ACTOR" = "$OWNER" ] || { echo "::error::Hanya Owner repo yang boleh menjalankan workflow ini."; exit 1; }
+          [ "$REF" = "refs/heads/main" ] || { echo "::error::Jalankan hanya dari branch main."; exit 1; }
+          [ "$CONFIRM" = "migrasi-d1-off" ] || { echo "::error::Konfirmasi harus persis: migrasi-d1-off"; exit 1; }
+      - name: Verifikasi secret tersedia (tanpa menampilkan nilai)
+        env:
+          RT: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+        run: |
+          [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || { echo "::error::Secret Cloudflare belum siap."; exit 1; }
+          [ -n "$RT" ] || { echo "::error::Secret NUSA_BACKEND_READ_TOKEN belum ada."; exit 1; }
+          # bersihkan spasi/baris-baru/awalan Bearer, samarkan, ekspor bersih
+          T=$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '\r\n\t ' | sed -E 's/^[Bb]earer//')
+          A=$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | tr -d '\r\n\t ')
+          echo "::add-mask::$T"; echo "::add-mask::$A"
+          printf '%s' "$A" | grep -Eq '^[a-fA-F0-9]{32}$' || { echo "::error::CLOUDFLARE_ACCOUNT_ID bukan 32 heksadesimal."; exit 1; }
+          echo "CLOUDFLARE_API_TOKEN=$T" >> "$GITHUB_ENV"; echo "CLOUDFLARE_ACCOUNT_ID=$A" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/nusa-island-control-center
+          ref: ${{ env.BACKEND_SHA }}
+          token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+          persist-credentials: false
+          path: backend
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/nusa-island-control-center
+          ref: ${{ env.GUARD_SHA }}
+          token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+          persist-credentials: false
+          path: guard
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Pastikan backend tepat pada SHA terpin dan berisi fondasi + binding D1 (OFF)
+        run: |
+          set -e
+          [ "$(git -C backend rev-parse HEAD)" = "$BACKEND_SHA" ] || { echo "::error::Commit backend bukan SHA terpin."; exit 1; }
+          T=backend/worker/wrangler.toml
+          grep -Fxq 'name = "nusa-api"' "$T"
+          grep -Fxq 'binding = "NUSA_DB"' "$T"
+          grep -Fxq 'database_name = "nusa-player-data"' "$T"
+          grep -Fxq "database_id = \"$D1_ID\"" "$T"
+          grep -Fxq 'migrations_dir = "../migrations"' "$T"
+          grep -Fxq 'NUSA_D1_MODE = "off"' "$T"
+          [ "$(grep -c '^\[vars\]' "$T")" = "1" ] || { echo "::error::[vars] ganda."; exit 1; }
+          ! grep -Eq 'NUSA_D1_MIGRATE' "$T" || { echo "::error::NUSA_D1_MIGRATE tidak boleh ada di config."; exit 1; }
+          ls backend/migrations
+          [ "$(ls backend/migrations/*.sql | wc -l)" = "3" ]
+          for f in 0001_d1_foundation 0002_d1_samudra_podium 0003_d1_migration_jobs; do test -s "backend/migrations/$f.sql"; done
+          for f in api store migrator d1db project fs-source; do test -s "backend/worker/d1/$f.js"; done
+          ! grep -Eiq 'DROP[[:space:]]|DELETE[[:space:]]+FROM' backend/migrations/*.sql || { echo "::error::SQL migrasi mengandung DROP/DELETE."; exit 1; }
+      - name: Tes backend dan scan rahasia (tanpa kunci produksi)
+        run: |
+          cd backend
+          npm install --no-package-lock --no-audit --no-fund
+          npm test
+          npm run scan:secrets
+      - name: Baca alamat nusa-api dari game live
+        run: |
+          LIVE=$(curl -fsS --retry 2 https://nusa-island-d2023.web.app/cloud/config.js)
+          API=$(printf '%s' "$LIVE" | grep -oE 'apiBase: "https://nusa-api\.[A-Za-z0-9-]+\.workers\.dev"' | head -1 | cut -d '"' -f 2)
+          [ -n "$API" ] || { echo "::error::Alamat API live tidak ditemukan"; exit 1; }
+          echo "NUSA_API_BASE=$API" >> "$GITHUB_ENV"
+      - name: Snapshot /api/release-status SEBELUM (wajib 200; bila tidak, berhenti sebelum menyentuh produksi)
+        run: |
+          set -e
+          mkdir -p "$RUNNER_TEMP/rg"
+          CODE=$(curl -sS --retry 3 --max-time 20 -o "$RUNNER_TEMP/rg/rs_before.raw" -w '%{http_code}' "$NUSA_API_BASE/api/release-status" || echo 000)
+          [ "$CODE" = "200" ] || { echo "::error::release-status SEBELUM = HTTP $CODE (bukan 200). Berhenti; produksi tidak disentuh."; exit 1; }
+          node guard/scripts/release-guard.mjs normalize < "$RUNNER_TEMP/rg/rs_before.raw" > "$RUNNER_TEMP/rg/before.json"
+          for p in /d1/v1/status /d1/v1/save; do
+            C=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' "$NUSA_API_BASE$p" || echo 000)
+            echo "Baseline $p = HTTP $C"; [ "$C" = "404" ] || { echo "::error::Baseline $p harus 404 (D1 belum aktif); dapat $C."; exit 1; }
+          done
+      - name: Baca konfigurasi Worker SEBELUM (binding tipe aman saja; tanpa mencetak nilai/secret)
+        run: |
+          set -e
+          CODE=$(curl -sS --retry 2 --max-time 30 -o "$RUNNER_TEMP/rg/set_before.json" -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/nusa-api/settings" || echo 000)
+          [ "$CODE" = "200" ] || { echo "::error::Gagal membaca konfigurasi nusa-api (HTTP $CODE). Cek izin token. Berhenti."; exit 1; }
+          node --input-type=commonjs - "$RUNNER_TEMP/rg/set_before.json" "$RUNNER_TEMP/rg/expected.json" <<'NODE'
+          const fs = require('node:fs');
+          const d = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          if (!d.success || !Array.isArray(d.result?.bindings)) throw Error('Konfigurasi Worker tidak bisa divalidasi');
+          const by = Object.fromEntries(d.result.bindings.map(b => [b.name, b]));
+          for (const n of ['FIREBASE_PROJECT_ID', 'NUSA_SHOP_LIVE', 'ENABLE_SHOP_PRODUCTION', 'NUSA_PUBLIC_OPEN', 'NUSA_ECO_INIT_CAP', 'ALLOWED_ORIGINS']) if (by[n]?.type !== 'plain_text') throw Error('Konfigurasi produksi hilang: ' + n);
+          if (by.FIREBASE_PROJECT_ID.text !== 'nusa-island-d2023') throw Error('Firebase project salah');
+          for (const n of ['GOOGLE_CLIENT_EMAIL', 'GOOGLE_PRIVATE_KEY']) if (by[n]?.type !== 'secret_text') throw Error('Secret produksi tidak tersedia: ' + n);
+          if (by.NUSA_D1_MODE && by.NUSA_D1_MODE.text !== 'off') throw Error('NUSA_D1_MODE produksi bukan off; berhenti.');
+          for (const n of ['NUSA_D1_MIGRATE']) if (by[n]) throw Error(n + ' sudah ada di produksi; berhenti.');
+          const ok = new Set(['plain_text', 'secret_text', 'assets', 'd1']);
+          for (const b of d.result.bindings) if (!ok.has(b.type)) throw Error('Binding memerlukan penanganan khusus: ' + b.type);
+          fs.writeFileSync(process.argv[3], JSON.stringify(d.result.bindings.filter(b => ['plain_text', 'secret_text'].includes(b.type) && b.name !== 'NUSA_D1_MODE').map(b => ({ name: b.name, type: b.type, text: b.type === 'plain_text' ? b.text : null }))), { mode: 0o600 });
+          console.log('OK: konfigurasi produksi terdeteksi; D1 binding sudah ada: ' + (by.NUSA_DB ? 'ya' : 'belum'));
+          NODE
+      - name: Migrasi D1 REMOTE 0001-0003 (hanya skema; tanpa data pemain)
+        working-directory: backend/worker
+        run: |
+          set -e
+          npx --yes wrangler@4 d1 migrations list "$D1_NAME" --remote
+          npx --yes wrangler@4 d1 migrations apply "$D1_NAME" --remote
+      - name: Verifikasi migrasi 0001-0003 dan schema_version=3 (query baca-saja di D1 remote)
+        working-directory: backend/worker
+        run: |
+          set -e
+          q(){ npx --yes wrangler@4 d1 execute "$D1_NAME" --remote --json --command "$1" > "$RUNNER_TEMP/q.json"; }
+          q "SELECT name FROM d1_migrations ORDER BY id"
+          node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const n=r[0].results.map(x=>x.name);const want=["0001_d1_foundation.sql","0002_d1_samudra_podium.sql","0003_d1_migration_jobs.sql"];console.log("Migrasi terpasang:",n.join(", "));for(const w of want)if(!n.includes(w)){console.error("::error::Migrasi hilang: "+w);process.exit(1)}' "$RUNNER_TEMP/q.json"
+          q "SELECT v FROM d1_schema_info WHERE k='schema_version'"
+          node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const v=r[0].results[0]&&r[0].results[0].v;console.log("schema_version =",v);if(v!=="3"){console.error("::error::schema_version bukan 3");process.exit(1)}' "$RUNNER_TEMP/q.json"
+          q "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' ORDER BY name"
+          node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const n=r[0].results.map(x=>x.name);const want=["d1_audit","d1_schema_info","migration_item","migration_job","player_name","podium_entry","save_current","save_revision","sf_state"];for(const w of want)if(!n.includes(w)){console.error("::error::Tabel hilang: "+w);process.exit(1)}console.log("Tabel:",n.join(", "))' "$RUNNER_TEMP/q.json"
+          q "SELECT (SELECT COUNT(*) FROM save_current) AS saves, (SELECT COUNT(*) FROM sf_state) AS sf, (SELECT COUNT(*) FROM podium_entry) AS podium"
+          node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const x=r[0].results[0];console.log("Baris data pemain:",JSON.stringify(x));if(x.saves||x.sf||x.podium){console.error("::error::Data pemain seharusnya 0 (tidak ada migrasi data).");process.exit(1)}' "$RUNNER_TEMP/q.json"
+      - name: Deploy nusa-api dengan NUSA_D1_MODE="off" (variabel live dipertahankan; tanpa Hosting/multiplayer)
+        run: |
+          set -e
+          cd backend/worker
+          CONFIG=".nusa-d1-config-$$.toml"; trap 'rm -f "$CONFIG"' EXIT
+          # buang HANYA seksi [vars] (nilai live dipertahankan lewat --keep-vars); seksi [[d1_databases]] dan [assets] tetap
+          awk '/^\[vars\][[:space:]]*$/ {skip=1; next} /^\[+[^]]+\]+[[:space:]]*$/ {skip=0} !skip {print}' wrangler.toml > "$CONFIG"
+          grep -Fxq 'name = "nusa-api"' "$CONFIG"
+          grep -Fxq '[[d1_databases]]' "$CONFIG" || { echo "::error::Blok D1 hilang dari config sementara."; exit 1; }
+          ! grep -Fq '[vars]' "$CONFIG" || { echo "::error::vars masih ada."; exit 1; }
+          npx --yes wrangler@4 deploy --config "$CONFIG" --keep-vars --strict --var NUSA_D1_MODE:off --dry-run >/dev/null
+          npx --yes wrangler@4 deploy --config "$CONFIG" --keep-vars --strict --var NUSA_D1_MODE:off
+      - name: Verifikasi SESUDAH deploy (binding, mode off, rute D1 404, release-status tidak berubah, Cloud Save/health utuh)
+        run: |
+          set -e
+          curl -fsS --retry 3 --max-time 20 "$NUSA_API_BASE/api/health" >/dev/null || { echo "::error::Health gagal"; exit 1; }
+          # 1) binding & mode lewat Cloudflare (bukti bound:true dan mode:off tanpa token Owner)
+          curl -fsS --retry 2 --max-time 30 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/nusa-api/settings" -o "$RUNNER_TEMP/rg/set_after.json"
+          node --input-type=commonjs - "$RUNNER_TEMP/rg/set_after.json" "$RUNNER_TEMP/rg/expected.json" <<'NODE'
+          const fs = require('node:fs');
+          const d = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const by = Object.fromEntries(d.result.bindings.map(b => [b.name, b]));
+          for (const old of JSON.parse(fs.readFileSync(process.argv[3], 'utf8'))) {
+            const n = by[old.name];
+            if (!n || n.type !== old.type || (old.type === 'plain_text' && n.text !== old.text)) throw Error('PENTING: konfigurasi produksi berubah (' + old.name + '). Periksa rollback nusa-api.');
+          }
+          const db = by.NUSA_DB;
+          if (!db || db.type !== 'd1' || db.id !== process.env.D1_ID) throw Error('Binding NUSA_DB tidak benar');
+          if (by.NUSA_D1_MODE?.type !== 'plain_text' || by.NUSA_D1_MODE.text !== 'off') throw Error('NUSA_D1_MODE bukan off');
+          if (by.NUSA_D1_MIGRATE) throw Error('NUSA_D1_MIGRATE tidak boleh ada');
+          console.log('OK: variabel/secret produksi utuh; NUSA_DB (d1) terikat ke nusa-player-data; NUSA_D1_MODE=off (setara bound:true, mode:"off").');
+          NODE
+          # 2) rute Owner ada & terproteksi (tanpa token = 401/403, BUKAN 404)
+          for p in /api/d1/status /api/d1/probe; do
+            C=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' "$NUSA_API_BASE$p" || echo 000)
+            echo "$p tanpa token = HTTP $C"; case "$C" in 401|403) ;; *) echo "::error::$p seharusnya 401/403."; exit 1;; esac
+          done
+          # 3) seluruh /d1/v1/* tetap 404 (dengan dan tanpa token palsu)
+          for m in GET PUT POST; do for p in /d1/v1/status /d1/v1/save /d1/v1/save/revisions /d1/v1/save/rollback /d1/v1/sf /d1/v1/podium/top; do
+            C=$(curl -sS --max-time 20 -X "$m" -H 'Authorization: Bearer x.y.z' -o /dev/null -w '%{http_code}' "$NUSA_API_BASE$p" || echo 000)
+            [ "$C" = "404" ] || { echo "::error::$m $p = HTTP $C (harus 404)."; exit 1; }
+          done; done
+          echo "OK: semua /d1/v1/* = 404."
+          # 4) release-status tidak berubah
+          CODE=$(curl -sS --retry 3 --max-time 20 -o "$RUNNER_TEMP/rg/rs_after.raw" -w '%{http_code}' "$NUSA_API_BASE/api/release-status" || echo 000)
+          [ "$CODE" = "200" ] || { echo "::error::release-status SESUDAH = HTTP $CODE"; exit 1; }
+          node guard/scripts/release-guard.mjs normalize < "$RUNNER_TEMP/rg/rs_after.raw" > "$RUNNER_TEMP/rg/after.json"
+          node guard/scripts/release-guard.mjs compare "$RUNNER_TEMP/rg/before.json" "$RUNNER_TEMP/rg/after.json"
+          # 5) Cloud Save lama: endpoint tetap hidup & terproteksi (tanpa token = 401, bukan 404/5xx); tidak menulis data apa pun
+          C=$(curl -sS --max-time 20 -X POST -H 'content-type: application/json' -d '{"data":{}}' -o /dev/null -w '%{http_code}' "$NUSA_API_BASE/fn/loadSave" || echo 000)
+          echo "/fn/loadSave tanpa token = HTTP $C"; [ "$C" = "401" ] || { echo "::error::Jalur Cloud Save lama tidak merespons 401 (dapat $C)."; exit 1; }
+          echo "Selesai. Langkah Owner: panggil GET /api/d1/status (mode:off, bound:true) dan GET /api/d1/probe (schemaVersion:3) dengan token Owner. JANGAN aktifkan shadow/on."
