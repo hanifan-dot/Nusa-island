@@ -180,6 +180,58 @@ jobs:
           fs.writeFileSync(process.argv[3], JSON.stringify(d.result.bindings.filter(b => ['plain_text', 'secret_text'].includes(b.type) && b.name !== 'NUSA_D1_MODE').map(b => ({ name: b.name, type: b.type, text: b.type === 'plain_text' ? b.text : null }))), { mode: 0o600 });
           console.log('OK: konfigurasi produksi terdeteksi; D1 binding sudah ada: ' + (by.NUSA_DB ? 'ya' : 'belum'));
           NODE
+      - name: Preflight D1 baca-saja (bedakan izin token / Account ID / Database ID sebelum migrasi)
+        if: ${{ inputs.mode == 'pasang-d1-off' }}
+        run: |
+          set -u
+          # Hanya GET + satu "SELECT 1"; tidak mengubah apa pun. Token tidak pernah dicetak.
+          B="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID"
+          OUT="$RUNNER_TEMP/pf.json"
+          call(){
+            local m="$1" p="$2" b="${3:-}"
+            if [ -n "$b" ]; then
+              CODE=$(curl -sS --max-time 30 -X "$m" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'content-type: application/json' -d "$b" -o "$OUT" -w '%{http_code}' "$B$p" || echo 000)
+            else
+              CODE=$(curl -sS --max-time 30 -X "$m" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -o "$OUT" -w '%{http_code}' "$B$p" || echo 000)
+            fi
+            ERR=$(node -e 'try{const d=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const e=(d.errors||[])[0];console.log(e?e.code+": "+String(e.message).slice(0,120):"-")}catch{console.log("-")}' "$OUT")
+          }
+          # 1. Token valid untuk akun ini? (informasi)
+          call GET /tokens/verify
+          echo "[1] Token (akun) verify : HTTP $CODE  galat=$ERR"
+          # 2. Account ID: Worker nusa-api sudah terbaca di langkah sebelumnya dengan Account ID + token yang sama.
+          echo "[2] Account ID          : valid untuk Workers (langkah 'Baca konfigurasi Worker SEBELUM' sudah 200)"
+          # 3. Izin D1 pada akun: daftar database
+          call GET "/d1/database?per_page=100"
+          LCODE="$CODE"; LERR="$ERR"
+          echo "[3] Daftar D1 akun      : HTTP $LCODE  galat=$LERR"
+          if [ "$LCODE" != "200" ]; then
+            echo "::error::PENYEBAB: token TIDAK punya izin Account > D1 (HTTP $LCODE, galat $LERR). Account ID benar karena Workers terbaca dengan token yang sama. Buat token dengan Account > D1 > Edit lalu perbarui secret CLOUDFLARE_API_TOKEN. Tidak ada perubahan produksi."
+            exit 1
+          fi
+          # 4. Database ID milik akun ini?
+          POS=$(node -e 'const d=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const l=d.result||[];const byId=l.find(x=>x.uuid===process.env.D1_ID);const byName=l.find(x=>x.name===process.env.D1_NAME);console.log(byId?"id-ada":(byName?"nama-ada-id-beda":"tidak-ada"));console.error("jumlah database di akun: "+l.length)' "$OUT")
+          echo "[4] Database di akun    : $POS"
+          if [ "$POS" = "tidak-ada" ]; then
+            echo "::error::PENYEBAB: Database ID $D1_ID dan nama $D1_NAME TIDAK ada di akun Cloudflare ini. Database kemungkinan dibuat di akun lain, atau CLOUDFLARE_ACCOUNT_ID menunjuk akun berbeda dari akun database. Cocokkan Account ID di Dashboard (D1 > nusa-player-data). Tidak ada perubahan produksi."
+            exit 1
+          fi
+          if [ "$POS" = "nama-ada-id-beda" ]; then
+            echo "::error::PENYEBAB: database bernama $D1_NAME ada di akun ini tetapi dengan Database ID berbeda dari yang dipin ($D1_ID). Perbaiki database_id di wrangler.toml backend lewat PR terpisah. Tidak ada perubahan produksi."
+            exit 1
+          fi
+          # 5. Detail database
+          call GET "/d1/database/$D1_ID"
+          echo "[5] Detail database     : HTTP $CODE  galat=$ERR"
+          [ "$CODE" = "200" ] || { echo "::error::Database ada di daftar tetapi detailnya tidak terbaca (HTTP $CODE, galat $ERR). Berhenti."; exit 1; }
+          # 6. Izin kueri (jalur yang dipakai wrangler d1 migrations): SELECT 1 saja
+          call POST "/d1/database/$D1_ID/query" '{"sql":"SELECT 1 AS ok"}'
+          echo "[6] Kueri baca SELECT 1 : HTTP $CODE  galat=$ERR"
+          if [ "$CODE" != "200" ]; then
+            echo "::error::PENYEBAB: token dapat melihat D1 tetapi TIDAK boleh menjalankan kueri (HTTP $CODE, galat $ERR). Beri izin Account > D1 > Edit pada token. Tidak ada perubahan produksi."
+            exit 1
+          fi
+          echo "OK: akun, izin D1 Edit, dan Database ID cocok; lanjut ke migrasi."
       - name: Migrasi D1 REMOTE 0001-0003 (hanya skema; tanpa data pemain)
         if: ${{ inputs.mode == 'pasang-d1-off' }}
         working-directory: backend/worker
