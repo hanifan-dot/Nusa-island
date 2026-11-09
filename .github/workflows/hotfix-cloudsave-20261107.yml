@@ -215,8 +215,16 @@ jobs:
           node guard/scripts/release-guard.mjs normalize < "$RUNNER_TEMP/rg/rs_before.raw" > "$RUNNER_TEMP/rg/before.json"
           curl -fsS --retry 3 --max-time 20 "$NUSA_API_BASE/api/public-config" -o "$RUNNER_TEMP/rg/pc_before.json"
           node -e 'const s=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const n={"Podium Juara":s.features.leaderboard,"Rumahku Sosial":s.features.socialHome,"Samudra Follower":s.sf.on,"Event Ikan Prabowo":s.sf.eventOn};console.log("Status SEBELUM deploy (dari server): "+Object.entries(n).map(([k,v])=>k+"="+(v?"ON":"OFF")).join(", "))' "$RUNNER_TEMP/rg/before.json"
-      - name: Deploy API dengan pengaman variabel dan secret
-        run: bash game/firebase/scripts/deploy-api-kandidat.sh
+      - name: Ambil skrip deploy API dari main (binding D1 dipertahankan; bukan dari checkout game)
+        uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/Nusa-island
+          ref: ${{ github.sha }}
+          path: _ci
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: Deploy API dengan pengaman variabel, secret, dan binding D1
+        run: bash _ci/.github/scripts/deploy-api-kandidat.sh
       - name: Deploy Firebase Hosting game (Cloud Save hotfix)
         if: ${{ env.NEED_HOSTING == 'ya' }}
         env:

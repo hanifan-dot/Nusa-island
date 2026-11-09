@@ -5,7 +5,7 @@
 # Kedua mode: berhenti sebelum menyentuh produksi bila /api/release-status tidak 200; release-status dibandingkan sebelum/sesudah.
 # TIDAK: deploy game/Hosting/multiplayer, mengaktifkan shadow/on, NUSA_D1_MIGRATE, migrasi data pemain, menulis Firestore. Secret (sudah ada): CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, NUSA_BACKEND_READ_TOKEN; tidak pernah dicetak.
 # Verifikasi /api/d1/status & /api/d1/probe butuh token Owner Firebase yang TIDAK ada di CI: CI membuktikan bound/mode lewat daftar binding Worker di Cloudflare + rute terproteksi; Owner mengecek manual sesudahnya.
-# CATATAN: workflow rilis biasa (rilis-*.yml / deploy-api-kandidat.sh) BELUM bisa dipakai untuk rollback setelah binding d1 terpasang: skripnya menolak binding selain plain_text/secret_text/assets
+# CATATAN: workflow rilis biasa (rilis-*.yml) kini memakai .github/scripts/deploy-api-kandidat.sh yang MEMPERTAHANKAN binding d1 (NUSA_DB). Tetapi rollback ke backend PRA-D1 tetap ditolak olehnya (agar binding tidak terhapus tanpa sengaja): untuk itu pakai mode rollback-pre-d1 di workflow ini.
 #   ("Binding memerlukan penanganan khusus: d1"). Gunakan mode rollback-pre-d1 di workflow ini.
 name: D1 Fondasi Remote (pasang OFF / rollback)
 on:
