@@ -9,7 +9,7 @@ permissions:
   contents: read
 jobs:
   test:
-    name: Uji paket Recovery V2 + kuota (game 71290dd + backend 25e827b, backoff + cache)
+    name: Uji paket Recovery V2 + kuota (game 89616ef + backend 25e827b, backoff + cache)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
-          ref: 71290ddeac4d26e29eecb26f257609e107eae4e5
+          ref: 89616efda7da668df7e36e2629479bfc321e517e
           path: game
           persist-credentials: false
       - name: Akses baca backend privat
