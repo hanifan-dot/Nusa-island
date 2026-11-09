@@ -132,8 +132,18 @@ def main():
         ok("4e TIDAK ada klaim berhasil/ tombol refresh", "BERHASIL" not in t and "REFRESH" not in t and not ev(A, "!!document.getElementById('recRefresh')"))
         payloads = ev(A, "window.__rrPayloads||[]"); ok("4f yang dikirim persis isi cadangan terpilih (satu permohonan)", payloads == [GUEST_BAK], len(payloads))
         ok("4g tidak ada tulis ke Cloud Save / ekonomi / pemulihan langsung", [c for c in calls(A) if c != "recoveryRequest"] == [] , calls(A))
-        after2 = ls_all(A); ch = {k for k in set(before2) | set(after2) if before2.get(k) != after2.get(k)}
-        ok("4h simpanan & cadangan lokal tidak berubah (hanya catatan 'permohonan terkirim' ditambahkan)", ch <= {"nusa-recovery-v1"} and "nusa-recovery-v1" in after2, ch)
+        after2 = ls_all(A)
+        # Autosave game (tiap 5 dtk waktu-game) menulis ulang 'nusa-island-v1' dengan jam dunia (S.hour) yang terus berjalan — itu BUKAN perubahan oleh Recovery.
+        # Karena itu simpanan dibandingkan tanpa S.hour (semua progres lain tetap harus identik); cadangan & kunci lain dibandingkan apa adanya.
+        import json as _j
+        def stable(d):
+            o = dict(d)
+            try:
+                g = _j.loads(o["nusa-island-v1"]); g.pop("hour", None); o["nusa-island-v1"] = _j.dumps(g, sort_keys=True)
+            except Exception: pass
+            return o
+        sb, sa = stable(before2), stable(after2); ch = {k for k in set(sb) | set(sa) if sb.get(k) != sa.get(k)}
+        ok("4h simpanan & cadangan lokal tidak berubah (hanya catatan 'permohonan terkirim' ditambahkan; jam dunia autosave diabaikan)", ch <= {"nusa-recovery-v1"} and "nusa-recovery-v1" in after2, ch)
         ok("4i Cloud Save akun tetap kosong (tidak ada progres masuk tanpa persetujuan Owner)", ev(A, "(async()=>{const c=window.__demoCloud;const r=await c.server.loadSave(c.tokenOf('demo-a'),{});return !r.exists})()"))
         A.screenshot(path=OUT + "5-permohonan-dikirim.png")
         A.click("#recDone"); open_panel(A); go(A); t = txt(A)
