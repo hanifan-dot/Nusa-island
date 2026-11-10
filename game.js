@@ -1543,6 +1543,7 @@ if (NW.house) NW.house.hook();                 // Kunjungi Rumah Teman (tombol d
 if (NW.recovery) NW.recovery.hook();        // 🔄 Pulihkan Data (ubin di menu ☰, dekat Profil & Akun)
 if (NW.worldMode) NW.worldMode.hook();       // Bermain di Dunia (ubin di menu ☰: pilih Multiplayer / Singleplayer)
 if (NW.podium) NW.podium.hook();          // Podium Juara fisik di Muara (data hanya dari server)
+if (NW.sultan) NW.sultan.hook();          // Mercusuar Emas / Sultan Samudra: objek fisik terpisah, muncul HANYA bila server aktif
 if (NW.username) NW.username.hook();        // Nama Pemain Permanen (modal pendaftaran setelah login)
 if (NW.mp) NW.mp.hook();                   // Tahap 4: Dunia Bersama (multiplayer Muara Kampung) — hanya aktif untuk akun Google yang menyetujui
 if (NW.quest) NW.quest.hook();            // Quest Owner: tombol 🌴 & panel (klaim hanya lewat server ekonomi)

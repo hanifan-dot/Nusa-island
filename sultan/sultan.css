@@ -1,0 +1,27 @@
+/* NUSA ISLAND — Panel Sultan Samudra (Mercusuar Emas). Ringan untuk Android: tanpa blur/filter. Tema teal/krem/emas. */
+.su-ov { position: fixed; inset: 0; z-index: 64; display: flex; align-items: flex-end; justify-content: center; background: rgba(8, 28, 36, 0); transition: background .22s; overflow: hidden; }
+.su-ov.hidden { display: none; } .su-ov.show { background: rgba(8, 28, 36, .62); }
+.su-sheet { position: relative; width: 100%; max-width: 480px; box-sizing: border-box; max-height: 86%; overflow-y: auto; padding: 16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px); background: linear-gradient(180deg, #fffaf0, #f4ecd6); color: #173f50; border-radius: 22px 22px 0 0; border-top: 3px solid #e0b84c; transform: translateY(16px); opacity: 0; transition: transform .22s, opacity .22s; }
+.su-ov.show .su-sheet { transform: none; opacity: 1; }
+@media (min-width: 640px) { .su-ov { align-items: center; padding: 16px; } .su-sheet { border-radius: 22px; border: 3px solid #e0b84c; max-height: 92vh; } }
+.su-x { position: absolute; top: 10px; right: 10px; width: 44px; height: 44px; border-radius: 50%; border: 2px solid #173f50; background: #fff; color: #173f50; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.su-x:focus-visible, .su-btn:focus-visible { outline: 3px solid #1c8fd1; outline-offset: 2px; }
+.su-head { text-align: center; padding: 0 52px 8px; } .su-head svg { display: block; margin: 0 auto 4px; }
+.su-head h2 { margin: 0; font: 800 19px/1.2 var(--display, Georgia, serif); letter-spacing: .07em; outline: none; }
+.su-sub { margin: 6px 0 0; font-size: 12.5px; line-height: 1.4; color: #4b6b78; }
+.su-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 7px; }
+.su-row { display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 6px 12px 6px 8px; border-radius: 14px; background: #fff; border: 2px solid #e0d6b8; }
+.su-row.r1 { border-color: #e0b84c; background: #fff8dc; } .su-row.r2 { border-color: #b8c3ca; } .su-row.r3 { border-color: #d9a273; }
+.su-row.empty { background: #f1f1ea; border-style: dashed; color: #6b8590; }
+.su-medal { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; }
+.su-who { flex: 1; min-width: 0; display: flex; flex-direction: column; } .su-name { font: 800 15.5px/1.2 system-ui, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.su-who small { font: 700 12px/1.2 system-ui, sans-serif; color: #9a6d12; }
+.su-score { font: 800 16px/1.1 system-ui, sans-serif; text-align: right; } .su-score small { display: block; font: 600 11px system-ui, sans-serif; color: #6b8590; }
+.su-state { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 14px; background: #eef5f3; margin-top: 8px; font-size: 14px; line-height: 1.4; }
+.su-state:not(.off) { flex-direction: row; align-items: center; gap: 10px; }
+.su-spin { width: 18px; height: 18px; border-radius: 50%; border: 3px solid #cfe3de; border-top-color: #579b8b; animation: suSpin .8s linear infinite; } @keyframes suSpin { to { transform: rotate(360deg); } }
+.su-me { margin: 12px 2px 0; font-size: 14px; } .su-tiers { margin: 10px 2px 0; font-size: 11.5px; line-height: 1.4; color: #6b8590; }
+.su-btn { display: block; width: 100%; min-height: 48px; margin-top: 10px; border: 0; border-radius: 14px; background: #579b8b; color: #fff; font: 800 15px system-ui, sans-serif; cursor: pointer; }
+.su-btn.alt { background: #fff9ec; color: #173f50; border: 2px solid #e0b84c; } .su-btn:disabled { opacity: .55; cursor: default; }
+body.su-open { overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .su-sheet, .su-ov, .su-spin { transition: none !important; animation: none !important; } }
