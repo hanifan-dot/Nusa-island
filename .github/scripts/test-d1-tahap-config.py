@@ -22,6 +22,8 @@ def live(vars_=VARS, secrets=SECRETS, d1=True, extra=()):
     if d1: b.append({"type": "d1", "name": "NUSA_DB", "id": D1})
     return {"success": True, "result": {"bindings": b + list(extra)}}
 
+os.environ.pop("MIG_TARGET", None)   # CI mengekspor MIG_TARGET ke seluruh langkah; tes lama harus berjalan tanpa itu (Salin mengaturnya sendiri per-panggilan)
+
 class Salin(unittest.TestCase):
     """buka-salin / tutup-salin: HANYA NUSA_D1_MIGRATE berubah; mode live, semua variable, secret, NUSA_DB, assets utuh."""
     def setUp(self):
