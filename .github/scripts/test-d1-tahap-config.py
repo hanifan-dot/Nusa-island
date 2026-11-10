@@ -7,7 +7,7 @@ VARS = {  # nilai contoh (bukan nilai produksi) dengan karakter yang menyulitkan
     "ALLOWED_ORIGINS": "https://nusa-island-d2023.web.app,https://nusa-island-d2023.firebaseapp.com",
     "NUSA_SHOP_LIVE": "1", "ENABLE_SHOP_PRODUCTION": "ya", "NUSA_PUBLIC_OPEN": "ya", "WHATSAPP": "+62 896-7234-4059",   # pembayaran / QRIS
     "NUSA_ECO_INIT_CAP": "20000", "NUSA_CONFIG_CACHE_MS": "15000", "NUSA_FS_BREAKER_MS": "60000",                      # Cloud Save / ekonomi / kuota
-    "NUSA_LEADERBOARD": "ya",                                                                                          # Podium
+    "NUSA_LEADERBOARD": "ya", "NUSA_SULTAN": "tidak",                                                                                          # Podium
     "NUSA_D1_MODE": "off", "NUSA_D1_MIGRATE": "ya", "CATATAN": 'a "kutip" \\ garis\tmiring',
 }
 def wr(p, t):
@@ -22,7 +22,8 @@ def live(vars_=VARS, secrets=SECRETS, d1=True, extra=()):
     if d1: b.append({"type": "d1", "name": "NUSA_DB", "id": D1})
     return {"success": True, "result": {"bindings": b + list(extra)}}
 
-os.environ.pop("MIG_TARGET", None)   # CI mengekspor MIG_TARGET ke seluruh langkah; tes lama harus berjalan tanpa itu (Salin mengaturnya sendiri per-panggilan)
+os.environ.pop("MIG_TARGET", None)
+os.environ.pop("SULTAN_TARGET", None)   # CI mengekspor MIG_TARGET ke seluruh langkah; tes lama harus berjalan tanpa itu (Salin mengaturnya sendiri per-panggilan)
 
 class Salin(unittest.TestCase):
     """buka-salin / tutup-salin: HANYA NUSA_D1_MIGRATE berubah; mode live, semua variable, secret, NUSA_DB, assets utuh."""
@@ -57,6 +58,16 @@ class Salin(unittest.TestCase):
         import tomllib
         rc, out = self.go("", VARS); self.assertEqual(rc, 0, out)
         with open(self.p("out.toml"), "rb") as fh: self.assertEqual(tomllib.load(fh)["vars"]["NUSA_D1_MIGRATE"], "ya")
+    def test_sultan_on_hanya_ubah_saklar_sultan(self):
+        import tomllib
+        wr(self.p("live.json"), json.dumps(live(VARS)))
+        env = dict(os.environ, SULTAN_TARGET="ya")
+        r = subprocess.run([sys.executable, TOOL, "build", self.p("live.json"), self.p("base.toml"), self.p("out.toml"), "keep"], capture_output=True, text=True, env=env)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        with open(self.p("out.toml"), "rb") as fh: v = tomllib.load(fh)["vars"]
+        for k, val in VARS.items(): self.assertEqual(v[k], "ya" if k == "NUSA_SULTAN" else val, k)
+        self.assertEqual(v["NUSA_D1_MODE"], "off")
+        self.assertEqual(v["NUSA_D1_MIGRATE"], "ya")
 
 class T(unittest.TestCase):
     def setUp(self):
