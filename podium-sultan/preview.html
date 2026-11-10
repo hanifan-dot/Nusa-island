@@ -1,0 +1,7 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pratinjau Podium Sultan Samudra</title>
+<link rel="stylesheet" href="podium-sultan.css"><style>body{margin:0;background:#0f2c3a;color:#fff;font-family:system-ui,sans-serif}</style></head>
+<body><div id="p"></div><script src="podium-sultan.js"></script><script>
+// Data FIKTIF untuk pratinjau — bukan data pemain.
+const fake={sultanTop:{status:'ok',entries:[{rank:1,name:'Raka Bahari',points:60,title:'Sultan Samudra'},{rank:2,name:'Sari Karang',points:40,title:'Saudagar Laut'},{rank:3,name:'Sultan Anonim',points:30,title:'Saudagar Laut'}]},sultanMe:{status:'ok',points:40,title:'Saudagar Laut',anon:false},sultanPrefs:{status:'ok',anon:true}};
+PodiumSultan.mount(document.getElementById('p'),{enabled:true,call:async n=>fake[n]});
+</script></body></html>
