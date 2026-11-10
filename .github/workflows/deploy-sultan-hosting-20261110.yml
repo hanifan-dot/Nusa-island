@@ -1,0 +1,116 @@
+# Podium Sultan Samudra — rilis game/Hosting SAJA.
+# Tidak men-deploy nusa-api, D1, multiplayer, Functions, atau mengubah variable produksi.
+name: Deploy Podium Sultan (Hosting saja)
+
+on:
+  workflow_dispatch:
+    inputs:
+      game_sha:
+        description: "SHA game Mercusuar Emas yang sudah diuji"
+        type: string
+        required: true
+        default: "32b39dbffa07278b467ed1c088eaeb80baa42e39"
+      konfirmasi:
+        description: "Ketik persis deploy-sultan"
+        type: string
+        required: true
+
+concurrency:
+  group: nusa-island-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Verifikasi lalu deploy Hosting saja
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    steps:
+      - name: Hanya Owner, main, SHA teruji, dan konfirmasi tepat
+        env:
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+          REF: ${{ github.ref }}
+          GAME_SHA: ${{ inputs.game_sha }}
+          CONFIRM: ${{ inputs.konfirmasi }}
+        run: |
+          set -e
+          [ "$ACTOR" = "$OWNER" ] || { echo "::error::Hanya Owner."; exit 1; }
+          [ "$REF" = "refs/heads/main" ] || { echo "::error::Jalankan dari main."; exit 1; }
+          [ "$CONFIRM" = "deploy-sultan" ] || { echo "::error::Konfirmasi harus deploy-sultan."; exit 1; }
+          [ "$GAME_SHA" = "32b39dbffa07278b467ed1c088eaeb80baa42e39" ] || { echo "::error::Hanya SHA Mercusuar Emas teruji yang diizinkan."; exit 1; }
+
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/Nusa-island
+          ref: ${{ inputs.game_sha }}
+          fetch-depth: 0
+          path: game
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Tes Sultan dan bukti aset masuk build
+        run: |
+          set -e
+          bash -n game/firebase/scripts/rilis.sh game/firebase/scripts/build-hosting.sh
+          node game/tests/unit-sultan.js
+          node game/firebase/scripts/cek-rilis.js
+          grep -Fq "NW.sultan" game/sultan/client.js
+          grep -Fq "sultan/sultan.css" game/index.html
+          grep -Fq "sultan" game/firebase/release-manifest.json
+
+      - name: Login Firebase OIDC
+        if: ${{ vars.GCP_WIF_PROVIDER != '' && vars.GCP_DEPLOY_SA != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+          create_credentials_file: true
+
+      - name: Login Firebase dengan secret cadangan
+        if: ${{ vars.GCP_WIF_PROVIDER == '' || vars.GCP_DEPLOY_SA == '' }}
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          set -e
+          [ -n "$SERVICE_ACCOUNT" ] || { echo "::error::FIREBASE_SERVICE_ACCOUNT belum tersedia."; exit 1; }
+          umask 077
+          printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/nusa-sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/nusa-sa.json" >> "$GITHUB_ENV"
+
+      - name: Deploy Firebase Hosting saja
+        env:
+          NUSA_TARGET: game
+          NUSA_CI: "1"
+          NUSA_API_DEPLOYED: "ya"
+          NUSA_CONFIRM: "ya"
+        run: cd game && bash firebase/scripts/rilis.sh --target game --ci
+
+      - name: Verifikasi Mercusuar Emas live
+        env:
+          GAME_SHA: ${{ inputs.game_sha }}
+        run: |
+          set -e
+          SITE=https://nusa-island-d2023.web.app
+          ready=tidak
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS --max-time 20 -H "Cache-Control: no-cache" "$SITE/sultan/client.js?v=$GAME_SHA" | grep -Fq "NW.sultan" && \
+               curl -fsS --max-time 20 -H "Cache-Control: no-cache" "$SITE/sultan/core.js?v=$GAME_SHA" | grep -Fq "Sultan" && \
+               curl -fsS --max-time 20 -H "Cache-Control: no-cache" "$SITE/index.html?v=$GAME_SHA" | grep -Fq "sultan/sultan.css"; then
+              ready=ya
+              break
+            fi
+            sleep 5
+          done
+          [ "$ready" = "ya" ] || { echo "::error::Aset Sultan belum terlihat di Hosting."; exit 1; }
+          echo "OK: Mercusuar Emas terdeploy. nusa-api, D1, multiplayer, dan Firestore tidak disentuh."
+
+      - name: Bersihkan kredensial sementara
+        if: always()
+        run: rm -f "$RUNNER_TEMP/nusa-sa.json"
