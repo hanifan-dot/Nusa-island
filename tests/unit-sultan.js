@@ -76,4 +76,14 @@ t("manifest rilis, build-hosting, index.html, game.js, muara.js memuat Sultan Sa
   const idx = fs.readFileSync(path.join(ROOT, "index.html"), "utf8"); assert.ok(idx.indexOf("sultan/core.js") > 0 && idx.indexOf("sultan/core.js") < idx.indexOf("sultan/client.js") && idx.indexOf("sultan/client.js") < idx.indexOf('src="game.js"'));
   assert.ok(/NW\.sultan\.hook\(\)/.test(fs.readFileSync(path.join(ROOT, "game.js"), "utf8"))); assert.ok(/t\.id === "sultan"/.test(fs.readFileSync(path.join(ROOT, "world/areas/muara.js"), "utf8")));
 });
+// ---- kontrak dengan backend (PR #54): respons ASLI worker/sultan.js direkam ke fixture (saklar OFF, ON, tanpa D1, D1 galat) ----
+t("kontrak backend: fixture respons asli worker dipahami klien (ok / inactive / unavailable, me, prefs)", () => {
+  const F = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/sultan-backend-contract.json"), "utf8"));
+  assert.deepStrictEqual(Core.normalize(F.off[0]), { status: "inactive", entries: [] }); assert.strictEqual(Core.normalizeMe(F.off[1]), null); assert.strictEqual(F.off[2].status, "inactive");
+  const m = Core.normalize(F.top); assert.strictEqual(m.status, "live"); assert.deepStrictEqual(m.entries.map((e) => [e.rank, e.points, e.title]), [[1, 60, "Sultan Samudra"], [2, 40, "Saudagar Laut"], [3, 30, "Saudagar Laut"]]);
+  assert.deepStrictEqual(Object.keys(F.top.entries[0]).sort(), ["name", "points", "rank", "title"], "server hanya mengirim 4 bidang publik");
+  assert.deepStrictEqual(Core.normalizeMe(F.me), { points: 60, title: "Sultan Samudra", anon: false }); assert.ok(F.prefs.status === "ok" && typeof F.prefs.anon === "boolean");
+  for (const r of [F.nodb[0], F.nomig]) assert.strictEqual(Core.normalize(r).status, "unavailable");
+  assert.strictEqual(Core.normalizeMe(F.nodb[1]), null); assert.notStrictEqual(F.nodb[2].status, "ok");
+});
 console.log(`unit-sultan: ${pass} lolos, ${fail} gagal`); process.exit(fail ? 1 : 0);

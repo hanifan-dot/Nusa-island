@@ -128,14 +128,14 @@ def main():
               const HW=NW.TW/2,HH=NW.TH/2,K={rx:Math.SQRT2*HW,ry:Math.SQRT2*HH};
               const sc=(x,y,z)=>{const p=NW.P(x,y,z);return {x:(p.x-cam.x)*Z+W/2+cv.left,y:(p.y-cam.y)*Z+H/2+cv.top}};
               const bb=(C,hw,top,bot)=>{const g=sc(C.x,C.y,6);return {l:g.x-hw*K.rx*Z,r:g.x+hw*K.rx*Z,t:g.y-top*Z,b:g.y+bot*Z}};
-              const S=bb(NW.sultan.C,2.1,150,K.ry*2.1+16), PD=bb(NW.podium.C,2.1,140,K.ry*2.1+30);
+              const S=bb(NW.sultan.C,2.1,127,K.ry*2.1+16), PD=bb(NW.podium.C,2.1,140,K.ry*2.1+30);
               const R=(el)=>{const q=el&&el.getBoundingClientRect();return q&&q.width?{l:q.left,r:q.right,t:q.top,b:q.bottom}:null};
               const hit=(a,b)=>!!a&&!!b&&a.l<b.r&&a.r>b.l&&a.t<b.b&&a.b>b.t;
               const hud=[...document.querySelectorAll('.hud-left>*,.hud-right>*')].map(R).filter(Boolean);
-              return {S,joy:R(document.getElementById('joy')),act:R(document.getElementById('actBtn')),hudHit:hud.some(h=>hit(innerHeight<500?Object.assign({},S,{t:S.t+28}):S,h)),joyHit:hit(S,R(document.getElementById('joy'))),actHit:hit(S,R(document.getElementById('actBtn'))),podHit:hit(S,PD),
+              return {S,joy:R(document.getElementById('joy')),act:R(document.getElementById('actBtn')),hudHit:hud.some(h=>hit(Object.assign({},S,{t:S.t-4}),h)),joyHit:hit(S,R(document.getElementById('joy'))),actHit:hit(S,R(document.getElementById('actBtn'))),podHit:hit(S,PD),
                 inView:S.l>=0&&S.r<=innerWidth&&S.b<=innerHeight+0&&S.t>=-60,W:innerWidth,H:innerHeight,joyVisible:!!R(document.getElementById('joy'))}})()""")
             tag = f"{vp[0]}x{vp[1]}"
-            ok(f"G1 [{tag}] objek tidak menutup joystick", not r["joyHit"], r["joy"]); ok(f"G2 [{tag}] objek tidak menutup HUD atas (koin/jam/tas/misi/menu; layar landscape: kecuali 28px ujung atap lentera)", not r["hudHit"], r["S"])
+            ok(f"G1 [{tag}] objek tidak menutup joystick", not r["joyHit"], r["joy"]); ok(f"G2 [{tag}] objek tidak menutup HUD atas (koin/jam/tas/misi/menu, semua ukuran layar termasuk landscape 740x360)", not r["hudHit"], r["S"])
             ok(f"G3 [{tag}] objek tidak menutup tombol aksi", not r["actHit"], r["act"]); ok(f"G4 [{tag}] objek tidak bertumpuk dengan Podium Pemancing di layar", not r["podHit"], r["S"])
             ok(f"G5 [{tag}] objek utuh di dalam layar saat pemain di titik interaksi", r["inView"], r["S"])
             G.click("#actBtn"); time.sleep(0.8)

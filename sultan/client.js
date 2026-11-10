@@ -14,10 +14,10 @@ const cloud = () => NW.cloud, loggedIn = () => !!(cloud() && cloud().enabled && 
 const C = { x: 21.6, y: 8.1 }, LIFT = 6;
 const DRUMS = [                                                   // urutan layar kiri→kanan: #3, #1 (tengah, menara), #2
   { rank: 3, dx: -0.95, dy: 0.95, h: 24, band: "#2fa3b8", medal: "#c98a4b" },
-  { rank: 1, dx: 0, dy: 0, h: 50, band: null, medal: "#f2c94c" },
+  { rank: 1, dx: 0, dy: 0, h: 42, band: null, medal: "#f2c94c" },
   { rank: 2, dx: 0.95, dy: -0.95, h: 36, band: "#d9453d", medal: "#dfe6ea" },
 ];
-const POINT = { id: "sultan", x: C.x + 0.8, y: C.y + 2.4, r: 1.8, icon: "🗼", label: "Mercusuar Sultan" };
+const POINT = { id: "sultan", x: C.x + 0.7, y: C.y + 2.0, r: 1.8, icon: "🗼", label: "Mercusuar Sultan" };
 const OBJ = { kind: "sultan", x: C.x, y: C.y, big: 210, dz: 0.9 };
 const SOLIDS = DRUMS.map((d) => ({ x: C.x + d.dx, y: C.y + d.dy, r: d.rank === 1 ? 0.72 : 0.55 }));
 
@@ -90,7 +90,7 @@ function drawSultan(c, o, t, night) {
     if (main) tower = r;
   }
   // menara mercusuar di atas tabung #1: kerucut terpancung pita merah-putih, galeri emas, ruang lentera, atap emas
-  const tx = tower.tp.x, ty = tower.tp.y, th = 62, wB = tower.rx * 0.62, wT = wB * 0.62;
+  const tx = tower.tp.x, ty = tower.tp.y, th = 48, wB = tower.rx * 0.62, wT = wB * 0.62;
   const yAt = (k) => ty - th * k, wAt = (k) => wB + (wT - wB) * k;
   for (let k = 0; k < 5; k++) { const k0 = k / 5, k1 = (k + 1) / 5; c.fillStyle = k % 2 ? "#f6f1ea" : "#d9453d"; c.beginPath(); c.moveTo(tx - wAt(k0), yAt(k0)); c.lineTo(tx + wAt(k0), yAt(k0)); c.lineTo(tx + wAt(k1), yAt(k1)); c.lineTo(tx - wAt(k1), yAt(k1)); c.closePath(); c.fill(); }
   c.fillStyle = "rgba(15,50,64,.18)"; c.beginPath(); c.moveTo(tx, yAt(0)); c.lineTo(tx + wAt(0), yAt(0)); c.lineTo(tx + wAt(1), yAt(1)); c.lineTo(tx, yAt(1)); c.closePath(); c.fill();

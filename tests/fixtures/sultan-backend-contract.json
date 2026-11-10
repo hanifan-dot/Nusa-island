@@ -1,0 +1,65 @@
+{
+ "off": [
+  {
+   "status": "inactive",
+   "entries": []
+  },
+  {
+   "status": "inactive"
+  },
+  {
+   "status": "inactive"
+  }
+ ],
+ "top": {
+  "status": "ok",
+  "entries": [
+   {
+    "rank": 1,
+    "name": "Sultan Anonim",
+    "points": 60,
+    "title": "Sultan Samudra"
+   },
+   {
+    "rank": 2,
+    "name": "Sultan Anonim",
+    "points": 40,
+    "title": "Saudagar Laut"
+   },
+   {
+    "rank": 3,
+    "name": "Sultan Anonim",
+    "points": 30,
+    "title": "Saudagar Laut"
+   }
+  ],
+  "cachedAt": 1000000
+ },
+ "me": {
+  "status": "ok",
+  "points": 60,
+  "title": "Sultan Samudra",
+  "anon": false
+ },
+ "prefs": {
+  "status": "ok",
+  "anon": false
+ },
+ "nodb": [
+  {
+   "status": "unavailable",
+   "entries": []
+  },
+  {
+   "status": "unavailable"
+  },
+  {
+   "status": "unavailable"
+  }
+ ],
+ "nomig": {
+  "status": "unavailable",
+  "entries": [],
+  "reason": "error"
+ }
+}
