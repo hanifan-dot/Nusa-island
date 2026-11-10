@@ -16,9 +16,9 @@ on:
   workflow_dispatch:
     inputs:
       tahap:
-        description: "kode-off | buka-salin | tutup-salin | shadow | kembali-off"
+        description: "kode-off | buka-salin | tutup-salin | shadow | kembali-off | sultan-on | sultan-off"
         type: choice
-        options: ["kode-off", "buka-salin", "tutup-salin", "shadow", "kembali-off"]
+        options: ["kode-off", "buka-salin", "tutup-salin", "shadow", "kembali-off", "sultan-on", "sultan-off"]
         default: "kode-off"
       backend_sha:
         description: "SHA 40 heksadesimal backend (repo control-center) yang akan ter-deploy; wajib memuat /api/d1/reconcile"
@@ -68,6 +68,8 @@ jobs:
             kode-off|kembali-off) M=off ;;
             buka-salin) M=keep; echo "MIG_TARGET=ya" >> "$GITHUB_ENV" ;;
             tutup-salin) M=keep; echo "MIG_TARGET=tidak" >> "$GITHUB_ENV" ;;
+            sultan-on) M=keep; echo "SULTAN_TARGET=ya" >> "$GITHUB_ENV" ;;
+            sultan-off) M=keep; echo "SULTAN_TARGET=tidak" >> "$GITHUB_ENV" ;;
             shadow) M=shadow; [ "$BUKTI" = "rekonsiliasi-go" ] || { echo "::error::Tahap shadow wajib bukti=rekonsiliasi-go (hasil scripts/d1-tahap.mjs rekonsiliasi: VERDICT GO)."; exit 1; } ;;
             *) echo "::error::Tahap tidak dikenal"; exit 1 ;;
           esac
@@ -120,7 +122,8 @@ jobs:
           grep -Fxq 'NUSA_D1_MODE = "off"' "$T" || { echo "::error::Default toml NUSA_D1_MODE harus off."; exit 1; }
           [ "$(grep -c '^\[vars\]' "$T")" = "1" ] || { echo "::error::[vars] ganda."; exit 1; }
           ! grep -Eq 'NUSA_D1_MIGRATE' "$T" || { echo "::error::NUSA_D1_MIGRATE tidak boleh ada di config."; exit 1; }
-          [ "$(ls backend/migrations/*.sql | wc -l)" = "3" ] || { echo "::error::Ada migrasi baru; gunakan workflow D1 Fondasi untuk menerapkannya dulu."; exit 1; }
+          [ "$(ls backend/migrations/*.sql | wc -l)" = "4" ] || { echo "::error::Harus tepat 4 migrasi termasuk Sultan."; exit 1; }
+          [ -f backend/migrations/0004_d1_sultan_points.sql ] || { echo "::error::Migrasi Sultan tidak ada."; exit 1; }
           grep -q "reconcile" backend/worker/d1/migrator.js && grep -q "/api/d1/reconcile" backend/worker/index.js || { echo "::error::backend_sha tidak memuat rekonsiliasi."; exit 1; }
       - name: Tes backend dan scan rahasia (tanpa kunci produksi)
         run: |
@@ -181,7 +184,8 @@ jobs:
           if (!['off', 'shadow', '(tidak ada)'].includes(cur)) throw Error('NUSA_D1_MODE produksi bernilai tak dikenal; berhenti.');
           if (process.env.TAHAP === 'buka-salin' && cur !== 'off') throw Error('Buka-salin hanya saat NUSA_D1_MODE=off (sekarang ' + cur + ').');
           if (process.env.TAHAP === 'shadow' && mig === 'ya') throw Error('Kunci salin NUSA_D1_MIGRATE masih "ya": tutup dulu di dasbor Cloudflare (ubah ke tidak), lalu ulangi.');
-          fs.writeFileSync(process.argv[3], JSON.stringify(d.result.bindings.filter(b => ['plain_text', 'secret_text'].includes(b.type) && b.name !== 'NUSA_D1_MODE' && !(process.env.MIG_TARGET && b.name === 'NUSA_D1_MIGRATE')).map(b => ({ name: b.name, type: b.type, text: b.type === 'plain_text' ? b.text : null }))), { mode: 0o600 });
+          if (process.env.TAHAP === 'sultan-on' && cur !== 'shadow') throw Error('Sultan hanya boleh dinyalakan saat mode D1 shadow.');
+          fs.writeFileSync(process.argv[3], JSON.stringify(d.result.bindings.filter(b => ['plain_text', 'secret_text'].includes(b.type) && b.name !== 'NUSA_D1_MODE' && !(process.env.MIG_TARGET && b.name === 'NUSA_D1_MIGRATE') && !(process.env.SULTAN_TARGET && b.name === 'NUSA_SULTAN')).map(b => ({ name: b.name, type: b.type, text: b.type === 'plain_text' ? b.text : null }))), { mode: 0o600 });
           NODE
       - name: Susun config deploy dari variable LIVE dan buktikan utuh (variable, binding NUSA_DB, assets, secret) — SEBELUM deploy
         run: |
@@ -226,6 +230,8 @@ jobs:
           if ((by.NUSA_D1_MODE?.text ?? 'off') !== wantMode) throw Error('NUSA_D1_MODE bukan ' + wantMode + ' (atur manual di dasbor lalu ulangi verifikasi)');
           if (process.env.MIG_TARGET && by.NUSA_D1_MIGRATE?.text !== process.env.MIG_TARGET) throw Error('NUSA_D1_MIGRATE bukan ' + process.env.MIG_TARGET);
           if (!process.env.MIG_TARGET && by.NUSA_D1_MIGRATE?.text !== prev.NUSA_D1_MIGRATE?.text) throw Error('NUSA_D1_MIGRATE berubah tanpa diminta');
+          if (process.env.SULTAN_TARGET && by.NUSA_SULTAN?.text !== process.env.SULTAN_TARGET) throw Error('NUSA_SULTAN bukan ' + process.env.SULTAN_TARGET);
+          if (!process.env.SULTAN_TARGET && by.NUSA_SULTAN?.text !== prev.NUSA_SULTAN?.text) throw Error('NUSA_SULTAN berubah tanpa diminta');
           console.log('OK: variabel/secret produksi utuh; NUSA_DB terikat; NUSA_D1_MODE=' + wantMode + '; NUSA_D1_MIGRATE=' + (by.NUSA_D1_MIGRATE?.text ?? '(tidak ada)') + '.');
           require('node:fs').writeFileSync(process.env.GITHUB_ENV, 'MODE_EFF=' + wantMode + '\n', { flag: 'a' });
           NODE

@@ -38,6 +38,10 @@ def expected_vars(plain, mode):
     if mig:
         if mig not in ("ya", "tidak"): die("MIG_TARGET harus ya atau tidak.")
         e["NUSA_D1_MIGRATE"] = mig
+    sultan = os.environ.get("SULTAN_TARGET", "")
+    if sultan:
+        if sultan not in ("ya", "tidak"): die("SULTAN_TARGET harus ya atau tidak.")
+        e["NUSA_SULTAN"] = sultan
     return e
 
 def build(set_before, base, out, mode):
