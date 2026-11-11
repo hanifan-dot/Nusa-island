@@ -69,10 +69,9 @@ t("klien: semua teks dari server melewati esc() sebelum innerHTML", () => {
   for (const x of html) assert.ok(/esc\(/.test(x), "tanpa esc: " + x);
 });
 t("dunia: tiga sosok mengikuti rank server, slot kosong pudar tanpa membuat pemenang palsu", () => {
-  assert.ok(/for \\(const d of DRUMS\\) drawFisher\\(c, d, K, occupied\\.has\\(d\\.rank\\), t\\)/.test(src));
-  assert.ok(/st\\.data\\.entries\\.map\\(\\(e\\) => e\\.rank\\)/.test(src));
-  assert.ok(/occupied \\? 1 : 0\\.42/.test(src));
-  assert.deepStrictEqual([3, 1, 2].sort(), [1, 2, 3]);
+  assert.ok(src.includes("for (const d of DRUMS) drawFisher(c, d, K, occupied.has(d.rank), t)"));
+  assert.ok(src.includes("st.data.entries.map((e) => e.rank)"));
+  assert.ok(src.includes("occupied ? 1 : 0.42"));
 });
 // ---- rilis & integrasi ----
 t("manifest rilis, build-hosting, index.html, game.js, muara.js memuat Sultan Samudra", () => {
