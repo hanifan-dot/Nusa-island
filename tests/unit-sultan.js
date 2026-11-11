@@ -68,6 +68,12 @@ t("klien: semua teks dari server melewati esc() sebelum innerHTML", () => {
   const html = [...src.matchAll(/\$\{([^}]*)\}/g)].map((m) => m[1]).filter((x) => /\be\.(name|title)|st\.me\.title/.test(x)); assert.ok(html.length >= 3);
   for (const x of html) assert.ok(/esc\(/.test(x), "tanpa esc: " + x);
 });
+t("dunia: tiga sosok mengikuti rank server, slot kosong pudar tanpa membuat pemenang palsu", () => {
+  assert.ok(/for \\(const d of DRUMS\\) drawFisher\\(c, d, K, occupied\\.has\\(d\\.rank\\), t\\)/.test(src));
+  assert.ok(/st\\.data\\.entries\\.map\\(\\(e\\) => e\\.rank\\)/.test(src));
+  assert.ok(/occupied \\? 1 : 0\\.42/.test(src));
+  assert.deepStrictEqual([3, 1, 2].sort(), [1, 2, 3]);
+});
 // ---- rilis & integrasi ----
 t("manifest rilis, build-hosting, index.html, game.js, muara.js memuat Sultan Samudra", () => {
   const man = JSON.parse(fs.readFileSync(path.join(ROOT, "firebase/release-manifest.json"), "utf8")), f = man.features.find((x) => x.id === "sultan-samudra");
