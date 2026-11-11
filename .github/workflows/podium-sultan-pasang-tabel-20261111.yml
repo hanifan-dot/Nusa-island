@@ -72,6 +72,6 @@ jobs:
           npx --yes wrangler@4 d1 execute nusa-player-data --remote --config wrangler.toml --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('sultan_order','sultan_score') ORDER BY name;" > "$RUNNER_TEMP/sultan-tables.txt"
           grep -q 'sultan_order' "$RUNNER_TEMP/sultan-tables.txt"
           grep -q 'sultan_score' "$RUNNER_TEMP/sultan-tables.txt"
-          npx --yes wrangler@4 d1 execute nusa-player-data --remote --config wrangler.toml --command "SELECT version FROM d1_schema_info LIMIT 1;" > "$RUNNER_TEMP/schema.txt"
+          npx --yes wrangler@4 d1 execute nusa-player-data --remote --config wrangler.toml --command "SELECT v FROM d1_schema_info WHERE k='schema_version' LIMIT 1;" > "$RUNNER_TEMP/schema.txt"
           grep -Eq '(^|[^0-9])3([^0-9]|$)' "$RUNNER_TEMP/schema.txt" || { echo "::error::schemaVersion pemain bukan 3."; exit 1; }
           echo "OK: tabel Sultan terpasang; schemaVersion pemain tetap 3; Worker/variable/Firestore/Hosting tidak disentuh."
