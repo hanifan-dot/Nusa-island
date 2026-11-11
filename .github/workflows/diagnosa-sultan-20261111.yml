@@ -1,0 +1,46 @@
+name: Diagnosa Sultan dan Worker (baca saja)
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/diagnosa-sultan-20261111.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Periksa konfigurasi Worker dan endpoint tanpa menulis
+        run: |
+          set -e
+          CODE=$(curl -sS --max-time 20 -o "$RUNNER_TEMP/settings.json" -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/nusa-api/settings" || echo 000)
+          [ "$CODE" = "200" ] || { echo "::error::Settings API HTTP $CODE"; exit 1; }
+          node - "$RUNNER_TEMP/settings.json" <<'NODE'
+          const fs = require('node:fs'), d = JSON.parse(fs.readFileSync(process.argv[2]));
+          if (!d.success || !Array.isArray(d.result?.bindings)) throw Error('Settings tidak valid');
+          const by = Object.fromEntries(d.result.bindings.map(b => [b.name, b]));
+          const expected = 'https://nusa-island-d2023.web.app,https://nusa-island-d2023.firebaseapp.com';
+          const origins = by.ALLOWED_ORIGINS?.text || '';
+          console.log('ALLOWED_ORIGINS cocok default repo: ' + (origins === expected));
+          console.log('ALLOWED_ORIGINS memuat web.app: ' + origins.includes('https://nusa-island-d2023.web.app'));
+          console.log('ALLOWED_ORIGINS memuat firebaseapp.com: ' + origins.includes('https://nusa-island-d2023.firebaseapp.com'));
+          console.log('ALLOWED_ORIGINS panjang: ' + origins.length);
+          console.log('Binding Firebase: ' + (by.FIREBASE_PROJECT_ID?.text === 'nusa-island-d2023'));
+          console.log('D1 mode: ' + (by.NUSA_D1_MODE?.text || 'tidak ada'));
+          console.log('Kunci salin: ' + (by.NUSA_D1_MIGRATE?.text || 'tidak ada'));
+          console.log('Sultan: ' + (by.NUSA_SULTAN?.text || 'tidak ada'));
+          console.log('D1 terikat: ' + (by.NUSA_DB?.type === 'd1'));
+          console.log('Assets terikat: ' + (by.ASSETS?.type === 'assets'));
+          console.log('Secret Firebase tersedia: ' + (by.GOOGLE_PRIVATE_KEY?.type === 'secret_text' && by.GOOGLE_CLIENT_EMAIL?.type === 'secret_text'));
+          NODE
+          for p in /api/health /api/release-status /api/public-config; do
+            C=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' "https://nusa-api.hanifanwahhaja28.workers.dev$p" || echo 000)
+            echo "$p HTTP $C"
+          done
+          C=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' -H 'Origin: https://nusa-island-d2023.web.app' "https://nusa-api.hanifanwahhaja28.workers.dev/api/health" || echo 000)
+          echo "CORS health HTTP $C"
