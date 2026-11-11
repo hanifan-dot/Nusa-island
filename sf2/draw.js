@@ -23,6 +23,22 @@ function body(c, rx, ry, k, pal, tailLen, sway) {   // badan lonjong + gradasi p
   c.save(); ell(c, -rx * 0.15, -ry * 0.45, rx * 0.5, ry * 0.2, -0.05); c.fillStyle = "rgba(255,255,255,.28)"; c.fill(); c.restore();
 }
 const F = {
+  gendut(c, s, t, pal) {   // ikan KARTUN gendut-lonjong (siluet dari sketsa komunitas, digambar ulang orisinal): kepala bulat di kiri, ekor bercagak berlekuk. Menghadap KIRI.
+    const sw = sin(t * 3.2) * s * 0.04, fl = sin(t * 5) * 0.35, rx = s * 0.4, ry = s * 0.15, tx = rx * 0.8, tl = s * 0.2;
+    c.fillStyle = lg(c, tx, 0, rx + tl, 0, [[0, pal[2]], [1, lit(pal[2], 0.3)]]);   // ekor bercagak
+    c.beginPath(); c.moveTo(tx, -ry * 0.2); c.quadraticCurveTo(rx + tl * 0.45, -ry * 0.9 + sw, rx + tl, -ry * 1.6 + sw * 1.5); c.quadraticCurveTo(rx + tl * 0.95, -ry * 0.25 + sw, rx + tl * 0.45, sw * 0.5);
+    c.quadraticCurveTo(rx + tl * 0.95, ry * 0.25 + sw, rx + tl, ry * 1.5 + sw * 1.5); c.quadraticCurveTo(rx + tl * 0.45, ry * 0.9 + sw, tx, ry * 0.2); c.closePath(); c.fill(); c.strokeStyle = OUT; c.lineWidth = 1.2; c.stroke();
+    c.fillStyle = pal[2]; c.beginPath(); c.moveTo(-rx * 0.05, -ry * 0.95); c.quadraticCurveTo(rx * 0.15, -ry * 1.85 + sw * 0.4, rx * 0.45, -ry * 0.85); c.closePath(); c.fill(); c.stroke();   // sirip punggung
+    const g = lg(c, 0, -ry, 0, ry, [[0, dark(pal[0], 0.1)], [0.55, pal[0]], [0.6, pal[1]], [1, lit(pal[1], 0.2)]]);   // badan
+    ell(c, 0, 0, rx, ry); c.fillStyle = g; c.fill(); ell(c, -rx * 0.62, 0, rx * 0.42, ry * 1.06); c.fill(); c.strokeStyle = OUT; c.lineWidth = 1.3; c.stroke();
+    c.save(); ell(c, 0, 0, rx, ry); c.clip(); c.fillStyle = "rgba(255,255,255,.22)"; for (let i = 0; i < 4; i++) { ell(c, rx * (0.05 + i * 0.2), -ry * 0.35 + (i % 2) * ry * 0.2, ry * 0.12, ry * 0.12); c.fill(); } c.restore();   // bintik lucu
+    c.save(); ell(c, -rx * 0.1, -ry * 0.55, rx * 0.5, ry * 0.18, -0.05); c.fillStyle = "rgba(255,255,255,.3)"; c.fill(); c.restore();   // kilau
+    c.strokeStyle = dark(pal[0], 0.35); c.lineWidth = 1.3; for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(-rx * (0.34 - i * 0.07), ry * 0.05, ry * (0.78 - i * 0.04), -0.95, 0.95); c.stroke(); }   // insang
+    c.save(); c.translate(-rx * 0.22, ry * 0.45); c.rotate(fl); c.fillStyle = pal[2]; c.beginPath(); c.moveTo(0, 0); c.quadraticCurveTo(rx * 0.14, ry * 0.7, rx * 0.2, ry * 0.5); c.quadraticCurveTo(rx * 0.14, ry * 0.1, 0, 0); c.fill(); c.stroke(); c.restore();   // sirip dada
+    ell(c, -rx * 0.78, ry * 0.32, ry * 0.2, ry * 0.15, 0.4); c.fillStyle = "rgba(255,120,110,.32)"; c.fill();   // pipi merona
+    eye(c, -rx * 0.74, -ry * 0.22, ry * 0.4);   // mata besar
+    c.strokeStyle = "#2b1a14"; c.lineWidth = 1.4; c.lineCap = "round"; c.beginPath(); c.arc(-rx * 0.9, ry * 0.38, ry * 0.34, 0.25, 1.9); c.stroke();   // senyum
+    ell(c, -rx * 0.96, ry * 0.66, ry * 0.14, ry * 0.1); c.fillStyle = dark(pal[0], 0.1); c.fill(); c.strokeStyle = OUT; c.lineWidth = 1; c.stroke(); },
   ikan(c, s, t, pal) { const sw = sin(t * 5) * s * 0.03, rx = s * 0.36, ry = s * 0.17; body(c, rx, ry, 0, pal, s * 0.18, sw);
     c.fillStyle = pal[2]; c.beginPath(); c.moveTo(-rx * 0.1, -ry * 0.95); c.quadraticCurveTo(rx * 0.2, -ry * 1.7, rx * 0.5, -ry * 0.8); c.fill(); c.stroke();
     c.beginPath(); c.moveTo(-rx * 0.1, ry * 0.9); c.quadraticCurveTo(rx * 0.1, ry * 1.5, rx * 0.35, ry * 0.8); c.fill(); c.stroke(); eye(c, -rx * 0.62, -ry * 0.2, ry * 0.3); },

@@ -67,11 +67,12 @@
     ["sf2_naga_palung", "Naga Palung Kelabu", "mythic", "L", 3500, 4900, "ular", ["#4a4f5a", "#9aa3b0", "#c9553b"], "Monster orisinal Nusa Island: naga bersisik kelabu yang menjaga palung terdalam.", { c: 1 }],
     ["sf2_el_gran_maja", "El Gran Maja", "mythic", "L", 3600, 4900, "maja", ["#8a6a3c", "#e9d9a8", "#f0c850"], "Hiu purba raksasa bercorak emas kuno. Konon menjaga kuil yang tenggelam di dasar samudra.", { c: 1, ig: ["@derr6789ten"] }],
     ["sf2_owner_fish", "OWNER FISH", "owner", "L", 88, 888, "owner", ["#0f3a7a", "#f0d27a", "#ffd24a"], "Ikan istimewa bermahkota emas, bersisik emas-biru. Hadiah langka untuk siapa pun yang beruntung. Koleksi kehormatan (tidak dijual).", { o: 1, a: 0, w: 1 }],
+    ["sf2_kontolodon", "Kontolodon", "uncommon", "M", 0.8, 6, "gendut", ["#6fa8c4", "#f4e6cc", "#e08a6a"], "Ikan muara gendut-lonjong yang ramah dan sedikit konyol. Berenang santai sambil goyang-goyang ekor bercagak.", { c: 1, a: 0, dg: ["@devilbesideme_"] }],
     ["sf2_penjaga_muara", "Penjaga Muara Zamrud", "mythic", "M", 600, 2400, "channa", ["#2f7a5a", "#bfe6c8", "#e0d27a"], "Penunggu muara berselimut lumut zamrud. Hanya bangun saat air pasang."],
     ["sf2_naga_danau", "Naga Danau Sunyi", "mythic", "D", 500, 2000, "ular", ["#3a5a7a", "#a6c8d8", "#c8d6e0"], "Naga danau yang tidur ribuan tahun; permukaan danau bergetar saat ia bernapas."],
   ];
   const SPECIES = ROWS.map((r) => { const hs = r[3].split("").map((c) => HAB[c]), fl = r[9] || {};
-    return { id: r[0], name: r[1], rarity: r[2], hab: hs, wMin: r[4], wMax: r[5], shape: r[6], col: r[7], desc: r[8], community: !!fl.c, obs: !!fl.o, weight: fl.w || 10, active: fl.a !== 0, credit: (fl.ig || []).slice(), v: CATALOG_VERSION, kind: "sf2" }; });
+    return { id: r[0], name: r[1], rarity: r[2], hab: hs, wMin: r[4], wMax: r[5], shape: r[6], col: r[7], desc: r[8], community: !!fl.c, obs: !!fl.o, weight: fl.w || 10, active: fl.a !== 0, credit: (fl.ig || []).slice(), design: (fl.dg || []).slice(), v: CATALOG_VERSION, kind: "sf2" }; });
   // Empat entri Samudra Follower LAMA (sf-core.js): TETAP di katalog komunitas; tetap memakai jalur bonus lama (dikunci config Owner) — pulau TIDAK mengundi mereka (tidak ada dua sistem undian).
   const LEGACY = [
     { id: "sf_tempe", name: "Ikan Tempe", rarity: "mythic", legacy: true }, { id: "sf_cupang_slayer", name: "Cupang Slayer", rarity: "epic", legacy: true },
