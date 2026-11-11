@@ -12,7 +12,7 @@ def main():
         b = p.chromium.launch(); ctx, pg, errs = page(b, "&sf=preview"); dex(pg)
         ev(pg, "[...document.querySelectorAll('.dex-tabs button')].find(x=>/Samudra Follower/.test(x.textContent)).click()"); time.sleep(0.5)
         cells = ev(pg, "[...document.querySelectorAll('.sf-cell')].map(c=>c.innerText.replace(/\\n/g,' | '))"); txt = " ".join(cells)
-        ok("A1 15 kartu (4 lama + 10 usulan + Udang Jala)", len(cells) == 15, len(cells))
+        ok("A1 16 kartu (4 lama + 10 usulan + Udang Jala + Kontolodon)", len(cells) == 16, len(cells))
         ok("A2 semua kredit terlihat", all(c in txt for c in CRED), [c for c in CRED if c not in txt])
         ok("A3 nama: El Gran Maja, Udang Jala, Leviathan", all(n in txt for n in ["El Gran Maja", "Udang Jala", "Leviathan"]))
         ok("A4 semua ilustrasi termuat", ev(pg, "[...document.querySelectorAll('.sf-cell img')].every(i=>i.complete&&i.naturalWidth>30)"))

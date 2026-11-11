@@ -176,7 +176,7 @@ function talkGuard(n, api) {
 let bookPage = 0, bookFilter = "all";
 function stateOf(id) { const r = S() && S().dex[id]; return r && r.n > 0 ? r : null; }
 function entries() {
-  const list = C.SPECIES.map((s) => ({ id: s.id, nm: s.name, r: s.rarity, hab: s.hab[0], c: !!s.community, obs: !!s.obs, desc: s.desc, cr: s.credit || [] }));
+  const list = C.SPECIES.map((s) => ({ id: s.id, nm: s.name, r: s.rarity, hab: s.hab[0], c: !!s.community, obs: !!s.obs, desc: s.desc, cr: s.credit || [], dg: s.design || [] }));
   const leg = (window.NusaSFCatalog ? window.NusaSFCatalog.FISH : []).map((f) => ({ id: f.id, nm: f.name, r: "mythic", hab: "dalam", c: true, legacy: true, desc: f.desc || "", cr: [f.credit] }));
   return leg.concat(list).filter((e) => bookFilter === "all" || e.r === bookFilter);
 }
@@ -187,7 +187,7 @@ function bookHTML() {
     <div class="sf2-flt">${["all"].concat(C.RARITIES).map((k) => `<button data-act="sf2f" data-arg="${k}" class="${bookFilter === k ? "on" : ""}">${k === "all" ? "Semua" : C.RLABEL[k]}</button>`).join("")}<button data-act="sf2o">ⓘ Peluang</button></div><div class="sf2-list">`;
   for (const e of all.slice(bookPage * per, bookPage * per + per)) {
     const st = stateOf(e.id), mine = info && info.mine && info.mine[e.id], col = RCOL[e.r];
-    h += `<div class="sf2-row" style="--c:${col}"><img src="${st && NW.sfDraw ? NW.sfDraw.sprite(e.id, 120, 70) : ""}" alt="" class="${st ? "" : "unk"}"><div class="g"><b>${st ? e.nm : "???"}</b> <span class="rb" style="background:${col}">${C.RLABEL[e.r]}</span>${mine ? ` <span class="pf">🏅 PENEMU PERTAMA</span>` : ""}${e.cr && e.cr.length ? `<div class="muted sf2-cr">📸 ${e.cr.join(", ")}</div>` : ""}<div class="muted">${st ? `×${st.n} · terbaik ${f1(Math.round(st.best * 100) / 100)} kg${e.obs ? " · 👁️ pengamatan" : ""}` : `Habitat: ${HLBL[e.hab] || "—"}`}</div></div></div>`;
+    h += `<div class="sf2-row" style="--c:${col}"><img src="${st && NW.sfDraw ? NW.sfDraw.sprite(e.id, 120, 70) : ""}" alt="" class="${st ? "" : "unk"}"><div class="g"><b>${st ? e.nm : "???"}</b> <span class="rb" style="background:${col}">${C.RLABEL[e.r]}</span>${mine ? ` <span class="pf">🏅 PENEMU PERTAMA</span>` : ""}${e.dg && e.dg.length ? `<div class="muted sf2-cr">🎨 Desain oleh ${e.dg.join(", ")}</div>` : ""}${e.cr && e.cr.length ? `<div class="muted sf2-cr">📸 ${e.cr.join(", ")}</div>` : ""}<div class="muted">${st ? `×${st.n} · terbaik ${f1(Math.round(st.best * 100) / 100)} kg${e.obs ? " · 👁️ pengamatan" : ""}` : `Habitat: ${HLBL[e.hab] || "—"}`}</div></div></div>`;
   }
   h += `</div><div class="sf2-pg"><button data-act="sf2p" data-arg="-1" ${bookPage <= 0 ? "disabled" : ""}>‹</button><span>${bookPage + 1}/${pages}</span><button data-act="sf2p" data-arg="1" ${bookPage >= pages - 1 ? "disabled" : ""}>›</button></div><p class="muted">Tangkapan = jumlah ikan. Spesies ditemukan = jenis berbeda. Spesies nonaktif tetap tersimpan di koleksimu.</p></div>`;
   return h;

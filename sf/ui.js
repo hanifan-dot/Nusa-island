@@ -18,14 +18,15 @@ let ov = null, cv = null, raf = 0, curId = null, t0 = 0, frames = 0, catchMode =
 
 // ---- Satu sumber data: 4 ikan LAMA (sf/catalog.js) + 11 spesies KOMUNITAS dari katalog SF2 (economy/sf2-core.js; kredit di sana). Urutan tampil = urutan janji Owner.
 const S2 = () => window.NusaSF2Core || null;
-const COMM_ORDER = ["sf2_leviathan", "sf2_mosasaurus", "sf2_el_gran_maja", "sf2_kraken", "sf2_orca", "sf2_narwhal", "sf2_buntal", "sf2_tuna_sirip_biru", "sf2_channa_marulioides", "sf2_barramundi", "sf2_udang_jala"];
+const COMM_ORDER = ["sf2_leviathan", "sf2_mosasaurus", "sf2_el_gran_maja", "sf2_kraken", "sf2_orca", "sf2_narwhal", "sf2_buntal", "sf2_tuna_sirip_biru", "sf2_channa_marulioides", "sf2_barramundi", "sf2_udang_jala", "sf2_kontolodon"];
 const S2COL = { common: "#7fb59f", uncommon: "#5fc77a", rare: "#4aa3df", epic: "#b56ce8", mythic: "#f0b53a" };
 const credText = (cr) => (cr || []).join(", ");
+const designLine = (m) => (m && m.design && m.design.length ? `🎨 Desain oleh ${m.design.join(", ")}` : "");
 const credLine = (cr) => { const ig = (cr || []).some((x) => x[0] === "@"); return ig ? `📸 Ide ikan oleh ${credText(cr)} (${C.IG_NOTE})` : `📸 ${credText(cr)}`; };
 function meta(id) {
   const f = C.BY_ID[id]; if (f) { const R = C.RARITY[f.rarity]; return { id, nm: f.name, label: R.label, color: R.color, glow: R.glow, desc: f.desc, credit: [f.credit], event: !!f.event, legacy: true, active: false }; }
   const k = S2(), sp = k && k.BY_ID[id]; if (!sp || sp.kind !== "sf2") return null;
-  return { id, nm: sp.name, label: k.RLABEL[sp.rarity].toUpperCase(), color: S2COL[sp.rarity], glow: S2COL[sp.rarity] + "aa", desc: sp.desc, credit: sp.credit || [], legacy: false, active: sp.active !== false, obs: !!sp.obs };
+  return { id, nm: sp.name, label: k.RLABEL[sp.rarity].toUpperCase(), color: S2COL[sp.rarity], glow: S2COL[sp.rarity] + "aa", desc: sp.desc, credit: sp.credit || [], design: sp.design || [], legacy: false, active: sp.active !== false, obs: !!sp.obs };
 }
 const allIds = () => C.FISH.map((f) => f.id).concat(COMM_ORDER.filter((id) => meta(id)));
 const stat = (f) => { const S = S_(), r = S && S.dex && S.dex[f.id]; return r && r.n > 0 ? `Tertangkap ${r.n}× · terbaik ${String(Math.round(r.best * 100) / 100).replace(".", ",")} kg` : (live && f.activeNow ? "Bisa didapat sebagai bonus" : (f.event ? "Ikan event" : "Belum bisa dipancing")); };
@@ -41,7 +42,7 @@ function gridHTML() {
   let h = `<div class="sf-note">🌊 Ikan spesial dari ide pengikut Instagram Nusa Island: <b>${ids.length}</b> spesies. ${mode === "preview" && !live ? "<b>Mode pratinjau</b>: belum bisa dipancing." : ""}</div><div class="sf-grid">`;
   for (const id of ids) {
     const m = meta(id), got = owned(id);
-    h += `<button class="sf-cell ${got ? "" : "unseen"}" data-act="sfOpen" data-arg="${id}" style="--sfc:${m.color}"><img src="${img(id)}" alt="${m.nm}"><div class="nm">${m.nm}</div><span class="rb">${m.label}</span><div class="cr">${credLine(m.credit).replace(" (" + C.IG_NOTE + ")", "").replace("Ide ikan oleh ", "")}</div><div class="st">${cellStat(m)}</div></button>`;
+    h += `<button class="sf-cell ${got ? "" : "unseen"}" data-act="sfOpen" data-arg="${id}" style="--sfc:${m.color}"><img src="${img(id)}" alt="${m.nm}"><div class="nm">${m.nm}</div><span class="rb">${m.label}</span><div class="cr">${designLine(m) || credLine(m.credit).replace(" (" + C.IG_NOTE + ")", "").replace("Ide ikan oleh ", "")}</div><div class="st">${cellStat(m)}</div></button>`;
   }
   return h + `</div>`;
 }
@@ -58,7 +59,7 @@ function paintCard() {
   card.style.setProperty("--sfc", R.color); card.style.setProperty("--sfg", R.glow || "rgba(255,255,255,.4)");
   $("sfRb").textContent = (catchMode ? "✨ TANGKAPAN SPESIAL · " : "") + R.label;
   $("sfPrev").style.display = realInfo ? "none" : ""; $("sfNm").textContent = f.nm; $("sfDs").textContent = f.desc;
-  $("sfCr").textContent = credLine(f.credit);
+  $("sfCr").textContent = designLine(f) || credLine(f.credit);
   const kg = (w) => String(Math.round(w * 100) / 100).replace(".", ",") + " kg";
   if (realInfo) { $("sfTg").textContent = `Berat ${kg(realInfo.w)} · nilai jual ≈ ${Math.round(realInfo.price).toLocaleString("id-ID")} koin · tersimpan di Coolbox (terkunci)`; $("sfX").textContent = "Simpan"; return; }
   $("sfX").textContent = "Tutup";

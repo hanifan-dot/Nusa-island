@@ -28,9 +28,16 @@ def main():
         ok("B1 preview: tab Samudra Follower muncul", ev(pg, "[...document.querySelectorAll('.dex-tabs button')].some(x=>/Samudra Follower/.test(x.textContent))"))
         ev(pg, "[...document.querySelectorAll('.dex-tabs button')].find(x=>/Samudra/.test(x.textContent)).click()"); time.sleep(0.4)
         cells = ev(pg, "[...document.querySelectorAll('.sf-cell')].map(c=>c.innerText.replace(/\\n/g,' | '))")
-        ok("B2 15 kartu (4 lama + 11 komunitas) dengan nama, rarity, kredit IG", len(cells) == 15 and all(("@" in c or "GRUP NUSA" in c) for c in cells) and "MYTHICAL EVENT" in " ".join(cells) and "LEGENDARY" in " ".join(cells) and "EPIC" in " ".join(cells), cells)
+        ok("B2 16 kartu (4 lama + 12 komunitas termasuk Kontolodon) dengan nama, rarity, kredit IG/desain", len(cells) == 16 and all(("@" in c or "GRUP NUSA" in c) for c in cells) and "MYTHICAL EVENT" in " ".join(cells) and "LEGENDARY" in " ".join(cells) and "EPIC" in " ".join(cells), cells)
         ok("B3 gambar 4 ikan termuat", ev(pg, "[...document.querySelectorAll('.sf-cell img')].every(i=>i.complete&&i.naturalWidth>50)"))
         pg.screenshot(path=OUT + "1-koleksi-samudra-follower.png")
+        ok("B4 Kontolodon: kartu koleksi menampilkan 'Desain oleh @devilbesideme_', nonaktif ('usulan baru'), gambar termuat", ev(pg, "(()=>{const c=document.querySelector('.sf-cell[data-arg=sf2_kontolodon]');return !!c&&c.innerText.includes('Desain oleh @devilbesideme_')&&c.innerText.includes('usulan baru')&&c.querySelector('img').naturalWidth>50})()"))
+        ev(pg, "document.querySelector('.sf-cell[data-arg=sf2_kontolodon]').click()"); time.sleep(0.6)
+        d1 = ev(pg, "document.getElementById('sfCv').toDataURL()"); time.sleep(0.7); d2 = ev(pg, "document.getElementById('sfCv').toDataURL()")
+        ok("B5 Kontolodon: detail memuat kredit desain, ikan beranimasi (frame berubah), tidak error", "Desain oleh @devilbesideme_" in ev(pg, "document.getElementById('sfOv').innerText") and d1 != d2)
+        pg.click("#sfPrev"); time.sleep(0.5)
+        ok("B6 Kontolodon: kartu tangkapan pratinjau menampilkan kredit desain", "TANGKAPAN SPESIAL" in ev(pg, "document.getElementById('sfOv').innerText") and "Desain oleh @devilbesideme_" in ev(pg, "document.getElementById('sfOv').innerText"))
+        pg.screenshot(path=OUT + "kontolodon-kartu-tangkapan.png"); pg.click("#sfX"); time.sleep(0.2)
         ids = ["sf_tempe", "sf_cupang_slayer", "sf_prabowo", "sf_arapaima"]; names = {}
         for i, id in enumerate(ids):
             ev(pg, "document.querySelector('.sf-cell[data-arg=%s]').click()" % id); time.sleep(0.5)

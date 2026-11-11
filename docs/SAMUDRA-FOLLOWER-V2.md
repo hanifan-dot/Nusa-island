@@ -32,3 +32,10 @@ Klien tidak pernah menentukan rarity/spesies/bobot/Pity/jumlah/Penemu Pertama. `
 
 ## Pengujian
 `tests/unit-sf2.js` (34), `tests/unit-sf2-map.js` (8), `tests/browser/test_sf2.py` (31, viewport 390×844), backend `test/sf2.test.js` (8) + seluruh suite. Gambar: `docs/sf2/`.
+
+## Ikan komunitas baru: Kontolodon (NONAKTIF)
+- Desain oleh **@devilbesideme_** (sketsa siluet dipakai sebagai acuan; digambar ulang sebagai ikan kartun 2.5D prosedural orisinal `gendut` di `sf2/draw.js`). Tidak ada foto/sketsa/aset gambar yang masuk repo.
+- Data: `sf2_kontolodon` di `economy/sf2-core.js` (Uncommon, muara, 0,8–6 kg) dengan `a:0` → **tidak ikut undian**, jadi peluang semua ikan lain TIDAK berubah (diuji identik). Kredit lewat bidang `design` (`dg`), tampil sebagai "🎨 Desain oleh @devilbesideme_" di kartu koleksi, detail, kartu tangkapan, dan Buku Koleksi pulau.
+- Untuk menyalakan (hanya Owner): ubah `a: 0` menjadi aktif pada baris itu (hapus `a:0`), jalankan `node firebase/scripts/sync-economy.js`, lalu deploy sesuai urutan biasa. Mengaktifkan menambah ikan ini ke undian Uncommon muara (peluang ikan Uncommon muara lain ikut terbagi).
+- Backend: salinan vendor `sf2-core` di repo Control Center perlu disinkronkan saat deploy; selama nonaktif perilaku server tidak berubah.
+- Pratinjau: `docs/sf2/kontolodon-kartu.png`, `docs/sf2/kontolodon-koleksi.png`.
