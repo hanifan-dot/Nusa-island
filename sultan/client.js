@@ -70,6 +70,29 @@ function drum(c, x, y, h, r, K, body, shade, topc, bands, rim) {          // sil
   ell(c, tp.x, tp.y, rx, ry, topc, rim || "rgba(23,63,80,.6)", rim ? 2.4 : 1.2);
   return { b, tp, rx, ry };
 }
+// Tiga sosok nelayan dekoratif, satu per slot; tanpa avatar, UID, atau permintaan data tambahan.
+// Slot tanpa pemilik digambar sebagai siluet pudar agar tidak mengaku sebagai pemenang.
+function drawFisher(c, d, K, occupied, t) {
+  const p = P(C.x + d.dx, C.y + d.dy, LIFT + d.h);
+  const scale = d.rank === 1 ? 0.94 : 0.82;
+  const x = p.x + (d.rank === 1 ? K.rx * 0.3 : 0), y = p.y + K.ry * (d.rank === 1 ? 0.35 : 0.1);
+  const bob = occupied ? Math.sin(t * 1.7 + d.rank) * 0.6 : 0;
+  const cloth = occupied ? ({ 1: "#e0b84c", 2: "#dfe6ea", 3: "#c98a4b" })[d.rank] : "#87979a";
+  c.save(); c.translate(x, y + bob); c.scale(scale, scale);
+  c.globalAlpha *= occupied ? 1 : 0.42;
+  c.lineCap = "round"; c.lineJoin = "round";
+  // Kaki, badan, tangan, kepala, dan caping; siluet manusia terbaca di layar HP.
+  c.strokeStyle = "#233c48"; c.lineWidth = 5;
+  c.beginPath(); c.moveTo(-5, -13); c.lineTo(-7, -2); c.moveTo(5, -13); c.lineTo(7, -2); c.stroke();
+  c.fillStyle = cloth; c.strokeStyle = "#233c48"; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(-9, -32); c.lineTo(9, -32); c.lineTo(8, -14); c.lineTo(-8, -14); c.closePath(); c.fill(); c.stroke();
+  c.strokeStyle = occupied ? "#b6a084" : "#87979a"; c.lineWidth = 4;
+  c.beginPath(); c.moveTo(-9, -28); c.lineTo(-14, -18); c.moveTo(9, -28); c.lineTo(14, -19); c.stroke();
+  ell(c, 0, -39, 7, 8, occupied ? "#d8a77f" : "#9aaba9", "#233c48", 1.4);
+  c.fillStyle = occupied ? "#a37940" : "#87979a"; c.strokeStyle = "#233c48"; c.lineWidth = 1.4;
+  c.beginPath(); c.moveTo(-13, -45); c.lineTo(0, -55); c.lineTo(13, -45); c.closePath(); c.fill(); c.stroke();
+  c.restore();
+}
 function drawSultan(c, o, t, night) {
   const a = P(0, 0, 0), bx = P(1, 0, 0), K = { rx: Math.SQRT2 * Math.abs(bx.x - a.x), ry: Math.SQRT2 * Math.abs(bx.y - a.y) };
   // pulau karang kecil + bayangan
@@ -106,6 +129,9 @@ function drawSultan(c, o, t, night) {
   c.save(); c.globalCompositeOperation = "lighter";
   for (let s = 0; s < 2; s++) { const dir = Math.cos(ang + s * Math.PI), vis = Math.max(0, 0.35 + 0.65 * Math.abs(dir)), L = 150 * (0.55 + 0.45 * Math.abs(dir)); c.fillStyle = `rgba(255,226,140,${gl * vis * 0.55})`; c.beginPath(); c.moveTo(lx, lyc); c.lineTo(lx + Math.sign(dir || 1) * L, lyc - 9 - 8 * vis); c.lineTo(lx + Math.sign(dir || 1) * L, lyc + 11 + 8 * vis); c.closePath(); c.fill(); }
   ell(c, lx, lyc, 26 * flick, 22 * flick, `rgba(255,214,110,${gl})`); c.restore();
+  // Peringkat tetap dari respons sultanTop yang telah disaring. Figur kosong bukan pemenang.
+  const occupied = new Set(st.data.status === "live" ? st.data.entries.map((e) => e.rank) : []);
+  for (const d of DRUMS) drawFisher(c, d, K, occupied.has(d.rank), t);
   // dua lentera di tiang
   for (const q of [[-1.6, -0.55], [1.15, 1.75]]) {
     const b = P(C.x + q[0], C.y + q[1], LIFT), ph = q[0] * 3;
