@@ -13,7 +13,7 @@ on:
         description: "SHA game Mercusuar Emas yang sudah diuji"
         type: string
         required: true
-        default: "836b01e6f4949eb67a77a50cfa46f73930dddba0"
+        default: "435c63d7dcbe098ddc935e6e582feb1df4012b53"
       konfirmasi:
         description: "Ketik persis deploy-sultan"
         type: string
@@ -39,19 +39,19 @@ jobs:
           ACTOR: ${{ github.actor }}
           OWNER: ${{ github.repository_owner }}
           REF: ${{ github.ref }}
-          GAME_SHA: ${{ inputs.game_sha || '836b01e6f4949eb67a77a50cfa46f73930dddba0' }}
+          GAME_SHA: ${{ inputs.game_sha || '435c63d7dcbe098ddc935e6e582feb1df4012b53' }}
           CONFIRM: ${{ inputs.konfirmasi || (github.event_name == 'push' && 'deploy-sultan') }}
         run: |
           set -e
           [ "$ACTOR" = "$OWNER" ] || { echo "::error::Hanya Owner."; exit 1; }
           [ "$REF" = "refs/heads/main" ] || { echo "::error::Jalankan dari main."; exit 1; }
           [ "$CONFIRM" = "deploy-sultan" ] || { echo "::error::Konfirmasi harus deploy-sultan."; exit 1; }
-          [ "$GAME_SHA" = "836b01e6f4949eb67a77a50cfa46f73930dddba0" ] || { echo "::error::Hanya SHA Mercusuar Emas teruji yang diizinkan."; exit 1; }
+          [ "$GAME_SHA" = "435c63d7dcbe098ddc935e6e582feb1df4012b53" ] || { echo "::error::Hanya SHA Mercusuar Emas teruji yang diizinkan."; exit 1; }
 
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
-          ref: ${{ inputs.game_sha || '836b01e6f4949eb67a77a50cfa46f73930dddba0' }}
+          ref: ${{ inputs.game_sha || '435c63d7dcbe098ddc935e6e582feb1df4012b53' }}
           fetch-depth: 0
           path: game
 
