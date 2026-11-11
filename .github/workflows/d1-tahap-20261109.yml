@@ -13,6 +13,10 @@
 # Secret (sudah ada): CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, NUSA_BACKEND_READ_TOKEN; tidak pernah dicetak.
 name: D1 Tahap (kode-off / shadow / kembali-off)
 on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/d1-tahap-20261109.yml
   workflow_dispatch:
     inputs:
       tahap:
@@ -40,13 +44,14 @@ permissions:
   contents: read
 jobs:
   d1-tahap:
-    name: D1 Tahap (${{ inputs.tahap }})
+    name: D1 Tahap (${{ inputs.tahap || 'sultan-on' }})
+    if: ${{ github.event_name != 'push' || startsWith(github.event.head_commit.message, 'ci: deploy avatar Sultan backend once') }}
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 25
     env:
-      TAHAP: ${{ inputs.tahap }}
-      BACKEND_SHA: ${{ inputs.backend_sha }}
+      TAHAP: ${{ inputs.tahap || 'sultan-on' }}
+      BACKEND_SHA: ${{ inputs.backend_sha || 'dc66571e3e7cc726cd04d7e60c295a945ea5063d' }}
       GUARD_SHA: ff3ab0b574bb4cd8b40b5438826b0049c8737dbb
       D1_ID: 7061d250-a90e-4d42-8374-2a58b5041424
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -57,7 +62,7 @@ jobs:
           ACTOR: ${{ github.actor }}
           OWNER: ${{ github.repository_owner }}
           REF: ${{ github.ref }}
-          CONFIRM: ${{ inputs.konfirmasi }}
+          CONFIRM: ${{ inputs.konfirmasi || (github.event_name == 'push' && 'sultan-on') }}
           BUKTI: ${{ inputs.bukti }}
         run: |
           [ "$ACTOR" = "$OWNER" ] || { echo "::error::Hanya Owner repo yang boleh menjalankan workflow ini."; exit 1; }
