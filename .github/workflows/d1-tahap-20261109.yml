@@ -45,13 +45,13 @@ permissions:
 jobs:
   d1-tahap:
     name: D1 Tahap (${{ inputs.tahap || 'sultan-on' }})
-    if: "${{ github.event_name != 'push' || startsWith(github.event.head_commit.message, 'ci: deploy avatar Sultan backend once') }}"
+    if: "${{ github.event_name != 'push' || startsWith(github.event.head_commit.message, 'ci: deploy inactive Kontolodon backend once') }}"
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 25
     env:
       TAHAP: ${{ inputs.tahap || 'sultan-on' }}
-      BACKEND_SHA: ${{ inputs.backend_sha || 'dc66571e3e7cc726cd04d7e60c295a945ea5063d' }}
+      BACKEND_SHA: ${{ inputs.backend_sha || 'ef985de3b35679770363325fe579be4125a0ebfd' }}
       GUARD_SHA: ff3ab0b574bb4cd8b40b5438826b0049c8737dbb
       D1_ID: 7061d250-a90e-4d42-8374-2a58b5041424
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
