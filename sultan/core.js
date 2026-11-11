@@ -25,7 +25,9 @@
       if (!e || typeof e !== "object" || !Number.isInteger(e.rank) || e.rank < 1 || e.rank > 3 || seen.has(e.rank)) continue;
       if (!Number.isInteger(e.points) || e.points < 0 || e.points > POINTS_MAX) continue;
       seen.add(e.rank);
-      entries.push({ rank: e.rank, name: safeName(e.name), points: e.points, title: safeTitle(e.title, e.points) });
+      const ent = { rank: e.rank, name: safeName(e.name), points: e.points, title: safeTitle(e.title, e.points) };
+      if (ent.name !== ANON && outfitOk(e.outfit)) ent.outfit = e.outfit;
+      entries.push(ent);
     }
     entries.sort((a, b) => a.rank - b.rank);
     return { status: "live", entries };
@@ -35,6 +37,9 @@
     if (!res || typeof res !== "object" || res.status !== "ok" || !Number.isInteger(res.points) || res.points < 0 || res.points > POINTS_MAX) return null;
     return { points: res.points, title: safeTitle(res.title, res.points), anon: res.anon === true };
   }
+  // kode outfit publik (format sama dengan Podium Juara / kontrak server): 1-7 bagian "x:id:warna"; selain itu DIBUANG. Sultan Anonim tidak pernah membawa outfit.
+  const OUTFIT_RE = /^[tphacsr]:[a-z0-9_]{1,24}:[0-9]{1,2}$/;
+  const outfitOk = (o) => typeof o === "string" && o.length <= 140 && o.split("|").length <= 7 && o.split("|").every((p) => OUTFIT_RE.test(p));
   const fresh = (fetchedAt, now) => !!fetchedAt && now - fetchedAt < COOLDOWN_MS && now >= fetchedAt;
   const waitMs = (fetchedAt, now) => Math.max(0, COOLDOWN_MS - (now - fetchedAt));
   return { ANON, COOLDOWN_MS, TIERS, titleFor, normalize, normalizeMe, fresh, waitMs, clean };

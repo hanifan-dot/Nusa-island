@@ -13,3 +13,12 @@ Simbol penghargaan koleksi (+10 Poin Koleksi per item Premium Shop permanen unik
 
 ## Uji
 `node tests/unit-sultan.js` · `python3 tests/browser/test_sultan.py` (screenshot di `/tmp/nusa-sultan/`).
+
+## Avatar asli Top 3 di Mercusuar
+
+- Karakter di atas tabung berasal dari `sultanTop.entries` saja: **1 pemenang = 1 karakter**, slot tanpa pemenang kosong, dan karakter ikut berganti saat peringkat berubah (cache 5 menit tetap).
+- Sumber tampilan sama dengan Podium Pemancing: kode kosmetik publik `outfit` (`x:id:warna|…`, ≤7 bagian, ≤140 karakter) lewat `NW.avatarDraw.styleFor` + `NW.drawCharacter`. Klien tidak membaca Cloud Save/Firestore pemain lain.
+- Server hanya menambah satu bidang publik `outfit` per entri (set bidang: `rank, name, points, title, outfit`). Tanpa UID, email, transaksi, nominal.
+- **Sultan Anonim**: server tidak mengirim `outfit`, klien juga membuang `outfit` bila server keliru mengirimnya; yang tampil figur abu-abu generik tanpa nama.
+- Kode outfit tidak sah dibuang → karakter bawaan.
+- Screenshot: `docs/sultan-samudra/avatar-pemenang.png`.

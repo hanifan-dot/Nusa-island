@@ -51,6 +51,20 @@ t("batas muat ulang 5 menit", () => {
   assert.strictEqual(Core.COOLDOWN_MS, 300000); assert.ok(Core.fresh(1000, 1000 + 299999)); assert.ok(!Core.fresh(1000, 1000 + 300000)); assert.ok(!Core.fresh(0, 5)); assert.strictEqual(Core.waitMs(1000, 1000 + 100000), 200000); assert.strictEqual(Core.waitMs(1000, 1000 + 400000), 0);
 });
 
+// ---- avatar pemenang (outfit publik) ----
+const OUT1 = "t:t_sultan:0|p:p_emas:0|h:h_mahkota:0|s:x:1|r:x:2", OUT2 = "c:c_naga:0|s:x:0|r:x:1";
+t("outfit sah lolos HANYA untuk pemain non-anonim; Sultan Anonim tidak pernah membawa outfit meski server keliru mengirimnya", () => {
+  const m = Core.normalize(ok([{ rank: 1, name: "Raka", points: 60, title: "", outfit: OUT1 }, { rank: 2, name: "Sultan Anonim", points: 40, title: "", outfit: OUT2 }, { rank: 3, name: "Dimas", points: 30, title: "" }]));
+  assert.strictEqual(m.entries[0].outfit, OUT1); assert.strictEqual("outfit" in m.entries[1], false); assert.strictEqual("outfit" in m.entries[2], false);
+  for (const e of m.entries) assert.ok(Object.keys(e).every((k) => ["rank", "name", "points", "title", "outfit"].includes(k)));
+});
+t("outfit tidak sah dibuang (kode berbahaya, terlalu panjang/banyak bagian, bukan string)", () => {
+  for (const bad of ["c:c_naga:0|javascript:alert(1)", "<img src=x>", "x".repeat(200), "A:B:C", "t:t_basic:0|".repeat(8) + "p:p_awal:0", 5, {}, [], "", "t:t_basic:0|"]) assert.strictEqual("outfit" in Core.normalize(ok([{ rank: 1, name: "Raka", points: 10, title: "", outfit: bad }])).entries[0], false, String(bad).slice(0, 30));
+});
+t("PRIVASI avatar: UID/email/token ikut dikirim bersama outfit tetap tidak lolos", () => {
+  const m = Core.normalize(ok([{ rank: 1, name: "Raka", points: 10, title: "", outfit: OUT1, uid: "UID-CANARY-1", email: "c@m.t", token: "TOKEN-CANARY" }])), js = JSON.stringify(m);
+  assert.ok(!/CANARY|c@m\.t|uid|email|token/i.test(js), js);
+});
 // ---- sumber klien ----
 const src = fs.readFileSync(path.join(ROOT, "sultan/client.js"), "utf8").replace(/\/\/.*$/gm, "");
 t("klien: tanpa polling, tanpa penyimpanan lokal, tanpa akses langsung Firebase/Firestore/fetch, tanpa data pemain", () => {
@@ -81,7 +95,8 @@ t("kontrak backend: fixture respons asli worker dipahami klien (ok / inactive / 
   const F = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/sultan-backend-contract.json"), "utf8"));
   assert.deepStrictEqual(Core.normalize(F.off[0]), { status: "inactive", entries: [] }); assert.strictEqual(Core.normalizeMe(F.off[1]), null); assert.strictEqual(F.off[2].status, "inactive");
   const m = Core.normalize(F.top); assert.strictEqual(m.status, "live"); assert.deepStrictEqual(m.entries.map((e) => [e.rank, e.points, e.title]), [[1, 60, "Sultan Samudra"], [2, 40, "Saudagar Laut"], [3, 30, "Saudagar Laut"]]);
-  assert.deepStrictEqual(Object.keys(F.top.entries[0]).sort(), ["name", "points", "rank", "title"], "server hanya mengirim 4 bidang publik");
+  assert.deepStrictEqual(Object.keys(F.top.entries[0]).sort(), ["name", "outfit", "points", "rank", "title"], "server hanya mengirim 5 bidang publik (outfit = kode kosmetik publik)");
+  assert.ok(!("outfit" in F.top.entries[2]) && F.top.entries[2].name === "Sultan Anonim", "Sultan Anonim tidak membawa outfit"); assert.ok(!/uA|uB|uC|email|NI-/.test(JSON.stringify(F.top)));
   assert.deepStrictEqual(Core.normalizeMe(F.me), { points: 60, title: "Sultan Samudra", anon: false }); assert.ok(F.prefs.status === "ok" && typeof F.prefs.anon === "boolean");
   for (const r of [F.nodb[0], F.nomig]) assert.strictEqual(Core.normalize(r).status, "unavailable");
   assert.strictEqual(Core.normalizeMe(F.nodb[1]), null); assert.notStrictEqual(F.nodb[2].status, "ok");

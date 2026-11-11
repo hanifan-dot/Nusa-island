@@ -19,6 +19,7 @@ const DRUMS = [                                                   // urutan laya
 ];
 const POINT = { id: "sultan", x: C.x + 0.7, y: C.y + 2.0, r: 1.8, icon: "🗼", label: "Mercusuar Sultan" };
 const OBJ = { kind: "sultan", x: C.x, y: C.y, big: 210, dz: 0.9 };
+const TOWER = { dx: -0.55, dy: -1.15 };
 const SOLIDS = DRUMS.map((d) => ({ x: C.x + d.dx, y: C.y + d.dy, r: d.rank === 1 ? 0.72 : 0.55 }));
 
 const st = { data: { status: "unknown", entries: [] }, me: null, fetchedAt: 0, inflight: null, active: false, removed: [], panel: null, hooked: false, err: "", saving: false };
@@ -56,6 +57,20 @@ function deactivate() {
   if (isOpen()) close();
 }
 
+// ---------- karakter pemenang: SATU pemain = SATU karakter, dibuat sekali per kode outfit (bukan tiap frame; hemat CPU HP) ----------
+// Penampilan = kode outfit publik dari sultanTop (hanya non-anonim; ID item sah + indeks warna, sama dengan Podium Juara). Anonim / tanpa outfit → gaya generik.
+const BASE_STYLE = { shirt: "#579b8b", pants: "#2b3a44", skin: "#c68b5e", hair: "#2a1d14", hat: "caping", collar: "#fff9ec" };
+const ANON_STYLE = { shirt: "#4a5b66", pants: "#33414a", skin: "#9a8f86", hair: "#26303a", hat: "caping", collar: "#6d7d86" };   // siluet netral: tidak mengenali siapa pun
+const chars = {};
+function charFor(d, entry) {
+  const anon = entry.name === Core.ANON, code = anon ? "" : entry.outfit || "", key = d.rank + "|" + (anon ? "anon" : code), c = chars[d.rank];
+  if (c && c.key === key) return c.ch;
+  let style = anon ? ANON_STYLE : BASE_STYLE;
+  try { if (code && NW.avatarDraw && NW.avatarDraw.styleFor) style = NW.avatarDraw.styleFor(code, BASE_STYLE) || BASE_STYLE; } catch (e) { style = BASE_STYLE; }
+  const ch = { x: C.x + d.dx, y: C.y + d.dy, z: LIFT + d.h, dir: 2, walk: 0, moving: false, seed: d.rank * 1.7, rod: 0, isMe: false, style, _fxT0: undefined, _tr: [] };
+  if (style.costume) style.fxT0 = performance.now() / 1000;
+  chars[d.rank] = { key, ch }; return ch;
+}
 // ---------- gambar objek 2.5D ----------
 const P = (x, y, z) => NW.P(x, y, z);
 function ell(c, x, y, rx, ry, fill, stroke, lw) { c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, 7); if (fill) { c.fillStyle = fill; c.fill(); } if (stroke) { c.strokeStyle = stroke; c.lineWidth = lw || 1; c.stroke(); } }
@@ -70,27 +85,10 @@ function drum(c, x, y, h, r, K, body, shade, topc, bands, rim) {          // sil
   ell(c, tp.x, tp.y, rx, ry, topc, rim || "rgba(23,63,80,.6)", rim ? 2.4 : 1.2);
   return { b, tp, rx, ry };
 }
-function drawSultan(c, o, t, night) {
-  const a = P(0, 0, 0), bx = P(1, 0, 0), K = { rx: Math.SQRT2 * Math.abs(bx.x - a.x), ry: Math.SQRT2 * Math.abs(bx.y - a.y) };
-  // pulau karang kecil + bayangan
-  const g = P(C.x, C.y, LIFT);
-  ell(c, g.x + 8, g.y + 12, K.rx * 2.05, K.ry * 2.05, "rgba(15,35,30,.2)");
-  ell(c, g.x, g.y + 3, K.rx * 1.95, K.ry * 1.95, "#8a8f86", "rgba(23,63,80,.45)", 1.2);
-  ell(c, g.x, g.y, K.rx * 1.78, K.ry * 1.78, "#b8bdb0"); ell(c, g.x - 3, g.y - 3, K.rx * 1.5, K.ry * 1.5, "#d4d6c7");
-  for (let i = 0; i < 6; i++) { const ang = i * 1.05 + 0.4, rr = 1.55; const p = P(C.x + Math.cos(ang) * rr, C.y + Math.sin(ang) * rr * 0.9, LIFT); ell(c, p.x, p.y, 9 + (i % 3) * 2, 5 + (i % 2), i % 2 ? "#9aa095" : "#a9ae9f", "rgba(23,63,80,.35)", 1); }
-  // tiga tabung batu (belakang → depan: urut d = dx+dy)
-  const order = DRUMS.slice().sort((p, q) => p.dx + p.dy - (q.dx + q.dy) || p.dy - q.dy);
-  let tower = null;
-  for (const d of order) {
-    const main = d.rank === 1, x = C.x + d.dx, y = C.y + d.dy;
-    const bands = main ? [0, 1, 2, 3].map((k) => ({ y0: 0.06 + k * 0.23, y1: 0.06 + k * 0.23 + 0.115, col: k % 2 ? "#f6f1ea" : "#d9453d" })) : [{ y0: 0.12, y1: 0.34, col: d.band }];
-    const r = drum(c, x, y, d.h, main ? 0.62 : 0.5, K, "#c9d3d0", "#aeb9b6", "#e9efed", bands, main ? "#f2c94c" : "#ffffff");
-    const mp = { x: r.b.x, y: r.b.y - (r.b.y - r.tp.y) * 0.5 + r.ry * 0.9 };         // medali peringkat di muka tabung
-    ell(c, mp.x, mp.y, 10, 10, d.medal, "#173f50", 1.6); c.fillStyle = "#173f50"; c.font = "900 12px system-ui, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(String(d.rank), mp.x, mp.y + 0.5);
-    if (main) tower = r;
-  }
-  // menara mercusuar di atas tabung #1: kerucut terpancung pita merah-putih, galeri emas, ruang lentera, atap emas
-  const tx = tower.tp.x, ty = tower.tp.y, th = 48, wB = tower.rx * 0.62, wT = wB * 0.62;
+// menara mercusuar di belakang pulau (batu alas + kerucut terpancung pita merah-putih, galeri emas, ruang lentera, atap emas, sinar lembut)
+function drawTower(c, t, night, K) {
+  const pl = drum(c, C.x + TOWER.dx, C.y + TOWER.dy, 10, 0.62, K, "#b9c0b6", "#9aa095", "#d4d6c7", null, "#f2c94c");
+  const tx = pl.tp.x, ty = pl.tp.y, th = 46, wB = pl.rx * 0.62, wT = wB * 0.62;
   const yAt = (k) => ty - th * k, wAt = (k) => wB + (wT - wB) * k;
   for (let k = 0; k < 5; k++) { const k0 = k / 5, k1 = (k + 1) / 5; c.fillStyle = k % 2 ? "#f6f1ea" : "#d9453d"; c.beginPath(); c.moveTo(tx - wAt(k0), yAt(k0)); c.lineTo(tx + wAt(k0), yAt(k0)); c.lineTo(tx + wAt(k1), yAt(k1)); c.lineTo(tx - wAt(k1), yAt(k1)); c.closePath(); c.fill(); }
   c.fillStyle = "rgba(15,50,64,.18)"; c.beginPath(); c.moveTo(tx, yAt(0)); c.lineTo(tx + wAt(0), yAt(0)); c.lineTo(tx + wAt(1), yAt(1)); c.lineTo(tx, yAt(1)); c.closePath(); c.fill();
@@ -106,6 +104,27 @@ function drawSultan(c, o, t, night) {
   c.save(); c.globalCompositeOperation = "lighter";
   for (let s = 0; s < 2; s++) { const dir = Math.cos(ang + s * Math.PI), vis = Math.max(0, 0.35 + 0.65 * Math.abs(dir)), L = 150 * (0.55 + 0.45 * Math.abs(dir)); c.fillStyle = `rgba(255,226,140,${gl * vis * 0.55})`; c.beginPath(); c.moveTo(lx, lyc); c.lineTo(lx + Math.sign(dir || 1) * L, lyc - 9 - 8 * vis); c.lineTo(lx + Math.sign(dir || 1) * L, lyc + 11 + 8 * vis); c.closePath(); c.fill(); }
   ell(c, lx, lyc, 26 * flick, 22 * flick, `rgba(255,214,110,${gl})`); c.restore();
+}
+function drawSultan(c, o, t, night) {
+  const a = P(0, 0, 0), bx = P(1, 0, 0), K = { rx: Math.SQRT2 * Math.abs(bx.x - a.x), ry: Math.SQRT2 * Math.abs(bx.y - a.y) };
+  // pulau karang kecil + bayangan
+  const g = P(C.x, C.y, LIFT);
+  ell(c, g.x + 8, g.y + 12, K.rx * 2.05, K.ry * 2.05, "rgba(15,35,30,.2)");
+  ell(c, g.x, g.y + 3, K.rx * 1.95, K.ry * 1.95, "#8a8f86", "rgba(23,63,80,.45)", 1.2);
+  ell(c, g.x, g.y, K.rx * 1.78, K.ry * 1.78, "#b8bdb0"); ell(c, g.x - 3, g.y - 3, K.rx * 1.5, K.ry * 1.5, "#d4d6c7");
+  for (let i = 0; i < 6; i++) { const ang = i * 1.05 + 0.4, rr = 1.55; const p = P(C.x + Math.cos(ang) * rr, C.y + Math.sin(ang) * rr * 0.9, LIFT); ell(c, p.x, p.y, 9 + (i % 3) * 2, 5 + (i % 2), i % 2 ? "#9aa095" : "#a9ae9f", "rgba(23,63,80,.35)", 1); }
+  drawTower(c, t, night, K);
+  // tiga tabung batu + KARAKTER pemenang (belakang → depan: urut d = dx+dy); slot tanpa pemenang = kosong
+  const order = DRUMS.slice().sort((p, q) => p.dx + p.dy - (q.dx + q.dy) || p.dy - q.dy);
+  const by = {}; for (const e of st.data.entries) by[e.rank] = e;
+  for (const d of order) {
+    const main = d.rank === 1, x = C.x + d.dx, y = C.y + d.dy;
+    const bands = main ? [0, 1, 2, 3].map((k) => ({ y0: 0.06 + k * 0.23, y1: 0.06 + k * 0.23 + 0.115, col: k % 2 ? "#f6f1ea" : "#d9453d" })) : [{ y0: 0.12, y1: 0.34, col: d.band }];
+    const r = drum(c, x, y, d.h, main ? 0.62 : 0.5, K, "#c9d3d0", "#aeb9b6", "#e9efed", bands, main ? "#f2c94c" : "#ffffff");
+    const mp = { x: r.b.x, y: r.b.y - (r.b.y - r.tp.y) * 0.5 + r.ry * 0.9 };         // medali peringkat di muka tabung
+    ell(c, mp.x, mp.y, 10, 10, d.medal, "#173f50", 1.6); c.fillStyle = "#173f50"; c.font = "900 12px system-ui, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(String(d.rank), mp.x, mp.y + 0.5);
+    const w = by[d.rank]; if (w && NW.drawCharacter) { try { NW.drawCharacter(c, charFor(d, w), t); } catch (e) { /* karakter gagal digambar: abaikan, objek tetap tampil */ } }
+  }
   // dua lentera di tiang
   for (const q of [[-1.6, -0.55], [1.15, 1.75]]) {
     const b = P(C.x + q[0], C.y + q[1], LIFT), ph = q[0] * 3;

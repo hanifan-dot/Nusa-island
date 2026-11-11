@@ -16,15 +16,17 @@
   "entries": [
    {
     "rank": 1,
-    "name": "Sultan Anonim",
+    "name": "Raka Bahari",
     "points": 60,
-    "title": "Sultan Samudra"
+    "title": "Sultan Samudra",
+    "outfit": "t:t_basic:0|p:p_awal:0|s:x:0|r:x:0"
    },
    {
     "rank": 2,
-    "name": "Sultan Anonim",
+    "name": "Sari Karang",
     "points": 40,
-    "title": "Saudagar Laut"
+    "title": "Saudagar Laut",
+    "outfit": "c:c_naga:0|s:x:0|r:x:1"
    },
    {
     "rank": 3,

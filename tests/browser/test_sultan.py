@@ -143,6 +143,42 @@ def main():
             ok(f"G6 [{tag}] panel muat layar tanpa geser samping; tombol X ≥ 44px dan di dalam layar", pn["sw"] <= pn["cw"] + 1 and pn["r"] <= pn["vw"] + 1 and pn["l"] >= -1 and pn["xw"] >= 44 and pn["xh"] >= 44 and pn["xr"] <= pn["vw"] and pn["t"] >= 0, pn)
             if vp == (360, 740): G.screenshot(path=OUT + "4-panel-hp-360.png")
             ok(f"G7 [{tag}] tidak ada error JS", not e, e); ctx.close()
+        # I. AVATAR ASLI pemenang: jumlah & peringkat karakter berasal dari sultanTop; anonim tanpa avatar pribadi; berubah saat peringkat berubah
+        O = {1: "t:t_sultan:0|p:p_emas:0|h:h_mahkota:0|s:x:1|r:x:2", 2: "t:t_hoodie:1|p:p_jeans:0|h:h_kapten:0|s:x:2|r:x:0", 3: "c:c_naga:0|s:x:0|r:x:1"}
+        def W(r, n, p, t, o=None): return dict({"rank": r, "name": n, "points": p, "title": t}, **({"outfit": o} if o else {}))
+        w1, w2, w3 = W(1, "Raka Bahari", 60, "Sultan Samudra", O[1]), W(2, "Sari Karang", 40, "Saudagar Laut", O[2]), W(3, "Dimas Layar", 30, "Saudagar Laut", O[3])
+        SPY = "(()=>{window.__dc=[];const o=NW.drawCharacter;NW.drawCharacter=(c,ch,t)=>{if(window.__rec){window.__dc.push({me:ch===NW.world.player,x:+ch.x.toFixed(2),y:+ch.y.toFixed(2),code:ch.style.code||null,shirt:ch.style.shirt,costume:!!ch.style.costume})}return o(c,ch,t)};})()"
+        def chars_at(pg):
+            ev(pg, "window.__dc=[];window.__rec=true"); time.sleep(0.6); ev(pg, "window.__rec=false")
+            rows = ev(pg, "window.__dc"); C0 = ev(pg, "NW.sultan.C"); dr = {d['rank']: d for d in ev(pg, "NW.sultan.DRUMS")}; out = {}
+            for r in rows:
+                for rank, d in dr.items():
+                    if abs(r['x'] - (C0['x'] + d['dx'])) < 0.05 and abs(r['y'] - (C0['y'] + d['dy'])) < 0.05: out[rank] = r
+            return out, rows, C0
+        def scen(label, entries, check):
+            ctx, I, e = page(b, {"top": top(entries), "me": ME}); time.sleep(1.2); goto_sultan(I); ev(I, SPY); out, rows, C0 = chars_at(I)
+            ok(f"I [{label}] " + check[0], check[1](out, rows, C0, I), (out, len(rows))); return ctx, I, e
+        ctx, I, e = scen("1 pemenang", [w1], ("satu karakter di tabung #1, tabung #2/#3 KOSONG", lambda o, r, c, I=None: set(o) == {1} and o[1]["code"] == O[1]))
+        ctx.close()
+        ctx, I, e = scen("2 pemenang", [w1, w2], ("dua karakter (#1, #2), slot #3 kosong", lambda o, r, c, I=None: set(o) == {1, 2} and o[1]["code"] == O[1] and o[2]["code"] == O[2])); ctx.close()
+        ctx, I, e = scen("3 pemenang", [w1, w2, w3], ("tiga karakter dengan outfit masing-masing; kostum naga aktif", lambda o, r, c, I=None: set(o) == {1, 2, 3} and [o[k]["code"] for k in (1, 2, 3)] == [O[1], O[2], O[3]] and o[3]["costume"]))
+        I.screenshot(path=OUT + "6-avatar-3-pemenang.png")
+        ev(I, "window.__sd.top=%s;window.__dn=301000" % json.dumps(top([dict(w2, rank=1), dict(w1, rank=2), w3]))); ev(I, "NW.sultan.load(false)"); time.sleep(1.0)
+        out, rows, C0 = chars_at(I)
+        ok("I2 peringkat berubah → karakter ikut berganti (Sari ke #1, Raka ke #2)", out.get(1, {}).get("code") == O[2] and out.get(2, {}).get("code") == O[1] and out.get(3, {}).get("code") == O[3], out)
+        ok("I3 tidak lebih dari 3 karakter Sultan di dunia (satu pemain = satu karakter)", len({(r["x"], r["y"]) for r in rows if not r["me"] and abs(r["x"] - C0["x"]) < 2.2 and abs(r["y"] - C0["y"]) < 2.2}) == 3, "tepat 3 posisi (3 pemenang)")
+        ev(I, "window.__sd.top=%s;window.__dn=700000" % json.dumps(top([w1]))); ev(I, "NW.sultan.load(false)"); time.sleep(1.0); out, rows, C0 = chars_at(I)
+        ok("I4 pemenang berkurang jadi 1 → karakter lain hilang (slot kosong)", set(out) == {1}, out); ctx.close()
+        anon = W(2, "Sultan Anonim", 40, "Saudagar Laut")
+        ctx, I, e = scen("anonim", [w1, anon, w3], ("Sultan Anonim = karakter generik (tanpa kode outfit), pemenang lain tetap berpenampilan sendiri", lambda o, r, c, I=None: set(o) == {1, 2, 3} and o[2]["code"] is None and o[2]["shirt"] == "#4a5b66" and o[1]["code"] == O[1] and o[3]["code"] == O[3]))
+        I.screenshot(path=OUT + "7-avatar-anonim.png"); ctx.close()
+        leak = dict(anon, outfit=O[2], uid=CAN[0], email=CAN[1])
+        ctx, I, e = scen("anonim, server KELIRU mengirim outfit", [w1, leak, w3], ("outfit milik anonim diabaikan klien (tidak ada kode, tidak bocor)", lambda o, r, c, I=None: o[2]["code"] is None and CAN[0] not in ev(I, "JSON.stringify(NW.sultan._st)") and O[2] not in ev(I, "JSON.stringify(NW.sultan._st.data)")))
+        ctx.close()
+        ctx, I, e = scen("outfit berbahaya", [dict(w1, outfit="c:c_naga:0|javascript:alert(1)"), w2], ("kode outfit tidak sah dibuang → karakter bawaan, tidak error", lambda o, r, c, I=None: o[1]["code"] is None and o[2]["code"] == O[2]))
+        ok("I5 tidak ada error JS pada semua skenario avatar", not e, e); ctx.close()
+        ctx, I, e = page(b, {"top": top([w1, w2, w3]), "me": ME}); time.sleep(1.2); goto_sultan(I); ev(I, SPY); ev(I, "window.__rec=true"); time.sleep(0.2)
+        ok("I6 hanya 3 pembuatan gaya karakter untuk 3 pemenang (cache per kode outfit)", len({(r["x"], r["y"], r["code"]) for r in ev(I, "window.__dc") if not r["me"] and abs(r["x"] - ev(I, "NW.sultan.C.x")) < 2.2 and abs(r["y"] - ev(I, "NW.sultan.C.y")) < 2.2}) == 3); ctx.close()
         # H. regresi: Podium Pemancing & ekonomi/save tidak tersentuh
         ctx, H, e = page(b, sd()); time.sleep(1.2); before = ev(H, "JSON.stringify([Nusa.S.money,Nusa.S.stats,Nusa.S.cooler,Nusa.S.up,Nusa.S.profile])"); store = ev(H, "localStorage.getItem('nusa-island-v1')")
         goto_sultan(H); H.click("#actBtn"); time.sleep(0.8); H.click("#suAnon"); time.sleep(0.8); H.click("#suX"); time.sleep(0.4)
