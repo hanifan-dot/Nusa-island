@@ -1,0 +1,15 @@
+#dlOv{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(10,30,40,.55);padding:8px}
+#dlOv.hidden{display:none}
+.dl-card{position:relative;width:min(100%,560px);max-height:calc(100vh - 16px);overflow:auto;background:#f4fafc;border:2px solid #173f50;border-radius:14px;padding:10px 12px;color:#173f50;font:13px system-ui,sans-serif}
+.dl-card h2{margin:0 28px 6px 0;font-size:15px}.dl-x{position:absolute;top:6px;right:8px;min-width:36px;min-height:36px;border:0;background:none;font-size:18px}
+.dl-cols{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dl-bag,.dl-boxes{background:#e3eff3;border-radius:10px;padding:6px;min-height:150px}.dl-boxes{display:flex;flex-direction:column;gap:6px;background:#d4e8f0}
+.dl-bag h3{margin:0 0 4px;font-size:12px}.dl-list{display:flex;flex-direction:column;gap:4px;max-height:42vh;overflow:auto}
+.dl-fish{display:flex;align-items:center;gap:4px;min-height:40px;padding:2px 6px;border:1px solid #173f5055;border-radius:8px;background:#fff;color:#173f50;text-align:left;font-size:12px}
+.dl-fish span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dl-fish small{opacity:.7}.dl-fish.sel{outline:3px solid #2a9d8f}
+.dl-box{background:#fff;border:2px solid #9ec5d3;border-radius:10px;padding:4px 6px;display:flex;flex-direction:column;gap:3px}.dl-box.full{border-color:#2a9d8f}
+.dl-box h4{margin:0;font-size:12px}.dl-box em{font-style:normal;opacity:.7}.dl-ice{font-size:11px;opacity:.85}.dl-empty{margin:2px 0;font-size:11px;opacity:.65}
+.dl-label{font-size:11px}.dl-sticker{align-self:flex-start;background:#2a9d8f;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px}
+.dl-msg{min-height:16px;margin:6px 0 2px;font-size:12px}.dl-act{display:flex;gap:6px;justify-content:flex-end}
+.dl-act button{min-height:40px;padding:0 12px;border-radius:8px;border:1px solid #173f50;background:#fff;color:#173f50;font-weight:600}.dl-act #dlSend{background:#2a9d8f;color:#fff}.dl-act button:disabled{opacity:.45}
+@media (orientation:landscape) and (max-height:420px){.dl-card{padding:6px 10px}.dl-list{max-height:34vh}.dl-bag,.dl-boxes{min-height:100px}}
