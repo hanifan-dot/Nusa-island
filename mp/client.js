@@ -289,6 +289,7 @@ function layer(view, inView) {
   const me = NW.world.player, low = prefs.low, maxN = low ? 8 : 12;
   let arr = [...R.players.values()]; if (arr.length > maxN) arr.sort((a, b) => Math.hypot(a.ch.x - me.x, a.ch.y - me.y) - Math.hypot(b.ch.x - me.x, b.ch.y - me.y)), arr = arr.slice(0, maxN);
   for (const p of arr) {
+    if (R.seatedSkip && R.seatedSkip(p.id)) continue;   // Kapal Rombongan: awak di kursi digambar modul kapal, bukan di titik server
     const pt = NW.P(p.ch.x, p.ch.y); if (!inView(view, pt.x, pt.y)) continue;
     out.push({ d: p.ch.x + p.ch.y, ch: p.ch, remote: p });
     if (p.f & P.F.FISH) out.push({ d: p.ch.x + p.ch.y + 0.2, fn: (c) => drawBobber(c, p) });
@@ -438,7 +439,7 @@ function hook() {
   if (NW.cloud && NW.cloud.onChange) NW.cloud.onChange(() => { if (!user() && R.ws) disconnect("logout"); emit(); });
 }
 
-NW.mp = { boatOn: () => R.boatOn, boats: () => [...R.boats.values()], boatMine: () => (R.mine && R.boats.get(R.mine.id) ? { id: R.mine.id, seat: R.mine.s, captain: R.mine.s === 0, boat: R.boats.get(R.mine.id) } : null), onBoat: (f) => R.bListeners.push(f),
+NW.mp = { player: (id) => R.players.get(id) || null, setSeatedSkip: (f) => { R.seatedSkip = typeof f === "function" ? f : null; }, boatOn: () => R.boatOn, boats: () => [...R.boats.values()], boatMine: () => (R.mine && R.boats.get(R.mine.id) ? { id: R.mine.id, seat: R.mine.s, captain: R.mine.s === 0, boat: R.boats.get(R.mine.id) } : null), onBoat: (f) => R.bListeners.push(f),
   boatNew: () => boatSend({ a: "new" }), boatJoin: (b, s) => boatSend({ a: "join", b, s }), boatLeave: () => boatSend({ a: "leave" }), boatSteer: (d, th) => boatSend({ a: "steer", d, th }), boatAnchor: (on) => boatSend({ a: "anchor", on: !!on }), boatGo: (ar) => boatSend({ a: "go", ar }),
   sendOutfit: (c) => { R.outWant = typeof c === "string" ? c : ""; }, eject, clearKick, homeLayer, inHouse: () => !!R.house && R.vis && R.state === "online", hook, update, layer, drawTag, drawBubbles, view, sendChat, sendEmote, setPref, joinRoom, joinRandom, joinAuto, leaveServer, fetchRooms, sharedHour, onChange: (f) => R.listeners.push(f), eligible, EMOTES: P.EMOTES, ERR,
   get typing() { return R.typing; }, set typing(v) { R.typing = !!v; }, hasChatPref: () => prefs.chat, _R: R, _prefs: () => prefs, _net: netTick, _clock: CK, _serverNow: serverNow };

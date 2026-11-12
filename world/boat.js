@@ -333,11 +333,11 @@ function stepWake(dt) {
 // ---------- Gambar kapal (2.5D dari bentuk lambung) ----------
 // pose { x, y, a }, opt { style:{hull,trim,inner}, player, decor, moored, t }
 function drawVessel(c, pose, t, opt = {}) {
-  const sp = opt.decor ? Object.assign({}, SPEC[1], { L: 1.05, B: 0.38, canopy: false }) : spec();
+  const sp = opt.decor ? Object.assign({}, SPEC[1], { L: 1.05, B: 0.38, canopy: false }) : opt.spec != null ? SPEC[opt.spec] : spec();
   const ex = opt.player && NW.streak ? NW.streak.shipStyle() : null; // Kapal Perintis Eksklusif (hadiah Login Streak) mengganti warna kapal pemain
   const hull = (opt.style && opt.style.hull) || (ex && ex.hull) || sp.hull, trim = (opt.style && opt.style.trim) || (ex && ex.trim) || sp.trim, inner = (opt.style && opt.style.inner) || (ex && ex.inner) || sp.inner;
   const f = fwd(pose.a), L = sp.L, Bm = sp.B, ph = pose.x * 1.3 + pose.y;
-  const moving = !opt.decor && opt.player && Math.abs(B.v) > 20;
+  const moving = opt.remote ? Math.abs(opt.v || 0) > 0.3 : !opt.decor && opt.player && Math.abs(B.v) > 20;   // opt.remote: kapal rombongan (kecepatan server, tile/dtk)
   const wk = NW.weather ? 1 + NW.weather.state.wind * 0.7 + NW.weather.state.rain * 0.3 : 1; // ombak sedikit lebih besar saat berangin/hujan (aman, tanpa kerusakan)
   const bob = Math.sin(t * 1.6 + ph) * 1.4 * (moving ? 0.6 : 1) * wk, roll = Math.sin(t * 1.15 + ph) * (opt.decor ? 1.2 : 1.8) * wk, pitch = moving ? -1.2 : Math.sin(t * 0.9 + ph) * 0.8;
   const night = N().darkness();
@@ -407,6 +407,7 @@ function drawVessel(c, pose, t, opt = {}) {
   }
   // 5) pemain duduk di buritan memegang kemudi
   if (opt.player) opt.player(dz(-0.6, 0));
+  if (opt.crew) opt.crew(dz);   // Kapal Rombongan: tiga awak digambar di kursinya (rombongan/client.js)
   // 6) sisi luar yang menghadap kamera
   for (const fc of faces.filter((x) => x.front).sort((a2, b2) => a2.d - b2.d)) {
     const col = mix(shade(hull, fc.light * 0.18 - 0.05), "#0a1426", night * 0.55);
