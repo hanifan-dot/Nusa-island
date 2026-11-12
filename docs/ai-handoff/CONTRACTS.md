@@ -1,35 +1,47 @@
-# Kontrak API (Worker 01 → Worker 02)
+# Kontrak API (Worker 01 → Worker 02) — RESMI
 
-Semua lewat `POST /fn/<nama>` dengan `{data:{...}}`, token pemain. Respons sukses: `{result:{...}}`. Tanpa UID/email/token/payment ID.
+Sumber kebenaran: kode di backend PR #59 (`worker/index.js`, `server/features.js`, `server/vendor/damar-core.cjs`) dan game PR #130 (`economy/damar-core.js`, `economy/core.js`). Bila dokumen ini berbeda dari kode, KODE yang benar — laporkan ke Worker 01.
+Semua fungsi lewat `POST /fn/<nama>` dengan `{data:{...}}` dan token pemain. Sukses: `{result:{...}}`. Galat: HTTP 400 `invalid-argument`, 404 `not_found` (flag mati), 409 `failed-precondition`, 429 `rate_limited` (240 permintaan/menit/pemain). Tanpa UID/email/token/payment ID di respons ke klien lain.
 
-## Feature flag (Owner saja, `POST /api/features`, bawaan SEMUA MATI)
-`gameFlags` (pemain masuk) → `{leaderboard, socialHome, pakDamar, kapalRombongan}` (boolean). Gagal baca = false (gagal-tertutup). Saat `pakDamar=false`, semua `ecoDamar*` → 404 `not_found`.
+## A. Feature flag — SERVER adalah sumber status aktif
+| Flag | Di mana | Pemilik | Arti |
+|---|---|---|---|
+| `pakDamar` | server (`shop_config/main.features`, lewat `POST /api/features`, bawaan MATI, gagal-tertutup) | Owner | Saat false, SEMUA `ecoDamar*` → 404. Dibaca klien lewat `gameFlags` → `{leaderboard, socialHome, pakDamar, kapalRombongan}`. |
+| `window.NUSA_DELIVERY` | klien (`cloud/config.js`, bawaan `false`) | build/uji | HANYA saklar unduh kode UI (`delivery/*` lazy-load). Bukan otorisasi, bukan status fitur. |
+| `kapalRombongan` | server nusa-api (`features`, bawaan MATI) | Owner | Dibaca klien lewat `gameFlags`. Dipasangkan dengan saklar realtime di bawah. |
+| `NUSA_BOAT` | env Worker `nusa-multiplayer` (`"tidak"` bawaan, `"ya"` = ON) | Owner | Server realtime baru memproses/menyiarkan kapal bila `ya`; welcome membawa `bo:1`. |
 
-## 1. Pengiriman Segar Pak Damar (flag `pakDamar`)
-Server: `economy/damar-core.js` (game) disalin ke backend `server/vendor/damar-core.cjs`. Hari = jam SERVER WIB (UTC+7, reset 00:00). Klien tidak mengirim hari/waktu/hadiah (field itu diabaikan).
-Aturan: pesanan 6 ikan/hari; 2 kotak × maks 3 ikan; ikan bukan sampah/terlindungi; ikan dipindah dari kotak server (`box`) → kotak pendingin → terkirim (dikonsumsi tepat sekali); pelayaran minimal 45 dtk; segar bila ≤20 mnt sejak muat; hadiah dibayar tepat sekali per hari (USULAN: 900 + hingga 300 bonus segar — butuh persetujuan Owner sebelum flag ON).
+**Aturan hubungan flag (wajib dipatuhi klien):**
+1. Pengiriman Pak Damar aktif untuk pemain hanya bila `NUSA_DELIVERY===true` (kode UI ada) **DAN** `gameFlags.pakDamar===true` (server mengizinkan). Salah satu mati → UI tidak menampilkan titik masuk quest / menampilkan "belum tersedia"; tidak boleh memanggil `ecoDamar*` bila `pakDamar=false`.
+2. Server tetap menolak walau klien memaksa: `NUSA_DELIVERY=true` + `pakDamar=false` → 404. Klien TIDAK boleh menyimpulkan status aktif dari flag lokal, cache, atau dari keberhasilan panggilan lama; status = `gameFlags` terbaru.
+3. Kapal Rombongan aktif hanya bila `gameFlags.kapalRombongan===true` **DAN** welcome multiplayer `bo===1` (`NW.mp.boatOn()`). Owner menyalakan kedua sisi (seperti `mpUpdated` pada Rumahku Sosial); bila hanya salah satu → fitur tidak muncul.
 
-| Fungsi | Body | Catatan |
-|---|---|---|
-| `ecoDamarState` | `{}` | baca; ganti hari mengembalikan ikan kotak ke inventaris |
-| `ecoDamarLoad` | `{opId, box:0\|1, uids:[1..3]}` | ikan harus ada di `box` server pemain |
-| `ecoDamarUnload` | `{opId, box}` | hanya kotak yang belum berlayar |
-| `ecoDamarSail` | `{opId, box}` | kotak tak kosong |
-| `ecoDamarAbort` | `{opId, box}` | pelayaran gagal/batal: ikan TETAP di kotak, progres tidak hilang |
-| `ecoDamarDeliver` | `{opId, box}` | di Pelabuhan Kota; terlalu cepat → 409; hadiah di `reward` hanya saat pesanan ke-6 |
+## B. Pengiriman Segar Pak Damar (flag `pakDamar`)
+Hari = jam SERVER WIB (reset 00:00 UTC+7); klien tidak mengirim hari/waktu/hadiah/harga (field itu diabaikan). Pesanan 6 ikan/hari; 2 kotak × maks 3; ikan bukan sampah/terlindungi; ikan dipindah dari kotak server (`box`) → kotak pendingin → terkirim (dikonsumsi tepat sekali); pelayaran minimal 45 dtk; segar bila ≤20 mnt sejak muat; hadiah tepat sekali per hari. **Angka hadiah 900 + maks 300 = ANGKA UJI, bukan keputusan Owner; jangan dijanjikan di UI produksi.**
+`opId` wajib untuk semua aksi ubah: `^[A-Za-z0-9_-]{8,60}$`; opId sama → `duplicate:true`, tanpa efek ganda. `box` = 0 atau 1. `uids` = 1–3 uid ITEM ikan (bukan uid pemain), unik, ada di `box` server pemain.
 
-Respons selalu memuat `damar`: `{day,need,per,delivered,paid,reward,preview:{base,freshBonus},freshMs,minTripMs,boxes:[{st:'idle'|'sailing',n,fish:[{u,id,w}],freshLeftMs,sailMs}]}` + tampilan ekonomi (`balance`, `box`, …). `opId` wajib (8–64 karakter); retry opId sama → `duplicate:true`, tanpa efek ganda. Error: 409 `failed-precondition` (aturan), 400 `invalid-argument`, 404 (flag mati).
+| Fungsi | Body | Hasil khusus (selain `damar` + tampilan ekonomi) | Penolakan khas |
+|---|---|---|---|
+| `ecoDamarState` | `{}` | — (ganti hari mengembalikan ikan kotak ke inventaris) | — |
+| `ecoDamarLoad` | `{opId, box, uids}` | `loaded:n` | 409 ikan tak ada/sampah/kotak penuh/>6 total |
+| `ecoDamarUnload` | `{opId, box}` | `returned:n` | 409 bila kotak berlayar |
+| `ecoDamarSail` | `{opId, box}` | `sailing:box` | 409 kotak kosong/sudah berlayar |
+| `ecoDamarAbort` | `{opId, box}` | `aborted:box` — ikan TETAP di kotak | 409 bila tidak berlayar |
+| `ecoDamarDeliver` | `{opId, box}` | `moved, fresh, reward` (reward>0 hanya saat pesanan ke-6) | 409 "belum sampai" bila <45 dtk |
 
-## 7/2. Kapal Rombongan + UI Kemudi (flag `kapalRombongan`) — KONTRAK, belum ada kode
-Jalur: multiplayer realtime yang ada (`cf-multiplayer` Durable Object; kode di repo GAME `mp/` + `cf-multiplayer/`). TIDAK memakai D1/Firestore per frame.
-- Entitas kapal di ruang: `{bid, area, x, y, dir, spd, anchor:bool, seats:[captain, p1, p2]}` — kursi berisi ID publik pemain (`pid`, bukan UID akun) atau kosong. Maks 3 total.
-- Pesan klien→server: `boat.board{bid,seat}`, `boat.leave`, `boat.steer{dir,thr}` (hanya kapten), `boat.anchor{on}`. Server menurunkan posisi dari input kapten dengan batas kecepatan; posisi/kecepatan klien tidak dipercaya.
-- Server→semua: snapshot kapal + delta kursi (naik/turun beranimasi), area aktif, tujuan. Penumpang: chat/emote/peta; memancing hanya bila `anchor=true`.
-- Kasus: kapten keluar/putus → pelimpahan ke penumpang tertua atau kapal bubar (penumpang diturunkan di dermaga); satu pemain hanya satu kapal; pindah server = turun dari kapal; kursi kosong boleh diisi; timeout sambungan 20 dtk → kursi dilepas.
-- Hadiah/ikan penumpang tetap lewat ekonomi server (`ecoCatch`), bukan lewat kapal.
+Setiap respons memuat `ok:true`, `damar`, dan tampilan ekonomi (`balance`, `own`, `topup`, `box`, `up`, `homeLv`, `cat`, `claimed`, `troph`, …).
+`damar`: `{day, need:6, per:3, delivered, paid, reward|null, preview:{base,freshBonus}, freshMs, minTripMs, boxes:[{st:'idle'|'sailing', n, fish:[{u,id,w}], freshLeftMs|null, sailMs}]}`.
 
-### Diagnosis: kenapa teman tidak melihat pemain naik kapal (dugaan kuat, dari kode)
-1. `mp/client.js` (`mp/client.js:54`): `vis = … && !(NW.boat && NW.boat.on)` → saat pemain di atas kapal, klien mengirim `vis:false`; pemain HILANG dari semua teman.
-2. Protokol multiplayer tidak punya entitas kapal/kursi; hanya `x,y,dir,flags` per pemain dan `AREA` tetap Muara, sehingga kapal tidak ada untuk teman dan perpindahan area membuat pemain lenyap dari ruang.
-3. Server membatasi `MAX_SPEED = 9` tile/dtk per pemain; posisi kapal yang digerakkan klien bisa tertahan/terpental.
-Perbaikan = entitas kapal server-side di atas (bukan memperbaiki flag `vis`).
+**Peta adapter klien (`NW.deliveryApi`, PR #131 `submit({v:1,opId,boxes:[[uid×3],[uid×3]]})`)** — server TIDAK punya satu panggilan `submit`; adapter menyusunnya dari: `ecoDamarLoad`(kotak 0) → `ecoDamarLoad`(kotak 1) → `ecoDamarSail`×2 (di dermaga) → `ecoDamarDeliver`×2 (di Pelabuhan Kota). Setiap langkah punya `opId` sendiri (turunan `opId` induk + akhiran langkah agar retry aman). Kegagalan pelayaran → `ecoDamarAbort`, bukan membuang progres. Hasil/hadiah selalu dari respons server.
+
+## C. Kapal Rombongan (flag `kapalRombongan` + `NUSA_BOAT=ya`) — diimplementasi di PR kapal
+Jalur: WebSocket multiplayer yang ada (`cf-multiplayer` DO; logika di `mp/room-core.js`, protokol `mp/proto.js`). Tanpa D1/Firestore per frame; DO hanya menyimpan struktur kapal saat berubah.
+Kursi: 0 = kapten, 1–2 = penumpang; maks 3 total. Isi kursi = id publik pemain (`pid`, bukan UID). Geometri (Muara): dermaga x32–40,y20–21; tambatan `[37.2,23.4]` dst (`P.BOAT.SLOTS`); jalur air `x34–39.6, y22.4–50.5`; titik turun `[35.5,20.6]`.
+
+**Klien → server** (`{t:"bt", a:...}`, hanya NIAT; posisi/kecepatan/hadiah tidak pernah dipercaya):
+`new` (buat kapal dekat dermaga, jadi kapten) · `join{b,s∈{1,2}}` · `leave` · `steer{d:0..7, th:0..2}` (kapten; butuh jangkar naik) · `anchor{on}` (kapten) · `go{ar}` (kapten; jangkar turun & berhenti; `ar`=id area `^[a-z][a-z0-9_]{1,23}$`).
+**Server → klien:** welcome `w` + `bo:1`, `bs:[baris]`, `mb:[id,kursi]` (kapalku setelah reconnect) · `bs{q,u:[baris]}` (≤5 Hz) · `bd{id}` (bubar/berangkat) · `bv{ev,b,p,s,ar}` dengan `ev` = `board|leave|cap|depart|arrive|area` (untuk animasi naik/turun/ganti kapten/berangkat/tiba) · `bn{r}` alasan penolakan: `off,hidden,aboard,full,far,none,away,moving,seat,captain,anchor,early,same`.
+**Baris kapal:** `[id, x×20, y×20, arah0-7, kecepatan×10, bendera(1=jangkar,2=pergi), kursi0, kursi1, kursi2]` (kursi 0 = kosong; pid tanpa pemain di daftar = kursi tertahan/menunggu reconnect).
+**Aturan server:** naik/turun hanya saat jangkar turun & kapal berhenti; kursi rebutan → yang pertama diproses menang, lainnya `bn seat`; satu pemain satu kapal; pemain di kapal tidak bisa menggerakkan dirinya sendiri (posisi mengikuti kapal; klien lama tetap melihatnya duduk di kapal); kapten pergi/putus → penumpang terhubung berkursi terkecil jadi kapten, jangkar turun; putus → kursi ditahan 20 dtk untuk reconnect (kursi sama, pid baru) lalu bebas; kapal tanpa kru terhubung & tanpa kursi tertahan bubar; `go` keluar Muara = kapal & kru hilang dari pandangan pemain Muara (kru tetap duduk dan saling melihat), kembali ke Muara paling cepat 8 dtk (jam server) dengan peristiwa `arrive`.
+**API klien (`mp/client.js`) untuk Worker 02:** `NW.mp.boatOn()`, `boats()` (id,x,y,tx,ty,d,v,anchor,away,seats — x,y dihaluskan), `boatMine()`, `onBoat(fn)` (peristiwa `sync,state,gone,board,leave,cap,depart,arrive,area,note`), `boatNew()`, `boatJoin(b,s)`, `boatLeave()`, `boatSteer(d,th)`, `boatAnchor(on)`, `boatGo(ar)`. Perilaku lama `vis:false` saat `NW.boat.on` DIGANTI: pemain yang duduk di kapal server tetap tampak (`vis` tetap true); kapal tunggal lama (`NW.boat`, tanpa kapal server) tidak berubah.
+**Belum (Worker 02):** menggambar kapal/kursi/animasi, UI kemudi, UI naik/turun, penempatan titik interaksi.

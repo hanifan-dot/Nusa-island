@@ -39,6 +39,25 @@ function cleanHold(m) {
   return { i, w, v };
 }
 
+// ---- Kapal Rombongan (Fase A): entitas kapal + kursi disinkronkan SERVER. Bawaan MATI di server (opsi boat / env NUSA_BOAT=ya). ----
+// Geometri diambil dari NW.MUARA_MAP pada basis 435c63d (dermaga x32–40,y20–21; tambatan 37.2,23.4); tes browser menjaga jalur layar tetap air.
+const _HW = 32, _HH = 16;   // setengah ukuran tile iso (world/boat.js: HW=TW/2, HH=TH/2) — arah 0..7 = dir8 layar kapal klien, diubah ke vektor tile
+const _DIRV = Array.from({ length: 8 }, (_, i) => { const a = i * Math.PI / 4, dx = Math.cos(a), dy = Math.sin(a), x = (dx / _HW + dy / _HH) / 2, y = (dy / _HH - dx / _HW) / 2, k = Math.hypot(x, y); return [Math.round(x / k * 1e4) / 1e4, Math.round(y / k * 1e4) / 1e4]; });
+const BOAT = { CAP: 3, MAX_BOATS: 5, BOARD_R: 3.2, DIRV: _DIRV, SPD: [0, 1.6, 3.2], ACC: 2.2,   // tile/dtk; 3 kursi: 0 = kapten, 1–2 = penumpang
+  LANE: { x0: 34, x1: 39.6, y0: 22.4, y1: 50.5 },
+  SLOTS: [[37.2, 23.4], [35.8, 24.6], [38.6, 25.2], [36.2, 27], [38.4, 28.6]], LAND: [35.5, 20.6],   // tambatan & titik turun (di dermaga)
+  GRACE_MS: 20000, MIN_AWAY_MS: 8000, AREA_RE: /^[a-z][a-z0-9_]{1,23}$/, HOME: "muara" };
+const BOAT_ACTS = ["new", "join", "leave", "steer", "anchor", "go"];
+// pesan klien → kapal. Mengembalikan objek bersih atau null (tidak sah). Tidak ada posisi/kecepatan/hadiah dari klien: hanya NIAT (arah, gas, jangkar, kursi).
+function cleanBoat(m) {
+  if (!m || typeof m !== "object" || !BOAT_ACTS.includes(m.a)) return null;
+  const o = { a: m.a };
+  if (m.a === "join") { const b = String(m.b == null ? "" : m.b); if (!/^b[0-9a-z]{1,6}$/.test(b)) return null; const s = m.s; if (!Number.isInteger(s) || s < 1 || s >= BOAT.CAP) return null; o.b = b; o.s = s; }
+  if (m.a === "steer") { if (!Number.isInteger(m.d) || m.d < 0 || m.d > 7 || !Number.isInteger(m.th) || m.th < 0 || m.th > 2) return null; o.d = m.d; o.th = m.th; }
+  if (m.a === "anchor") { if (typeof m.on !== "boolean") return null; o.on = m.on; }
+  if (m.a === "go") { const a = String(m.ar == null ? "" : m.ar); if (!BOAT.AREA_RE.test(a)) return null; o.ar = a; }
+  return o;
+}
 // kode penampilan avatar (HANYA ID item lokal + indeks warna; tidak ada gambar). "" = bawaan. null = tidak sah.
 const OUTFIT_PART = /^[tphacsr]:[a-z0-9_]{1,24}:[0-9]{1,2}$/;
 function cleanOutfit(v) {
@@ -76,7 +95,7 @@ const qz = (v) => Math.round(v * Q);
 const uq = (n) => n / Q;
 const clampInt = (v, a, b, d) => { v = Math.floor(Number(v)); return Number.isFinite(v) ? Math.max(a, Math.min(b, v)) : d; };
 
-const API = { HOUSE, WORLD_HPS, WORLD_EPOCH_MS, sharedHour, roomId, VARIANTS, cleanHold, cleanOutfit, VERSION, SUBPROTOCOL, AREA, MAP_W, MAP_H, Q, ROOM_CAP, MIN_ROOMS, MAX_ROOMS, TIMEOUT_MS, TICK_MS, MAX_SPEED, CHAT_MAX, NAME_MAX, F, EMOTES, cleanName, cleanChat, maskBad, qz, uq, clampInt };
+const API = { BOAT, cleanBoat, HOUSE, WORLD_HPS, WORLD_EPOCH_MS, sharedHour, roomId, VARIANTS, cleanHold, cleanOutfit, VERSION, SUBPROTOCOL, AREA, MAP_W, MAP_H, Q, ROOM_CAP, MIN_ROOMS, MAX_ROOMS, TIMEOUT_MS, TICK_MS, MAX_SPEED, CHAT_MAX, NAME_MAX, F, EMOTES, cleanName, cleanChat, maskBad, qz, uq, clampInt };
 if (typeof module !== "undefined" && module.exports) module.exports = API;
 else { root.NW = root.NW || {}; root.NW.MPProto = API; }
 })(typeof window !== "undefined" ? window : globalThis);
