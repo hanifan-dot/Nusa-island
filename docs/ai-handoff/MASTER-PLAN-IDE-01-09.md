@@ -5,8 +5,8 @@ Aturan tetap: tanpa merge/deploy/flag ON/migrasi produksi/backfill/ubah data pem
 | # | Ide | Fase | Backend (Worker 01) | Status W01 |
 |---|-----|------|---------------------|-----------|
 | 1 | Pengiriman Segar Pak Damar | A | `ecoDamar*` + flag `pakDamar` | **Selesai (PR draft)** |
-| 2 | UI Kemudi Kapal | A | data status kapal (bagian kontrak kapal) | Kontrak ditulis, belum kode |
-| 7 | Kapal Rombongan (3 orang) | A | state kapal di jalur multiplayer realtime + flag `kapalRombongan` | Kontrak + diagnosis; kode = PR berikut |
+| 2 | UI Kemudi Kapal | A | data status kapal (bagian kontrak kapal) | Kontrak final; data+aksi di PR kapal, UI = Worker 02 |
+| 7 | Kapal Rombongan (3 orang) | A | state kapal di jalur multiplayer realtime + flag `kapalRombongan` | Kode selesai di PR draft kapal (flag OFF); render = Worker 02 |
 | 4 | Pelabuhan Kota | B | kontrak lokasi, pasar/permintaan harian | Belum |
 | 5 | Eksplorasi Kepulauan | B | pulau/spot ditemukan per pemain, idempoten | Belum |
 | 6 | Latar Mancing per Lokasi | B | ID area/spot/cuaca/waktu + tabel ikan sah | Belum |
