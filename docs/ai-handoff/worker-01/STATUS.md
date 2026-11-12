@@ -7,3 +7,6 @@
 - Tes: unit-boat 79/79; browser test_boat 17/17; unit-mp 193, unit-mp-house 23, semua unit lain hijau. `test_multiplayer.py` GAGAL di langkah 2 (`#gwContinue` timeout, akun uji kedua) — GAGAL IDENTIK di basis tanpa perubahan saya (baseline lama, bukan regresi).
 - Risiko/blocker: kapal belum digambar (Worker 02); daftar area belum di-whitelist (hanya regex); DO menyimpan struktur kapal kasar saat berubah saja; konstanta jalur air diturunkan dari peta di basis 435c63d; hadiah Pak Damar 900+300 hanya angka uji, butuh persetujuan Owner.
 - Urutan deploy bila Owner setuju: backend #59 → game #130 → `nusa-multiplayer` (`NUSA_BOAT=ya`) → flag server satu per satu. Tidak ada merge/deploy/migrasi/backfill/perubahan data pemain.
+
+## Integrasi Fase A (12 Nov 2026)
+Cabang `integrasi/fase-a-20261112` dari `435c63d`: #130 → #132 → #131 → #133. Konflik hanya di `docs/ai-handoff/*` (add/add), kode bersih. Allowlist area kapal: muara, laut, selat, toba, sf2 (area lain ditolak; tes pindai menjaga daftar tetap sama dengan `areas.register`). Semua flag klien/server/realtime MATI. PR lama tidak ditutup.

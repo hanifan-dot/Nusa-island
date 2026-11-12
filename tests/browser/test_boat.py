@@ -49,7 +49,7 @@ def main():
             ok("B8 kapal berhenti di batas jalur air (server menahan), tidak menembus", ev(A, "NW.mp.boats()[0].ty<=50.6 && NW.mp.boats()[0].tx>=33.9 && NW.mp.boats()[0].tx<=39.7"), boats(A))
             ev(A, "NW.mp.boatAnchor(true)"); time.sleep(1.2)
             # --- pindah area ---
-            ev(A, "NW.mp.boatGo('pasir')")
+            ev(A, "NW.mp.boatGo('laut')")
             ok("B9 kapten pindah area: pengamat di luar kapal melihat kapal & kru lenyap; kru tetap duduk", wait_for(A, "NW.mp.boats()[0] && NW.mp.boats()[0].away", 6) and True)
             ev(A, "NW.mp.boatGo('muara')"); time.sleep(0.8)
             ok("B10 kembali terlalu cepat ditolak (jam server)", ev(A, "NW.mp.boats()[0].away") is True)
