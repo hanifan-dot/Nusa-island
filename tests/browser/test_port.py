@@ -62,6 +62,9 @@ def crate_truck(A, i, wait=True):
     c = ev(A, "NW.port.positions.CRATE[%d]" % i); walk(A, c["x"] - 0.4, c["y"]); interact_id(A, "pk:crate:%d" % i); wait_for(A, "NW.port._st.carry", 4)
     lp = ev(A, "NW.port.positions.LOAD_PT"); walk(A, lp["x"], lp["y"]); interact_id(A, "pk:truck")
     if wait: wait_for(A, "!NW.port._st.load", 8); time.sleep(0.8)
+def crate_ok(A, i):
+    """Antar kotak i dan TUNGGU sampai server benar-benar menerimanya (kejadian, bukan waktu tetap)."""
+    crate_truck(A, i, wait=False); wait_for(A, "NW.delivery._st.view.boxes[%d].st==='idle'" % i, 40); time.sleep(0.2)
 def failures(b):
     # C. Sail gagal (jaringan): ikan aman, tetap di Muara, opId SAMA saat coba lagi
     srv = Srv(True); srv.fail["ecoDamarSail"] = [1, "net"]; ctx, A, e = setup_trip(b, srv)
@@ -89,7 +92,7 @@ def failures(b):
     dl = [c[1]["opId"] for c in srv.calls if c[0] == "ecoDamarDeliver"]
     ok("G2 retry memakai opId sama; terhitung sekali", len(dl) == 2 and dl[0] == dl[1] and srv.delivered == 3 and len(srv.counted) == 1, [dl, srv.delivered]); ctx.close()
     # H. Deliver kotak 2 gagal setelah kotak 1 diterima → UI selaras server, lanjut dari posisi nyata
-    srv = Srv(True); ctx, A, e = setup_trip(b, srv); to_port(A); crate_truck(A, 0); srv.fail["ecoDamarDeliver"] = [1, "rej"]; crate_truck(A, 1); wait_for(A, "!!document.getElementById('pkRetry')", 20); time.sleep(0.3)
+    srv = Srv(True); ctx, A, e = setup_trip(b, srv); to_port(A); crate_ok(A, 0); srv.fail["ecoDamarDeliver"] = [1, "rej"]; crate_truck(A, 1); wait_for(A, "!!document.getElementById('pkRetry')", 20); time.sleep(0.3)
     ok("H1 kotak 1 diterima, kotak 2 ditolak: server masih 1 kotak berlayar, kotak 2 tampak lagi di dermaga", srv.delivered == 3 and srv.st == ["idle", "sailing"] and ev(A, "NW.port.candidates(NW.world.player).some(c=>c.id==='pk:crate:1')"), [srv.delivered, srv.st])
     ev(A, "document.getElementById('pkRetry')&&(NW.port._st.retry=null)"); crate_truck(A, 1); wait_for(A, "!document.getElementById('pkRes').classList.contains('hidden')", 40)
     ok("H2 kotak 2 diulang → selesai, hadiah server 777 sekali", srv.coins == 777 and srv.delivered == 6); ctx.close()
@@ -141,8 +144,8 @@ def main():
         got, c0 = carry_one(A, 0); A.screenshot(path=OUT + "a3_carry.png")
         ok("B1 ambil kotak 1: membawa (animasi dua tangan), jalan melambat", got and c0 == 0 and ev(A, "NW.port.speedK()<1 && NW.port.carrying()"), [got, c0])
         ok("B2 selama membawa tombol ambil kotak lain tidak ada, mobil tersedia", ev(A, "(()=>{const l=NW.port.candidates(NW.world.player).map(c=>c.id);return !l.some(x=>x.startsWith('pk:crate'))&&l.includes('pk:truck')})()"))
-        interact_id(A, "pk:truck"); time.sleep(1.3); A.screenshot(path=OUT + "a4_truck.png")
-        ok("B3 pintu belakang mobil terbuka saat memasukkan", ev(A, "NW.port._st.door>0.3"), ev(A, "NW.port._st.door"))
+        interact_id(A, "pk:truck"); B3 = wait_for(A, "NW.port._st.door>0.3", 6); A.screenshot(path=OUT + "a4_truck.png")
+        ok("B3 pintu belakang mobil terbuka saat memasukkan", B3, ev(A, "NW.port._st.door"))
         wait_for(A, "!NW.port._st.lock && !NW.port._st.load && !NW.port._st.carry && NW.delivery._st.view.boxes.some(b=>b.st==='sailing')", 8); time.sleep(0.3)
         dl = [c for c in srv.calls if c[0] == "ecoDamarDeliver"]
         ok("B4 kotak 1 → tepat satu Deliver {opId, box:0}; kotak 2 masih berlayar", len(dl) == 1 and dl[0][1]["box"] == 0 and sorted(dl[0][1]) == ["box", "opId"], dl)

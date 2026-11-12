@@ -35,13 +35,15 @@ def main():
         ok("P2 mobil parkir di petak (terlihat) sebelum ada kotak diterima", ev(A, "NW.port.truckState().show && !NW.port.truckState().leaving"))
         ok("P3 urutan render: tak ada objek pelabuhan/mobil yang menutupi atap bangunan di belakangnya (atau tertutup bangunan di depannya)", ev(A, ORDER_JS) == [], ev(A, ORDER_JS))
         roofs(A, "R1 solo 360x740")
-        crate_truck(A, 0); time.sleep(0.5)
+        ns["crate_ok"](A, 0); time.sleep(0.3)
         ok("P4 kotak 1 diterima server → mobil TETAP parkir (belum kotak terakhir)", ev(A, "NW.port.truckState().show && !NW.port.truckState().leaving && NW.port.truckState().count===0"))
         door = []; srv.fail["ecoDamarDeliver"] = [1, "rej"]
-        c = ev(A, "NW.port.positions.CRATE[1]"); walk(A, c["x"] - 0.4, c["y"]); ns["interact_id"](A, "pk:crate:1"); wait_for(A, "NW.port._st.carry", 4); lp = ev(A, "NW.port.positions.LOAD_PT"); walk(A, lp["x"], lp["y"]); ns["interact_id"](A, "pk:truck")
-        time.sleep(1.2); door.append(ev(A, "NW.port._st.door")); wait_for(A, "NW.port._st.inTruck>=2", 6); time.sleep(1.6); door.append(ev(A, "NW.port._st.door"))
-        wait_for(A, "!!document.getElementById('pkRetry')", 15); time.sleep(0.8)
-        ok("P5 pintu belakang: terbuka saat memasukkan (≥0.8) lalu menutup saat kiriman diproses", door[0] > 0.8 and door[1] < 0.3, door)
+        c = ev(A, "NW.port.positions.CRATE[1]"); walk(A, c["x"] - 0.4, c["y"]); ns["interact_id"](A, "pk:crate:1"); wait_for(A, "NW.port._st.carry", 4); lp = ev(A, "NW.port.positions.LOAD_PT"); walk(A, lp["x"], lp["y"]); 
+        ev(A, "(()=>{window.__dm=[];const f=()=>{window.__dm.push(NW.port._st.door);requestAnimationFrame(f)};f()})()")   # rekam pintu tiap frame (berbasis kejadian, bukan waktu tetap)
+        ns["interact_id"](A, "pk:truck")
+        wait_for(A, "!!document.getElementById('pkRetry')", 25); wait_for(A, "NW.port._st.door>0.8", 6); time.sleep(0.4)
+        seq = ev(A, "window.__dm"); i_open = next((i for i, v in enumerate(seq) if v > 0.8), -1); i_shut = next((i for i in range(max(i_open, 0), len(seq)) if seq[i] < 0.3), -1)
+        ok("P5 pintu belakang: terbuka saat memasukkan (≥0.8) lalu menutup saat kiriman diproses (urutan terekam per frame)", i_open >= 0 and i_shut > i_open, [i_open, i_shut, len(seq)])
         ok("P6 Deliver gagal (ditolak): mobil tetap diam & parkir, pintu tidak menutup permanen (terbuka lagi), tak ada pesan berangkat", ev(A, "(()=>{const s=NW.port.truckState();return s.show&&!s.leaving&&!s.gone&&s.count===0&&s.door>0.8})()"), ev(A, "JSON.stringify(NW.port.truckState())"))
         ok("P7 gagal: panel hasil tidak muncul & koin klien tetap", ev(A, "document.getElementById('pkRes').classList.contains('hidden') && Nusa.S.money===50"))
         A.screenshot(path=OUT + "p_door_open.png")
@@ -60,7 +62,7 @@ def main():
         A.click("#pkHomeHud"); wait_for(A, "NW.areas.cur.id==='muara'", 8); ok("P13b kembali ke Muara", where(A) == "muara", where(A))
         ok("P14 tanpa error halaman", not e, e); ctx.close()
         # --- gagal jaringan pada kotak terakhir: mobil diam; retry opId SAMA → berangkat sekali ---
-        srv4 = Srv(True); ctx, A, e = setup_trip(b, srv4); to_port(A); crate_truck(A, 0); srv4.fail["ecoDamarDeliver"] = [1, "net"]; crate_truck(A, 1); wait_for(A, "!!document.getElementById('pkRetry')", 25); time.sleep(0.6)
+        srv4 = Srv(True); ctx, A, e = setup_trip(b, srv4); to_port(A); ns["crate_ok"](A, 0); srv4.fail["ecoDamarDeliver"] = [1, "net"]; crate_truck(A, 1); wait_for(A, "!!document.getElementById('pkRetry')", 25); time.sleep(0.6)
         ok("Q1 status tak pasti (jaringan): mobil tetap parkir, belum berangkat, pintu terbuka", ev(A, "(()=>{const s=NW.port.truckState();return s.show&&!s.leaving&&s.count===0&&s.door>0.8})()"), ev(A, "JSON.stringify(NW.port.truckState())"))
         ev(A, "document.getElementById('pkRetry').click()"); wait_for(A, "NW.port.truckState().leaving", 15); dl = [c[1]["opId"] for c in srv4.calls if c[0] == "ecoDamarDeliver"]
         ok("Q2 retry opId SAMA: terhitung sekali di server, mobil berangkat tepat sekali, tanpa hadiah ganda", dl[1] == dl[2] and len(srv4.counted) == 2 and srv4.coins == 777 and ev(A, "NW.port.truckState().count") == 1, [dl, srv4.counted]); time.sleep(3.0)
@@ -69,7 +71,7 @@ def main():
         srv5 = Srv(True); srv5.fail["ecoDamarSail"] = [1, "auth"]; ctx, A, e = setup_trip(b, srv5); A.click("#pkSail"); wait_for(A, "!!document.getElementById('pkRetry')", 15)
         ev(A, "document.getElementById('pkRetry').click()"); wait_port(A, 15); sl = [c[1]["opId"] for c in srv5.calls if c[0] == "ecoDamarSail"]
         ok("A1 Sail auth_unavailable: tombol coba lagi, opId SAMA dipakai ulang, lalu berlayar", sl[0] == sl[1] and where(A) == "selat", sl)
-        crate_truck(A, 0); srv5.fail["ecoDamarDeliver"] = [1, "auth"]; crate_truck(A, 1); wait_for(A, "!!document.getElementById('pkRetry')", 20); time.sleep(0.5)
+        ns["crate_ok"](A, 0); srv5.fail["ecoDamarDeliver"] = [1, "auth"]; crate_truck(A, 1); wait_for(A, "!!document.getElementById('pkRetry')", 20); time.sleep(0.5)
         ok("A2 Deliver auth_unavailable: mobil tetap parkir, belum berangkat", ev(A, "(()=>{const s=NW.port.truckState();return s.show&&!s.leaving&&s.count===0})()"))
         ev(A, "document.getElementById('pkRetry').click()"); wait_for(A, "NW.port.truckState().leaving", 15); dl = [c[1]["opId"] for c in srv5.calls if c[0] == "ecoDamarDeliver"]
         ok("A3 retry opId SAMA; terhitung sekali; mobil berangkat sekali", dl[1] == dl[2] and len(srv5.counted) == 2 and ev(A, "NW.port.truckState().count") == 1, dl); ctx.close()
