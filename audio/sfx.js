@@ -131,6 +131,10 @@ const L = {
   boat_jangkar: (c, o, t) => { for (let i = 0; i < 5; i++) nz(c, o, t + i * 0.07, "bandpass", 2400 - i * 180, 0, 4, 0.05, 0.06); nz(c, o, t + 0.42, "lowpass", 900, 260, 0.7, 0.55, 0.16, 0.02); tone(c, o, t + 0.42, 140, 70, 0.3, 0.12); }, // rantai + jangkar masuk air
   boat_angkat: (c, o, t) => { for (let i = 0; i < 4; i++) nz(c, o, t + i * 0.09, "bandpass", 1900 + i * 160, 0, 4, 0.05, 0.05); tone(c, o, t + 0.32, 420, 560, 0.14, 0.04, "triangle"); },
   boat_bentur: (c, o, t) => { tone(c, o, t, 160, 70, 0.22, 0.2); nz(c, o, t, "lowpass", 600, 200, 0.8, 0.3, 0.14, 0.004); }, // lambung kayu membentur (lembut)
+  // ---------- pengiriman Pak Damar (PR-A4): ringan, hanya diputar bila fitur menyala ----------
+  kotak_angkat: (c, o, t) => { tone(c, o, t, 190, 140, 0.1, 0.1); nz(c, o, t, "lowpass", 800, 300, 0.5, 0.3, 0.1, 0.01); },
+  mobil_pintu: (c, o, t) => { tone(c, o, t, 120, 70, 0.16, 0.16); nz(c, o, t, "bandpass", 700, 300, 1, 0.4, 0.1, 0.004); tone(c, o, t + 0.12, 300, 240, 0.05, 0.05, "triangle"); },
+  kirim_selesai: (c, o, t) => { [523, 659, 784].forEach((f, i) => tone(c, o, t + i * 0.1, f, f, 0.16, 0.08, "triangle")); },
   step_kayu: (c, o, t) => { tone(c, o, t, rand(250, 290), 170, 0.06, 0.1); nz(c, o, t, "bandpass", 900, 0, 1.4, 0.05, 0.05); },
   step_rumput: (c, o, t) => nz(c, o, t, "bandpass", rand(1000, 1300), 700, 0.8, 0.09, 0.055, 0.012),
   step_pasir: (c, o, t) => nz(c, o, t, "highpass", rand(1500, 1900), 0, 0.5, 0.11, 0.05, 0.01),
@@ -163,6 +167,7 @@ const RULE = {
   step_kayu: { gap: 0.2 }, step_rumput: { gap: 0.2 }, step_pasir: { gap: 0.2 }, step_tanah: { gap: 0.2 }, step_lantai: { gap: 0.2 },
   furn_geser: { gap: 0.18 }, gelembung: { gap: 0.8 },
   kedai_klik: { gap: 0.04 }, kedai_tok: { gap: 0.06 }, kedai_biji: { gap: 0.05 }, kedai_tawa: { gap: 0.9, g: 0.9 }, kedai_menang: { g: 0.5, crit: 1 }, kedai_kalah: { g: 0.6, crit: 1 }, kedai_goat: { g: 0.45, crit: 1, gap: 2 },
+  kotak_angkat: { gap: 0.3 }, mobil_pintu: { gap: 0.5 }, kirim_selesai: { gap: 1, g: 0.7 },
   boat_naik: { gap: 0.6 }, boat_jangkar: { gap: 0.6 }, boat_angkat: { gap: 0.6 }, boat_bentur: { gap: 0.6, g: 0.8 },
 };
 // jingle/stinger: dipakai pula oleh menu uji dengar

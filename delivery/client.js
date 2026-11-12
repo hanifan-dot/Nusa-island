@@ -18,9 +18,9 @@ const api = {
   async state() { return absorb(await call("ecoDamarState", {})); },
   async load(bodies) { const out = []; for (const b of bodies) { out.push(absorb(await call("ecoDamarLoad", b))); localTake(b.uids); } return out; },
   async unload(box) { const before = st.view && st.view.boxes[box] ? st.view.boxes[box].fish.slice() : []; const q = Core.boxBody(box, newOp()); if (!q.ok) throw new Error(q.why); const r = absorb(await call("ecoDamarUnload", q.body)); localReturn(before); return r; },
-  async sail(box) { const q = Core.boxBody(box, newOp()); if (!q.ok) throw new Error(q.why); return absorb(await call("ecoDamarSail", q.body)); },
-  async abort(box) { const q = Core.boxBody(box, newOp()); if (!q.ok) throw new Error(q.why); return absorb(await call("ecoDamarAbort", q.body)); },
-  async deliver(box) { const q = Core.boxBody(box, newOp()); if (!q.ok) throw new Error(q.why); return absorb(await call("ecoDamarDeliver", q.body)); },
+  async sail(box, opId) { const q = Core.boxBody(box, opId || newOp()); if (!q.ok) throw new Error(q.why); return absorb(await call("ecoDamarSail", q.body)); },
+  async abort(box, opId) { const q = Core.boxBody(box, opId || newOp()); if (!q.ok) throw new Error(q.why); return absorb(await call("ecoDamarAbort", q.body)); },
+  async deliver(box, opId) { const q = Core.boxBody(box, opId || newOp()); if (!q.ok) throw new Error(q.why); return absorb(await call("ecoDamarDeliver", q.body)); },
 };
 // ikan yang sudah di kotak pendingin server tidak lagi ada di Tas lokal (cermin); dikembalikan saat dibongkar
 function localTake(uids) { const S0 = S(); if (!S0 || !Array.isArray(S0.cooler)) return; S0.cooler = S0.cooler.filter((i) => !uids.includes(i.uid)); try { N().save(); } catch (e) {} }
@@ -35,14 +35,14 @@ function boxHTML(b) {
 function loadedHTML() {
   const vw = st.view, stg = Core.stageOf(vw), bx = vw.boxes;
   const cell = (b, i) => `<div class="dl-box full" data-box="${i}"><div class="dl-ice" aria-hidden="true">❄️ 🧊 ❄️</div><h4>Kotak ${i + 1} <em>${b.n}/${vw.per}${b.st === "sailing" ? " · berlayar" : ""}</em></h4>${b.fish.map((f) => `<div class="dl-fish static">🐟<span>${esc(fishName(f.id))}</span><small>${f.w.toFixed(1)} kg</small></div>`).join("") || '<p class="dl-empty">Kosong</p>'}<div class="dl-sticker">${esc(Core.STICKER)}</div>${b.st === "idle" && b.n ? `<button type="button" class="dl-un" data-un="${i}">Bongkar</button>` : ""}</div>`;
-  const note = stg === "sailing" ? "Kotak sedang berlayar." : stg === "loaded" ? "Kedua kotak sudah di kapal. Pelabuhan Kota segera dibuka." : "Pesanan hari ini belum lengkap.";
-  return `<section class="dl-boxes dl-wide" aria-label="Kotak di kapal">${bx.map(cell).join("")}</section><p class="dl-msg" id="dlMsg">${esc(st.msg || note)}</p>`;
+  const note = stg === "sailing" ? "Kotak sedang berlayar." : stg === "loaded" ? "Kedua kotak sudah di kapal. Pilih tujuan: Pelabuhan Kota." : "Pesanan hari ini belum lengkap.";
+  return `<div id="dlTrip"></div><section class="dl-boxes dl-wide" aria-label="Kotak di kapal">${bx.map(cell).join("")}</section><p class="dl-msg" id="dlMsg">${esc(st.msg || note)}</p>`;
 }
 function render() {
   if (!st.panel) return; const p = pool(), rdy = Core.ready(st.plan), vw = st.view, stg = Core.stageOf(vw);
   if (!st.srv) { $("dlBody").innerHTML = '<p class="dl-msg">Pengiriman Pak Damar belum dibuka oleh server.</p>'; return; }
   if (!vw) { $("dlBody").innerHTML = `<p class="dl-msg" id="dlMsg">${esc(st.msg || "Memuat status dari server…")}</p>`; return; }
-  if (stg !== "packing") { $("dlBody").innerHTML = loadedHTML(); $("dlBody").querySelectorAll("[data-un]").forEach((b) => b.addEventListener("click", () => unload(+b.dataset.un))); return; }
+  if (stg !== "packing") { $("dlBody").innerHTML = loadedHTML(); $("dlBody").querySelectorAll("[data-un]").forEach((b) => b.addEventListener("click", () => unload(+b.dataset.un))); if (NW.port && NW.port.mountTrip) NW.port.mountTrip($("dlTrip")); return; }
   $("dlBody").innerHTML = `<div class="dl-cols"><section class="dl-bag" aria-label="Tas"><h3>🎒 Tas (${p.length})</h3><div class="dl-list">${p.map((i) => chip(i, st.sel === i.uid ? 'class="sel"' : "")).join("") || '<p class="dl-empty">Tidak ada ikan yang bisa dikemas.</p>'}</div></section><section class="dl-boxes" aria-label="Kotak pendingin">${boxHTML(0)}${boxHTML(1)}</section></div><p class="dl-msg" id="dlMsg">${esc(st.msg || (st.sel ? "Ketuk kotak tujuan." : "Seret atau ketuk ikan, lalu pilih kotak."))}</p><div class="dl-act"><button type="button" id="dlClear">Kosongkan</button><button type="button" id="dlSend" ${rdy && !st.busy ? "" : "disabled"}>Muat ke kapal 🚢</button></div>`;
   wire();
 }
@@ -106,8 +106,8 @@ function drawCargo(c, pose, t) {
     const m = { x: (T[0].x + T[2].x) / 2, y: (T[0].y + T[2].y) / 2 }; c.fillStyle = "#2a9d8f"; c.fillRect(m.x - 3, m.y - 1, 6, 2.2); });
 }
 const cargoView = () => st.view;
-// titik perjalanan: Pelabuhan Kota BELUM ada (PR-A3). Hanya penanda tujuan; tidak memanggil Sail/Deliver, tidak memberi hadiah.
-const dest = () => ({ name: "Pelabuhan Kota (belum dibuka)", m: NaN, ready: false });
+// titik perjalanan: Pelabuhan Kota = area nyata "selat" (delivery/port.js). Sail/Deliver/Abort dipanggil HANYA oleh alur pelabuhan; hadiah selalu dari respons server.
+const dest = () => (NW.port && NW.port.dest ? NW.port.dest() : { name: "Pelabuhan Kota", m: NaN, ready: false });
 // ---- dunia: meja + dua kotak (muncul HANYA setelah server menyatakan pakDamar=true) ----
 function addStation() {
   if (st.hooked || !NW.MUARA_MAP || !NW.objDraw || !NW.SHORE_E) return; st.hooked = true; const m = NW.MUARA_MAP;
@@ -119,10 +119,10 @@ function addStation() {
 // gerbang status dari SERVER (gameFlags.pakDamar). Satu kali per sesi masuk; tanpa polling. Gagal/OFF → fitur tetap tersembunyi.
 async function gate() {
   if (st.srv || st.gateTried) return; st.gateTried = true;
-  try { const r = await call("gameFlags", {}); if (r && r.pakDamar === true) { st.srv = true; addStation(); } } catch (e) { /* server lama/mati: tetap tersembunyi */ }
+  try { const r = await call("gameFlags", {}); if (r && r.pakDamar === true) { st.srv = true; addStation(); if (NW.port && NW.port.setup) NW.port.setup(); } } catch (e) { /* server lama/mati: tetap tersembunyi */ }
 }
 function hook() {
   const t = setInterval(() => { if (st.srv || st.gateTried) return clearInterval(t); if (!(window.NusaApi && window.NusaApi.enabled() && NW.cloud && NW.cloud.user)) return; clearInterval(t); gate(); }, 3000);
 }
-NW.delivery = { hook, open, close, render, api, drawCargo, cargoView, dest, _st: st, _gate: gate, get isOpen() { return !!(st.panel && !st.panel.classList.contains("hidden")); }, get serverOn() { return st.srv; } };
+NW.delivery = { hook, open, close, render, api, newOp, errMsg, absorb, view: () => st.view, setMsg: (m) => { st.msg = m; }, drawCargo, cargoView, dest, _st: st, _gate: gate, get isOpen() { return !!(st.panel && !st.panel.classList.contains("hidden")); }, get serverOn() { return st.srv; } };
 })();

@@ -57,5 +57,34 @@ const cargoVisible = (vw) => (vw ? vw.boxes.map((x) => x.n > 0) : [false, false]
 // pemeriksa untuk tes: tidak boleh ada field terlarang di mana pun dalam badan permintaan
 function hasForbidden(o, d) { if (!o || typeof o !== "object" || (d || 0) > 6) return false; return Object.keys(o).some((k) => FORBIDDEN.test(k) || hasForbidden(o[k], (d || 0) + 1)); }
 const CARRY_SPEED = 0.6;   // kecepatan jalan saat mengangkat kotak (Fase A3)
-return { BOXES, PER_BOX, TOTAL, DEST, STICKER, CARRY_SPEED, emptyPlan, where, count, canPack, pack, unpack, clear, ready, prune, label, loadBodies, boxBody, view, stageOf, cargoVisible, hasForbidden };
+// ---------- Pelabuhan Kota (PR-A4): alur perjalanan. Semua angka/hadiah = tanggapan SERVER; klien tidak pernah menghitung koin. ----------
+const PORT_AREA = "selat", HOME_AREA = "muara";   // ID area nyata (allowlist server); tidak ada ID baru
+// opId idempoten per (aksi, kotak): dipakai ulang saat hasil TIDAK pasti (jaringan putus) agar retry tak menggandakan; dibuang saat server memberi jawaban pasti.
+function opBook(newOp) {
+  const m = new Map(), key = (k, b) => k + ":" + b;
+  return { get(k, b) { const q = key(k, b); if (!m.has(q)) { const id = newOp(); if (!OPID_RE.test(String(id || ""))) throw new Error("opId-tidak-sah"); m.set(q, id); } return m.get(q); }, done(k, b) { m.delete(key(k, b)); }, has: (k, b) => m.has(key(k, b)), size: () => m.size, clear() { m.clear(); } };
+}
+// klasifikasi galat: "unknown" = hasil tak pasti (jaringan/5xx/timeout) → retry pakai opId SAMA; "rejected" = server menjawab tegas (400/404/409) → opId baru pada percobaan berikutnya
+function classifyErr(e) {
+  const code = e && e.code, st = e && (e.status || e.httpStatus);
+  if (code === "unavailable" || code === "deadline-exceeded" || code === "internal" || code === "network" || (typeof st === "number" && st >= 500) || (e && e.name === "TypeError")) return "unknown";
+  if (code === "rate_limited" || st === 429) return "unknown";
+  return "rejected";
+}
+const sailingBoxes = (vw) => (vw ? vw.boxes.map((b, i) => (b.st === "sailing" ? i : -1)).filter((i) => i >= 0) : []);
+const idleLoaded = (vw) => (vw ? vw.boxes.map((b, i) => (b.st === "idle" && b.n > 0 ? i : -1)).filter((i) => i >= 0) : []);
+// tahap perjalanan dari status SERVER + area aktif: none | ready (kotak terisi, siap berlayar) | away (berlayar, belum di pelabuhan) | port (di Pelabuhan Kota, kotak menunggu diantar)
+function tripStage(vw, area) {
+  if (!vw) return "none"; const s = sailingBoxes(vw);
+  if (s.length) return area === PORT_AREA ? "port" : "away";
+  return idleLoaded(vw).length ? "ready" : "none";
+}
+// hasil pengiriman: HANYA dari respons server. reward tampil hanya bila server mengirim angka > 0.
+function deliverResult(res) {
+  if (!res || typeof res !== "object" || res.ok === false) return null; const vw = view(res.damar);
+  const r = Number(res.reward != null ? res.reward : vw && vw.reward), reward = Number.isFinite(r) && r > 0 ? Math.min(Math.floor(r), 1e7) : null;
+  return { moved: num(res.moved, 0, 6), fresh: res.fresh === true ? true : res.fresh === false ? false : null, reward, delivered: vw ? vw.delivered : null, need: vw ? vw.need : null, duplicate: res.duplicate === true };
+}
+const waitMs = (vw, box, nowSailMs) => (vw && vw.boxes[box] ? Math.max(0, (vw.minTripMs || 0) - (nowSailMs != null ? nowSailMs : vw.boxes[box].sailMs || 0)) : 0);
+return { PORT_AREA, HOME_AREA, opBook, classifyErr, sailingBoxes, idleLoaded, tripStage, deliverResult, waitMs, BOXES, PER_BOX, TOTAL, DEST, STICKER, CARRY_SPEED, emptyPlan, where, count, canPack, pack, unpack, clear, ready, prune, label, loadBodies, boxBody, view, stageOf, cargoVisible, hasForbidden };
 });

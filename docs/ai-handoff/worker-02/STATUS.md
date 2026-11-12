@@ -1,5 +1,5 @@
 # Worker 02 (klien) — STATUS
-Diperbarui: 2026-11-12 (PR-A3). Basis produksi `435c63d`. PR-A1 = #131 (`fitur/pelabuhan-pengiriman-20261112`); PR-A2 = branch `fitur/kapal-kemudi-damar-20261112` (bertingkat di atas A1).
+Diperbarui: 2026-11-12 (PR-A4). Basis produksi `435c63d`. PR-A1 = #131 (`fitur/pelabuhan-pengiriman-20261112`); PR-A2 = branch `fitur/kapal-kemudi-damar-20261112` (bertingkat di atas A1).
 
 ## PR-A2 — selesai (Draft, semua flag OFF)
 - Adapter klien ke kontrak Worker 01: `gameFlags.pakDamar` (gerbang server), `ecoDamarState/Load/Unload` dipakai; `Sail/Abort/Deliver` tersedia di adapter, belum dipanggil UI.
@@ -24,6 +24,24 @@ unit-rombongan 11; browser test_rombongan 51 (3 klien bersamaan dengan pakaian b
 - Pindah area penuh (merender area tujuan untuk kru) BELUM: saat kapten `go`, kru tetap di adegan Muara dan kapal ditampilkan memudar + pesan "Berlayar…"; tampilan area tujuan = PR Pelabuhan Kota.
 - Server tidak menahan kapten mengangkat jangkar saat penumpang sedang di layar memancing; penumpang tetap kembali ke kursi saat menutup layar. Perlu keputusan Worker 01 bila ingin dilarang di server.
 - Tes memakai server dev (`mp-dev-server`) dan gameFlags tiruan; belum diuji di Cloudflare/Hosting produksi.
+
+## PR-A4 — Pelabuhan Kota + penyelesaian Pengiriman Segar — Draft, bertingkat di atas #135 (`fitur/kapal-rombongan-visual-20261112`)
+Branch `fitur/pelabuhan-kota-20261112`. Semua flag tetap OFF; tanpa merge/deploy/migrasi/data produksi; tanpa perubahan backend/kontrak Worker 01 (kontrak: `docs/ai-handoff/CONTRACTS.md`).
+- Lokasi: area `selat` yang sudah ada = Pelabuhan Kota (tanpa ID area baru → allowlist server tidak berubah). Objek dipasang saat runtime (hanya bila `gameFlags.pakDamar`): dermaga beton+kayu, gudang ikan, mobil pendingin Pak Damar (pintu belakang beranimasi), Pak Damar, peti, tali/pelampung, es, papan tujuan, lampu, camar. Bangunan lama area selat tidak diubah.
+- Perjalanan: kotak termuat di Muara → kapten tekan Berlayar → `Sail` per kotak (opId stabil) → kapal ke `selat` (rombongan: protokol `go` #132; solo: transisi `goWorld`) → kapal merapat/berhenti → ambil kotak (animasi dua tangan, jalan melambat) → masukkan ke mobil (pintu buka/tutup, suara ringan) → `Deliver` per kotak → panel hasil. Angka (diterima, kesegaran, n/6, hadiah) HANYA dari respons server; klien tidak menghitung/memberi koin; tidak ada 900+300 tetap.
+- Gagal/batal: kegagalan jaringan/5xx/429 = hasil tak pasti → opId SAMA dipakai ulang saat "Coba lagi" (server dedup `duplicate`); ditolak server = opId baru. Tombol terkunci saat permintaan berjalan. Setelah tiap kegagalan klien membaca ulang `ecoDamarState` dan melanjutkan dari posisi sebenarnya (mis. kotak 1 diterima, kotak 2 gagal → kotak 2 muncul lagi di dermaga). "belum sampai" (409, <45 dtk) = mobil menunggu & mencoba lagi otomatis. `Abort` membatalkan; ikan tetap di kotak.
+- Rombongan: kapten mengendalikan pelayaran; semua awak berpindah ke Pelabuhan Kota dan melihat kapal & kursi yang sama (posisi dari baris server), penumpang tetap duduk; hanya kapten yang turun (visual), mengantar kotak, `Deliver` & menerima hadiah; penumpang nol panggilan ecoDamar*. Pulang = kapten (`go muara`).
+- Suara: `kotak_angkat`, `mobil_pintu`, `kirim_selesai` (mengikuti pengaturan suara).
+- File: `delivery/port.js` (baru), `delivery/core.js`, `delivery/client.js`, `delivery/delivery.css`, `rombongan/client.js`, `world/world.js`, `audio/sfx.js`, `index.html` (loader), tes `tests/unit-port.js`, `tests/browser/test_port.py`, `tests/browser/test_port_rombongan.py`.
+### Tes PR-A4
+unit-port 10; browser test_port 41 (solo: 2 kotak, 1 kotak, kotak kosong, Sail gagal+retry opId sama, Sail ditolak, Deliver gagal+retry (terhitung sekali), kotak 2 ditolak lalu lanjut, klik ganda, "belum sampai", Abort, server OFF, klien OFF = port.js tak diunduh); test_port_rombongan 16 (3 klien: kursi/kapal identik di dermaga, hanya kapten antar & hadiah, penumpang tanpa hadiah, pulang ke Muara). Regresi: test_rombongan 51, quest_owner 48, ekonomi 22, bumbu24 104, bumbu241 83, test_delivery 35 (A3 kadang gagal juga di basis #135: gameFlags dari modul Rumahku, bukan dari PR ini). Build hosting + `cek-rilis` OK.
+### Batasan jujur
+- Semua tes memakai server dev realtime dan API Pengiriman TIRUAN mengikuti kontrak; belum diuji dengan Worker/Firestore nyata maupun produksi.
+- Kapten "turun" di pelabuhan adalah visual saja: server menolak `leave` saat kapal berstatus pergi, jadi kursi tetap miliknya.
+- Awak yang putus-sambung saat kapal di pelabuhan: dari sisi server kapal "pergi", klien menampilkan kapal dari keadaan terakhir; bila sambungan pulih setelah kapal kembali ke Muara, klien ikut kembali ke Muara.
+- Putus di tengah perjalanan solo: kotak aman di server (status `sailing`); saat masuk lagi pemain dapat melanjutkan dari Muara (batalkan) atau berlayar lagi.
+- Layar: panel pengiriman (tombol Berlayar) dan panel hasil diuji muat di 360×740, 412×915, 740×360, desktop; area selat memuat bangunan lama (pasar ikan, gudang) karena memakai peta yang ada.
+- Screenshot final proyek menunggu seluruh Fase A selesai.
 
 ## Tes
 unit-delivery 7, unit-kemudi 5, browser test_delivery 35 (flag OFF = nol unduhan & nol panggilan server; server OFF = tak ada akses; server ON = muat/bongkar; kemudi; 360×740, 412×915, 740×360, desktop). Regresi: bumbu24 104, bumbu241 83 (kapal), podium 24, quest_owner 48. Build + cek-rilis OK (delivery & kemudi ikut disalin). test_multiplayer gagal juga di basis (butuh server WS), unit-username gagal juga di basis.
