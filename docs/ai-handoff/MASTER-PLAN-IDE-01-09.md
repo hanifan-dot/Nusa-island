@@ -15,3 +15,6 @@ Aturan tetap: tanpa merge/deploy/flag ON/migrasi produksi/backfill/ubah data pem
 | 9 | Intro Sinematik (`introSeen`) | E | per-akun lewat Cloud Save | Belum |
 
 Urutan PR: satu PR per fase/rangkaian. Basis produksi terverifikasi 12 Nov 2026: backend `ef985de` (deploy D1 Tahap 11 Nov), game dari cabang `hotfix/tes-recovery-4h-20261109` (`main` game hanya cangkang deploy).
+
+## Catatan klien (Worker 02)
+Basis klien `435c63d`. Aturan klien: visual & UI saja; tidak ada transaksi/saldo/hadiah tepercaya dari klien; semua fitur di balik flag MATI; lazy-load. Pelabuhan Kota (4) bagian klien dikerjakan di #131/#133 (flag OFF). Bukti visual menyusul setelah fitur ada.

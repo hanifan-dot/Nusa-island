@@ -1542,6 +1542,7 @@ if (NW.cloud) NW.cloud.hook();             // Tahap 3: tombol Profil & akun
 if (NW.house) NW.house.hook();                 // Kunjungi Rumah Teman (tombol di Rumahku + panel cari); sebelum mp supaya ruang rumah sudah dikenali
 if (NW.recovery) NW.recovery.hook();        // 🔄 Pulihkan Data (ubin di menu ☰, dekat Profil & Akun)
 if (NW.worldMode) NW.worldMode.hook();       // Bermain di Dunia (ubin di menu ☰: pilih Multiplayer / Singleplayer)
+if (NW.delivery) NW.delivery.hook();   // Pengiriman Segar (hanya ada bila flag menyala)
 if (NW.podium) NW.podium.hook();          // Podium Juara fisik di Muara (data hanya dari server)
 if (NW.sultan) NW.sultan.hook();          // Mercusuar Emas / Sultan Samudra: objek fisik terpisah, muncul HANYA bila server aktif
 if (NW.username) NW.username.hook();        // Nama Pemain Permanen (modal pendaftaran setelah login)

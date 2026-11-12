@@ -1,4 +1,5 @@
 # Keputusan
+<<<<<<< HEAD
 - 2026-11-12: Basis produksi diverifikasi sekali (backend `ef985de`; game dari `hotfix/tes-recovery-4h-20261109`). `main` game hanya cangkang deploy.
 - Logika ekonomi Pak Damar hidup di repo GAME (`economy/damar-core.js` + hook `opts.damar` di `economy/core.js`), disalin ke backend lewat skrip sinkron yang sudah ada — bukan jalur palsu di backend.
 - Pak Damar dikunci flag `pakDamar` di Worker (404 saat mati), bawaan OFF. Angka hadiah (900 + 300) adalah USULAN yang butuh persetujuan Owner.
@@ -10,3 +11,17 @@
 - Server pemegang kebenaran: klien kirim niat saja; `vis:false` lama diganti aturan "pemain di kapal server tetap tampak".
 - Dua saklar OFF: `NUSA_BOAT` (realtime) + `kapalRombongan` (server). Keduanya harus ON.
 - `pakDamar` = sumber status aktif; `NUSA_DELIVERY` hanya saklar muat UI (lihat CONTRACTS.md A).
+=======
+- 2026-11-12: basis = `435c63d` (pin Hosting produksi terakhir). `main` hanya berisi CI.
+- Flag `window.NUSA_DELIVERY` bawaan `false`; bila false, `delivery/*` tidak diunduh (tes: nol unduhan, dunia identik).
+- Klien hanya mengirim uid item ikan + opId; `Core.hasForbidden` menjaga tidak ada field uang/uid/role.
+- Tanpa adapter server, tombol Kirim jujur: "belum dibuka server", ikan tetap di Tas.
+- Satu fase kecil per Draft PR; fitur berat (interior, minigame, pulau) wajib lazy-load.
+>>>>>>> o/pelabuhan-pengiriman-20261112
+
+## Keputusan Worker 02 (klien)
+- Basis klien = `435c63d`; `main` hanya berisi CI.
+- `window.NUSA_DELIVERY` bawaan `false`; bila false, `delivery/*` tidak diunduh (tes: nol unduhan).
+- Klien hanya mengirim uid item ikan + opId; `Core.hasForbidden` menjaga tidak ada field uang/uid/role.
+- Tanpa adapter server, tombol Kirim jujur "belum dibuka server"; ikan tetap di Tas.
+- Satu fase kecil per Draft PR; fitur berat wajib lazy-load.
