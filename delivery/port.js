@@ -9,11 +9,13 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 const now = () => performance.now() / 1000;
 // ---- geometri (tile, area selat; titik-titik ini diverifikasi walkable/bebas objek di tes) ----
 const CRATE = [{ x: 14.5, y: 20.45 }, { x: 15.2, y: 20.45 }];     // kotak diturunkan di dermaga beton, dekat kapal
-const TRUCK = { x: 21.1, y: 21.45 }, LOAD_PT = { x: 19.7, y: 20.65 };   // mobil pendingin; titik muat di belakang mobil (jalan dermaga)
-const DAMAR = { x: 23.0, y: 21.2 }, SHED = { x: 22.6, y: 13.3 }, BOARDPT = { x: 12.3, y: 20.5 }, BOARD_SPOT = { x: 13.1, y: 20.45 };
+// Mobil parkir di rumput x≈27.4 (selatan jalan raya y=20; pintu Gudang Peralatan di x≈24.8 tetap bebas), kabin ke utara, pintu belakang menghadap selatan (terlihat kamera). Berangkat: utara → belok timur → jalan raya.
+const TRUCK = { x: 27.4, y: 22.8 }, LOAD_PT = { x: 27.4, y: 25.4 };   // titik muat = di belakang mobil
+const DAMAR = { x: 28.9, y: 24.7 }, DAMAR_BACK = { x: 29.6, y: 25.4 }, SHED = { x: 22.6, y: 13.3 }, BOARDPT = { x: 12.3, y: 20.5 }, BOARD_SPOT = { x: 13.1, y: 20.45 };
+const LEAVE = { L1: 0.75, R: 1.5, LANE: 20.55, END: 17.0 };           // lintasan keberangkatan (tile)
 const QUAY = { x0: 11.0, x1: 16.4, y0: 19.05, y1: 20.95 };
 const T_PICK = 0.55, T_LOAD = 2.0;                                   // detik: angkat; muat (pintu buka → kotak masuk → pintu tutup)
-const st = { ready: false, lock: false, msg: "", ops: null, carry: null, pick: null, load: null, door: 0, inTruck: 0, acc: null, res: null, retry: null, status: null, drawn: false, wait: 0, lastView: 0 };
+const st = { truck: { x: TRUCK.x, y: TRUCK.y, fx: 0, fy: -1, show: true, lights: 0, brake: 0, eng: 0 }, leave: null, gone: false, leaveDone: false, leaveCount: 0, pendRes: null, tObj: null, tSolid: null, told: false, ready: false, lock: false, msg: "", ops: null, carry: null, pick: null, load: null, door: 0, inTruck: 0, acc: null, res: null, retry: null, status: null, drawn: false, wait: 0, lastView: 0 };
 const area = () => NW.areas && NW.areas.cur && NW.areas.cur.id;
 const atPort = () => area() === Core.PORT_AREA;
 const view = () => (D() ? D().view() : null);
@@ -29,8 +31,9 @@ function setup() {
   if (st.ready || !NW.SELAT_MAP || !NW.objDraw) return; st.ready = true; st.ops = Core.opBook(() => D().newOp());
   const M = NW.SELAT_MAP;
   M.objects.push({ kind: "pk_quay", x: (QUAY.x0 + QUAY.x1) / 2, y: (QUAY.y0 + QUAY.y1) / 2, big: 260, dz: -0.3 }, { kind: "pk_cargo", x: 14.8, y: 20.45, big: 90, dz: 0.4 },
-    { kind: "pk_truck", ...TRUCK, big: 170 }, { kind: "pk_shed", ...SHED, big: 190 }, { kind: "pk_damar", ...DAMAR, big: 90 }, { kind: "pk_board", x: 17.0, y: 22.9, big: 90 }, { kind: "pk_ice", x: 19.6, y: 22.2, big: 60 });
-  M.solids.push({ x0: TRUCK.x - 1.25, y0: TRUCK.y - 0.55, x1: TRUCK.x + 1.25, y1: TRUCK.y + 0.55 }, { x0: SHED.x - 1.8, y0: SHED.y - 1.3, x1: SHED.x + 1.8, y1: SHED.y + 1.3 }, { x: DAMAR.x, y: DAMAR.y, r: 0.3 }, { x: 17.0, y: 22.9, r: 0.25 }, { x: 19.6, y: 22.2, r: 0.3 });
+    { kind: "pk_truck", ...TRUCK, big: 260 }, { kind: "pk_shed", ...SHED, big: 190 }, { kind: "pk_damar", ...DAMAR, big: 90 }, { kind: "pk_board", x: 17.0, y: 22.9, big: 90 }, { kind: "pk_ice", x: 29.4, y: 24.0, big: 60 });
+  st.tObj = M.objects.find((o) => o.kind === "pk_truck"); st.tSolid = { x0: TRUCK.x - 0.56, y0: TRUCK.y - 1.55, x1: TRUCK.x + 0.56, y1: TRUCK.y + 1.55 };
+  M.solids.push(st.tSolid, { x0: SHED.x - 1.8, y0: SHED.y - 1.3, x1: SHED.x + 1.8, y1: SHED.y + 1.3 }, { x: DAMAR.x, y: DAMAR.y, r: 0.3 }, { x: 17.0, y: 22.9, r: 0.25 }, { x: 29.4, y: 24.0, r: 0.3 });
   for (const x of [11.6, 14.0, 16.0]) M.solids.push({ x, y: 20.85, r: 0.12 });
   Object.assign(NW.objDraw, { pk_quay: drawQuay, pk_cargo: drawCargoPier, pk_truck: drawTruck, pk_shed: drawShed, pk_damar: drawDamar, pk_board: drawBoard, pk_ice: drawIce });
   buildUI();
@@ -57,21 +60,110 @@ function drawCargoPier(c, o, t) {   // kotak yang baru diturunkan dari kapal (st
   if (!atPort()) return; const sb = Core.sailingBoxes(view()), z = LIFT() + 4.3;
   sb.forEach((i) => { if (st.carry && st.carry.i === i) return; if (st.pick && st.pick.i === i) return; if (st.load && st.load.i === i) return; crateAt(c, CRATE[i].x, CRATE[i].y, z, t); });
 }
-function drawTruck(c, o, t, nt) {   // mobil pendingin Pak Damar: bak putih-biru, kabin di timur, pintu belakang di barat (menghadap dermaga)
-  const x = TRUCK.x, y = TRUCK.y, z = LIFT() + 2.4;
-  c.fillStyle = "rgba(8,36,56,.2)"; poly(c, [P(x - 1.35, y - 0.55, LIFT()), P(x + 1.45, y - 0.55, LIFT()), P(x + 1.45, y + 0.65, LIFT()), P(x - 1.35, y + 0.65, LIFT())], "rgba(8,36,56,.2)");
-  for (const wx of [-0.75, 0.85]) for (const wy of [-0.5, 0.5]) { const w = P(x + wx, y + wy, z - 0.5); c.fillStyle = "#1f2428"; c.beginPath(); c.ellipse(w.x, w.y, 4.4, 4.4, 0, 0, 7); c.fill(); c.fillStyle = "#8a949a"; c.beginPath(); c.arc(w.x, w.y, 1.6, 0, 7); c.fill(); }
-  box(c, x + 0.95, y, 0.4, 0.5, z, 15, ["#2a9d8f", "#23857a", "#1d6f66"]);                // kabin
-  const T = box(c, x - 0.3, y, 0.95, 0.52, z, 22, ["#f4f8fa", "#dfe9ee", "#c9d9e0"]);   // bak pendingin
-  const m = { x: (T[0].x + T[2].x) / 2, y: (T[0].y + T[2].y) / 2 }; c.save(); c.fillStyle = "#1d6f66"; c.font = "bold 6px system-ui"; c.textAlign = "center"; c.fillText("PAK DAMAR · SEGAR", m.x + 1, m.y + 8); c.restore();
-  // pintu belakang (sisi barat, x = x-1.25): menutup = panel rapat; terbuka = panel bergeser ke samping + rongga gelap + kotak di dalam
-  const dr = st.door, rx = x - 1.27, a = (dy, zz) => P(rx, y + dy, zz);
-  const inner = [a(-0.46, z + 2), a(0.46, z + 2), a(0.46, z + 20), a(-0.46, z + 20)];
-  poly(c, inner, dr > 0.05 ? "#1b2a30" : "#c9d9e0", "rgba(23,63,80,.6)");
-  if (dr > 0.05) for (let k = 0; k < st.inTruck; k++) crateAt(c, x - 1.0 + k * 0.5, y - 0.1 + (k ? 0.12 : 0), z + 2.4, t, 0.8);
-  const sw = 0.46 * (1 - dr * 0.85); poly(c, [a(0.46 - sw * 2, z + 2), a(0.46, z + 2), a(0.46, z + 20), a(0.46 - sw * 2, z + 20)], "#e6eef2", "rgba(23,63,80,.6)");
-  c.strokeStyle = "#7a8a92"; c.lineWidth = 1; const hd = a(0.4 - sw * 1.2, z + 11); c.beginPath(); c.arc(hd.x, hd.y, 1.3, 0, 7); c.stroke();
-  if (nt) { c.fillStyle = "rgba(255,240,200,.5)"; const l = P(x + 1.4, y, z + 8); c.beginPath(); c.arc(l.x, l.y, 3, 0, 7); c.fill(); }
+// ---------- mobil boks pendingin (renderer 2.5D berputar: l = ke depan, w = ke kanan, z = tinggi px) ----------
+const vis = (nx, ny) => nx + ny > 0.05;   // sisi menghadap kamera isometrik
+function drawTruck(c, o, t, nt) {
+  const k = st.truck; if (!k.show) return drawLot(c, o, t);
+  const fx = k.fx, fy = k.fy, rx = -fy, ry = fx, z0 = LIFT() + 3.4, dr = st.door;
+  const Q = (l, w, z) => P(k.x + fx * l + rx * w, k.y + fy * l + ry * w, z), G = (l, w) => Q(l, w, LIFT());
+  const faceV = { front: vis(fx, fy), rear: vis(-fx, -fy), right: vis(rx, ry), left: vis(-rx, -ry) };
+  const fp = (box, face, a0, a1, za, zb) => {   // poligon pada sebuah sisi balok; a = w (depan/belakang) atau l (kanan/kiri)
+    const [l0, l1, w0, w1] = box;
+    if (face === "front") return [Q(l1, a0, za), Q(l1, a1, za), Q(l1, a1, zb), Q(l1, a0, zb)];
+    if (face === "rear") return [Q(l0, a0, za), Q(l0, a1, za), Q(l0, a1, zb), Q(l0, a0, zb)];
+    if (face === "right") return [Q(a0, w1, za), Q(a1, w1, za), Q(a1, w1, zb), Q(a0, w1, zb)];
+    return [Q(a0, w0, za), Q(a1, w0, za), Q(a1, w0, zb), Q(a0, w0, zb)];
+  };
+  const obox = (box, za, zb, cols) => {   // cols = {top, front, rear, right, left}
+    const [l0, l1, w0, w1] = box;
+    for (const f of ["rear", "front", "left", "right"]) if (faceV[f]) poly(c, fp(box, f, f === "front" || f === "rear" ? w0 : l0, f === "front" || f === "rear" ? w1 : l1, za, zb), cols[f], "rgba(23,63,80,.55)");
+    poly(c, [Q(l0, w0, zb), Q(l1, w0, zb), Q(l1, w1, zb), Q(l0, w1, zb)], cols.top, "rgba(23,63,80,.55)");
+  };
+  const gl = (box, face, a0, a1, za, zb, fill) => poly(c, fp(box, face, a0, a1, za, zb), fill, "rgba(23,63,80,.6)");
+  const BODY = { top: "#f6fafc", front: "#e3edf1", rear: "#d3e1e8", right: "#e9f1f5", left: "#cddce4" };
+  const CHS = [-1.5, 1.5, -0.5, 0.5], BOX = [-1.5, 0.86, -0.53, 0.53], CAB = [0.9, 1.5, -0.5, 0.5], zc = z0 + 3, zb = zc + 27, zcab = zc + 17;
+  // bayangan (ke kanan-bawah layar, seperti bangunan)
+  c.fillStyle = "rgba(20,40,30,.2)"; c.beginPath(); const sh = [[-1.55, -0.6], [1.55, -0.6], [1.55, 0.6], [-1.55, 0.6]].map(([l, w]) => { const q = P(k.x + fx * l + rx * w + 0.55, k.y + fy * l + ry * w + 0.12, LIFT()); return q; }); sh.forEach((q, i) => (i ? c.lineTo(q.x, q.y) : c.moveTo(q.x, q.y))); c.closePath(); c.fill();
+  obox(CHS, z0, zc, { top: "#3a4247", front: "#2c3236", rear: "#2c3236", right: "#343b40", left: "#2a3034" });
+  const cabFirst = fx + fy < 0;   // kabin lebih jauh dari kamera → digambar lebih dulu
+  const drawCab = () => {
+    obox(CAB, zc, zcab, { top: "#dfeaf0", front: "#e8f1f5", rear: "#cddce4", right: "#e4eef3", left: "#c9d9e1" });
+    gl(CAB, "right", 0.9, 1.5, zc, zc + 5.5, "#2a9d8f");                                      // aksen toska bawah kabin
+    if (faceV.front) {
+      gl(CAB, "front", -0.42, 0.42, zc + 8, zc + 15.5, "#7fc4d8");                              // kaca depan
+      const a = Q(1.5, -0.3, zc + 14), b = Q(1.5, -0.05, zc + 9); c.strokeStyle = "rgba(255,255,255,.65)"; c.lineWidth = 1.2; c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
+      gl(CAB, "front", -0.2, 0.2, zc + 2.6, zc + 6.2, "#215f66");                               // gril
+      for (const sw of [-1, 1]) { const q = Q(1.5, sw * 0.38, zc + 4.4); c.fillStyle = st.truck.lights > 0.05 ? "#fff6c2" : "#f3e7b0"; c.beginPath(); c.arc(q.x, q.y, 2.1, 0, 7); c.fill(); c.strokeStyle = "rgba(23,63,80,.6)"; c.lineWidth = 0.8; c.stroke(); }
+      const bm = [1.5, 1.56, -0.54, 0.54]; obox(bm, z0, zc + 2, { top: "#4b545a", front: "#434b50", rear: "#434b50", right: "#3c4348", left: "#3c4348" });   // bumper depan
+    }
+    if (faceV.right) {
+      gl(CAB, "right", 0.98, 1.42, zc + 8, zc + 15.2, "#7fc4d8");                               // kaca samping
+      const d0 = Q(0.96, 0.5, zc + 1), d1 = Q(0.96, 0.5, zcab - 1); c.strokeStyle = "rgba(23,63,80,.6)"; c.lineWidth = 0.9; c.beginPath(); c.moveTo(d0.x, d0.y); c.lineTo(d1.x, d1.y); c.stroke();
+      const hd = Q(1.1, 0.5, zc + 7); c.fillStyle = "#6a767d"; c.fillRect(hd.x - 2, hd.y - 0.6, 4, 1.4);   // pegangan pintu kabin
+      const mr = Q(1.4, 0.58, zc + 12); c.fillStyle = "#2c3236"; c.fillRect(mr.x - 1.2, mr.y - 2, 2.4, 4);        // spion
+    }
+  };
+  if (cabFirst) drawCab();
+  obox(BOX, zc, zb, BODY);
+  // sisi kanan boks: strip toska + biru, tulisan, garis panel
+  if (faceV.right) {
+    gl(BOX, "right", -1.5, 0.86, zc, zc + 5, "#2a9d8f"); gl(BOX, "right", -1.5, 0.86, zc + 5, zc + 6.4, "#2f7fb0");
+    for (const l of [-0.9, -0.3, 0.3]) { const a = Q(l, 0.53, zc + 7), b = Q(l, 0.53, zb - 1); c.strokeStyle = "rgba(23,63,80,.18)"; c.lineWidth = 1; c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); }
+    const A = Q(-1.42, 0.53, zc + 17), B = Q(0.78, 0.53, zc + 17); let sx = A, ex = B; if (B.x < A.x) { sx = B; ex = A; }
+    const ang = Math.atan2(ex.y - sx.y, ex.x - sx.x), len = Math.hypot(ex.x - sx.x, ex.y - sx.y);
+    c.save(); c.translate(sx.x, sx.y); c.transform(1, Math.tan(0), 0, 1, 0, 0); c.rotate(ang); c.fillStyle = "#1d6f66"; c.font = "bold 5.6px system-ui"; c.textAlign = "center";
+    c.fillText("NUSA SEGAR", len / 2, 0); c.font = "bold 4.3px system-ui"; c.fillStyle = "#2f7fb0"; c.fillText("PAK DAMAR", len / 2 - 5, 6.4);
+    const fx0 = len / 2 + 15; c.fillStyle = "#2a9d8f"; c.beginPath(); c.ellipse(fx0, 4.4, 4.2, 2.1, 0, 0, 7); c.fill(); c.beginPath(); c.moveTo(fx0 + 3.4, 4.4); c.lineTo(fx0 + 7, 2.2); c.lineTo(fx0 + 7, 6.6); c.fill(); c.fillStyle = "#fff"; c.beginPath(); c.arc(fx0 - 2, 3.8, 0.7, 0, 7); c.fill();   // logo ikan kecil
+    c.restore();
+  }
+  // unit pendingin di atas boks, sisi depan
+  const UNIT = [0.3, 0.82, -0.32, 0.32]; obox(UNIT, zb, zb + 6, { top: "#d7e8f1", front: "#c7dce8", rear: "#b6cfdd", right: "#bfd5e2", left: "#b0c8d6" });
+  if (faceV.right) for (let i = 0; i < 3; i++) { const a = Q(0.42 + i * 0.14, 0.32, zb + 1.2), b = Q(0.42 + i * 0.14, 0.32, zb + 4.8); c.strokeStyle = "rgba(40,80,100,.45)"; c.lineWidth = 1; c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); }
+  if (faceV.front) { const q = Q(0.82, 0, zb + 3); c.strokeStyle = "rgba(40,80,100,.55)"; c.lineWidth = 1; c.beginPath(); c.arc(q.x, q.y, 2, 0, 7); c.stroke(); const an = (t * 9) % 6.28; c.beginPath(); c.moveTo(q.x - Math.cos(an) * 1.8, q.y - Math.sin(an) * 1.8); c.lineTo(q.x + Math.cos(an) * 1.8, q.y + Math.sin(an) * 1.8); c.stroke(); }
+  if (!cabFirst) drawCab();
+  // roda (sisi kanan) + bayangan
+  for (const l of [1.12, -0.95]) { const g = G(l, 0.5); c.fillStyle = "rgba(10,20,20,.28)"; c.beginPath(); c.ellipse(g.x + 1.5, g.y + 1.2, 6, 2.6, 0, 0, 7); c.fill(); }
+  if (faceV.right) for (const l of [1.12, -0.95]) { const w = Q(l, 0.54, z0 - 0.4); c.fillStyle = "#1c2023"; c.beginPath(); c.arc(w.x, w.y, 4.6, 0, 7); c.fill(); c.fillStyle = "#9aa6ad"; c.beginPath(); c.arc(w.x, w.y, 2, 0, 7); c.fill(); c.fillStyle = "#5c676d"; c.beginPath(); c.arc(w.x, w.y, 0.8, 0, 7); c.fill(); }
+  else if (faceV.left) for (const l of [1.12, -0.95]) { const w = Q(l, -0.54, z0 - 0.4); c.fillStyle = "#1c2023"; c.beginPath(); c.arc(w.x, w.y, 4.6, 0, 7); c.fill(); }
+  // belakang: rongga, kotak di dalam, kabut dingin, dua pintu, engsel, pegangan, lampu, bumper
+  if (faceV.rear) {
+    const ya = zc + 2, yb = zb - 1.5, W = 0.46;
+    if (dr > 0.04) {
+      const grad = c.createLinearGradient(0, Q(-1.5, 0, yb).y, 0, Q(-1.5, 0, ya).y); grad.addColorStop(0, "#0f1d25"); grad.addColorStop(1, "#1d3a48"); poly(c, fp(BOX, "rear", -W, W, ya, yb), grad, "rgba(23,63,80,.7)");
+      c.save(); c.globalAlpha = Math.min(1, dr * 1.2); c.strokeStyle = "rgba(160,200,220,.18)"; c.lineWidth = 1; for (let i = 1; i < 4; i++) { const a = Q(-1.5, -W, ya + i * 5.5), b = Q(-1.5, W, ya + i * 5.5); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); } c.restore();
+      for (let i = 0; i < st.inTruck; i++) crateAt(c, k.x + fx * (-1.15 + i * 0.5) + rx * (i ? 0.12 : -0.14), k.y + fy * (-1.15 + i * 0.5) + ry * (i ? 0.12 : -0.14), z0 + 5.2, t, 0.85);
+      c.save(); for (let i = 0; i < 6; i++) { const ph = (t * 0.45 + i / 6) % 1, q = Q(-1.58 - ph * 0.25, -0.35 + ((i * 0.37) % 0.7), ya + 1 + ph * 9); c.globalAlpha = dr * 0.5 * (1 - ph); c.fillStyle = "#e4f4fb"; c.beginPath(); c.arc(q.x, q.y, 2.4 + ph * 3.2, 0, 7); c.fill(); } c.restore();   // kabut es ringan
+    } else poly(c, fp(BOX, "rear", -W, W, ya, yb), "#dbe8ee", "rgba(23,63,80,.5)");
+    for (const sg of [-1, 1]) {   // daun pintu: engsel di tepi, ayun keluar saat terbuka
+      const phi = dr * 1.75, hl = -1.5, hw = sg * 0.5, el = hl - Math.sin(phi) * 0.5, ew = hw - sg * Math.cos(phi) * 0.5;
+      const pts = [Q(hl, hw, ya), Q(el, ew, ya), Q(el, ew, yb), Q(hl, hw, yb)]; poly(c, pts, dr > 0.5 ? "#f2f7fa" : "#e6eff3", "rgba(23,63,80,.65)");
+      const hm = Q(hl + (el - hl) * 0.82, hw + (ew - hw) * 0.82, (ya + yb) / 2 + 1); c.fillStyle = "#6a767d"; c.fillRect(hm.x - 0.8, hm.y - 3.5, 1.7, 7);   // pegangan
+      for (const zz of [ya + 3, (ya + yb) / 2, yb - 3]) { const h = Q(hl, hw, zz); c.fillStyle = "#4b545a"; c.fillRect(h.x - 1.2, h.y - 1.2, 2.4, 2.4); }   // engsel
+    }
+    const sm = Q(-1.5, 0, ya), st2 = Q(-1.5, 0, yb); if (dr < 0.2) { c.strokeStyle = "rgba(23,63,80,.55)"; c.lineWidth = 1; c.beginPath(); c.moveTo(sm.x, sm.y); c.lineTo(st2.x, st2.y); c.stroke(); }
+    for (const sg of [-1, 1]) { const q = Q(-1.5, sg * 0.5, zc + 5.5); c.fillStyle = k.brake > 0.05 ? "#ff6a58" : "#c23a2f"; c.fillRect(q.x - 1.6, q.y - 2, 3.2, 4); }   // lampu belakang
+    obox([-1.58, -1.5, -0.55, 0.55], z0, zc + 2.2, { top: "#4b545a", front: "#3c4348", rear: "#434b50", right: "#3c4348", left: "#3c4348" });   // bumper belakang
+  }
+  // lampu depan menyala sebentar: kolam cahaya di depan mobil + kepulan knalpot
+  if (k.lights > 0.02) { const q = G(2.7, 0), a = G(1.6, 0); c.save(); c.globalAlpha = Math.min(0.5, k.lights * 0.5); const gr = c.createRadialGradient(q.x, q.y, 2, q.x, q.y, 34); gr.addColorStop(0, "#fff3b8"); gr.addColorStop(1, "rgba(255,243,184,0)"); c.fillStyle = gr; c.beginPath(); c.ellipse(q.x, q.y, 34, 15, 0, 0, 7); c.fill(); c.restore(); void a; }
+  if (k.eng > 0.02) { c.save(); for (let i = 0; i < 4; i++) { const ph = (t * 1.3 + i / 4) % 1, q = Q(-1.62 - ph * 0.5, 0.45, z0 + 1 + ph * 9); c.globalAlpha = k.eng * 0.4 * (1 - ph); c.fillStyle = "#cfd6da"; c.beginPath(); c.arc(q.x, q.y, 1.8 + ph * 3, 0, 7); c.fill(); } c.restore(); }
+}
+function drawLot(c, o, t) {   // petak parkir kosong (mobil sudah berangkat / pengiriman hari ini selesai)
+  const x = TRUCK.x, y = TRUCK.y, z = LIFT(), a = (dx, dy) => P(x + dx, y + dy, z);
+  poly(c, [a(-0.62, -1.62), a(0.62, -1.62), a(0.62, 1.62), a(-0.62, 1.62)], "rgba(70,80,86,.2)");
+  c.strokeStyle = "rgba(255,255,255,.7)"; c.lineWidth = 1.4; c.beginPath(); for (const [p0, p1] of [[a(-0.62, -1.62), a(-0.62, 1.62)], [a(0.62, -1.62), a(0.62, 1.62)], [a(-0.62, 1.62), a(0.62, 1.62)]]) { c.moveTo(p0.x, p0.y); c.lineTo(p1.x, p1.y); } c.stroke();
+  if (questDone()) {   // papan "Pengiriman hari ini selesai"
+    const b = P(x + 1.55, y - 0.4, z), top = P(x + 1.55, y - 0.4, z + 24); c.strokeStyle = "#6b5236"; c.lineWidth = 3; c.beginPath(); c.moveTo(b.x, b.y); c.lineTo(top.x, top.y); c.stroke();
+    c.fillStyle = "#f3e7c9"; c.strokeStyle = "#173f50"; c.lineWidth = 1.5; c.fillRect(top.x - 30, top.y - 14, 60, 24); c.strokeRect(top.x - 30, top.y - 14, 60, 24);
+    c.fillStyle = "#173f50"; c.font = "bold 7px system-ui"; c.textAlign = "center"; c.fillText("PENGIRIMAN", top.x, top.y - 4); c.fillText("HARI INI SELESAI ✓", top.x, top.y + 6);
+  }
+}
+const questDone = () => { const v = view(); return !!v && !Core.sailingBoxes(v).length && ((v.need > 0 && v.delivered >= v.need) || v.paid === true); };
+function truckPose(sd) {   // lintasan: lurus utara → belok kanan → timur menyusuri jalan raya
+  const L1 = LEAVE.L1, R = LEAVE.R, arc = (Math.PI / 2) * R, cy = LEAVE.LANE + R;
+  if (sd < L1) return { x: TRUCK.x, y: TRUCK.y - sd, fx: 0, fy: -1 };
+  if (sd < L1 + arc) { const th = (sd - L1) / R, cx = TRUCK.x + R, cyy = TRUCK.y - L1; return { x: cx - R * Math.cos(th), y: cyy - R * Math.sin(th), fx: Math.sin(th), fy: -Math.cos(th) }; }
+  const e = sd - L1 - arc; return { x: TRUCK.x + R + e, y: TRUCK.y - L1 - R, fx: 1, fy: 0 };
 }
 function drawShed(c, o, t, nt) {   // Gudang Ikan Kota: dinding seng krem, atap biru-abu, pintu geser, papan nama, tumpukan peti & es
   const x = SHED.x, y = SHED.y, z = LIFT(), W = box(c, x, y, 1.7, 1.2, z, 40, ["#9fb0ba", "#e4dcc6", "#d3c9ae"]);
@@ -87,10 +179,12 @@ function drawBoard(c, o, t) {   // papan tujuan
   c.fillStyle = "#f3e7c9"; c.strokeStyle = "#173f50"; c.lineWidth = 1.5; c.fillRect(top.x - 26, top.y - 12, 52, 20); c.strokeRect(top.x - 26, top.y - 12, 52, 20);
   c.fillStyle = "#173f50"; c.font = "bold 7px system-ui"; c.textAlign = "center"; c.fillText("KOTA NUSA", top.x, top.y - 2); c.fillText("← KIRIMAN SEGAR", top.x, top.y + 6);
 }
-const DAMAR_CH = { x: DAMAR.x, y: DAMAR.y, dir: 3, walk: 0, moving: false, sit: false, rod: 0, seed: 3.3, hold: null, rodSpec: null, style: { shirt: "#2a9d8f", pants: "#2e2a26", skin: "#b77b52", hair: "#1f1612", hat: "cap", hatCol: "#e9e4d8", collar: "#f3e7c9", apron: "#f3e7c9" } };
+const DAMAR_CH = { x: DAMAR.x, y: DAMAR.y, dir: 6, walk: 0, moving: false, sit: false, rod: 0, seed: 3.3, hold: null, rodSpec: null, style: { shirt: "#2a9d8f", pants: "#2e2a26", skin: "#b77b52", hair: "#1f1612", hat: "cap", hatCol: "#e9e4d8", collar: "#f3e7c9", apron: "#f3e7c9" } };
 function drawDamar(c, o, t) {
-  NW.drawCharacter(c, DAMAR_CH, t); const pb = P(DAMAR.x, DAMAR.y, LIFT());
-  if (NW.look && NW.look.drawLabel) NW.look.drawLabel(c, { name: "Pak Damar", title: "Pengiriman Segar" }, pb.x, pb.y, 1.0 / ((NW.world && NW.world.zoom) || 1), 0);
+  NW.drawCharacter(c, DAMAR_CH, t); const pb = P(DAMAR_CH.x, DAMAR_CH.y, LIFT());
+  if (st.leave && st.leave.wave) { c.save(); c.font = "13px system-ui"; c.textAlign = "center"; c.fillText("👋", pb.x + 10, pb.y - 52 + Math.sin(t * 9) * 2.5); c.restore(); }
+  const pl = NW.world && NW.world.player, near = pl && Math.hypot(pl.x - DAMAR_CH.x, pl.y - DAMAR_CH.y) < 2.6;   // label hanya saat dekat → tidak menutupi atap gudang
+  if (near && NW.look && NW.look.drawLabel) NW.look.drawLabel(c, { name: "Pak Damar", title: "Pengiriman Segar" }, pb.x, pb.y, 1.0 / ((NW.world && NW.world.zoom) || 1), 0);
 }
 // ---------- membawa kotak dengan dua tangan ----------
 const DV = [[1, 0], [0.7, 0.7], [0, 1], [-0.7, 0.7], [-1, 0], [-0.7, -0.7], [0, -1], [0.7, -0.7]];
@@ -109,7 +203,7 @@ function candidates(pl) {
   const out = []; if (!st.ready || !atPort() || st.lock || rbSeatedNow()) return out;
   if (stage() === "port" && !st.carry && !st.pick && !st.load) for (const i of Core.sailingBoxes(view())) out.push({ id: "pk:crate:" + i, x: CRATE[i].x, y: CRATE[i].y, r: 1.35, icon: "📦", label: "Ambil Kotak " + (i + 1), pk: { k: "crate", i }, bz: 30, pri: 0.7 });
   if (st.carry && !st.load) out.push({ id: "pk:truck", x: LOAD_PT.x, y: LOAD_PT.y, r: 1.7, icon: "🚚", label: "Masukkan ke Mobil", pk: { k: "truck" }, bz: 40, pri: 0.8 });
-  out.push({ id: "pk:damar", x: DAMAR.x, y: DAMAR.y + 0.9, r: 1.3, icon: "💬", label: "Pak Damar", pk: { k: "damar" }, bz: 56, pri: 0.3 });
+  out.push({ id: "pk:damar", x: DAMAR_CH.x, y: DAMAR_CH.y + 0.9, r: 1.3, icon: "💬", label: "Pak Damar", pk: { k: "damar" }, bz: 56, pri: 0.3 });
   const m = rbMine(); if (m && m.ashore && !st.carry) out.push({ id: "pk:board", x: BOARDPT.x, y: BOARDPT.y, r: 1.6, icon: "⛵", label: "Naik Kapal Rombongan", pk: { k: "board" }, bz: 36, pri: 0.7 });
   return out;
 }
@@ -127,7 +221,8 @@ function talk() {
 // ---------- per frame ----------
 function update(dt) {
   if (!st.ready) return;
-  const want = st.load && (now() - st.load.t0) < 1.55 ? 1 : 0; st.door += (want - st.door) * (1 - Math.exp(-dt * 9));
+  const want = (st.load && (now() - st.load.t0) < 1.55) || (st.retry && !st.leave) ? 1 : 0; st.door += (want - st.door) * (1 - Math.exp(-dt * 9));
+  truckTick(dt);
   if (st.pick && now() - st.pick.t0 > T_PICK + 0.4) { st.carry = { i: st.pick.i }; st.pick = null; }
   if (st.load) {
     const u = now() - st.load.t0;
@@ -137,6 +232,34 @@ function update(dt) {
   }
   if (!atPort() && (st.carry || st.pick)) { st.carry = null; st.pick = null; }   // keluar area: kotak kembali ke status server
   hud();
+}
+// ---------- mobil: parkir / berangkat (MURNI visual; dipicu hanya oleh respons server yang sukses; tak menghitung hadiah) ----------
+function truckTick(dt) {
+  const k = st.truck;
+  if (stage() === "port" && !st.leave) { st.gone = false; st.leaveDone = false; }   // perjalanan baru → mobil kembali ke petak
+  if (!st.leave) {
+    const want = stage() === "port" || (!questDone() && !st.gone);
+    Object.assign(k, { x: TRUCK.x, y: TRUCK.y, fx: 0, fy: -1, show: want, lights: 0, brake: 0, eng: 0 }); if (st.tObj) { st.tObj.x = TRUCK.x; st.tObj.y = TRUCK.y; }
+    if (st.tSolid) { const on = want; st.tSolid.x1 = on ? TRUCK.x + 0.56 : st.tSolid.x0; st.tSolid.y1 = on ? TRUCK.y + 1.55 : st.tSolid.y0; }
+    DAMAR_CH.x = DAMAR.x; DAMAR_CH.y = DAMAR.y; DAMAR_CH.moving = false; return;
+  }
+  const L = st.leave, u = now() - L.t0;
+  if (u > 0.15 && !L.snd0) { L.snd0 = 1; sfx("mobil_pintu"); }
+  if (u > 0.6) { L.wave = u < 3.3; const f = Math.min(1, (u - 0.6) / 0.9); DAMAR_CH.x = DAMAR.x + (DAMAR_BACK.x - DAMAR.x) * f; DAMAR_CH.y = DAMAR.y + (DAMAR_BACK.y - DAMAR.y) * f; DAMAR_CH.moving = f < 1; DAMAR_CH.walk += dt * 6; }
+  if (u > 1.5 && u < 3.2) { k.lights = Math.min(1, (u - 1.5) * 3); k.brake = 1; } else if (u >= 3.2) { k.lights = Math.max(0, k.lights - dt * 1.5); k.brake = 0; }
+  if (u > 1.9 && !L.eng) { L.eng = 1; sfx("mobil_mesin"); }
+  if (u > 1.9) k.eng = Math.min(1, (u - 1.9) * 2);
+  const v = u - 2.6;   // mulai bergerak perlahan, lalu mempercepat sedikit
+  if (v > 0) {
+    if (!L.told) { L.told = true; toast("🚚 Kiriman segar berangkat menuju Kota Nusa!", "good"); }
+    if (st.tSolid) { st.tSolid.x1 = st.tSolid.x0; st.tSolid.y1 = st.tSolid.y0; }
+    const sd = v < 2.4 ? 0.5 * 0.9 * v * v : 0.5 * 0.9 * 2.4 * 2.4 + 2.16 * (v - 2.4) + 0.7 * (v - 2.4) * (v - 2.4), pz = truckPose(sd);
+    Object.assign(k, pz); if (st.tObj) { st.tObj.x = pz.x; st.tObj.y = pz.y; }
+    if (pz.x > TRUCK.x + LEAVE.R + LEAVE.END) { st.leave = null; st.gone = true; k.show = false; k.eng = 0; k.lights = 0; if (st.pendRes) { const a = st.pendRes; st.pendRes = null; showResult(a); } lastHud = ""; rerender(); }
+  }
+}
+function startLeave() {
+  if (st.leave || st.leaveDone) return false; st.leaveDone = true; st.leaveCount++; st.leave = { t0: now(), told: false }; return true;
 }
 // ---------- UI: status kecil + hasil dari server ----------
 function buildUI() {
@@ -151,12 +274,16 @@ function hud() {
   let html = "";
   if (st.retry) html = `<b>⚠️ ${esc(st.retry.msg)}</b><button type="button" id="pkRetry">Coba lagi</button>`;
   else if (st.lock) html = `<b>${esc(st.msg || "Memproses…")}</b>`;
-  else if (here && s === "port") html = st.carry ? "<b>📦 Membawa kotak</b><span>Bawa ke mobil Pak Damar (🚚).</span>" : `<b>🚚 Pelabuhan Kota</b><span>${st.msg ? esc(st.msg) : "Ambil kotak di dermaga lalu masukkan ke mobil."}</span>${capHint()}`;
+  else if (here && s === "port") html = st.carry ? "<b>📦 Membawa kotak</b><span>Bawa ke mobil Pak Damar (🚚).</span>" : `<b>🚚 Pelabuhan Kota</b><span>${st.msg ? esc(st.msg) : "Temui Pak Damar di area mobil pendingin. Ambil kotak di dermaga lalu masukkan ke mobil."}</span>${capHint()}`;
   else if (here && st.msg) html = `<b>${esc(st.msg)}</b>`;
+  if (here && s !== "port" && !st.carry && !st.lock && !st.retry && !st.leave && homeOk()) html += `<button type="button" id="pkHomeHud">🏠 Kembali ke Muara</button>`;
   if (html === lastHud) return; lastHud = html; st.status.innerHTML = html; st.status.classList.toggle("hidden", !html);
   const rt = $("pkRetry"); if (rt) rt.addEventListener("click", () => { const f = st.retry && st.retry.fn; st.retry = null; lastHud = ""; if (f) f(); });
+  const hh = $("pkHomeHud"); if (hh) hh.addEventListener("click", () => { lastHud = ""; goHome(); });
   const dn = $("pkDown"); if (dn) dn.addEventListener("click", () => { rb() && rb().disembark && rb().disembark(BOARD_SPOT); lastHud = ""; });
 }
+function homeOk() { const m = rbMine(); return !m || m.captain; }
+const goalHint = () => (atPort() && stage() === "port" && !st.carry ? "🚚 Temui Pak Damar di area mobil pendingin." : "");
 function capHint() { const m = rbMine(); return m && !m.ashore && m.captain ? '<button type="button" id="pkDown">🪜 Turun ke dermaga</button>' : ""; }
 function showResult(a) {
   const rows = [];
@@ -235,18 +362,21 @@ async function deliverBox(i) {
     if (r) { st.acc = st.acc || { moved: 0, fresh: null, reward: null, delivered: null, need: null }; st.acc.moved += r.moved; st.acc.fresh = r.fresh === null ? st.acc.fresh : st.acc.fresh === false ? false : r.fresh; if (r.reward != null) st.acc.reward = r.reward; st.acc.delivered = r.delivered; st.acc.need = r.need; }
     st.inTruck = Math.max(0, st.inTruck); await afterDeliver();
   } catch (e) {
-    const cls = Core.classifyErr(e), txt = String((e && e.message) || ""), early = /belum sampai/i.test(txt);
+    const cls = Core.classifyErr(e);
     if (cls === "rejected") st.ops.done("deliver", i);
     st.carry = null; await resync();
-    if (early) { st.lock = false; st.msg = "Mobil menunggu kapal benar-benar sampai…"; rerender(); retryLater(i); return; }
+    // 409 "terlalu cepat": diputuskan dari STATE server (sailMs < minTripMs setelah resync), bukan dari teks galat
+    if (cls === "rejected" && Core.tooEarly(view(), i)) { st.lock = false; st.msg = "Mobil menunggu kapal benar-benar sampai…"; rerender(); retryLater(i, Core.waitMs(view(), i)); return; }
     st.retry = { msg: failMsg(e), fn: () => deliverBox(i) }; st.inTruck = Math.max(0, st.inTruck - (cls === "rejected" ? 1 : 0)); finish(failMsg(e));
   }
 }
-function retryLater(i) { clearTimeout(st.wait); st.wait = setTimeout(() => { if (!st.lock && atPort()) deliverBox(i); }, 4000); }
+function retryLater(i, ms) { clearTimeout(st.wait); st.wait = setTimeout(() => { if (!st.lock && atPort()) deliverBox(i); }, Math.min(15000, Math.max(1500, (ms || 0) + 400))); }
 async function afterDeliver() {
   const left = Core.sailingBoxes(view()); st.lock = false;
   if (left.length) { st.msg = "Kotak diterima. Ambil kotak berikutnya."; rerender(); return; }
-  st.msg = ""; const a = st.acc; st.acc = null; st.inTruck = 0; rerender(); if (a) showResult(a);
+  st.msg = ""; const a = st.acc; st.acc = null; st.inTruck = 0; rerender();
+  if (startLeave()) st.pendRes = a || null;   // mobil berangkat tepat sekali; panel hasil menyusul begitu mobil mulai jalan
+  else if (a) showResult(a);
 }
-NW.port = { setup, update, candidates, interact, busy, carrying, drawCarry, mountTrip, dest, startTrip, depart, abortTrip, goHome, _st: st, get ready() { return st.ready; }, speedK: () => (st.carry || st.pick ? Core.CARRY_SPEED : 1), positions: { CRATE, TRUCK, LOAD_PT, DAMAR, SHED, BOARDPT, BOARD_SPOT, QUAY } };
+NW.port = { pose: truckPose, goalHint, setup, update, candidates, interact, busy, carrying, questDone, startLeave, truckState: () => ({ show: st.truck.show, x: st.truck.x, y: st.truck.y, leaving: !!st.leave, gone: st.gone, door: st.door, count: st.leaveCount }), drawCarry, mountTrip, dest, startTrip, depart, abortTrip, goHome, _st: st, get ready() { return st.ready; }, speedK: () => (st.carry || st.pick ? Core.CARRY_SPEED : 1), positions: { CRATE, TRUCK, LOAD_PT, DAMAR, SHED, BOARDPT, BOARD_SPOT, QUAY } };
 })();

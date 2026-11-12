@@ -13,7 +13,8 @@ class Srv(Srv0):
         super().__init__(flag); s.st = ["idle", "idle"]; s.sail_t = [0, 0]; s.fail = {}; s.min_trip = min_trip; s.delivered = 0; s.reward = None; s.counted = []; s.coins = 0
     def view(s):
         v = super().view(); v["delivered"] = s.delivered; v["reward"] = s.reward; v["paid"] = s.reward is not None
-        for k, b in enumerate(v["boxes"]): b["st"] = s.st[k]
+        for k, b in enumerate(v["boxes"]): b["st"] = s.st[k]; b["sailMs"] = int((time.time() - s.sail_t[k]) * 1000) if s.st[k] == "sailing" else 0
+        v["minTripMs"] = int(s.min_trip * 1000)
         return v
     def handle(s, name, body):
         if name in ("ecoDamarSail", "ecoDamarAbort", "ecoDamarDeliver"):
@@ -21,6 +22,7 @@ class Srv(Srv0):
             if f and f[0] > 0:
                 f[0] -= 1
                 if f[1] == "net": return 503, {"error": {"status": "unavailable", "message": "net"}}
+                if f[1] == "auth": return 401, {"error": {"status": "auth_unavailable", "message": "auth"}}
                 return 409, {"error": {"status": "failed-precondition", "message": "Server menolak."}}
             op = body.get("opId"); b = body.get("box")
             if op in s.ops: return 200, {"result": dict(s.ops[op], duplicate=True)}
@@ -32,7 +34,7 @@ class Srv(Srv0):
                 s.st[b] = "idle"; r = s.eco()
             else:
                 if s.st[b] != "sailing": return 409, {"error": {"status": "failed-precondition", "message": "Kotak tidak sedang berlayar."}}
-                if time.time() - s.sail_t[b] < s.min_trip: return 409, {"error": {"status": "failed-precondition", "message": "Kapal belum sampai."}}
+                if time.time() - s.sail_t[b] < s.min_trip: return 409, {"error": {"status": "failed-precondition", "message": "Permintaan ditolak (409)."}}
                 n = len(s.boxes[b]); s.boxes[b] = []; s.st[b] = "idle"; s.delivered += n; s.counted.append(op)
                 if s.delivered >= 6 and s.reward is None: s.reward = 777; s.coins += 777
                 r = s.eco(); r["moved"] = n; r["fresh"] = True; r["reward"] = (s.reward if s.reward and s.delivered >= 6 and n else 0)
@@ -63,7 +65,7 @@ def crate_truck(A, i, wait=True):
 def failures(b):
     # C. Sail gagal (jaringan): ikan aman, tetap di Muara, opId SAMA saat coba lagi
     srv = Srv(True); srv.fail["ecoDamarSail"] = [1, "net"]; ctx, A, e = setup_trip(b, srv)
-    A.click("#pkSail"); time.sleep(1.2)
+    A.click("#pkSail"); wait_for(A, "!!document.getElementById('pkRetry')", 15); time.sleep(0.3)
     ok("C1 Sail gagal jaringan: tetap di Muara, ikan di kotak, ada tombol coba lagi", where(A) != "selat" and ev(A, "NW.delivery._st.view.boxes.every(b=>b.n===3)") and ev(A, "!!document.getElementById('pkRetry')"), [where(A), ev(A, "document.getElementById('pkStatus').innerText")])
     op1 = [c[1]["opId"] for c in srv.calls if c[0] == "ecoDamarSail"][0]
     ev(A, "document.getElementById('pkRetry')&&document.getElementById('pkRetry').click()"); wait_port(A, 10)
@@ -78,7 +80,7 @@ def failures(b):
     # F. satu kotak saja
     srv = Srv(True); srv.boxes[0] = ["i4", "i5", "i6"]; srv.box = [u for u in srv.box if u not in srv.boxes[0]]; ctx, A, e = setup_trip(b, srv, n=(0, 0)); to_port(A)
     ok("F1 satu kotak: Sail sekali, hanya satu kotak di dermaga", len([c for c in srv.calls if c[0] == "ecoDamarSail"]) == 1 and ev(A, "NW.port.candidates(NW.world.player).filter(c=>c.id.startsWith('pk:crate')).length===1"))
-    crate_truck(A, 0); wait_for(A, "!document.getElementById('pkRes').classList.contains('hidden')", 8); txt = ev(A, "document.getElementById('pkRes').innerText")
+    crate_truck(A, 0); wait_for(A, "!document.getElementById('pkRes').classList.contains('hidden')", 40); txt = ev(A, "document.getElementById('pkRes').innerText")
     ok("F2 satu kotak: hasil dari server, tanpa hadiah (belum pesanan ke-6), tanpa 900/300", "Hadiah dari server" not in txt and "900" not in txt and "3/6" in txt, txt); ctx.close()
     # G. Deliver gagal (jaringan) lalu retry opId sama; tak ada hadiah ganda
     srv = Srv(True); srv.fail["ecoDamarDeliver"] = [1, "net"]; ctx, A, e = setup_trip(b, srv); to_port(A); crate_truck(A, 0); wait_for(A, "!!document.getElementById('pkRetry')", 20); time.sleep(0.3)
@@ -89,7 +91,7 @@ def failures(b):
     # H. Deliver kotak 2 gagal setelah kotak 1 diterima → UI selaras server, lanjut dari posisi nyata
     srv = Srv(True); ctx, A, e = setup_trip(b, srv); to_port(A); crate_truck(A, 0); srv.fail["ecoDamarDeliver"] = [1, "rej"]; crate_truck(A, 1); wait_for(A, "!!document.getElementById('pkRetry')", 20); time.sleep(0.3)
     ok("H1 kotak 1 diterima, kotak 2 ditolak: server masih 1 kotak berlayar, kotak 2 tampak lagi di dermaga", srv.delivered == 3 and srv.st == ["idle", "sailing"] and ev(A, "NW.port.candidates(NW.world.player).some(c=>c.id==='pk:crate:1')"), [srv.delivered, srv.st])
-    ev(A, "document.getElementById('pkRetry')&&(NW.port._st.retry=null)"); crate_truck(A, 1); wait_for(A, "!document.getElementById('pkRes').classList.contains('hidden')", 8)
+    ev(A, "document.getElementById('pkRetry')&&(NW.port._st.retry=null)"); crate_truck(A, 1); wait_for(A, "!document.getElementById('pkRes').classList.contains('hidden')", 40)
     ok("H2 kotak 2 diulang → selesai, hadiah server 777 sekali", srv.coins == 777 and srv.delivered == 6); ctx.close()
     # I. klik ganda Sail: hanya satu rangkaian Sail
     srv = Srv(True); ctx, A, e = setup_trip(b, srv); ev(A, "(()=>{const b=document.getElementById('pkSail');b.click();b.click();b.click()})()"); wait_port(A, 15); time.sleep(0.5)
@@ -115,7 +117,7 @@ def viewports(b):
         fit = lambda sel: ev(A, "(()=>{const e=document.querySelector('%s');if(!e)return null;const r=e.getBoundingClientRect();return r.left>=-1&&r.top>=-1&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&r.width>40})()" % sel)
         ok("V%dx%d panel: tombol Berlayar terlihat penuh di layar" % vp, fit("#pkSail"), vp)
         A.screenshot(path=OUT + "v_%dx%d_panel.png" % vp); A.click("#pkSail"); wait_port(A, 10); time.sleep(0.6)
-        crate_truck(A, 0); wait_for(A, "NW.delivery._st.view.boxes[0].st==='idle'", 10); crate_truck(A, 1); wait_for(A, "!document.getElementById('pkRes').classList.contains('hidden')", 10); time.sleep(0.4)
+        crate_truck(A, 0); wait_for(A, "NW.delivery._st.view.boxes[0].st==='idle'", 10); crate_truck(A, 1); wait_for(A, "!document.getElementById('pkRes').classList.contains('hidden')", 40); time.sleep(0.4)
         ok("V%dx%d panel hasil muat di layar & tombol Oke terjangkau" % vp, fit(".pk-card") and fit("#pkOk"), vp); A.screenshot(path=OUT + "v_%dx%d_hasil.png" % vp)
         ok("V%dx%d tanpa error halaman" % vp, not e, e); ctx.close()
 def main():
@@ -145,7 +147,7 @@ def main():
         dl = [c for c in srv.calls if c[0] == "ecoDamarDeliver"]
         ok("B4 kotak 1 → tepat satu Deliver {opId, box:0}; kotak 2 masih berlayar", len(dl) == 1 and dl[0][1]["box"] == 0 and sorted(dl[0][1]) == ["box", "opId"], dl)
         ok("B5 belum ada panel hasil (hadiah belum dari server)", ev(A, "document.getElementById('pkRes').classList.contains('hidden')"))
-        got, c1 = carry_one(A, 1); interact_id(A, "pk:truck"); wait_for(A, "!document.getElementById('pkRes').classList.contains('hidden')", 10); time.sleep(0.5)
+        got, c1 = carry_one(A, 1); interact_id(A, "pk:truck"); wait_for(A, "!document.getElementById('pkRes').classList.contains('hidden')", 40); time.sleep(0.5)
         A.screenshot(path=OUT + "a5_result.png")
         txt = ev(A, "document.getElementById('pkRes').innerText")
         ok("B6 panel hasil dari server: hadiah 777 (angka tiruan server), bukan 900+300", "777" in txt and "900" not in txt and "300" not in txt, txt)

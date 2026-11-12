@@ -64,7 +64,7 @@ def main():
             def carry(pg, i):
                 c = ev(pg, "NW.port.positions.CRATE[%d]" % i); pn["walk"](pg, c["x"] - 0.4, c["y"]); pn["interact_id"](pg, "pk:crate:%d" % i); wait_for(pg, "NW.port._st.carry", 4)
                 lp = ev(pg, "NW.port.positions.LOAD_PT"); pn["walk"](pg, lp["x"], lp["y"]); pn["interact_id"](pg, "pk:truck"); wait_for(pg, "!NW.port._st.load", 8); time.sleep(1.0)
-            carry(A, 0); A.screenshot(path=OUT + "r_truck_A.png"); carry(A, 1); wait_for(A, "!document.getElementById('pkRes').classList.contains('hidden')", 15); time.sleep(0.6)
+            carry(A, 0); A.screenshot(path=OUT + "r_truck_A.png"); carry(A, 1); wait_for(A, "!document.getElementById('pkRes').classList.contains('hidden')", 40); time.sleep(0.6)
             A.screenshot(path=OUT + "r_result_A.png"); txt = ev(A, "document.getElementById('pkRes').innerText")
             ok("R11 kapten: panel hasil dengan hadiah dari server (777)", "777" in txt and "900" not in txt, txt)
             ok("R12 penumpang: tanpa panel hasil, tanpa hadiah, koin tak berubah", all(ev(x, "document.getElementById('pkRes').classList.contains('hidden') && Nusa.S.money===50") for x in (B, Cc)) and sa.coins == 777 and sb.coins == 0 and sc.coins == 0)
