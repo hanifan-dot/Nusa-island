@@ -196,7 +196,8 @@ let target = null, busy = false, busyT = 0, fishSpotId = null;
 function areaCandidates() {
   const a = A(), list = a.map.points.filter((p) => !(p.id === "boat" && a.sea && NW.boat)).concat(H().points ? H().points() : []); // Bumbu 2.4: kapal pemain = "Naik Kapal" (NW.boat)
   if (NW.boat) list.push(...NW.boat.landCandidates(player));
-  if (NW.rombongan) list.push(...NW.rombongan.candidates(player));   // Kapal Rombongan: Buat Kapal / Duduk (hanya bila server menyalakan)
+  if (NW.rombongan) list.push(...NW.rombongan.candidates(player));
+  if (NW.port) list.push(...NW.port.candidates(player));   // Pelabuhan Kota: ambil kotak / mobil Pak Damar (hanya bila server pakDamar ON)   // Kapal Rombongan: Buat Kapal / Duduk (hanya bila server menyalakan)
   for (const n of a.npcs) if (!n.hidden && n.cur && (!H().npcTalkable || H().npcTalkable(n))) list.push({ id: "npc:" + n.id, x: n.x, y: n.y, r: 1.15, icon: "💬", label: "Bicara", npc: n });
   return list;
 }
@@ -228,6 +229,7 @@ function interact() {
   if (inHome()) return NW.home.interact(t, player, openDialog);
   if (t.stand) return standUp();
   if (t.rb && NW.rombongan) return NW.rombongan.interact(t);
+  if (t.pk && NW.port) return NW.port.interact(t);
   if (t.boat && NW.boat) return NW.boat.interact(t);
   if (t.npc) return t.npc.talk(t.npc, api);
   if (t.id === "spot" || t.fish) { // titik mancing (semua area): memakai lokasi mancing LOCATIONS milik area
@@ -423,12 +425,13 @@ function update(dt) {
   if (cine) { cine.t += dt; cine.k = clamp(Math.min(cine.t / 1.1, (cine.dur - cine.t) / 1.1), 0, 1); const e = cine.k; cine.k = e * e * (3 - 2 * e); if (cine.t >= cine.dur) { const done = cine.done; cine = null; if (done) done(); } }
   const v = blocked() ? { x: 0, y: 0, m: 0 } : inputVec();
   if (NW.boat) NW.boat.update(dt, v); // Bumbu 2.4: joystick mengemudikan kapal saat di atas kapal
+  if (NW.port) NW.port.update(dt);
   if (NW.rombongan) NW.rombongan.update(dt, v); // Kapal Rombongan: pemain mengikuti kursinya; kapten: joystick → niat kemudi (server yang memutuskan)
-  const rbFrozen = rbSeated();
+  const rbFrozen = rbSeated() || !!(NW.port && NW.port.busy());   // duduk di kapal rombongan / sedang mengangkat-memuat kotak: tidak berjalan
   if (sailing()) { /* posisi pemain mengikuti tempat duduk di buritan */ }
   else if (v.m > 0.05 && seat.on) standUp(); // geser joystick = berdiri dari bangku
   if (!sailing() && !rbFrozen && v.m > 0.05) {
-    const SPEED = inHome() ? (NW.home.scene === "room" ? 115 : 140) : 180;
+    const SPEED = (inHome() ? (NW.home.scene === "room" ? 115 : 140) : 180) * (NW.port ? NW.port.speedK() : 1);   // membawa kotak = lebih lambat
     const VK = inHome() ? 1 : 1.1; // imbangan kecil untuk proyeksi isometrik 2:1 (1.3 terlalu kencang saat ke bawah)
     const d = screenToWorld(v.x * SPEED * dt, v.y * SPEED * VK * dt);
     const nx = player.x + d.x, ny = player.y + d.y;
@@ -528,6 +531,7 @@ function draw(ctx, t) {
     if (it.fn) it.fn(ctx);
     else if (it.ch) {
       NW.drawCharacter(ctx, it.ch, t);
+      if (it.ch === player && NW.port) NW.port.drawCarry(ctx, player, t);   // kotak dibawa dua tangan
       if (it.ch === player) { // label nama + gelar: ikut urutan kedalaman, jadi tertutup bangunan di depannya
         const pb = NW.P(player.x, player.y, gz(player.x, player.y) - (player.sit ? 6 : 0));
         NW.look.drawPlayerLabel(ctx, pb, 1.0 / Z, NW.hold ? NW.hold.labelLift() : 0);

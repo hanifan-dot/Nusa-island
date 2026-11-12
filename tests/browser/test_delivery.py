@@ -32,6 +32,8 @@ def page(b, flag, srv=None, vp=(360, 740), kemudi=False, delivery=True, reqs=Non
     ctx = b.new_context(viewport={"width": vp[0], "height": vp[1]}, has_touch=True, device_scale_factor=2)
     sd = seed("Budi"); sd["cooler"] = [{"uid": "i%d" % k, "id": "nila", "w": 1.0 + k * 0.5, "t": 1} for k in range(8)]; sd["cooler"][7]["lock"] = True
     init = "window.__demoAuto='demo-a';" + ("window.NUSA_DELIVERY=true;" if delivery else "") + ("window.NUSA_KEMUDI=true;" if kemudi else "")
+    # atribusi pemanggil: setiap NusaApi.call("gameFlags") dicatat beserta stack-nya (window.__gf) agar uji tahu SIAPA yang memanggil, bukan hanya bahwa ada panggilan
+    init += "(()=>{let a;Object.defineProperty(window,'NusaApi',{configurable:true,get(){return a},set(v){a=v;if(v&&typeof v.call==='function'&&!v.__w){const f=v.call;v.call=function(n){if(n==='gameFlags'){(window.__gf=window.__gf||[]).push(String(new Error().stack))}return f.apply(this,arguments)};v.__w=1}}})})();"
     init += "window.firebase={apps:[1],auth:()=>({currentUser:{getIdToken:async()=>'TOKEN-UJI'}})};"
     init += "if(!localStorage.getItem('__seeded')){localStorage.setItem('nusa-island-v1', %s);localStorage.setItem('__seeded','1')}" % json.dumps(json.dumps(sd))
     ctx.add_init_script(init)
@@ -64,9 +66,12 @@ def main():
         b = p.chromium.launch()
         # A. flag OFF: tidak diunduh
         rq = []; ctx, A, eA = page(b, False, Srv(True), delivery=False, reqs=rq); time.sleep(1.5)
+        # Rumahku (house/social.js) memang memanggil gameFlags sendiri (saklar socialHome) ±4 dtk setelah load. Tunggu panggilan itu (berbasis kejadian, bukan waktu) agar hasil tak bergantung beban mesin.
+        wait_for(A, "(window.__gf||[]).length>0", 12)
         ok("A1 NUSA_DELIVERY/KEMUDI off: tidak ada unduhan delivery/ atau kemudi/", not [u for u in rq if u.startswith("URL:")], [u for u in rq if u.startswith("URL:")])
         ok("A2 off: dunia lama (tanpa NW.delivery/NW.kemudi/titik)", ev(A, "!NW.delivery && !NW.kemudi && !NW.MUARA_MAP.points.some(p=>p.id==='delivery')"))
-        ok("A3 off: nol panggilan gameFlags/ecoDamar*", not [x for x in rq if x == "gameFlags" or x.startswith("ecoDamar")], rq)
+        gf = ev(A, "window.__gf||[]")
+        ok("A3 off: nol panggilan ecoDamar*, dan tak ada pemanggil gameFlags dari delivery/ atau kemudi/ (satu-satunya pemanggil = Rumahku)", not [x for x in rq if x.startswith("ecoDamar")] and gf and not any(("delivery/" in g or "kemudi/" in g or "rombongan/" in g) for g in gf) and all("house/social.js" in g for g in gf), gf[:1])
         ok("A4 off: tanpa error", not eA, eA); ctx.close()
         # B. modul dimuat tetapi SERVER OFF → tidak ada akses
         srv = Srv(False); rq = []; ctx, B, eB = page(b, True, srv, reqs=rq)
@@ -82,7 +87,7 @@ def main():
         # C. server ON
         srv = Srv(True); rq = []; ctx, C, eC = page(b, True, srv, reqs=rq); wait_for(C, "NW.delivery && NW.delivery.serverOn", 15); time.sleep(0.5)
         ok("C1 server pakDamar=true: meja + objek + titik terpasang", ev(C, "NW.MUARA_MAP.points.some(p=>p.id==='delivery') && NW.MUARA_MAP.objects.some(o=>o.kind==='delivery')"))
-        C.wait_for_timeout(6000); n0 = len([c for c in srv.calls if c[0] == "gameFlags"]); C.wait_for_timeout(10000)
+        wait_for(C, "(window.__gf||[]).length>=2", 14); C.wait_for_timeout(1500); n0 = len([c for c in srv.calls if c[0] == "gameFlags"]); C.wait_for_timeout(10000)
         ok("C2 gameFlags: tidak ada polling (jumlah stabil setelah awal; ≤2 termasuk modul Rumahku lama)", len([c for c in srv.calls if c[0] == "gameFlags"]) == n0 and n0 <= 2, n0)
         to_station(C); ok("C3 meja di tanah yang bisa dijalani", ev(C, "(()=>{const t=NW.MUARA_MAP.points.find(p=>p.id==='delivery');return NW.walkable(t.x,t.y)})()"))
         C.screenshot(path=OUT + "meja-muara.png")
