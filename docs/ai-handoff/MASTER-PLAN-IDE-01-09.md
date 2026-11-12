@@ -4,8 +4,9 @@ Aturan: klien & visual saja; tidak ada transaksi/saldo/hadiah/pertemanan/kepemil
 
 | Fase | Ide | Status |
 |---|---|---|
-| A | 1 Pengiriman Segar Pak Damar | **PR-A1: panel + meja + kotak + inti logika (flag OFF)** |
-| A | 2 UI Kemudi Kapal, 4 Pelabuhan Kota, 7 Kapal Rombongan | belum |
+| A | 1 Pengiriman Segar Pak Damar | PR-A1 panel + meja; **PR-A2 adapter ecoDamar* + kotak fisik di kapal** |
+| A | 2 UI Kemudi Kapal | **PR-A2 selesai (flag OFF)** |
+| A | 4 Pelabuhan Kota, 7 Kapal Rombongan | belum (Pelabuhan = PR-A3; Rombongan menunggu protokol Worker 01) |
 | B | 5 Eksplorasi Kepulauan, 6 Latar Memancing Dinamis | belum |
 | C | 3 NusaPhone + Toko + PlayGame | belum |
 | D | 8 Dapur Rumahku + Kedai Bu Indah | belum |

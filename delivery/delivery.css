@@ -13,3 +13,4 @@
 .dl-msg{min-height:16px;margin:6px 0 2px;font-size:12px}.dl-act{display:flex;gap:6px;justify-content:flex-end}
 .dl-act button{min-height:40px;padding:0 12px;border-radius:8px;border:1px solid #173f50;background:#fff;color:#173f50;font-weight:600}.dl-act #dlSend{background:#2a9d8f;color:#fff}.dl-act button:disabled{opacity:.45}
 @media (orientation:landscape) and (max-height:420px){.dl-card{padding:6px 10px}.dl-list{max-height:34vh}.dl-bag,.dl-boxes{min-height:100px}}
+.dl-wide{min-height:0}.dl-fish.static{pointer-events:none}.dl-un{align-self:flex-start;min-height:36px;padding:0 10px;border-radius:8px;border:1px solid #173f50;background:#fff;color:#173f50;font-weight:600}

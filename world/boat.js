@@ -111,7 +111,7 @@ function board() {
   syncPlayer(); persist(); N().save();
   N().sfx("boat_naik");
   const q = S().sea;
-  if (!q.tut) { q.tut = 1; N().toast("⛵ Joystick ATAS = maju · BAWAH = mundur · KIRI/KANAN = belok", "good"); }
+  if (!q.tut) { q.tut = 1; N().toast(NW.kemudi ? "⛵ Putar setir untuk belok · tuas MAJU / NETRAL / MUNDUR" : "⛵ Joystick ATAS = maju · BAWAH = mundur · KIRI/KANAN = belok", "good"); }
   else N().toast(`⛵ Naik ${UPGRADES.boat.levels[lv()]}`, "good");
   showUI(); NW.world.updateHint();
   return true;
@@ -154,6 +154,7 @@ function update(dt, inp) {
   if (!B.on) { stepWake(dt); return; }
   const ar = A(), sea = seaOf(ar), sp = spec();
   if (B.busy) { stepBusy(dt); if (B.on) syncPlayer(); stepWake(dt); return; }
+  if (NW.kemudi && NW.kemudi.on) inp = NW.kemudi.input() || inp;   // UI Kemudi (flag NUSA_KEMUDI): setir + tuas menggantikan joystick; fisika sama
   let thr = -inp.y, steer = inp.x;
   if (Math.abs(thr) < 0.12) thr = 0; if (Math.abs(steer) < 0.12) steer = 0;
   if (B.anchor) { if (thr || steer) toastOnce("⚓ Jangkar terpasang. Tekan ⛵ Angkat Jangkar untuk berlayar lagi."); thr = 0; steer = 0; }
@@ -453,7 +454,7 @@ function drawWake(c, t, view) {
 // item yang disisipkan ke daftar kedalaman world.draw
 function layer(t, drawPlayer) {
   const ar = A(); if (!seaOf(ar) || B.area !== ar.id) return [];
-  if (B.on) return [{ d: B.x + B.y + 0.35, draw: (c) => drawVessel(c, B, t, { player: drawPlayer }) }];
+  if (B.on) return [{ d: B.x + B.y + 0.35, draw: (c) => { drawVessel(c, B, t, { player: drawPlayer }); if (NW.delivery && NW.delivery.drawCargo) NW.delivery.drawCargo(c, B, t); } }];
   const m = moorById(ar, B.moor); if (!m) return [];
   return [{ d: B.x + B.y + 0.35, draw: (c) => drawVessel(c, B, t, { moored: m }) }];
 }
@@ -569,8 +570,8 @@ function buildUI() {
   tap("seaHome", () => { N().sfx("click"); rescue(); });
   for (const id of ["seaAnchor", "seaFish", "seaMap", "seaHome"]) $(id).addEventListener("pointerdown", (e) => e.stopPropagation());
 }
-function showUI() { buildUI(); $("seaBar").classList.remove("hidden"); $("seaHud").classList.remove("hidden"); document.body.classList.add("sailing"); uiShown = true; refreshUI(true); }
-function hideUI() { if (!$("seaBar")) return; $("seaBar").classList.add("hidden"); $("seaHud").classList.add("hidden"); document.body.classList.remove("sailing"); uiShown = false; }
+function showUI() { if (NW.kemudi) NW.kemudi.show(); buildUI(); $("seaBar").classList.remove("hidden"); $("seaHud").classList.remove("hidden"); document.body.classList.add("sailing"); uiShown = true; refreshUI(true); }
+function hideUI() { if (NW.kemudi) NW.kemudi.hide(); if (!$("seaBar")) return; $("seaBar").classList.add("hidden"); $("seaHud").classList.add("hidden"); document.body.classList.remove("sailing"); uiShown = false; }
 function refreshUI(force) {
   if (!uiShown) return;
   const key = `${B.anchor}|${canFish()}`;
