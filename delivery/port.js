@@ -165,11 +165,19 @@ function truckPose(sd) {   // lintasan: lurus utara → belok kanan → timur me
   if (sd < L1 + arc) { const th = (sd - L1) / R, cx = TRUCK.x + R, cyy = TRUCK.y - L1; return { x: cx - R * Math.cos(th), y: cyy - R * Math.sin(th), fx: Math.sin(th), fy: -Math.cos(th) }; }
   const e = sd - L1 - arc; return { x: TRUCK.x + R + e, y: TRUCK.y - L1 - R, fx: 1, fy: 0 };
 }
-function drawShed(c, o, t, nt) {   // Gudang Ikan Kota: dinding seng krem, atap biru-abu, pintu geser, papan nama, tumpukan peti & es
-  const x = SHED.x, y = SHED.y, z = LIFT(), W = box(c, x, y, 1.7, 1.2, z, 40, ["#9fb0ba", "#e4dcc6", "#d3c9ae"]);
-  const a = (dx, dy, zz) => P(x + dx, y + dy, zz); poly(c, [a(-1.8, -1.3, z + 40), a(1.8, -1.3, z + 40), a(1.8, 1.3, z + 40), a(-1.8, 1.3, z + 40)], "#6f8796", "rgba(23,63,80,.6)");
-  poly(c, [a(-0.6, 1.2, z), a(0.6, 1.2, z), a(0.6, 1.2, z + 26), a(-0.6, 1.2, z + 26)], "#5c4a36", "rgba(23,63,80,.6)");
-  const s = a(0, 1.22, z + 33); c.save(); c.fillStyle = "#173f50"; c.font = "bold 7px system-ui"; c.textAlign = "center"; c.fillText("GUDANG IKAN", s.x, s.y); c.restore();
+function drawShed(c, o, t, nt) {   // Gudang Ikan Kota: dinding krem + atap pelana berlapis seng (bukan lempeng datar), pintu, papan nama di dinding, peti & es
+  const x = SHED.x, y = SHED.y, z = LIFT(), zw = z + 34, zr = z + 50, hx = 1.7, hy = 1.2, ox = 0.18, oy = 0.12;
+  const a = (dx, dy, zz) => P(x + dx, y + dy, zz);
+  box(c, x, y, hx, hy, z, 34, ["#9fb0ba", "#e4dcc6", "#d3c9ae"]);                                   // dinding (sisi +y dan +x terlihat)
+  poly(c, [a(hx, -hy, zw), a(hx, hy, zw), a(hx, 0, zr)], "#d3c9ae", "rgba(23,63,80,.55)");          // tampak depan atap (segitiga ujung timur)
+  poly(c, [a(-hx - ox, -hy - oy, zw), a(hx + ox, -hy - oy, zw), a(hx + ox, 0, zr), a(-hx - ox, 0, zr)], "#3f5766", "rgba(23,63,80,.6)");   // lereng belakang
+  poly(c, [a(-hx - ox, hy + oy, zw), a(hx + ox, hy + oy, zw), a(hx + ox, 0, zr), a(-hx - ox, 0, zr)], "#5a7b8d", "rgba(23,63,80,.6)");     // lereng depan (terang)
+  c.strokeStyle = "rgba(255,255,255,.28)"; c.lineWidth = 1; for (let k = 1; k < 6; k++) { const f = k / 6, u = a(-hx - ox + (hx * 2 + ox * 2) * f, hy + oy, zw), v = a(-hx - ox + (hx * 2 + ox * 2) * f, 0, zr); c.beginPath(); c.moveTo(u.x, u.y); c.lineTo(v.x, v.y); c.stroke(); }   // alur seng
+  const r0 = a(-hx - ox, 0, zr), r1 = a(hx + ox, 0, zr); c.strokeStyle = "#2f4655"; c.lineWidth = 2; c.beginPath(); c.moveTo(r0.x, r0.y); c.lineTo(r1.x, r1.y); c.stroke();   // bubungan
+  poly(c, [a(hx, -0.55, z), a(hx, 0.55, z), a(hx, 0.55, z + 21), a(hx, -0.55, z + 21)], "#5c4a36", "rgba(23,63,80,.6)");   // pintu geser di sisi timur (menghadap kamera)
+  poly(c, [a(hx, -1.05, z + 23.5), a(hx, 1.05, z + 23.5), a(hx, 1.05, z + 31), a(hx, -1.05, z + 31)], "#f3e7c9", "rgba(23,63,80,.6)");   // papan nama di dinding
+  { const A = a(hx, -0.95, z + 25.5), B = a(hx, 0.95, z + 25.5), sx = B.x < A.x ? B : A, ex = B.x < A.x ? A : B, ang = Math.atan2(ex.y - sx.y, ex.x - sx.x), len = Math.hypot(ex.x - sx.x, ex.y - sx.y);
+    c.save(); c.translate(sx.x, sx.y); c.rotate(ang); c.fillStyle = "#173f50"; c.font = "bold 5.6px system-ui"; c.textAlign = "center"; c.fillText("GUDANG IKAN", len / 2, 0); c.restore(); }
   crateAt(c, x + 2.1, y + 0.9, z, t, 0.9); crateAt(c, x + 2.1, y + 0.5, z, t, 0.9); crateAt(c, x + 2.1, y + 0.7, z + 9, t, 0.9);
   box(c, x - 2.0, y + 1.0, 0.3, 0.22, z, 8, ["#eaf6fb", "#cfe6f0", "#bad7e4"]);
 }
