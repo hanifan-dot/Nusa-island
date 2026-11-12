@@ -1,0 +1,9 @@
+const a = require("assert"), K = require("../kemudi/core.js"); let n = 0; const T = (m, f) => { f(); n++; console.log("ok -", m); };
+T("tuas → gas (inp.y = -gas)", () => { a.deepStrictEqual(K.input(0, "MAJU"), { x: 0, y: -1 }); a.deepStrictEqual(K.input(0, "NETRAL"), { x: 0, y: -0 }); a.deepStrictEqual(K.input(0, "MUNDUR"), { x: 0, y: 1 }); a.strictEqual(K.input(0, "??").y, -0); });
+T("setir: ±120° = ±1, dibatasi, kanan positif", () => { a.strictEqual(K.steerOf(120), 1); a.strictEqual(K.steerOf(-999), -1); a.strictEqual(K.steerOf(60), 0.5); a.ok(K.angleOf(0, 0, 10, 0) > 80 && K.angleOf(0, 0, 10, 0) < 100); a.ok(Math.abs(K.angleOf(0, 0, 0, -10)) < 1); });
+T("setir tidak melompat melewati ±180", () => { let d = K.wheelDeg(100, 0, 0, -1, 10); a.ok(d <= 120 && d >= 100, d); d = K.wheelDeg(-100, 0, 0, 1, 10); a.ok(d >= -120 && d <= -100, d); });
+T("kembali ke tengah saat dilepas (konvergen ke 0)", () => { let d = 90; for (let i = 0; i < 60; i++) d = K.recenter(d, 1 / 60); a.strictEqual(d, 0); a.ok(K.recenter(90, 0.016) < 90 && K.recenter(90, 0.016) > 0); });
+T("knot, arah, teks muatan & tujuan", () => { a.strictEqual(K.knots(-220), 10); a.strictEqual(K.heading(0), "Timur"); a.strictEqual(K.heading(-1), "Timur Laut"); a.strictEqual(K.heading(9), "Tenggara");
+  a.strictEqual(K.cargoText(null), "Muatan: —"); a.strictEqual(K.cargoText({ boxes: [{ n: 0 }, { n: 0 }] }), "Muatan: kosong"); a.strictEqual(K.cargoText({ boxes: [{ n: 3, st: "idle" }, { n: 3, st: "idle" }] }), "Muatan: 2 kotak · 6 ikan"); a.strictEqual(K.cargoText({ boxes: [{ n: 3, st: "sailing" }, { n: 0 }] }), "Muatan: 1 kotak · berlayar");
+  a.strictEqual(K.destText({ name: "Dermaga Muara", m: 12 }), "Tujuan: Dermaga Muara · dekat"); a.strictEqual(K.destText({ name: "X", m: 140.4 }), "Tujuan: X · 140 m"); a.strictEqual(K.destText(null), "Tujuan: —"); });
+console.log("unit-kemudi OK:", n);

@@ -20,4 +20,6 @@ window.NUSA_SOCIAL_HOME = false;
 if (window.NUSA_SF_PREVIEW !== true) window.NUSA_SF_PREVIEW = false;   // (uji boleh menyalakannya sebelum halaman dimuat)
 
 // Pengiriman Segar Pak Damar (Fase A): MATI. Modul delivery/* tidak diunduh sama sekali bila false. Dinyalakan hanya oleh Owner setelah kontrak server Worker 01 siap.
+// UI Kemudi Kapal (setir + tuas): MATI. kemudi/* tidak diunduh bila false; UI lama tetap.
+if (window.NUSA_KEMUDI !== true) window.NUSA_KEMUDI = false;
 if (window.NUSA_DELIVERY !== true) window.NUSA_DELIVERY = false;   // (uji boleh menyalakannya sebelum halaman dimuat)

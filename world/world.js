@@ -452,7 +452,7 @@ function updateHint() {
   const h = H().hint ? H().hint() : "";
   if (sailing()) { // Bumbu 2.4: petunjuk berlayar (cerita area tetap didahulukan bila ada)
     const story = h && h.startsWith("📖") ? h : "";
-    return N().setHint(story || (NW.boat.anchor ? "⚓ Berjangkar · 🎣 Memancing menyala · ⛵ Angkat jangkar untuk berlayar" : "⛵ Joystick atas = maju · kiri/kanan = belok · ⚓ Jangkar untuk berhenti"));
+    return N().setHint(story || (NW.boat.anchor ? "⚓ Berjangkar · 🎣 Memancing menyala · ⛵ Angkat jangkar untuk berlayar" : (NW.kemudi ? "⛵ Setir = belok · tuas = maju/mundur · ⚓ Jangkar untuk berhenti" : "⛵ Joystick atas = maju · kiri/kanan = belok · ⚓ Jangkar untuk berhenti")));
   }
   N().setHint(h);
 }
