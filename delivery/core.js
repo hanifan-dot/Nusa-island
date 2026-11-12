@@ -29,20 +29,33 @@ function label(p, box, cooler) {
   const m = new Map((cooler || []).map((i) => [i.uid, i])); let kg = 0; for (const u of p.boxes[box]) { const it = m.get(u); if (it) kg += Number(it.w) || 0; }
   return { box: box + 1, n: p.boxes[box].length, kg: Math.round(kg * 10) / 10, dest: DEST, sticker: STICKER };
 }
-// permintaan ke server: hanya uid item + opId idempoten
-function request(p, opId) {
+// permintaan ke server (kontrak Worker 01: ecoDamarLoad {opId, box:0|1, uids:[1..3]}): hanya uid ITEM + nomor kotak + opId idempoten
+function loadBodies(p, newOp) {
   if (!ready(p)) return { ok: false, why: "belum-6-ikan" };
-  if (!OPID_RE.test(String(opId || ""))) return { ok: false, why: "opId-tidak-sah" };
-  const body = { v: 1, opId, boxes: [p.boxes[0].slice(), p.boxes[1].slice()] };
-  return { ok: true, body };
+  const bodies = [];
+  for (let b = 0; b < BOXES; b++) { const opId = newOp(b); if (!OPID_RE.test(String(opId || ""))) return { ok: false, why: "opId-tidak-sah" }; bodies.push({ opId, box: b, uids: p.boxes[b].slice() }); }
+  if (bodies[0].opId === bodies[1].opId) return { ok: false, why: "opId-kembar" };
+  return { ok: true, bodies };
 }
+const boxBody = (box, opId) => (box === 0 || box === 1) && OPID_RE.test(String(opId || "")) ? { ok: true, body: { opId, box } } : { ok: false, why: "tidak-sah" };   // unload/sail/abort/deliver
+// tampilan `damar` dari server → bentuk aman (angka dibatasi; tanpa field tak dikenal)
+const num = (v, lo, hi) => Math.max(lo, Math.min(hi, Number.isFinite(Number(v)) ? Math.floor(Number(v)) : 0));
+function view(v) {
+  if (!v || typeof v !== "object" || !Array.isArray(v.boxes) || v.boxes.length !== 2) return null;
+  return { need: num(v.need, 0, 12), per: num(v.per, 0, 6), delivered: num(v.delivered, 0, 12), paid: v.paid === true, reward: v.paid === true && Number.isFinite(Number(v.reward)) ? num(v.reward, 0, 1e7) : null, minTripMs: num(v.minTripMs, 0, 36e5), freshMs: num(v.freshMs, 0, 864e5),
+    boxes: v.boxes.map((b) => ({ st: b && b.st === "sailing" ? "sailing" : "idle", n: num(b && b.n, 0, 3), fish: (b && Array.isArray(b.fish) ? b.fish : []).slice(0, 3).map((f) => ({ u: String(f.u || "").slice(0, 40), id: String(f.id || "").slice(0, 40), w: Number(f.w) || 0 })), freshLeftMs: b && b.freshLeftMs != null ? num(b.freshLeftMs, 0, 864e5) : null, sailMs: num(b && b.sailMs, 0, 36e5) })) };
+}
+// tahap tampilan diturunkan dari status SERVER (bukan dari klien)
+function stageOf(vw) {
+  if (!vw) return "unknown"; const b = vw.boxes;
+  if (b.some((x) => x.st === "sailing")) return "sailing";
+  if (b.every((x) => x.n === vw.per) && vw.per > 0) return "loaded";
+  if (b.some((x) => x.n > 0)) return "partial";
+  return vw.delivered >= vw.need && vw.need > 0 ? "done" : "packing";
+}
+const cargoVisible = (vw) => (vw ? vw.boxes.map((x) => x.n > 0) : [false, false]);   // kotak yang tampak fisik di kapal
 // pemeriksa untuk tes: tidak boleh ada field terlarang di mana pun dalam badan permintaan
 function hasForbidden(o, d) { if (!o || typeof o !== "object" || (d || 0) > 6) return false; return Object.keys(o).some((k) => FORBIDDEN.test(k) || hasForbidden(o[k], (d || 0) + 1)); }
-// ---- mesin keadaan perjalanan (animasi). Tidak memberi apa pun; hanya urutan yang sah. ----
-const STAGES = ["packing", "loaded", "sailing", "docked", "carry1", "carry2", "truck", "result"];
-const NEXT = { packing: { send: "loaded" }, loaded: { depart: "sailing", cancel: "packing" }, sailing: { arrive: "docked", abort: "loaded" }, docked: { lift: "carry1" }, carry1: { load: "carry2" }, carry2: { load: "truck" }, truck: { close: "result" }, result: { reset: "packing" } };
-function step(stage, ev) { const n = NEXT[stage] && NEXT[stage][ev]; return n ? { ok: true, stage: n } : { ok: false, stage, why: "transisi-tidak-sah" }; }
-// kotak yang sudah diangkat berurutan: 1 per 1; kecepatan jalan lambat saat membawa
-const CARRY_SPEED = 0.6;
-return { BOXES, PER_BOX, TOTAL, DEST, STICKER, STAGES, CARRY_SPEED, emptyPlan, where, count, canPack, pack, unpack, clear, ready, prune, label, request, hasForbidden, step };
+const CARRY_SPEED = 0.6;   // kecepatan jalan saat mengangkat kotak (Fase A3)
+return { BOXES, PER_BOX, TOTAL, DEST, STICKER, CARRY_SPEED, emptyPlan, where, count, canPack, pack, unpack, clear, ready, prune, label, loadBodies, boxBody, view, stageOf, cargoVisible, hasForbidden };
 });
