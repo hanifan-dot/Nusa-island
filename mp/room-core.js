@@ -374,7 +374,7 @@ class Room {
   restoreBoats(arr) {
     if (!this.boat || !Array.isArray(arr)) return;
     for (const s of arr) { if (!s || typeof s.id !== "string" || this.boats.has(s.id)) continue; const n = parseInt(s.id.slice(1), 36); if (Number.isFinite(n) && n >= this.nextBoat) this.nextBoat = n + 1;
-      this.boats.set(s.id, { id: s.id, x: s.x, y: s.y, d: s.d | 0, th: 0, v: 0, anchor: true, seats: Array.isArray(s.se) ? s.se.slice(0, 3) : [null, null, null], hold: s.hd || {}, away: !!s.aw, area: s.ar || P.BOAT.HOME, awayAt: s.at || 0, slot: s.sl | 0 });
+      this.boats.set(s.id, { id: s.id, x: s.x, y: s.y, d: s.d | 0, th: 0, v: 0, anchor: true, seats: Array.isArray(s.se) ? s.se.slice(0, 3) : [null, null, null], hold: s.hd || {}, away: !!s.aw, area: P.BOAT.AREAS.indexOf(s.ar) >= 0 ? s.ar : P.BOAT.HOME, awayAt: s.at || 0, slot: s.sl | 0 });
       for (const [seat, uid] of Object.entries(s.hd || {})) this.holds.set(uid, { b: s.id, s: Number(seat), until: this.now() + P.BOAT.GRACE_MS }); }
   }
 

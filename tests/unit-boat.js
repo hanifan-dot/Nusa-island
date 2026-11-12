@@ -80,14 +80,14 @@ eq(P.BOAT.CAP, 3, "maks 3 orang total"); ok(P.BOAT.SLOTS.every(([x, y]) => x >= 
 
 // ---- pindah area ----
 { const r = mk(); const p1 = r.add(1, "u1"), p2 = r.add(2, "u2"), p3 = r.add(3, "u3"); r.bt(1, { a: "new" }); const bid = [...r.room.boats.keys()][0]; r.bt(2, { a: "join", b: bid, s: 1 }); const b = r.room.boats.get(bid);
-  r.bt(2, { a: "go", ar: "pasir" }); eq(r.notes(2).slice(-1), ["captain"], "hanya kapten boleh pindah area");
-  r.bt(1, { a: "anchor", on: false }); r.bt(1, { a: "steer", d: 2, th: 1 }); r.tick(2); r.bt(1, { a: "go", ar: "pasir" }); eq(r.notes(1).slice(-1), ["moving"], "pindah area butuh jangkar & berhenti");
-  r.bt(1, { a: "anchor", on: true }); r.tick(10); r.clear(); r.bt(1, { a: "go", ar: "pasir" });
-  ok(b.away && b.area === "pasir", "kapal pergi ke area lain"); ok(r.to(3).some((m) => m.t === "bd" && m.id === bid) && r.to(3).some((m) => m.t === "l" && m.id === p1), "pemain Muara melihat kapal & kru berangkat (hilang)");
+  r.bt(2, { a: "go", ar: "laut" }); eq(r.notes(2).slice(-1), ["captain"], "hanya kapten boleh pindah area");
+  r.bt(1, { a: "anchor", on: false }); r.bt(1, { a: "steer", d: 2, th: 1 }); r.tick(2); r.bt(1, { a: "go", ar: "laut" }); eq(r.notes(1).slice(-1), ["moving"], "pindah area butuh jangkar & berhenti");
+  r.bt(1, { a: "anchor", on: true }); r.tick(10); r.clear(); r.bt(1, { a: "go", ar: "laut" });
+  ok(b.away && b.area === "laut", "kapal pergi ke area lain"); ok(r.to(3).some((m) => m.t === "bd" && m.id === bid) && r.to(3).some((m) => m.t === "l" && m.id === p1), "pemain Muara melihat kapal & kru berangkat (hilang)");
   ok(!r.to(2).some((m) => m.t === "l" && m.id === p1), "antar-kru tidak saling dihapus"); ok(r.to(3).some((m) => m.t === "bv" && m.ev === "depart"), "animasi berangkat");
   eq(b.seats, [p1, p2, null], "kru tetap di kursi"); r.bt(1, { a: "steer", d: 0, th: 1 }); eq(r.notes(1).slice(-1), ["away"], "tidak bisa menyetir saat di area lain"); r.bt(1, { a: "go", ar: "muara" }); eq(r.notes(1).slice(-1), ["early"], "kembali terlalu cepat ditolak (jam server)");
   r.adv(P.BOAT.MIN_AWAY_MS + 100); r.clear(); r.bt(1, { a: "go", ar: "muara" }); ok(!b.away && b.area === "muara", "kapal kembali ke Muara"); ok(r.to(3).some((m) => m.t === "bv" && m.ev === "arrive") && r.to(3).some((m) => m.t === "j" && m.p[0] === p1), "pemain Muara melihat kapal & kru tiba");
-  const w = mk(); w.add(1, "w1"); w.bt(1, { a: "new" }); const wb = [...w.room.boats.keys()][0]; w.bt(1, { a: "go", ar: "pasir" }); w.add(2, "w2"); ok(w.to(2).find((m) => m.t === "w").bs.length === 0, "pendatang baru tak melihat kapal yang sedang di area lain"); }
+  const w = mk(); w.add(1, "w1"); w.bt(1, { a: "new" }); const wb = [...w.room.boats.keys()][0]; w.bt(1, { a: "go", ar: "laut" }); w.add(2, "w2"); ok(w.to(2).find((m) => m.t === "w").bs.length === 0, "pendatang baru tak melihat kapal yang sedang di area lain"); }
 
 // ---- tanpa D1/Firestore, hibernasi, privasi, laju ----
 { const r = mk(); r.add(1, "UID-CANARY-1"); r.add(2, "UID-CANARY-2"); r.bt(1, { a: "new" }); const bid = [...r.room.boats.keys()][0]; r.bt(2, { a: "join", b: bid, s: 1 }); r.bt(1, { a: "anchor", on: false }); r.bt(1, { a: "steer", d: 2, th: 2 }); r.tick(10);
@@ -97,4 +97,15 @@ eq(P.BOAT.CAP, 3, "maks 3 orang total"); ok(P.BOAT.SLOTS.every(([x, y]) => x >= 
   const b = h.room.boats.get(bid); ok(b && b.seats[0] === s1.pid && b.seats[1] === s2.pid, "hibernasi DO: kapal & kursi pulih"); ok(h.room.players.get(2).boat && h.room.players.get(2).boat.s === 1, "hibernasi: pemain tetap berkursi");
   const sp = mk(); sp.add(1, "s1"); let n0 = 0; for (let i = 0; i < 60; i++) sp.bt(1, { a: "new" }); ok(sp.room.boats.size === 1, "spam 'new' tidak membuat banyak kapal"); }
 { const r = mk(); r.add(1, "z1"); for (let i = 0; i < 12; i++) r.bt(1, { a: i % 2 ? "anchor" : "steer", on: true, d: 1, th: 1 }); ok(true, "tak crash oleh banjir pesan"); }
+// ---- allowlist area: hanya ID area nyata; yang tak dikenal ditolak ----
+{ for (const bad of ["pasir", "hack", "pulau_x", "MUARA", "muara2", "", "sf", "a"]) ok(P.cleanBoat({ a: "go", ar: bad }) === null, "area tak dikenal ditolak: " + JSON.stringify(bad));
+  for (const good of P.BOAT.AREAS) ok(P.cleanBoat({ a: "go", ar: good }) !== null, "area nyata diterima: " + good);
+  const fs = require("fs"), path = require("path"), reg = new Set();
+  (function walk(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (e.name === "node_modules" || e.name.startsWith(".") || e.name === "tests") continue; const f = path.join(d, e.name); if (e.isDirectory()) walk(f); else if (/\.js$/.test(e.name)) { const t = fs.readFileSync(f, "utf8"); const m = t.match(/areas\.register\(\{\s*id:\s*"([a-z0-9_]+)"/g); if (m) m.forEach((x) => reg.add(x.match(/"([a-z0-9_]+)"/)[1])); } } })(path.join(__dirname, ".."));
+  ok(reg.size >= 5, "pindai area terdaftar di kode: " + [...reg].join(","));
+  for (const id of reg) ok(P.BOAT.AREAS.indexOf(id) >= 0, "area terdaftar masuk allowlist: " + id);
+  for (const id of P.BOAT.AREAS) ok(reg.has(id), "allowlist tidak punya ID hantu: " + id);
+  const r = mk(); r.add(1, "q1"); r.bt(1, { a: "new" }); r.bt(1, { a: "go", ar: "pasir" }); ok(![...r.room.boats.values()][0].away, "go area palsu tidak memindahkan kapal");
+  const h = mk(); h.room.restoreBoats([{ id: "bz", x: 37.2, y: 23.4, d: 0, se: [null, null, null], aw: true, ar: "pasir", at: 1, sl: 0 }]); ok(!h.room.boats.size || [...h.room.boats.values()].every((b) => P.BOAT.AREAS.indexOf(b.area) >= 0), "restore: area tak dikenal jatuh ke Muara"); }
+
 console.log(`unit-boat: ${pass} lolos, ${fail} gagal`); process.exit(fail ? 1 : 0);

@@ -46,7 +46,7 @@ const _DIRV = Array.from({ length: 8 }, (_, i) => { const a = i * Math.PI / 4, d
 const BOAT = { CAP: 3, MAX_BOATS: 5, BOARD_R: 3.2, DIRV: _DIRV, SPD: [0, 1.6, 3.2], ACC: 2.2,   // tile/dtk; 3 kursi: 0 = kapten, 1–2 = penumpang
   LANE: { x0: 34, x1: 39.6, y0: 22.4, y1: 50.5 },
   SLOTS: [[37.2, 23.4], [35.8, 24.6], [38.6, 25.2], [36.2, 27], [38.4, 28.6]], LAND: [35.5, 20.6],   // tambatan & titik turun (di dermaga)
-  GRACE_MS: 20000, MIN_AWAY_MS: 8000, AREA_RE: /^[a-z][a-z0-9_]{1,23}$/, HOME: "muara" };
+  GRACE_MS: 20000, MIN_AWAY_MS: 8000, AREA_RE: /^[a-z][a-z0-9_]{1,23}$/, AREAS: ["muara", "laut", "selat", "toba", "sf2"], HOME: "muara" };
 const BOAT_ACTS = ["new", "join", "leave", "steer", "anchor", "go"];
 // pesan klien → kapal. Mengembalikan objek bersih atau null (tidak sah). Tidak ada posisi/kecepatan/hadiah dari klien: hanya NIAT (arah, gas, jangkar, kursi).
 function cleanBoat(m) {
@@ -55,7 +55,7 @@ function cleanBoat(m) {
   if (m.a === "join") { const b = String(m.b == null ? "" : m.b); if (!/^b[0-9a-z]{1,6}$/.test(b)) return null; const s = m.s; if (!Number.isInteger(s) || s < 1 || s >= BOAT.CAP) return null; o.b = b; o.s = s; }
   if (m.a === "steer") { if (!Number.isInteger(m.d) || m.d < 0 || m.d > 7 || !Number.isInteger(m.th) || m.th < 0 || m.th > 2) return null; o.d = m.d; o.th = m.th; }
   if (m.a === "anchor") { if (typeof m.on !== "boolean") return null; o.on = m.on; }
-  if (m.a === "go") { const a = String(m.ar == null ? "" : m.ar); if (!BOAT.AREA_RE.test(a)) return null; o.ar = a; }
+  if (m.a === "go") { const a = String(m.ar == null ? "" : m.ar); if (!BOAT.AREA_RE.test(a) || BOAT.AREAS.indexOf(a) < 0) return null; o.ar = a; }
   return o;
 }
 // kode penampilan avatar (HANYA ID item lokal + indeks warna; tidak ada gambar). "" = bawaan. null = tidak sah.
