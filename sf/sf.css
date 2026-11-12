@@ -1,0 +1,25 @@
+/* Samudra Follower — kartu koleksi, layar detail, kartu tangkapan khusus */
+.sf-note { font-size: 12px; color: #6b6a5e; margin: 4px 0 8px; }
+.sf-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.sf-cell { border: 0; border-top: 4px solid var(--sfc, #888); border-radius: 12px; background: #fffaf0; padding: 8px 6px 10px; text-align: center; cursor: pointer; font: inherit; color: var(--ink, #2a2a2a); box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+.sf-cell img { width: 100%; height: 76px; object-fit: contain; display: block; }
+.sf-cell .nm { font-weight: 700; font-size: 14px; margin-top: 2px; }
+.sf-cell .rb { display: inline-block; margin: 3px 0; padding: 1px 8px; border-radius: 999px; font: 700 10px var(--font, sans-serif); color: #fff; background: var(--sfc, #888); }
+.sf-cell .cr { font-size: 12px; color: #7a4a00; font-weight: 600; word-break: break-all; }
+.sf-cell .st { font-size: 11px; color: #8a8777; }
+#sfOv { position: fixed; inset: 0; z-index: 30; display: none; align-items: center; justify-content: center; background: rgba(8, 24, 36, .72); padding: 14px; }
+#sfOv.on { display: flex; }
+.sf-card { width: min(380px, 100%); max-height: 94vh; overflow: auto; background: #fffaf0; border-radius: 18px; border-top: 6px solid var(--sfc, #888); box-shadow: 0 0 28px var(--sfg, rgba(255,255,255,.4)), 0 10px 30px rgba(0,0,0,.4); padding: 12px 14px 14px; text-align: center; }
+.sf-card canvas { width: 100%; max-width: 340px; height: auto; aspect-ratio: 340 / 200; border-radius: 12px; background: linear-gradient(180deg, #7fd0ea, #2f86b0 70%, #1d5f86); display: block; margin: 6px auto; }
+.sf-card .rb { display: inline-block; padding: 2px 12px; border-radius: 999px; font: 700 12px var(--font, sans-serif); color: #fff; background: var(--sfc, #888); }
+.sf-card h3 { margin: 6px 0 2px; font-size: 20px; }
+.sf-card p { margin: 6px 0; font-size: 13px; line-height: 1.4; }
+.sf-credit { font-weight: 700; color: #7a4a00; background: #fff0c4; border-radius: 10px; padding: 6px 8px; font-size: 13px; }
+.sf-card .row { display: flex; gap: 8px; justify-content: center; margin-top: 8px; flex-wrap: wrap; }
+.sf-card .tag { font-size: 11px; color: #8a8777; }
+.sf-card button { border: 0; border-radius: 999px; padding: 9px 16px; font: 700 13px var(--font, sans-serif); cursor: pointer; background: #ece6d3; color: var(--ink, #2a2a2a); }
+.sf-card button.pri { background: #2a9bd6; color: #fff; }
+.sf-badge { font-size: 11px; font-weight: 700; color: #b35a00; background: #ffe7b8; border-radius: 6px; padding: 1px 6px; }
+
+.sf-cell.unseen img { filter: brightness(.55) saturate(.7); }
+.sf-cell.unseen .nm { color: #5b5a52; }

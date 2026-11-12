@@ -1,0 +1,29 @@
+/* NUSA ISLAND — Panel Podium Juara (ringan, ramah Android). Tema teal/krem/emas; ikon SVG. */
+.lb-ov { position: fixed; inset: 0; z-index: 64; display: flex; align-items: flex-end; justify-content: center; background: rgba(8, 28, 36, 0); transition: background .22s; overflow-y: auto; }
+.lb-ov.hidden { display: none; } .lb-ov.show { background: rgba(8, 28, 36, .66); }
+.lb-sheet { position: relative; width: 100%; max-width: 560px; box-sizing: border-box; max-height: 100%; overflow-y: auto; background: linear-gradient(180deg, #fffaf0, #f4ecd6); color: #173f50; border-radius: 22px 22px 0 0; border-top: 4px solid #e0b84c; padding: 16px 14px calc(18px + env(safe-area-inset-bottom)); transform: translateY(24px); opacity: 0; transition: transform .24s cubic-bezier(.2, .8, .2, 1), opacity .2s; box-shadow: 0 -10px 40px rgba(0, 0, 0, .35); }
+.lb-ov.show .lb-sheet { transform: none; opacity: 1; }
+@media (min-width: 640px) { .lb-ov { align-items: center; padding: 16px; } .lb-sheet { border-radius: 22px; border: 3px solid #e0b84c; max-height: 92vh; } }
+.lb-x { position: absolute; top: 10px; right: 10px; width: 44px; height: 44px; border-radius: 50%; border: 2px solid #173f50; background: #fff; color: #173f50; display: grid; place-items: center; cursor: pointer; padding: 0; z-index: 2; }
+.lb-x:focus-visible, .lb-btn:focus-visible, .lb-tab:focus-visible { outline: 3px solid #1c8fd1; outline-offset: 2px; }
+.lb-head { text-align: center; padding: 0 52px 8px; } .lb-head svg { display: block; margin: 0 auto 4px; }
+.lb-head h2 { margin: 0; font: 800 19px/1.2 var(--display, Georgia, serif); letter-spacing: .07em; outline: none; }
+.lb-sub { margin: 6px 0 0; font-size: 12.5px; line-height: 1.4; color: #4b6b78; }
+.lb-tabs { display: flex; gap: 8px; margin: 8px 0 10px; } .lb-tab { flex: 1; min-height: 44px; border-radius: 12px; border: 2px solid #cdbf98; background: #fff; color: #274b59; font: 800 14px system-ui, sans-serif; cursor: pointer; }
+.lb-tab.on { background: #579b8b; border-color: #3f7d6f; color: #fff; }
+.lb-desc { margin: 0 0 8px; font-size: 13px; color: #4b6b78; }
+.lb-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.lb-row { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 12px 6px 8px; border-radius: 14px; background: #fff; border: 2px solid #e0d6b8; }
+.lb-row.r1 { border-color: #e0b84c; background: #fff8dc; } .lb-row.r2 { border-color: #b8c3ca; } .lb-row.r3 { border-color: #d9a273; }
+.lb-medal { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; } .lb-rank { width: 34px; flex: 0 0 auto; text-align: center; font: 800 15px system-ui, sans-serif; color: #4b6b78; }
+.lb-who { flex: 1; min-width: 0; display: flex; flex-direction: column; } .lb-name { font: 800 15.5px/1.2 system-ui, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-who small { font: 700 12px/1.2 system-ui, sans-serif; color: #9a6d12; }
+.lb-score { font: 800 16px/1.1 system-ui, sans-serif; text-align: right; } .lb-score small { display: block; font: 600 11px system-ui, sans-serif; color: #6b8590; }
+.lb-row.empty { background: #f1f1ea; border-style: dashed; color: #6b8590; } .lb-row.empty .lb-name { font-weight: 700; color: #6b8590; }
+.lb-state { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 14px; background: #eef5f3; margin-bottom: 10px; font-size: 14px; line-height: 1.4; } .lb-state.off { background: #fdf3df; color: #7a4b0b; }
+.lb-state:not(.off) { flex-direction: row; align-items: center; gap: 10px; }
+.lb-spin { width: 18px; height: 18px; border-radius: 50%; border: 3px solid #cfe3de; border-top-color: #579b8b; animation: lbSpin .8s linear infinite; } @keyframes lbSpin { to { transform: rotate(360deg); } }
+.lb-me, .lb-upd { margin: 10px 2px 0; font-size: 13.5px; } .lb-upd { color: #6b8590; font-size: 12px; }
+.lb-btn { display: block; width: 100%; min-height: 48px; margin-top: 12px; border: 0; border-radius: 14px; background: #579b8b; color: #fff; font: 800 15px system-ui, sans-serif; cursor: pointer; box-shadow: 0 3px 0 rgba(23, 63, 80, .25); } .lb-btn:disabled { opacity: .5; box-shadow: none; }
+body.lb-open { overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .lb-sheet, .lb-ov, .lb-spin { transition: none !important; animation: none !important; } }

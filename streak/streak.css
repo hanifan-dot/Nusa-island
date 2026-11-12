@@ -1,0 +1,60 @@
+/* NUSA ISLAND — Kalender Hadiah 7 Hari. Tema tropis; animasi hanya transform/opacity (ringan untuk HP Android). */
+.stk { --teal: #1f9a8f; --teal-d: #0f6d6a; --sand: #fdf3d8; --gold: #f0b53a; --coral: #e8664d; padding-bottom: 8px; }
+.stk-top { display: flex; gap: 10px; justify-content: space-between; align-items: stretch; margin-bottom: 8px; }
+.stk-top > div { flex: 1; background: linear-gradient(160deg, #e6f7f1, #fdf3d8); border: 1px solid #b9dccf; border-radius: 14px; padding: 8px 10px; }
+.stk-streak { font-size: 15px; } .stk-streak b { font-size: 20px; color: var(--coral); }
+.stk-cyc { font-size: 12px; opacity: .75; }
+.stk-major b { display: block; font-size: 13px; margin: 1px 0; }
+.stk-note { font-size: 12.5px; background: #fff6dc; border: 1px solid #ecd48a; border-radius: 10px; padding: 7px 9px; margin: 6px 0; }
+.stk-note.warn { background: #ffe9e3; border-color: #f0b3a4; }
+.stk-note.dim { background: transparent; border-color: transparent; opacity: .65; padding: 2px 4px; }
+.stk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.stk-day7 { margin-top: 7px; }
+.stk-cell { position: relative; overflow: hidden; border-radius: 14px; padding: 8px 4px 9px; text-align: center; background: linear-gradient(170deg, #f4fbf7, #dff1e8); border: 2px solid #b9dccf; min-height: 98px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; }
+.stk-cell .stk-day { font-size: 11px; font-weight: 800; letter-spacing: .3px; color: var(--teal-d); }
+.stk-cell .stk-ic { font-size: 28px; line-height: 1.1; margin: 2px 0; }
+.stk-cell .stk-rw { font-size: 11px; font-weight: 700; line-height: 1.15; min-height: 26px; display: flex; align-items: center; }
+.stk-tag { font-size: 10px; font-weight: 800; border-radius: 99px; padding: 1px 7px; margin-top: 2px; background: #e4e9e6; color: #55625c; }
+.stk-tag.ok { background: #2e8b57; color: #fff; } .stk-tag.now { background: var(--coral); color: #fff; } .stk-tag.soon { background: #d9e8f5; color: #2c5d86; }
+.stk-cell.lock { opacity: .62; filter: saturate(.7); }
+.stk-cell.done { background: linear-gradient(170deg, #e2f6e8, #bfe6cd); border-color: #5fb07d; }
+.stk-cell.done .stk-ic { opacity: .55; }
+.stk-cell.today { border-color: var(--coral); background: linear-gradient(170deg, #fff4e0, #ffe0b8); box-shadow: 0 0 0 3px rgba(232, 102, 77, .22); animation: stkBeat 1.6s ease-in-out infinite; }
+.stk-cell.next { border-color: #8bbbe0; }
+.stk-cell.big { min-height: 118px; flex-direction: row; gap: 12px; justify-content: center; padding: 10px 14px; border-width: 3px; border-color: var(--gold);
+  background: radial-gradient(circle at 20% 15%, #fff7cf, #ffe08a 55%, #f4b93f); box-shadow: 0 4px 14px rgba(240, 181, 58, .45); }
+.stk-cell.big.lock { opacity: .85; filter: none; }
+.stk-cell.big.done { background: radial-gradient(circle at 20% 15%, #f0fbe5, #cfeeb5 55%, #9fd98a); border-color: #6fbf6a; box-shadow: none; }
+.stk-cell.big .stk-day { font-size: 13px; position: absolute; top: 7px; left: 0; right: 0; }
+.stk-cell.big .stk-ic { font-size: 46px; margin: 14px 0 0; }
+.stk-cell.big .stk-rw { font-size: 15px; font-weight: 800; min-height: 0; margin-top: 14px; max-width: 120px; }
+.stk-cell.big .stk-tag { position: absolute; bottom: 7px; }
+.stk-shine { position: absolute; top: -20%; bottom: -20%; width: 34%; left: -40%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .7), transparent); transform: skewX(-18deg); animation: stkShine 3.4s ease-in-out infinite; pointer-events: none; }
+.stk-cell.done .stk-shine, .stk-cell.lock .stk-shine { animation: none; opacity: 0; }
+.stk-act { margin: 12px 0 4px; text-align: center; }
+.stk-claim { width: 100%; font-size: 17px; padding: 13px 10px; border-radius: 14px; font-weight: 900; letter-spacing: .4px; }
+.stk-claim.pulse { animation: stkBeat 1.4s ease-in-out infinite; box-shadow: 0 4px 16px rgba(240, 181, 58, .6); }
+.stk-claim.done { background: #cfe9d8; color: #2e6a47; opacity: 1; }
+.stk-count { font-size: 12.5px; margin-top: 6px; opacity: .8; } .stk-count b { font-variant-numeric: tabular-nums; }
+.stk-h { margin: 14px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: var(--teal-d); }
+.stk-item { display: flex; align-items: center; gap: 10px; background: #f6fbf8; border: 1px solid #cfe6dc; border-radius: 12px; padding: 8px 10px; margin-bottom: 6px; }
+.stk-item .ic { font-size: 26px; width: 34px; text-align: center; } .stk-item .grow { flex: 1; min-width: 0; } .stk-item .muted { font-size: 11.5px; }
+.stk-item.lock { opacity: .6; }
+.stk-fus { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.stk-fu { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 16px; background: #e5e8e6; color: #8a948f; border: 2px solid transparent; }
+.stk-fu.own.r-biasa { background: #e3f3ec; border-color: #7fb59f; } .stk-fu.own.r-langka { background: #e0effa; border-color: #4aa3df; }
+.stk-fu.own.r-epik { background: #f0e4fb; border-color: #b56ce8; } .stk-fu.own.r-legenda { background: #fff1c9; border-color: #f0b53a; }
+/* animasi klaim */
+.stk-pop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(8, 40, 44, .55); animation: stkFade .25s ease-out both; }
+.stk-pop-card { position: relative; width: min(86vw, 330px); text-align: center; background: linear-gradient(170deg, #fffaf0, #fdecc0); border: 3px solid var(--g, #f0b53a); border-radius: 22px; padding: 22px 16px 16px; box-shadow: 0 0 0 4px rgba(255, 255, 255, .5), 0 10px 40px rgba(0, 0, 0, .35); animation: stkPop .5s cubic-bezier(.2, 1.4, .4, 1) both; }
+.stk-pop-ic { font-size: 70px; line-height: 1; animation: stkBounce .9s ease-out .15s both; }
+.stk-pop-t { font-size: 19px; font-weight: 900; margin-top: 8px; } .stk-pop-s { font-size: 13px; margin: 4px 0 2px; opacity: .85; } .stk-pop-d { font-size: 11px; opacity: .6; margin-bottom: 12px; }
+.stk-conf { position: absolute; left: 50%; top: 80px; width: 0; height: 0; pointer-events: none; }
+.stk-conf i { position: absolute; width: 8px; height: 12px; background: var(--c); border-radius: 2px; opacity: 0; animation: stkConf 1s ease-out .1s both; }
+@keyframes stkBeat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+@keyframes stkShine { 0% { left: -40%; } 55%, 100% { left: 130%; } }
+@keyframes stkFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes stkPop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes stkBounce { 0% { transform: translateY(-30px) scale(.5); } 60% { transform: translateY(6px) scale(1.15); } 100% { transform: none; } }
+@keyframes stkConf { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--r)); } }
+@media (prefers-reduced-motion: reduce) { .stk *, .stk-pop, .stk-pop * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }

@@ -1,0 +1,27 @@
+name: Uji hemat kuota / backoff (tanpa deploy)
+on:
+  pull_request:
+    paths:
+      - 'economy/client.js'
+      - 'questowner/questowner.js'
+      - 'streak/streak.js'
+      - 'sf2/sf2.js'
+      - 'shop/wallet.js'
+      - 'tests/unit-backoff-kuota.js'
+      - '.github/workflows/uji-backoff-kuota.yml'
+permissions:
+  contents: read
+jobs:
+  uji:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Uji (tanpa rahasia, tanpa jaringan produksi)
+        run: |
+          node tests/unit-backoff-kuota.js
+          node tests/unit-economy.js
+          node tests/unit-cloud.js
+          node tests/unit-quest.js

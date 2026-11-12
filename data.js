@@ -43,6 +43,12 @@ const LOCATIONS = [
     sky: ["#4f8fd0", "#e9e3d2"], water: ["#1a5c9c", "#0a2a55"], fog: "#90b3d6",
     shore: "far", shoreColor: "#4c6a7a",
   },
+  {   // Samudra Follower V2 — Pulau Para Legenda (area jelajah 'sf2'). Dibuka lewat 100 tangkapan sah (server), BUKAN level kapal.
+    id: "samudra", name: "Samudra Follower — Pulau Para Legenda", short: "Samudra", boat: 1,
+    desc: "Pulau tropis tempat makhluk legenda komunitas berenang. Terbuka setelah 100 tangkapan.",
+    sky: ["#7cc4e8", "#f7e9c4"], water: ["#2aa0b8", "#0c4a78"], fog: "#bfe0e8",
+    shore: "palm", shoreColor: "#3f6b45",
+  },
 ];
 
 // power: 1 (jinak) .. 10 (monster). price = Rp per kg (koin)
@@ -73,25 +79,47 @@ const FISH = [
 
   // ---------- Selat Sunda ----------
   { id: "baronang", name: "Baronang", loc: "selat", rarity: "biasa", wMin: .3, wMax: 1.5, price: 28, power: 2, color: "#8f8a5a", belly: "#d8d3a4", shape: [1, .55], fin: "round", spots: "#6c6840", desc: "Hati-hati, siripnya beracun." },
-  { id: "kembung", name: "Kembung", loc: "selat", rarity: "biasa", wMin: .1, wMax: .5, price: 25, power: 1, color: "#4f7aa0", belly: "#dfe8ee", shape: [1.15, .36], fin: "pointed", stripes: "#2d5070", desc: "Ikan rakyat yang selalu ada di pasar." },
+  { id: "kembung", pelagic: true, name: "Kembung", loc: "selat", rarity: "biasa", wMin: .1, wMax: .5, price: 25, power: 1, color: "#4f7aa0", belly: "#dfe8ee", shape: [1.15, .36], fin: "pointed", stripes: "#2d5070", desc: "Ikan rakyat yang selalu ada di pasar." },
   { id: "kakap", name: "Kakap Merah", loc: "selat", rarity: "langka", wMin: 1, wMax: 7, price: 55, power: 4, color: "#cc4b3f", belly: "#f3b3a3", shape: [1.15, .46], fin: "pointed", desc: "Merah merona, favorit restoran seafood." },
-  { id: "tenggiri", name: "Tenggiri", loc: "selat", rarity: "langka", wMin: 2, wMax: 12, price: 50, power: 5, color: "#5d7f9c", belly: "#e8eef2", shape: [1.6, .28], fin: "pointed", spots: "#3c5a73", desc: "Bahan pempek terbaik. Larinya kencang!" },
-  { id: "barakuda", name: "Barakuda", loc: "selat", rarity: "epik", wMin: 3, wMax: 20, price: 70, power: 7, color: "#7b8f99", belly: "#e1e7ea", shape: [1.75, .24], fin: "pointed", stripes: "#4f626b", desc: "Gigi tajam, serangan cepat seperti torpedo." },
-  { id: "kerapu_raksasa", name: "Kerapu Raksasa", loc: "selat", rarity: "legenda", wMin: 40, wMax: 150, price: 60, power: 9, color: "#5a5a3c", belly: "#b8b27d", shape: [1.2, .52], fin: "round", spots: "#3a3a24", night: true, desc: "Monster karang. Bisa menelan ikan lain bulat-bulat." },
+  { id: "tenggiri", pelagic: true, name: "Tenggiri", loc: "selat", rarity: "langka", wMin: 2, wMax: 12, price: 50, power: 5, color: "#5d7f9c", belly: "#e8eef2", shape: [1.6, .28], fin: "pointed", spots: "#3c5a73", desc: "Bahan pempek terbaik. Larinya kencang!" },
+  { id: "barakuda", pelagic: true, name: "Barakuda", loc: "selat", rarity: "epik", wMin: 3, wMax: 20, price: 70, power: 7, color: "#7b8f99", belly: "#e1e7ea", shape: [1.75, .24], fin: "pointed", stripes: "#4f626b", desc: "Gigi tajam, serangan cepat seperti torpedo." },
+  // Bumbu 2.4 (Samudra Nusantara): tiga spesies laut baru khas Selat Sunda (ID baru, tidak menduplikasi yang lama)
+  { id: "tongkol", pelagic: true, name: "Tongkol", loc: "selat", rarity: "biasa", wMin: .5, wMax: 3, price: 26, power: 3, color: "#35557e", belly: "#e2e8ee", shape: [1.2, .42], fin: "pointed", stripes: "#24405f", desc: "Kerabat tuna yang berenang bergerombol. Lezat dibuat tongkol balado." },
+  { id: "kerapu_macan", name: "Kerapu Macan", loc: "selat", rarity: "langka", wMin: 1, wMax: 8, price: 58, power: 5, color: "#8a7a4e", belly: "#d9cfa6", shape: [1.2, .5], fin: "round", spots: "#4f4428", desc: "Bercorak loreng seperti macan. Suka bersembunyi di celah karang dangkal." },
+  { id: "kuwe_biru", pelagic: true, name: "Kuwe Biru", loc: "selat", rarity: "epik", wMin: 3, wMax: 18, price: 62, power: 7, color: "#4f6f86", belly: "#cfdde6", shape: [1.15, .52], fin: "pointed", finColor: "#3fa2d9", desc: "Kuwe bersirip biru yang berburu di tepi karang saat arus selat berganti." },
+  { id: "kerapu_raksasa", name: "Kerapu Raksasa", loc: "selat", rarity: "legenda", wMin: 40, wMax: 150, xMax: 260, xP: .02, price: 60, power: 9, color: "#5a5a3c", belly: "#b8b27d", shape: [1.2, .52], fin: "round", spots: "#3a3a24", night: true, desc: "Monster karang. Bisa menelan ikan lain bulat-bulat." },
+  // Bumbu 2.4.1 (Rahasia Ikan Mistis): 12 spesies laut baru. seaOnly = hanya didapat dari kapal di spot laut (tidak masuk kolam dermaga lama,
+  // jadi peluang & ekonomi memancing dari dermaga tidak berubah). hab = habitat spot laut. mistik = tag khusus (rarity tetap legenda, bukan rarity baru).
+  // -- 5 biasa --
+  { id: "selar_kuning", pelagic: true, seaOnly: true, hab: "Perairan Pesisir · Karang Dangkal", name: "Selar Kuning", loc: "selat", rarity: "biasa", wMin: .1, wMax: .4, price: 26, power: 1, color: "#9fb4b8", belly: "#f3efd2", shape: [1.1, .4], fin: "pointed", finColor: "#e0b83a", stripes: "#e0b83a", desc: "Bergaris kuning keemasan di sisi badan. Ikan kecil pemakan plankton yang berenang rapat bergerombol." },
+  { id: "layang", pelagic: true, seaOnly: true, hab: "Arus Selat · Laut Dalam", name: "Ikan Layang", loc: "selat", rarity: "biasa", wMin: .15, wMax: .5, price: 24, power: 2, color: "#5d7f93", belly: "#e3ebee", shape: [1.2, .36], fin: "pointed", desc: "Pelari arus yang lincah. Gerombolannya sering diikuti ikan-ikan pemangsa yang lebih besar." },
+  { id: "peperek", seaOnly: true, hab: "Perairan Pesisir", name: "Peperek", loc: "selat", rarity: "biasa", wMin: .08, wMax: .3, price: 22, power: 1, color: "#b8c4c6", belly: "#f1f1e6", shape: [1, .52], fin: "round", spots: "#6f7f80", desc: "Pipih, mengilap seperti perak, dan penuh bintik gelap. Penghuni dasar pasir dangkal." },
+  { id: "julung", pelagic: true, seaOnly: true, hab: "Perairan Pesisir · Arus Selat", name: "Julung-julung", loc: "selat", rarity: "biasa", wMin: .1, wMax: .35, price: 28, power: 1, color: "#6f9aa8", belly: "#e8f1f0", shape: [2.0, .17], fin: "pointed", bill: true, desc: "Langsing berparuh panjang dan suka melompat di permukaan saat dikejar pemangsa." },
+  { id: "kerong", seaOnly: true, hab: "Perairan Pesisir · Karang Dangkal", name: "Kerong-kerong", loc: "selat", rarity: "biasa", wMin: .2, wMax: 1, price: 25, power: 2, color: "#a7a088", belly: "#e6e0c5", shape: [1.2, .44], fin: "pointed", stripes: "#6c6240", desc: "Bergaris-garis cokelat. Kalau diangkat, ia mengeluarkan bunyi 'krok-krok' dari insangnya." },
+  // -- 3 langka --
+  { id: "bawal_putih", seaOnly: true, hab: "Perairan Pesisir · Palung Mistis Selat", name: "Bawal Putih", loc: "selat", rarity: "langka", wMin: .6, wMax: 3.5, price: 54, power: 4, color: "#c3cbd0", belly: "#f4f6f5", shape: [1, .64], fin: "pointed", scales: true, desc: "Pipih keperakan seperti cakram. Dagingnya manis dan lembut, buruan favorit di meja makan." },
+  { id: "kakap_putih", seaOnly: true, hab: "Perairan Pesisir · Palung Mistis Selat", name: "Kakap Putih", loc: "selat", rarity: "langka", wMin: 1.5, wMax: 9, price: 50, power: 4, color: "#9aa7a2", belly: "#eef0e8", shape: [1.4, .42], fin: "round", scales: true, desc: "Mulut lebar dan sirip punggung berduri. Ia menyergap di sekitar tiang dermaga dan celah arus." },
+  { id: "ekor_kuning", seaOnly: true, hab: "Karang Dangkal", name: "Ikan Ekor Kuning", loc: "selat", rarity: "langka", wMin: .3, wMax: 1.8, price: 62, power: 3, color: "#4a8fc0", belly: "#d7ebf2", shape: [1.2, .38], fin: "pointed", finColor: "#f2c12e", stripes: "#f2c12e", desc: "Biru cerah dengan ekor kuning menyala. Berenang berkelompok di tepi dinding karang." },
+  // -- 2 epik --
+  { id: "lemadang", pelagic: true, seaOnly: true, hab: "Arus Selat · Laut Dalam · Palung Mistis Selat", name: "Lemadang", loc: "selat", rarity: "epik", wMin: 3, wMax: 18, price: 66, power: 7, color: "#3fa86e", belly: "#f2d96a", shape: [1.6, .42], fin: "long", hump: true, finColor: "#2f8f9a", desc: "Dahi tumpul dan warna emas kehijauan yang berubah-ubah. Melesat dan melompat saat terkait." },
+  { id: "tuna_gigi_anjing", pelagic: true, seaOnly: true, hab: "Arus Selat · Laut Dalam · Palung Mistis Selat", name: "Tuna Gigi Anjing", loc: "selat", rarity: "epik", wMin: 4, wMax: 24, price: 58, power: 8, color: "#2f4a6e", belly: "#d7dfe8", shape: [1.5, .44], fin: "pointed", desc: "Tuna pemburu bergigi runcing. Tenaganya meledak di awal tarikan dan jarang menyerah." },
+  // -- 2 mistis khusus (ikan fantasi dunia Nusa Island; hanya dari Palung Mistis Selat; rarity tetap legenda) --
+  { id: "lentera_arwah", seaOnly: true, mistik: true, hab: "Palung Mistis Selat", name: "Ikan Lentera Arwah", loc: "selat", rarity: "legenda", wMin: .3, wMax: 1.8, price: 650, power: 6, color: "#7fe0c8", belly: "#d4fff2", shape: [1.25, .42], fin: "round", finColor: "#9ff2e0", ghost: true, glow: "#6ff0d2", desc: "Cahaya dari kedalaman yang dipercaya nelayan sebagai penjaga rahasia samudra." },
+  { id: "pari_bayang", pelagic: true, seaOnly: true, mistik: true, tough: true, hab: "Palung Mistis Selat", name: "Pari Bayang Samudra", loc: "selat", rarity: "legenda", wMin: 16, wMax: 100, price: 45, power: 9.4, color: "#1b2a3c", belly: "#34506a", shape: [1.45, .5], fin: "round", ray: true, glow: "#5fd8ff", desc: "Bayangan misterius yang bergerak sunyi di bawah arus samudra." },
 
   // ---------- Raja Ampat ----------
   { id: "badut", name: "Ikan Badut", loc: "ampat", rarity: "biasa", wMin: .05, wMax: .2, price: 60, power: 1, color: "#f07b2a", belly: "#f7a65e", shape: [1, .52], fin: "round", stripes: "#ffffff", desc: "Tinggal di anemon. Kayaknya pernah lihat di film..." },
   { id: "kakatua", name: "Kakatua", loc: "ampat", rarity: "biasa", wMin: .5, wMax: 4, price: 32, power: 2, color: "#2fb39a", belly: "#9fe0c8", shape: [1.15, .48], fin: "round", scales: true, desc: "Gigi seperti paruh, suka gigit karang." },
   { id: "sunu", name: "Kerapu Sunu", loc: "ampat", rarity: "langka", wMin: 1, wMax: 6, price: 90, power: 4, color: "#d6423f", belly: "#ef9a8b", shape: [1.2, .44], fin: "round", spots: "#3c86c9", desc: "Merah berbintik biru. Harganya mahal di ekspor." },
-  { id: "gt", name: "Kuwe GT", loc: "ampat", rarity: "epik", wMin: 10, wMax: 50, price: 50, power: 8, color: "#5b6670", belly: "#c7ced3", shape: [1.15, .56], fin: "pointed", desc: "Giant Trevally. Pemancing dunia datang demi ikan ini." },
-  { id: "napoleon", name: "Napoleon", loc: "ampat", rarity: "legenda", wMin: 20, wMax: 120, price: 70, power: 9, color: "#3b8f8a", belly: "#86c9b5", shape: [1.25, .55], fin: "round", hump: true, protected: true, desc: "Ikan berjidat besar. Dilindungi, jadi dilepas lagi dan kamu dapat hadiah konservasi." },
+  { id: "gt", name: "Kuwe GT", loc: "ampat", rarity: "epik", wMin: 10, wMax: 50, xMax: 80, xP: .02, price: 50, power: 8, color: "#5b6670", belly: "#c7ced3", shape: [1.15, .56], fin: "pointed", desc: "Giant Trevally. Pemancing dunia datang demi ikan ini." },
+  { id: "napoleon", name: "Napoleon", loc: "ampat", rarity: "legenda", wMin: 20, wMax: 120, xMax: 190, xP: .02, price: 70, power: 9, color: "#3b8f8a", belly: "#86c9b5", shape: [1.25, .55], fin: "round", hump: true, protected: true, desc: "Ikan berjidat besar. Dilindungi, jadi dilepas lagi dan kamu dapat hadiah konservasi." },
 
   // ---------- Laut Banda ----------
-  { id: "terbang", name: "Ikan Terbang", loc: "banda", rarity: "biasa", wMin: .2, wMax: .6, price: 40, power: 2, color: "#3f6fa8", belly: "#dde8f2", shape: [1.3, .3], fin: "sail", desc: "Bisa melayang di atas ombak sejauh 50 meter." },
-  { id: "cakalang", name: "Cakalang", loc: "banda", rarity: "biasa", wMin: 1, wMax: 8, price: 35, power: 4, color: "#344e78", belly: "#e3e7ee", shape: [1.2, .42], fin: "pointed", stripes: "#2b3f5f", desc: "Bahan cakalang fufu khas Manado." },
-  { id: "tuna", name: "Tuna Sirip Kuning", loc: "banda", rarity: "langka", wMin: 15, wMax: 90, price: 45, power: 7, color: "#26406b", belly: "#dfe4ec", shape: [1.3, .46], fin: "pointed", finColor: "#f2c12e", desc: "Atlet samudra. Siap-siap tangan pegal." },
-  { id: "layaran", name: "Ikan Layaran", loc: "banda", rarity: "epik", wMin: 20, wMax: 70, price: 55, power: 8, color: "#2e4f86", belly: "#d4dcea", shape: [1.8, .3], fin: "sail", bill: true, desc: "Ikan tercepat di laut. Siripnya seperti layar kapal." },
-  { id: "marlin", name: "Marlin Biru", loc: "banda", rarity: "legenda", wMin: 80, wMax: 400, price: 40, power: 10, color: "#1f3f7a", belly: "#cfd9ea", shape: [1.9, .32], fin: "pointed", bill: true, desc: "Raja samudra. Butuh joran terbaik dan kesabaran." },
+  { id: "terbang", pelagic: true, name: "Ikan Terbang", loc: "banda", rarity: "biasa", wMin: .2, wMax: .6, price: 40, power: 2, color: "#3f6fa8", belly: "#dde8f2", shape: [1.3, .3], fin: "sail", desc: "Bisa melayang di atas ombak sejauh 50 meter." },
+  { id: "cakalang", pelagic: true, name: "Cakalang", loc: "banda", rarity: "biasa", wMin: 1, wMax: 8, price: 35, power: 4, color: "#344e78", belly: "#e3e7ee", shape: [1.2, .42], fin: "pointed", stripes: "#2b3f5f", desc: "Bahan cakalang fufu khas Manado." },
+  { id: "tuna", pelagic: true, name: "Tuna Sirip Kuning", loc: "banda", rarity: "langka", wMin: 15, wMax: 90, xMax: 200, xP: .02, price: 45, power: 7, color: "#26406b", belly: "#dfe4ec", shape: [1.3, .46], fin: "pointed", finColor: "#f2c12e", desc: "Atlet samudra. Siap-siap tangan pegal." },
+  { id: "layaran", pelagic: true, name: "Ikan Layaran", loc: "banda", rarity: "epik", wMin: 20, wMax: 70, xMax: 110, xP: .02, price: 55, power: 8, color: "#2e4f86", belly: "#d4dcea", shape: [1.8, .3], fin: "sail", bill: true, desc: "Ikan tercepat di laut. Siripnya seperti layar kapal." },
+  { id: "marlin", pelagic: true, name: "Marlin Biru", loc: "banda", rarity: "legenda", wMin: 80, wMax: 400, xMax: 500, xP: .015, price: 40, power: 10, color: "#1f3f7a", belly: "#cfd9ea", shape: [1.9, .32], fin: "pointed", bill: true, desc: "Raja samudra. Butuh joran terbaik dan kesabaran." },
   { id: "hiu_paus", name: "Hiu Paus Kecil", loc: "banda", rarity: "legenda", wMin: 300, wMax: 900, price: 15, power: 10, color: "#4a6078", belly: "#d6dde4", shape: [1.7, .4], fin: "pointed", spots: "#e8eef3", night: true, protected: true, desc: "Raksasa lembut yang dilindungi. Dilepas lagi, kamu dapat hadiah konservasi." },
 ];
 
@@ -99,10 +127,37 @@ const FISH = [
 const UPGRADES = {
   rod: {
     name: "Joran", icon: "🎣",
-    levels: ["Joran Bambu", "Joran Fiber", "Joran Karbon", "Joran Pro Titanium", "Joran Legenda Nusa"],
-    cost: [0, 400, 1800, 6500, 22000],
-    info: ["Kuat 1×, tarik 1×", "Kuat 1.25×, tarik 1.2×", "Kuat 1.55×, tarik 1.4×", "Kuat 1.9×, tarik 1.65×", "Kuat 2.4×, tarik 1.95×"],
-    strength: [1, 1.25, 1.55, 1.9, 2.4], reel: [1, 1.2, 1.4, 1.65, 1.95],
+    // Bumbu 1.2: 10 tingkat; Update Komunitas: +10 tingkat (indeks 10-19 = Level 11-20; USULAN statistik menunggu persetujuan Owner, lihat docs/JORAN-LV11-20.md). Indeks 0-4 = lima joran lama (kepemilikan & harga tidak berubah).
+    // cap = batas REKOMENDASI ikan (kg) dengan toleransi 1,5×; lebih berat dari itu senar berisiko putus.
+    levels: ["Joran Bambu Kampung", "Joran Fiber Muara", "Joran Karbon Sungai", "Joran Titanium Pesisir", "Joran Legenda Nusa", "Joran Baja Samudra", "Joran Arus Dalam", "Joran Titan Nelayan", "Joran Raja Laut", "Joran Penakluk Samudra", "Joran Badai Laut", "Joran Karang Emas", "Joran Hiu Raja", "Joran Palung Hitam", "Joran Kaisar Samudra", "Joran Naga Laut", "Joran Abyss", "Joran Leviathan", "Joran Penguasa Legenda", "Joran Dewa Samudra"],
+    cost: [0, 400, 1800, 6500, 22000, 32000, 46000, 62000, 80000, 110000, 140000, 175000, 220000, 275000, 350000, 450000, 575000, 700000, 850000, 1000000],
+    catalog: [100, 400, 1800, 6500, 22000, 32000, 46000, 62000, 80000, 110000, 140000, 175000, 220000, 275000, 350000, 450000, 575000, 700000, 850000, 1000000], // harga di katalog (joran 1 diberikan gratis)
+    cap: [8, 18, 40, 80, 150, 200, 260, 330, 420, 500, 525, 550, 575, 600, 625, 650, 675, 700, 725, 750],
+    strength: [1, 1.25, 1.55, 1.9, 2.4, 2.75, 3.1, 3.45, 3.8, 4.2, 4.32, 4.44, 4.56, 4.68, 4.8, 4.92, 5.04, 5.16, 5.28, 5.4],
+    reel: [1, 1.2, 1.4, 1.65, 1.95, 2.2, 2.45, 2.7, 2.95, 3.2, 3.28, 3.36, 3.44, 3.52, 3.6, 3.68, 3.76, 3.84, 3.92, 4.0],
+    desc: [
+      "Bambu polos dengan tali sederhana. Cukup untuk ikan kampung.",
+      "Batang fiber ringan dengan reel kecil. Lentur dan awet.",
+      "Karbon gelap yang tegas, reel lebih rapi untuk ikan sungai besar.",
+      "Perak kebiruan yang kokoh, tahan air asin pesisir.",
+      "Kayu gelap berlapis emas dengan ornamen nelayan Nusantara.",
+      "Batang baja berwarna laut dengan reel besar untuk perairan dalam.",
+      "Biru tua berukir gelombang dan reel premium untuk arus kuat.",
+      "Logam berlapis dengan gagang tebal, dibuat untuk ikan penarik.",
+      "Biru dan emas berornamen jangkar. Joran para penguasa laut.",
+      "Joran termegah dengan ornamen maritim dan reel besar. Untuk raksasa samudra.",
+      "Batang biru badai dengan gagang karet tebal. Tahan hempasan ombak besar.",
+      "Karang emas berkilau di sepanjang batang; reel berukir bintang laut.",
+      "Bersirip hiu di pangkal batang. Dibuat untuk pemburu predator samudra.",
+      "Hitam pekat bak palung terdalam, dengan garis cahaya biru samar.",
+      "Tahta kaisar di ujung tangan: batang putih-perak berhias mahkota kecil.",
+      "Sisik hijau laut dan gagang bertanduk naga. Setiap tarikan terasa berat.",
+      "Gelap berpendar ungu dari jurang abyssal. Reel berputar tanpa suara.",
+      "Biru tua bersisik cyan, melingkar bagai ular laut purba.",
+      "Batang emas-perunggu penuh ukiran para penguasa legenda.",
+      "Joran tertinggi: batang putih-emas dengan cahaya samudra yang berdenyut lembut.",
+    ],
+    info: ["Ikan hingga 8 kg", "Ikan hingga 18 kg", "Ikan hingga 40 kg", "Ikan hingga 80 kg", "Ikan hingga 150 kg", "Ikan hingga 200 kg", "Ikan hingga 260 kg", "Ikan hingga 330 kg", "Ikan hingga 420 kg", "Ikan hingga 500 kg", "Ikan hingga 525 kg", "Ikan hingga 550 kg", "Ikan hingga 575 kg", "Ikan hingga 600 kg", "Ikan hingga 625 kg", "Ikan hingga 650 kg", "Ikan hingga 675 kg", "Ikan hingga 700 kg", "Ikan hingga 725 kg", "Ikan hingga 750 kg"],
   },
   bait: {
     name: "Umpan", icon: "🪱",
@@ -113,10 +168,12 @@ const UPGRADES = {
   },
   cooler: {
     name: "Coolbox", icon: "🧊",
-    levels: ["Ember Bekas", "Coolbox Kecil", "Coolbox Besar", "Palka Kapal", "Gudang Es"],
-    cost: [0, 250, 1100, 4200, 13000],
-    info: ["Muat 8 ikan", "Muat 15 ikan", "Muat 25 ikan", "Muat 40 ikan", "Muat 70 ikan"],
-    cap: [8, 15, 25, 40, 70],
+    // Bumbu 1.2: 10 tingkat sampai 200 ikan. Tingkat 1-5 tidak berubah (simpanan lama tetap valid).
+    levels: ["Ember Bekas", "Coolbox Kecil", "Coolbox Besar", "Palka Kapal", "Gudang Es", "Palka Samudra", "Gudang Pendingin", "Pabrik Es Mini", "Gudang Beku Kampung", "Gudang Beku Raya"],
+    cost: [0, 250, 1100, 4200, 13000, 19000, 27000, 37000, 49000, 65000],
+    info: ["Muat 8 ikan", "Muat 15 ikan", "Muat 25 ikan", "Muat 40 ikan", "Muat 70 ikan", "Muat 100 ikan", "Muat 125 ikan", "Muat 150 ikan", "Muat 175 ikan", "Muat 200 ikan"],
+    icons: ["🪣", "🧊", "🧊", "🚢", "🏚️", "⚓", "🏭", "❄️", "🏬", "🏛️"],
+    cap: [8, 15, 25, 40, 70, 100, 125, 150, 175, 200],
   },
   boat: {
     name: "Kapal", icon: "⛵",

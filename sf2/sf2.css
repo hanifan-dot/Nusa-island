@@ -1,0 +1,40 @@
+/* Samudra Follower V2 — HUD Pity (hanya di pulau), kartu peta, Buku Koleksi, panel peluang */
+#sf2Hud { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 54px); left: 50%; transform: translateX(-50%); z-index: 12; width: 176px; padding: 5px 9px 6px; border-radius: 12px; background: rgba(10, 34, 52, .78); color: #fff; font: 700 11px var(--font, sans-serif); text-align: center; box-shadow: 0 2px 10px rgba(0, 0, 0, .35); border: 1px solid rgba(240, 181, 58, .55); pointer-events: none; }
+#sf2Hud.hidden { display: none; }
+#sf2Hud .t { font-size: 9px; letter-spacing: .12em; color: #f0b53a; }
+#sf2Hud .p { font-size: 13px; margin: 1px 0 3px; }
+#sf2Hud .bar { height: 7px; border-radius: 99px; background: rgba(255, 255, 255, .18); overflow: hidden; }
+#sf2Hud .bar i { display: block; height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, #ffd45e, #f0b53a, #ff9d2e); transition: width .5s ease; }
+#sf2Hud .o { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 3px; font-size: 11px; color: #ffe39a; }
+#sf2Hud button { pointer-events: auto; border: 0; border-radius: 99px; width: 22px; height: 22px; font-size: 13px; line-height: 22px; padding: 0; background: rgba(255, 255, 255, .16); color: #fff; cursor: pointer; }
+#sf2Hud.bump { animation: sf2bump .6s ease; }
+#sf2Hud.near { border-color: #ff9d2e; }
+#sf2Hud.myth { animation: sf2myth 1.4s ease; }
+@keyframes sf2bump { 0% { transform: translateX(-50%) scale(1); } 35% { transform: translateX(-50%) scale(1.08); box-shadow: 0 0 14px #f0b53a; } 100% { transform: translateX(-50%) scale(1); } }
+@keyframes sf2myth { 0%, 100% { box-shadow: 0 2px 10px rgba(0, 0, 0, .35); } 30% { box-shadow: 0 0 30px 8px #ffd45e; } }
+@media (prefers-reduced-motion: reduce) { #sf2Hud.bump, #sf2Hud.myth { animation: none; } #sf2Hud .bar i { transition: none; } }
+.catch-card.sf2-mythic { box-shadow: 0 0 40px 10px rgba(255, 212, 94, .7); }
+.sf2-card.locked .sw { filter: grayscale(.6); }
+.sf2-lock { color: #a14a00; font-weight: 700; }
+.sf2-prog { height: 8px; border-radius: 99px; background: #e5dfcb; overflow: hidden; margin-top: 4px; }
+.sf2-prog i { display: block; height: 100%; background: linear-gradient(90deg, #ffd45e, #f0b53a); }
+.sf2-sum { display: flex; gap: 6px; margin: 6px 0; }
+.sf2-sum > div { flex: 1; text-align: center; background: #fffaf0; border-radius: 10px; padding: 6px 2px; font-size: 12px; }
+.sf2-sum b { font-size: 17px; } .sf2-sum small { display: block; color: #8a8777; font-size: 10px; }
+.sf2-flt { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 6px; }
+.sf2-flt button, .sf2-pg button { border: 0; border-radius: 99px; padding: 5px 10px; font: 700 11px var(--font, sans-serif); background: #ece6d3; color: var(--ink, #2a2a2a); cursor: pointer; }
+.sf2-flt button.on { background: #2a9bd6; color: #fff; }
+.sf2-row { display: flex; gap: 8px; align-items: center; background: #fffaf0; border-left: 4px solid var(--c); border-radius: 10px; padding: 5px 8px; margin-bottom: 5px; }
+.sf2-row img { width: 70px; height: 42px; object-fit: contain; flex: none; } .sf2-row img.unk { filter: brightness(0) opacity(.25); }
+.sf2-row .g { min-width: 0; font-size: 13px; } .sf2-row .rb { color: #fff; border-radius: 99px; padding: 0 6px; font-size: 9px; vertical-align: middle; }
+.sf2-row .pf { font-size: 9px; font-weight: 700; color: #b35a00; background: #ffe7b8; border-radius: 6px; padding: 1px 5px; }
+.sf2-pg { display: flex; justify-content: center; align-items: center; gap: 12px; margin: 6px 0; }
+#sf2Ov { position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center; background: rgba(8, 24, 36, .72); padding: 14px; }
+#sf2Ov.on { display: flex; }
+.sf2-box { width: min(360px, 100%); max-height: 92vh; overflow: auto; background: #fffaf0; border-radius: 16px; padding: 12px 14px; color: var(--ink, #2a2a2a); border-top: 6px solid #f0b53a; }
+.sf2-box h3 { margin: 0 0 4px; } .sf2-box table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 6px 0; } .sf2-box td, .sf2-box th { padding: 3px 4px; text-align: left; border-bottom: 1px solid #eee3c8; }
+.sf2-box tr.on { background: #fff0c4; font-weight: 700; } .sf2-box .row { text-align: center; margin-top: 8px; } .sf2-box .pri { border: 0; border-radius: 99px; padding: 9px 20px; font: 700 13px var(--font, sans-serif); background: #2a9bd6; color: #fff; cursor: pointer; }
+.sf2-row .sf2-cr { color: #7a4a00; font-weight: 600; font-size: 11px; word-break: break-word; }
+.catch-card.sf2-owner { box-shadow: 0 0 42px 12px rgba(255, 210, 74, .75), 0 0 80px 18px rgba(60, 140, 255, .35); border-color: #ffd24a; }
+.sf2-box tr.own td { border-top: 1px dashed #ffd24a; background: rgba(255, 210, 74, .12); }
+.sf2-row .rb.own { background: linear-gradient(90deg, #ffd24a, #4a8fe8); color: #1a1208; }
