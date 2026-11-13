@@ -33,6 +33,11 @@ const api = () => NW.shopApi;
 const rid = () => "Q" + Date.now().toString(36) + Math.floor(Math.random() * 1e9).toString(36) + Math.floor(Math.random() * 1e9).toString(36);
 const serverNow = () => Date.now() + R.offset;
 const uid = () => { const a = api(); try { return a && a.uid ? a.uid() : null; } catch (e) { return null; } };
+async function copyAccountId() {
+  const id = uid(); if (!id) return;
+  try { await navigator.clipboard.writeText(id); toast("ID akun disalin. Kirim secara pribadi kepada admin untuk pemeriksaan grup.", "good"); }
+  catch { window.prompt("Salin ID akun untuk admin:", id); }
+}
 function access() {
   const eco = NW.eco;
   if (eco && eco.active && eco.active()) return { ok: true };
@@ -239,5 +244,5 @@ document.addEventListener("click", (e) => {
 });
 
 NW.quest = { icon, _particles: () => P.length, Core: Q, SPEC, migrate, hook, view, refresh, open, claim, access, setEquip, rodOwned, rodOn, rodSpec, capFloor, visualOn, event, drawParticles, rodFx, rodAccent, rodRowHTML, bagCard,
-  onChange: (f) => R.listeners.push(f), _state: R };
+  copyAccountId, onChange: (f) => R.listeners.push(f), _state: R };
 })();
