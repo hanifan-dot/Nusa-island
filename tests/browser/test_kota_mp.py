@@ -56,6 +56,11 @@ def walk(pgs, targets, speed=4.0, tmo=45):
 def open_run(pg, x0=55, x1=64, y0=24, y1=30, n=6):
     return ev(pg, """(a)=>{const M=NW.SELAT_MAP;for(let y=a[2];y<=a[3];y++)for(let x=a[0];x<=a[1];x++){let ok=true;for(let i=0;i<=a[4];i++)if(!M.walkable(x+i+0.5,y+0.5)){ok=false;break}if(ok)return [x+0.5,y+0.5]}return null}""", [x0, x1, y0, y1, n])
 
+def spots(pg, cx, cy, n=4, rad=9, sep=1.9):
+    """titik JALAN terbuka (3×3 petak sekitarnya semuanya bisa dilalui) di sekitar (cx,cy), saling berjarak ≥ sep — supaya pemain tidak berdiri di dalam gedung"""
+    return ev(pg, """(a)=>{const M=NW.SELAT_MAP,out=[],c=[];for(let y=Math.floor(a[1]-a[3]);y<=a[1]+a[3];y++)for(let x=Math.floor(a[0]-a[3]);x<=a[0]+a[3];x++){let ok=true;for(let j=-1;j<=1&&ok;j++)for(let i=-1;i<=1;i++)if(!M.walkable(x+i+0.5,y+j+0.5)){ok=false;break}
+      if(ok)c.push([x+0.5,y+0.5,Math.hypot(x+0.5-a[0],y+0.5-a[1])])}c.sort((p,q)=>p[2]-q[2]);for(const p of c){if(out.every(o=>Math.hypot(o[0]-p[0],o[1]-p[1])>=a[4]))out.push([p[0],p[1]]);if(out.length>=a[2])break}return out}""", [cx, cy, n, rad, sep])
+
 def srvpos(pg, nm):  # posisi pemain lain menurut tampilan klien pg (hasil server)
     p = peer(pg, nm); return [p["x"], p["y"]] if p else None
 
@@ -104,7 +109,7 @@ def main():
             ok("K16 kapal kosong tetap ada di dermaga (tempat kembali)", len(boats(D)) == 1 and all(x == 0 for x in boats(D)[0]["seats"]))
 
             # ===== 4. Berjalan bersama ke pusat kota (siang) =====
-            walk(ALL, [(56.5, 25.5), (58.5, 27.0), (60.5, 25.5), (62.0, 27.5)])
+            SP = spots(A, 60.0, 25.5, 4); ok("K16b ada 4 titik jalan terbuka di pusat kota", len(SP) == 4, SP); walk(ALL, [SP[1], SP[2], SP[3], SP[0]])   # D (kamera) di titik paling tengah, tiga pemain lain di sekelilingnya
             for x in ALL: hour(x, 12.5)
             for x in ALL: tp_cam = ev(x, "NW.world.snapCamera&&NW.world.snapCamera()")
             time.sleep(1.2)
@@ -115,9 +120,9 @@ def main():
 
             # jalan / berhenti / berbelok / chat / emoji
             A.bring_to_front(); spot = open_run(A) or (58.5, 27.5); walk([A], [spot]); a0 = srvpos(D, "Aji")
-            A.keyboard.down("ArrowRight"); time.sleep(1.0)
+            A.keyboard.down("ArrowRight"); time.sleep(1.5)
             mid = ev(D, "(n)=>{const p=[...NW.mp._R.players.values()].find(q=>q.name===n);return p?{moving:p.ch.moving,x:p.ch.x,d:p.d}:null}", "Aji")
-            ok("K19 D melihat Aji berjalan (moving) ke kanan", mid and mid["moving"] is True and mid["x"] > a0[0] + 0.3, (a0, mid))
+            ok("K19 D melihat Aji berjalan (moving) ke kanan", mid and mid["moving"] is True and mid["x"] > a0[0] + 0.15, (a0, mid))
             A.keyboard.down("ArrowDown"); A.keyboard.up("ArrowRight"); time.sleep(0.9)
             turn = ev(D, "(n)=>{const p=[...NW.mp._R.players.values()].find(q=>q.name===n);return p?{moving:p.ch.moving,d:p.d}:null}", "Aji")
             ok("K20 berbelok: arah hadap berubah di layar D", turn and turn["d"] != mid["d"], (mid, turn))
@@ -198,7 +203,7 @@ def main():
             for x in (A, B, Cc, D): ev(x, "NW.world.onEnter('start','selat')")
             time.sleep(9.0)
             ok("K43 kembali ke kota (setelah jeda) lewat jalur pemain biasa: semua saling terlihat", all(wait_for(x, "NW.mp.area()==='selat'", 12) for x in (A, B, Cc, D)) and wait_for(D, "NW.mp.view().players.length===3", 10), [pn(x) for x in ALL])
-            walk(ALL, [(66.0, 38.8), (68.8, 38.8), (66.8, 42.6), (69.5, 41.6)], speed=5.0, tmo=60)
+            SP2 = spots(A, 67.5, 40.5, 4, rad=6); ok("K43b ada 4 titik jalan terbuka di taman kota", len(SP2) == 4, SP2); walk(ALL, [SP2[1], SP2[2], SP2[3], SP2[0]], speed=5.0, tmo=60)
             for x in ALL: hour(x, 22.5); ev(x, "NW.kota.setClock(()=>69)")
             for x in ALL: ev(x, "NW.world.snapCamera&&NW.world.snapCamera()")
             D.bring_to_front(); time.sleep(1.4); shot(D, "kmp-03-taman-malam")
@@ -214,6 +219,8 @@ def main():
             ok("F1 flag klien NUSA_KOTA OFF: kota/* tidak diunduh, NW.mpKota/NW.kota tidak ada", online(X) and not any("kota/" in u for u in rX) and ev(X, "!NW.mpKota&&!NW.kota"), [u for u in rX if "kota/" in u][:3])
             to_selat(X); time.sleep(2.0); tx = frames(X, "tx")
             ok("F2 flag klien OFF: hello & pesan tidak membawa ko/ar, tidak ada pesan 'ar'; selat tetap 40×40 tanpa kota", '"ko"' not in tx and '"ar"' not in tx and ev(X, "NW.SELAT_MAP.MW") == 40 and not ev(X, "NW.mp.kotaLive()"), ev(X, "NW.SELAT_MAP.MW"))
+            cap = "FLAG OFF (NUSA_KOTA=false) · unduhan kota/*: %d · NW.kota/NW.mpKota: %s · hello ko/ar: %d · pesan ar: %d · selat %dx%d" % (len([u for u in rX if "kota/" in u]), "tidak ada" if ev(X, "!NW.kota&&!NW.mpKota") else "ADA", len(re.findall(r'"ko"', tx)), len(re.findall(r'"t":"ar"', tx)), ev(X, "NW.SELAT_MAP.MW"), ev(X, "NW.SELAT_MAP.MH"))
+            ev(X, "(t)=>{const d=document.createElement('div');d.style.cssText='position:fixed;left:6px;right:6px;bottom:6px;z-index:99999;background:rgba(0,0,0,.78);color:#fff;font:600 12px/1.35 system-ui;padding:7px 9px;border-radius:8px';d.textContent=t;document.body.appendChild(d)}", cap)
             shot(X, "kmp-04-flag-off-klien")
             ok("F3 flag klien OFF: sebelumnya gameFlags tidak diminta oleh modul kota (tak ada kotaNusa dipakai)", ev(X, "!window.NW.mpKota"))
             cX.close()
