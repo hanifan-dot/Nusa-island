@@ -17,3 +17,5 @@ body.kemudi-on #joy,body.kemudi-on #seaBar,body.kemudi-on #seaHud{display:none!i
 .km-btns button.hidden{display:none}
 .km-lever button:disabled{opacity:.4;cursor:not-allowed}
 .km-off .km-wheel,.km-off .km-lever{opacity:.45;pointer-events:none}
+/* #146 melebarkan dock pemain (hitungan server): di layar sempit Kemudi turun di bawah dock supaya tidak menutup tombol obrolan */
+@media (max-width:480px) and (orientation:portrait){.km-top{top:calc(env(safe-area-inset-top,0px) + 88px)}body.kemudi-on .hint{top:calc(env(safe-area-inset-top,0px) + 146px)!important}}
