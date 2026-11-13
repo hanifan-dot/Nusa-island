@@ -3,7 +3,7 @@
 // atau objek lain yang sudah ada. Posisi TIDAK disimpan di mana pun (bukan data pemain): placement bebas = pekerjaan 08E.
 (function () {
 "use strict";
-const NW = (window.NW = window.NW || {}), A = NW.dapurArt; if (!A) return;
+const NW = (window.NW = window.NW || {}), A = NW.dapurArt; if (!A || !NW.dapurGeo) return;
 const P = A.P, shade = A.shade, fill = A.fill, line = A.line, ell = A.ell, TAU = Math.PI * 2;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -11,29 +11,36 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 // Koordinat dasar zona kiri; zona kanan = geser (dx, dy). Alasan geser: Lv 9–10 punya paviliun & taman di kiri, Lv 3–8 punya kebun/gudang/rak di kanan.
 const ZONE = { L: { dx: 0, dy: 0 }, R: { dx: 10.2, dy: -1.0 } };
 const zoneOf = (lv) => (lv >= 9 ? ZONE.R : ZONE.L);
-const rect = (x0, y0, x1, y1, z) => ({ x0: x0 + z.dx, y0: y0 + z.dy, x1: x1 + z.dx, y1: y1 + z.dy });
-const pt = (x, y, z) => ({ x: x + z.dx, y: y + z.dy });
-const CHAIRS = [   // id, tengah, arah hadap (menuju meja)
-  { id: 0, x: 2.45, y: 2.55, face: "s" }, { id: 1, x: 3.35, y: 2.55, face: "s" },
-  { id: 2, x: 2.45, y: 4.45, face: "n" }, { id: 3, x: 3.35, y: 4.45, face: "n" },
-  { id: 4, x: 1.5, y: 3.5, face: "e" }, { id: 5, x: 4.3, y: 3.5, face: "w" },
-  { id: 6, x: 2.25, y: 5.92, face: "n" }, { id: 7, x: 2.85, y: 5.92, face: "n" },       // bangku taman (2 tempat)
+const GEO = NW.dapurGeo;   // aturan & posisi bawaan (berkas inti yang sama dengan backend)
+const CHAIRS = [   // id, arah hadap bawaan (untuk dokumentasi/tes); posisi sebenarnya dari tata letak
+  { id: 0, face: "s" }, { id: 1, face: "s" }, { id: 2, face: "n" }, { id: 3, face: "n" }, { id: 4, face: "e" }, { id: 5, face: "w" }, { id: 6, face: "n" }, { id: 7, face: "n" },
 ];
-const SLOT_XY = [[2.3, 3.2], [2.9, 3.2], [3.5, 3.2], [2.3, 3.8], [2.9, 3.8], [3.5, 3.8]];   // 6 slot makanan di atas meja (3×2)
-const TABLE0 = { x0: 2.0, y0: 3.0, x1: 3.8, y1: 4.0 }, TZ = 22;
-const COFFEE0 = { x0: 3.5, y0: 5.65, x1: 4.3, y1: 6.15 }, BENCH0 = { x0: 1.9, y0: 5.7, x1: 3.2, y1: 6.15 }, STAND0 = { x0: 4.5, y0: 4.4, x1: 5.0, y1: 4.9 };
-function layout(lv) {
-  const z = zoneOf(lv), seatDir = { s: 3, n: 7, e: 1, w: 5 };   // dir: 0..7 sesuai karakter dunia (dihitung ulang dengan faceToward bila tersedia)
-  return {
-    z, table: rect(TABLE0.x0, TABLE0.y0, TABLE0.x1, TABLE0.y1, z), tz: TZ,
-    slots: SLOT_XY.map(([x, y], i) => Object.assign(pt(x, y, z), { s: i })),
-    chairs: CHAIRS.map((c) => Object.assign({}, c, pt(c.x, c.y, z), { dir: seatDir[c.face], bench: c.id >= 6 })),
-    coffee: rect(COFFEE0.x0, COFFEE0.y0, COFFEE0.x1, COFFEE0.y1, z), bench: rect(BENCH0.x0, BENCH0.y0, BENCH0.x1, BENCH0.y1, z), stand: rect(STAND0.x0, STAND0.y0, STAND0.x1, STAND0.y1, z),
-    lamp: pt(1.15, 2.4, z), umbrella: pt(3.35, 5.92, z), umbC: pt(3.35, 5.92, z),
-    plants: [pt(4.75, 2.45, z), pt(4.85, 5.95, z)],
-    // titik interaksi (di sisi yang bisa dijangkau)
-    meja: pt(2.9, 4.95, z), nampan: pt(4.75, 5.15, z), kopi: pt(3.9, 6.6, z),
+const SLOT_OFF = [[-0.6, -0.3], [0, -0.3], [0.6, -0.3], [-0.6, 0.3], [0, 0.3], [0.6, 0.3]];   // 6 slot makanan di atas meja (3×2), relatif pusat meja
+const TZ = 22, seatDir = { s: 3, n: 7, e: 1, w: 5 };
+// Posisi benda = DARI SERVER (halaman.items efektif) atau bawaan. Tidak ada penyimpanan lokal; null = bawaan.
+let ITEMS_NOW = null, CACHE = null;
+function setItems(it) { ITEMS_NOW = it && typeof it === "object" ? it : null; CACHE = null; }
+const itemsNow = () => ITEMS_NOW;
+const R4 = (c, hw, hd) => ({ x0: c[0] - hw, y0: c[1] - hd, x1: c[0] + hw, y1: c[1] + hd });
+function layout(lv, itemsArg) {
+  const it = itemsArg || ITEMS_NOW || GEO.defaults(lv), key = !itemsArg && lv + "|" + (ITEMS_NOW ? JSON.stringify(ITEMS_NOW) : "");
+  if (key && CACHE && CACHE.key === key) return CACHE.L;
+  const z = zoneOf(lv), B = GEO.BY, tb = it.meja, tcx = tb[0], tcy = tb[1];
+  const faceOf = (x, y) => { const dx = tcx - x, dy = tcy - y; return Math.abs(dy) >= Math.abs(dx) ? (dy >= 0 ? "s" : "n") : (dx >= 0 ? "e" : "w"); };
+  const chairs = [];
+  for (let i = 0; i < 6; i++) { const p = it["kursi" + i], f = faceOf(p[0], p[1]); chairs.push({ id: i, face: f, x: p[0], y: p[1], dir: seatDir[f], bench: false }); }
+  const bs = GEO.seatsOf(it.bangku); for (let j = 0; j < 2; j++) chairs.push({ id: 6 + j, face: "n", x: bs[j][0], y: bs[j][1], dir: seatDir.n, bench: true });
+  const fx = GEO.fixedAt(lv), nampanPt = { x: fx.cx, y: fx.cy + 0.5 };
+  const L = {
+    z, items: it, table: R4(tb, B.meja.hw, B.meja.hd), tz: TZ,
+    slots: SLOT_OFF.map(([dx, dy], i) => ({ x: tcx + dx, y: tcy + dy, s: i })),
+    chairs, coffee: R4(it.kopi, B.kopi.hw, B.kopi.hd), bench: R4(it.bangku, B.bangku.hw, B.bangku.hd), stand: { x0: fx.cx - fx.hw, y0: fx.cy - fx.hd, x1: fx.cx + fx.hw, y1: fx.cy + fx.hd },
+    lamp: { x: it.lampu[0], y: it.lampu[1] }, umbrella: { x: it.payung[0], y: it.payung[1] }, umbC: { x: it.payung[0], y: it.payung[1] },
+    plants: [{ x: it.tanaman0[0], y: it.tanaman0[1] }, { x: it.tanaman1[0], y: it.tanaman1[1] }],
+    meja: { x: tcx, y: tcy + B.meja.hd + 0.95 }, nampan: nampanPt, kopi: { x: it.kopi[0], y: it.kopi[1] + B.kopi.hd + 0.45 },
   };
+  if (key) CACHE = { key, L };
+  return L;
 }
 // penghalang jalan (petak). Kursi sengaja TIDAK menghalangi (supaya pemain bisa duduk & berdiri tanpa terjebak).
 function solids(lv) {
@@ -130,7 +137,7 @@ function coffeeItem(L, t, S) {
   } };
 }
 function lampItem(L, t, night) {      // tiang lampu dengan lengan; lampu gantung menggantung di atas meja
-  const lp = L.lamp, T = L.table, cx = (T.x0 + T.x1) / 2, cy = (T.y0 + T.y1) / 2;
+  const lp = L.lamp, T = L.table, tx = (T.x0 + T.x1) / 2, ty = (T.y0 + T.y1) / 2, ddx = tx - lp.x, ddy = ty - lp.y, dd = Math.hypot(ddx, ddy) || 1, kk = Math.min(dd, 2.3) / dd, cx = lp.x + ddx * kk, cy = lp.y + ddy * kk;   // lengan lampu paling panjang 2,3 petak (menuju meja)
   return [
     { d: lp.x + lp.y + 0.1, draw: (c) => { line(c, P(lp.x, lp.y, 0), P(lp.x, lp.y, 118), "#4a2e18", 4); ell(c, P(lp.x, lp.y, 1).x, P(lp.x, lp.y, 1).y, 7, 3, "#4a2e18"); line(c, P(lp.x, lp.y, 118), P(cx, cy, 118), "#4a2e18", 2.6); } },
     { d: cx + cy + 1.6, draw: (c) => {
@@ -163,9 +170,25 @@ function plantItem(p, i, t, calm) {
     ell(c, g.x + 2 + sw, g.y - 38, 2.4, 2.4, i ? "#f6a6b2" : "#f0c75a");
   } };
 }
+// lapisan penataan (hanya saat pemilik mengatur): kotak jejak tiap benda; terpilih tebal; merah bila melanggar aturan
+function editLayer(L, E) {
+  return { d: 9999, draw: (c) => {
+    c.save(); c.lineJoin = "round";
+    for (const it of GEO.ITEMS) {
+      const p = E.work[it.id]; if (!p) continue; const r = GEO.rectOf(it, p), sel = E.sel === it.id, bad = E.bad[it.id] || E.bad["*"] && sel;
+      const q = [P(r.x0, r.y0, 0), P(r.x1, r.y0, 0), P(r.x1, r.y1, 0), P(r.x0, r.y1, 0)];
+      c.beginPath(); c.moveTo(q[0].x, q[0].y); for (let i = 1; i < 4; i++) c.lineTo(q[i].x, q[i].y); c.closePath();
+      c.fillStyle = bad ? "rgba(214,69,69,.30)" : sel ? "rgba(47,179,154,.28)" : "rgba(255,255,255,.10)"; c.fill();
+      c.lineWidth = sel ? 2.6 : 1.2; c.strokeStyle = bad ? "#d64545" : sel ? "#1fa88f" : "rgba(255,255,255,.7)"; c.setLineDash(sel ? [] : [3, 3]); c.stroke(); c.setLineDash([]);
+      if (sel) { const m = P(p[0], p[1], 34); c.font = "800 11px system-ui"; c.textAlign = "center"; c.lineWidth = 3; c.strokeStyle = "rgba(255,255,255,.9)"; c.strokeText(it.name, m.x, m.y); c.fillStyle = bad ? "#a82424" : "#0f6b5a"; c.fillText(it.name, m.x, m.y); }
+    }
+    c.restore();
+  } };
+}
 // semua benda halaman (siang & malam; lampu hangat ditambah di glow)
 function items(lv, t, night, S) {
   const L = layout(lv), out = [];
+  if (S && S.edit) out.push(editLayer(L, S.edit));
   const occ = S && S.occupied ? S.occupied : {};
   for (const ch of L.chairs) if (!ch.bench) out.push(chairItem(L, ch, !!occ[ch.id], night));
   out.push(benchItem(L), tableItem(L, S, t, night), trayStandItem(L, S, t), coffeeItem(L, t, S), ...lampItem(L, t, night), ...umbrellaItem(L, night));
@@ -179,5 +202,5 @@ function glow(ctx, lv, a) {
   NW.lightAt(ctx, L.coffee.x0 + 0.4, L.coffee.y0 + 0.25, 22, 52, "#ffc27a", clamp(a * 0.6, 0, 0.6));
   NW.lightAt(ctx, L.lamp.x, L.lamp.y, 112, 60, "#ffd08a", clamp(a * 0.5, 0, 0.5));
 }
-NW.dapurHalaman = { layout, solids, blocked, items, glow, plate, foodKind, zoneOf, CHAIRS, TZ };
+NW.dapurHalaman = { layout, solids, blocked, items, glow, plate, foodKind, zoneOf, CHAIRS, TZ, setItems, itemsNow, GEO };
 })();

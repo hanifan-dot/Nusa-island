@@ -113,4 +113,18 @@ body.hl-open .visit-back{z-index:45}
   .hl-sheet.mini .hl-tabs,.hl-sheet.mini .hl-offer-t,.hl-sheet.mini .hl-bar,.hl-sheet.mini .hl-offer-b{display:revert}
   .hl-sheet .hl-s{min-height:36px}
 }
+/* 08E — penataan halaman (pemilik) */
+.hl-help{margin:2px 0 6px}
+.hl-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.hl-pick{flex:none;min-height:38px;padding:0 10px;border-radius:19px;border:2px solid rgba(23,63,80,.25);background:#fff9ec;color:#173f50;font-size:12.5px;font-weight:800;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.hl-pick.sel{border-color:#1fa88f;background:#d9f5ee}.hl-pick.bad{border-color:#d64545;background:#fde3e1}.hl-pick.sel.bad{background:#fbd0cd}
+.hl-editrow{display:flex;gap:10px;align-items:stretch}
+.hl-pad{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,40px);gap:3px;flex:none}
+.hl-pad button{min-width:44px;min-height:40px;padding:0;border-radius:11px;border:2px solid rgba(23,63,80,.3);background:#e8b53a;color:#173f50;font-size:15px;font-weight:900;touch-action:manipulation}
+.hl-pad button:active{transform:translateY(1px);filter:brightness(.95)}.hl-pad .hl-step{background:#fff9ec;font-size:12px}
+.hl-pad button:disabled{opacity:.5}
+.hl-editr{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.hl-valid{margin:0;font-size:12px;font-weight:800;line-height:1.25;min-height:30px}.hl-valid.ok{color:#0f6b5a}.hl-valid.bad{color:#a82424}
+.hl-edit-b{display:flex;gap:6px;flex-wrap:wrap}.hl-edit-b .kd-btn{flex:1;min-width:64px;min-height:40px;padding:0 8px;font-size:13px}
+@media (max-height:420px) and (orientation:landscape){.hl-help{display:none}.hl-pad{grid-template-rows:repeat(3,36px)}.hl-pad button{min-height:36px}}
 @media (prefers-reduced-motion:reduce){.hl-bar i{transition:none}}
