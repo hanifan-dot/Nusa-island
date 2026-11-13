@@ -200,15 +200,17 @@ const boatSend = (o) => (R.boatOn && R.state === "online" ? send(Object.assign({
 function onMsg(m, ws) {
   switch (m.t) {
     case "w": {
-      const firstW = !R.gotWelcome;   // welcome ulang karena pindah area (Kota) di soket yang sama: angka server JANGAN dikosongkan
+      R.corr = null; const firstW = !R.gotWelcome;   // welcome ulang karena pindah area (Kota) di soket yang sama: angka server JANGAN dikosongkan
       R.kota = m.ko === 1 && kotaOn(); R.area = R.kota && m.ar === "selat" ? "selat" : "muara"; R.me = m.me; R.room = m.room; R.n = m.n; R.vcount = m.v; R.cap = m.cap; R.players.clear();
       for (const row of m.ps) upsert(row).ch.moving = false;
       if (m.ou && typeof m.ou === "object") for (const id of Object.keys(m.ou)) { const q = R.players.get(id); if (q) setOutfit(q, m.ou[id]); }
       R.boatOn = m.bo === 1; R.boats.clear(); R.mine = null; if (R.boatOn) { for (const r of m.bs || []) setBoat(r); if (Array.isArray(m.mb)) R.mine = { id: m.mb[0], s: m.mb[1] }; boatEmit("sync"); }
       R.gotWelcome = true; R.gotWelcomeEver = true; R.fails = 0; R.holdSent = undefined;
+      if (R.kota && !R.mine && Number.isFinite(m.px) && Number.isFinite(m.py)) { const lw = NW.world && NW.world.player, sx = m.px / P.Q, sy = m.py / P.Q; if (lw && Math.hypot(sx - lw.x, sy - lw.y) > P.KOTA.CORR_MIN) R.corr = { x: sx, y: sy, ar: R.area, at: now() }; }   // posisi menurut server berbeda dari lokal (dijepit/dipindah): susulkan karakter
       if (m.k !== "house") { R.roomNo = m.rn || parseInt(String(m.room).split("-")[1], 10) || 0; R.resume = R.roomNo; R.pending = null; }   // ruang rumah TIDAK mengganti server Muara yang diingat
       clockSample(m.st, R.helloAt); setTimeout(() => { if (R.ws === ws) { R.hbSent = now(); send({ t: "h" }); } }, 600); setTimeout(() => { if (R.ws === ws) { R.hbSent = now(); send({ t: "h" }); } }, 2500);   // beberapa sampel awal → jam akurat
       if (firstW) { R.roomsAt = 0; R.rooms = null; } setState("online", ""); fetchRooms(true); break; }
+    case "pc": if (R.kota && kotaOn() && !R.mine && Number.isFinite(m.x) && Number.isFinite(m.y) && (m.ar === R.area || m.ar === undefined)) R.corr = { x: m.x / P.Q, y: m.y / P.Q, ar: R.area, at: now() }; break;   // koreksi posisi dari server (gerak ditahan batas kecepatan): update() menyusulkan karakter lokal dengan halus
     case "an": R.arAt = now(); R.lastAn = String(m.r || ""); break;                 // penolakan pindah area (jeda/tersembunyi/…): klien mencoba lagi dengan jeda; tidak ada efek lain
     case "k": clockSample(m.st, R.hbSent); R.hbSent = 0; break;
     case "bs": if (R.boatOn && Array.isArray(m.u)) { for (const r of m.u) setBoat(r); boatEmit("state"); } break;
@@ -237,7 +239,7 @@ function onMsg(m, ws) {
 function switchTarget(to) {
   const ws = R.ws; R.ws = null; if (ws) { try { ws.close(1000, "pindah") } catch (e) {} }
   const keep = R.resume; reset(); R.resume = keep;                                    // server Muara yang diingat tetap dipakai saat kembali dari rumah
-  R.gotWelcomeEver = false; R.sent = null; R.profKey = ""; R.lastProf = 0;
+  R.gotWelcomeEver = false; R.corr = null; R.sent = null; R.profKey = ""; R.lastProf = 0;
   R.house = to; R.fails = 0; R.retry = 0; R.nextTry = 0; R.room = "";
   if (!["replaced", "blocked"].includes(R.state)) { R.state = "off"; R.why = ""; }
   emit();
@@ -280,7 +282,19 @@ function netTick() {
 }
 
 // ---------- tampilan (dipanggil world.js) ----------
+function applyCorr(dt) {
+  const c = R.corr; if (!c) return;
+  const w = NW.world && NW.world.player;
+  if (!w || R.mine || !R.kota || now() - c.at > 4000 || c.ar !== R.area || !(NW.areas.cur && NW.areas.cur.id === (R.area === "selat" ? "selat" : P.AREA))) { R.corr = null; return; }
+  const dx = c.x - w.x, dy = c.y - w.y, dist = Math.hypot(dx, dy);
+  if (dist < 0.05) { R.corr = null; return; }
+  const walk = (x, y) => { try { return NW.walkable ? NW.walkable(x, y) : true; } catch (e) { return true; } };
+  if (dist > 10) { if (walk(c.x, c.y)) { w.x = c.x; w.y = c.y; } R.corr = null; return; }      // selisih besar (mis. lompatan ditolak): ikuti posisi server langsung
+  const step = Math.min(dist, Math.max(dist * (1 - Math.exp(-dt * 6)), 2.2 * dt)), nx = w.x + dx / dist * step, ny = w.y + dy / dist * step;
+  if (walk(nx, ny)) { w.x = nx; w.y = ny; } else if (walk(nx, w.y)) w.x = nx; else if (walk(w.x, ny)) w.y = ny; else R.corr = null;   // terhalang: berhenti (tidak menembus rintangan)
+}
 function update(dt) {
+  applyCorr(dt);
   if (R.boats.size) { const kb = 1 - Math.exp(-dt * 7); for (const o of R.boats.values()) { const dx = o.tx - o.x, dy = o.ty - o.y; if (Math.hypot(dx, dy) > 6) { o.x = o.tx; o.y = o.ty; } else { o.x += dx * kb; o.y += dy * kb; } } }   // kapal dihaluskan menuju target server (Worker 02 menggambar dari boats())
   if (!R.players.size) return;
   const k = 1 - Math.exp(-dt * 9);

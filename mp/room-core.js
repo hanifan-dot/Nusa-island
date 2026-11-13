@@ -100,7 +100,7 @@ class Room {
     const w = { t: "w", me: p.pid, room: this.id, rn: this.number(), n: this.size(), v: this.count(), cap: this.cap, ps: list, hz: Math.round(1000 / P.TICK_MS), st: this.now() };
     if (this.house) { w.k = "house"; w.own = p.role === "owner" ? 1 : 0; }
     if (this.boat) { w.bo = 1; w.bs = this.boatRows(p); if (p.boat) w.mb = [p.boat.id, p.boat.s]; }   // bo = server mendukung kapal; bs = kapal terlihat; mb = kapalku (setelah reconnect)
-    if (this.kota) { w.ko = 1; w.ar = p.area; }                                                             // ko = server mendukung Kota Nusa; ar = area kamu menurut server
+    if (this.kota) { w.ko = 1; w.ar = p.area; if (p.kc && !p.boat) { w.px = P.qz(p.x); w.py = P.qz(p.y); } }              // ko = server mendukung Kota Nusa; ar = area kamu menurut server; px,py = posisimu menurut server (klien menyelaraskan bila berbeda — mis. dijepit saat sambung ulang / dipindah ke titik masuk)
     const ou = {}; let nou = 0; for (const [c, q] of this.players) if (c !== conn && same(q) && q.outfit) { ou[q.pid] = q.outfit; nou++; } if (nou) w.ou = ou;     // penampilan pemain yang sudah ada (tambahan; klien lama mengabaikan)
     this.send(conn, w);
   }
@@ -128,7 +128,7 @@ class Room {
     if ((p.lastHop && now - p.lastHop < P.KOTA.HOP_MS) || !p.bAr.take(now)) return false;
     const [bw, bh] = P.KOTA.MAP[a]; let x = Number(m.x) / P.Q, y = Number(m.y) / P.Q;
     if (a === P.KOTA.AREA) { const E = P.KOTA.ENTRY; if (!Number.isFinite(x) || !Number.isFinite(y) || Math.hypot(x - E[0], y - E[1]) > P.KOTA.ENTRY_R) { x = E[0]; y = E[1]; } }
-    else if (!Number.isFinite(x) || !Number.isFinite(y)) { x = 19.5; y = 20.6; }
+    else { const H = P.KOTA.HOME; if (!Number.isFinite(x) || !Number.isFinite(y) || Math.hypot(x - H[0], y - H[1]) > P.KOTA.HOME_R) { x = H[0]; y = H[1]; } }   // kembali ke Muara hanya di sekitar dermaga (titik tiba kapal), bukan di sembarang tempat
     p.bud = P.KOTA.BURST; p.budAt = now; p.area = a; p.x = Math.max(0, Math.min(bw, x)); p.y = Math.max(0, Math.min(bh, y)); p.d = P.clampInt(m.d, 0, 7, 2); p.f = 0; p.lastMove = now; p.lastHop = now; p.dirty = false; p.pend = null; p.hold = null;
     return true;
   }
@@ -210,6 +210,12 @@ class Room {
     p.bud = Math.min(K.BURST, (p.bud == null ? K.BURST : p.bud) + dt * K.SPEED);
     const allow = Math.min(want, p.bud); p.bud -= allow; return allow;
   }
+  // Koreksi posisi (Kota Nusa): gerak ditahan batas kecepatan → beri tahu PEMAIN ITU SAJA posisi yang diterima server, supaya klien menyusulkan karakternya dengan halus
+  // (tidak melihat dirinya jauh di depan sementara orang lain melihatnya tertinggal). Hanya bila server kota ON dan klien menyatakan dukungan; selisih kecil diabaikan; ≤ 1 pesan / 400 ms.
+  correct(conn, p, now, wx, wy, x, y) {
+    if (!this.kota || !p.kc || Math.hypot(wx - x, wy - y) < P.KOTA.CORR_MIN || now - (p.pcAt || 0) < P.KOTA.CORR_MS) return;
+    p.pcAt = now; this.send(conn, { t: "pc", x: P.qz(x), y: P.qz(y), ar: p.area });
+  }
   move(conn, p, m, now) {
     if (p.boat) return;                                              // di atas kapal: posisi mengikuti kapal (server), gerak sendiri diabaikan
     if (!p.bMove.take(now)) return;                                 // kelebihan pesan posisi dibuang diam-diam
@@ -220,7 +226,7 @@ class Room {
     const d = P.clampInt(m.d, 0, 7, p.d); let f = P.clampInt(m.f, 0, this.fMask, 0);
     if (this.kota && p.area === "selat") {                           // Kota Nusa: anggaran jarak (rata-rata ≤ KOTA.SPEED petak/dtk, lonjakan ≤ KOTA.BURST), tidak bergantung pada laju pesan; tidak ada teleport
       const dist = Math.hypot(x - p.x, y - p.y), allow = this.spend(p, dist, now);
-      if (allow < dist) { const k = allow / dist; x = p.x + (x - p.x) * k; y = p.y + (y - p.y) * k; }
+      if (allow < dist) { const wx = x, wy = y, k = allow / dist; x = p.x + (x - p.x) * k; y = p.y + (y - p.y) * k; this.correct(conn, p, now, wx, wy, x, y); }
       f &= ~F.TP;
       if (x === p.x && y === p.y && d === p.d && f === p.f) { p.lastMove = now; return; }
       p.x = x; p.y = y; p.d = d; p.f = f; p.lastMove = now; p.dirty = true; return;
@@ -229,7 +235,7 @@ class Room {
     const door = this.house && ((f ^ p.f) & F.IN);                  // lewat pintu rumah (halaman ↔ dalam): koordinat berganti ruang, lompatan sah
     if (dist > lim && !door) {
       if ((f & F.TP) && p.area === "muara" && now - p.lastTp > 5000) p.lastTp = now;   // lompatan sah (mis. kembali dari rumah), dibatasi 1× / 5 detik — hanya di Muara; di kota tidak ada teleport (pindah area lewat `ar`/kapal)
-      else { const k = lim / dist; x = p.x + (x - p.x) * k; y = p.y + (y - p.y) * k; }   // ditahan: tidak bisa teleport/speedhack
+      else { const wx = x, wy = y, k = lim / dist; x = p.x + (x - p.x) * k; y = p.y + (y - p.y) * k; this.correct(conn, p, now, wx, wy, x, y); }   // ditahan: tidak bisa teleport/speedhack
     }
     f &= ~F.TP;
     if (x === p.x && y === p.y && d === p.d && f === p.f) { p.lastMove = now; return; }

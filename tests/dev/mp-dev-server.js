@@ -44,12 +44,14 @@ function getHouseRoom(name) {
 }
 const sig = new Map();
 function memberSync(room, force) {   // sama dengan Durable Object: laporan daftar lengkap anggota ke lobby; sesi ganda lintas instance ditutup
-  if (room.house) return;   // ruang rumah tidak memakai lobi Muara
+  if (room.house) {   // sama dengan HouseRoom produksi: rumah melaporkan penghuninya (beserta server Muara induknya) ke lobi; angka server menghitung mereka
+    const members = [...room.players.values()].filter((p) => p.sr).map((p) => ({ uid: p.uid, room: p.sr })).sort((a, b) => a.uid.localeCompare(b.uid)), sg = JSON.stringify(members);
+    if (force || sig.get(room.id) !== sg) { sig.set(room.id, sg); lobby.houseSync(room.id, members); }
+    return;
+  }
   const u = room.uids().sort(), key = u.join("|"), k = room.number(); if (!force && sig.get(k) === key) return; sig.set(k, key);
   for (const d of lobby.sync(k, u)) { const r = rooms.get("muara-" + d.room); const c = r && r.byUid.get(d.uid); if (c != null) { r.kick(c, 4002, "Akunmu masuk dari perangkat lain."); memberSync(r); } }
 }
-setInterval(() => { for (const r of rooms.values()) { r.sweep(); r.tick(); memberSync(r); } }, P.TICK_MS);
-
 setInterval(() => { for (const r of rooms.values()) { r.sweep(); r.tick(); memberSync(r); } }, P.TICK_MS);
 
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, content-type", "access-control-allow-methods": "GET, POST, OPTIONS" };
@@ -105,7 +107,8 @@ async function houseUpgrade(req, sock, key, uid, pid) {
   if ((houseBans.get(a.room + ":" + a.me) || 0) > Date.now() && a.role === "visitor") { sock.write("HTTP/1.1 403 Denied\r\n\r\n"); return sock.destroy(); }
   const room = getHouseRoom(a.room);
   if (room.size() >= room.cap && !room.byUid.has(uid)) { sock.write("HTTP/1.1 503 Full\r\n\r\n"); return sock.destroy(); }
-  attach(req, sock, key, uid, room, nextConn++, { role: a.role, hid: a.me });
+  const parent = lobby.parent(uid) || P.roomId(new URL(req.url, "http://x").searchParams.get("sr"));   // sama dengan houseDoor produksi
+  attach(req, sock, key, uid, room, nextConn++, { role: a.role, hid: a.me, parentRoom: parent });
 }
 function attach(req, sock, key, uid, room, conn, extra) {
   const accept = crypto.createHash("sha1").update(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest("base64");

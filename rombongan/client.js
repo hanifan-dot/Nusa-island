@@ -212,6 +212,7 @@ function portLayer(t, view, inView) {
 // ---------- perpindahan area (kapten memberangkatkan kapal lewat protokol `go`; semua awak ikut) ----------
 function goArea(id) { const f = $("fade"); if (f) f.classList.add("on"); setTimeout(() => { try { N().goWorld("rombongan", id); } catch (e) { /* area tak tersedia: tetap di tempat */ } setTimeout(() => f && f.classList.remove("on"), 80); }, 380); }
 function disembark(spot) {   // kapten turun ke dermaga pelabuhan (visual saja; protokol: kursi tetap miliknya, server menolak `leave` saat kapal "pergi")
+  if (dockMode()) return leave();                             // Kota Nusa: kapal berlabuh sebagai pemain terlihat → turun SUNGGUHAN lewat protokol (`leave`), bukan visual
   const m = mineInfo(); if (!m || !m.captain || st.ashore || !inPort()) return false; const P = NW.world.player;
   st.trk.ghosts.push({ pid: NW.mp._R.me, b: m.id, kind: "leave", t0: now(), from: lastPose(NW.mp._R.me) || { x: P.x, y: P.y, z: C.SEAT_Z }, s: 0 }); st.ghostTo = { x: spot.x, y: spot.y };
   st.ashore = true; P.x = spot.x; P.y = spot.y; P.dir = 6; P.moving = false; st.hideUntil = now() + C.T.LEAVE; st.lastSig = ""; N().sfx("boat_naik"); return true;

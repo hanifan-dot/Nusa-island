@@ -120,4 +120,23 @@ function crew3(r) { const a = r.add(1, "cap", { n: "Kapten", x: 37.2, y: 22 }), 
   const r3 = mk({ boat: true }); r3.room.restoreBoats(JSON.parse(JSON.stringify(boats))); ok(r3.room.boats.get(bid).away === true && r3.room.boats.get(bid).kota === false, "server kota dimatikan: kapal kota dibaca sebagai 'pergi' (awak aman)"); }
 // area Muara tak berubah: kapal & pemain lama (regresi singkat)
 { const r = mk(); const { bid } = crew3(r); r.add(4, "mur", { n: "DiMuara", x: 30, y: 20 }); r.clear(); r.bt(1, { a: "anchor", on: false }); r.bt(1, { a: "steer", d: 2, th: 1 }); r.tick(8); ok(r.to(4).some((m) => m.t === "bs") && r.room.boats.get(bid).v > 0, "berlayar di Muara tetap berjalan"); }
+// ---- koreksi posisi `pc` (gerak ditahan batas kecepatan → hanya pemain itu diberi tahu posisi server) ----
+{ const r = mk(); r.add(1, "a", { ar: "selat", x: 20, y: 21 }); r.add(2, "b", { ar: "selat", x: 24, y: 21 }); r.adv(1000); r.clear();
+  r.send(1, { t: "m", x: P.qz(60), y: P.qz(21), d: 0, f: 1 });                     // klaim 40 petak: ditahan
+  const pc = r.to(1).filter((m) => m.t === "pc"); ok(pc.length === 1, "gerak ditahan → tepat 1 pesan pc ke pemain itu");
+  ok(pc[0] && Math.abs(pc[0].x / P.Q - pos(r, 1)[0]) < 0.1 && Math.abs(pc[0].y / P.Q - pos(r, 1)[1]) < 0.1 && pc[0].ar === "selat", "pc memuat posisi yang DITERIMA server (bukan klaim klien) + area");
+  ok(!r.to(2).some((m) => m.t === "pc"), "pemain lain tidak menerima pc"); ok(Object.keys(pc[0]).sort().join() === "ar,t,x,y", "pc hanya x,y,ar (tanpa uid/saldo/dll)");
+  r.clear(); r.adv(100); r.send(1, { t: "m", x: P.qz(61), y: P.qz(21), d: 0, f: 1 }); ok(!r.to(1).some((m) => m.t === "pc"), "pc dibatasi laju (jeda ≥ " + K.CORR_MS + " ms)");
+  r.adv(600); r.clear(); r.send(1, { t: "m", x: P.qz(62), y: P.qz(21), d: 0, f: 1 }); ok(r.to(1).some((m) => m.t === "pc"), "setelah jeda, pc dikirim lagi bila masih ditahan"); }
+{ const r = mk(); r.add(1, "a", { ar: "selat", x: 20, y: 21 }); r.adv(1000); r.clear(); r.send(1, { t: "m", x: P.qz(24), y: P.qz(21), d: 0, f: 1 }); ok(!r.to(1).some((m) => m.t === "pc"), "jalan wajar (≤ anggaran): tidak ada pc"); }
+{ const r = mk(); r.add(1, "a", { ar: "selat", x: 20, y: 21 }); r.adv(1000); r.clear(); r.send(1, { t: "m", x: P.qz(20.4), y: P.qz(21), d: 0, f: 1 }); r.send(1, { t: "m", x: P.qz(20.7), y: P.qz(21), d: 0, f: 1 }); ok(!r.to(1).some((m) => m.t === "pc"), "selisih kecil tidak memicu pc"); }
+{ const r = mk(); r.add(1, "a", { ar: "selat", x: 20, y: 21, ko: false }); r.room.players.get(1).kc = false; r.adv(1000); r.clear(); r.send(1, { t: "m", x: P.qz(60), y: P.qz(21), d: 0, f: 1 }); ok(!r.to(1).some((m) => m.t === "pc"), "klien tanpa kapabilitas kota: tidak menerima pc"); }
+{ const r = mk({ boat: true }); r.add(1, "a", { x: 20, y: 21 }); r.adv(500); r.clear(); r.send(1, { t: "m", x: P.qz(70), y: P.qz(21), d: 0, f: 0 }); ok(!r.to(1).some((m) => m.t === "pc"), "server kota OFF: tidak ada pc (perilaku lama)"); }
+{ const r = mk(); r.add(1, "a", { x: 20, y: 21 }); r.room.players.get(1).kc = true; r.adv(500); r.clear(); r.send(1, { t: "m", x: P.qz(70), y: P.qz(21), d: 0, f: 0 }); const q = r.to(1).filter((m) => m.t === "pc"); ok(q.length === 1 && q[0].ar === "muara", "Muara (kota ON + klien kota): lompatan ditolak juga dikoreksi"); }
+// ---- posisi menurut server di welcome (px,py) + titik tiba di Muara ----
+{ const r = mk(); r.add(1, "a", { ar: "selat", x: 20, y: 21 }); const w = r.last(1, "w"); ok(w && Math.abs(w.px / P.Q - 20) < 0.1 && Math.abs(w.py / P.Q - 21) < 0.1, "welcome membawa posisimu menurut server (px,py)");
+  const r2 = mk(); r2.add(1, "a", { x: 25, y: 20 }); r2.send(1, { t: "ar", a: "selat", x: P.qz(10.5), y: P.qz(20.5), d: 3 }); r2.adv(7000); r2.clear();
+  r2.send(1, { t: "ar", a: "muara", x: P.qz(3), y: P.qz(3), d: 2 }); const q = pos(r2, 1); ok(r2.room.players.get(1).area === "muara" && Math.hypot(q[0] - K.HOME[0], q[1] - K.HOME[1]) < 0.5, "kembali ke Muara dengan klaim jauh dari dermaga → dipindah ke dermaga (" + q + ")");
+  const w2 = r2.last(1, "w"); ok(w2 && Math.abs(w2.px / P.Q - q[0]) < 0.1, "welcome setelah pindah membawa posisi yang ditetapkan server (klien menyelaraskan)");
+  const r3 = mk(); r3.add(1, "a", { x: 25, y: 20 }); r3.send(1, { t: "ar", a: "selat", x: P.qz(10.5), y: P.qz(20.5), d: 3 }); r3.adv(7000); r3.send(1, { t: "ar", a: "muara", x: P.qz(36), y: P.qz(21), d: 2 }); const q3 = pos(r3, 1); ok(Math.hypot(q3[0] - 36, q3[1] - 21) < 0.5, "tiba di sekitar dermaga: klaim dipakai apa adanya"); }
 console.log(`unit-mp-kota: ${pass} lolos, ${fail} gagal`); process.exit(fail ? 1 : 0);
