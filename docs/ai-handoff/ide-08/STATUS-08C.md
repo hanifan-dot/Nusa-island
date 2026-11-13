@@ -3,9 +3,21 @@
 Pemilik: Worker 01 (Ide 08). Status: **Draft PR bertingkat di atas #137, semua flag MATI**. Tidak mengubah #136, #137, #59, #60, #61.
 
 ## Basis
-- Dasar: head Draft PR #137 = `86bb876` (branch `fitur/ide08b-kedai-dapur-20261113`, yang sendiri bertumpu pada #136 `fd803a3f45a9b76fb2daef3b4619bc38acd13c8b`).
-- Branch 08C: `fitur/ide08c-masak-cuci-20261113`. PR dasar = branch #137 (bukan `main`), jadi diff hanya memuat 08C.
+- Fase A final: `25b71fe936038bd577dc7ab6d97c11e26b4b63c8` (branch `integrasi/fase-a-final-20261113`).
+- #137 (08B) di-rebase oleh sesi ini ke `25b71fe`: head baru `530b1dfe2f854f89993da3ecf2c31e59ab957afc` (dulu `86bb876`), `--force-with-lease`, base PR #137 kini `integrasi/fase-a-final-20261113`. Rebase tanpa konflik; tambahan `!(NW.room && NW.room.active)` di `rombongan/client.js` DAN Kemudi Rombongan (Fase A) sama-sama utuh (diff `rombongan/` terhadap #137 = 0).
+- Branch 08C: `fitur/ide08c-masak-cuci-20261113`, di-rebase di atas head #137 baru. PR dasar = branch #137 (bukan `main`), jadi diff hanya memuat 08C.
 - Backend: PR #60 (08A), kontrak `CONTRACT-08A.md`. Tidak ada perubahan backend.
+
+## Workstation jarak dekat (tambahan wajib) — `dapur/bench.js`
+Saat panel dapur terbuka, bagian atas layar (di sisi kiri pada lanskap) berubah menjadi **kanvas workstation jarak dekat**, bukan daftar tombol/progress bar. Panel bawah tetap ada sebagai jalur cadangan (papan ketik / pembaca layar).
+- **Kompor/wajan**: wajan besar, api kecil/sedang/besar (tombol api di kanvas), baki bahan (ketuk bahan = "masukkan ke wajan", tampilan saja), spatula (balik), gagang wajan (angkat), sendok kayu (aduk), garam (bumbu), piring (sajikan).
+- **Talenan**: kupas (bawang), potong **dan iris** (ketuk atau geser jari melintasi talenan = irisan), cuci di basin, pecah telur ke mangkuk, aduk, bumbu. Adegan berpindah otomatis sesuai langkah resep; ada tombol pindah "Talenan ⇄ Kompor".
+- **Panci**: teko "isi air" (tahan), air + gelembung mendidih + uap, angkat. **Pemanggang**: arang menyala mengikuti panas, jeruji, ikan + jeruk, balik ikan. **Gelas**: teko tuang, sendok aduk, sajikan.
+- **Meja saji**: masakan di piring (resep → gambar bahan; tier → gosong/mentah/aneh/tidak layak), nampan: ketuk masakan untuk menatanya di piring.
+- **Wastafel**: pilih alat kotor, lalu sabun → gosok → bilas → taruh ke rak langsung di kanvas.
+- **Petunjuk kematangan**: warna makanan (pucat → keemasan → cokelat → hitam), asap (putih → pekat), gelembung & desis minyak (suara), api; potret karakter di pojok bereaksi (puas/biasa/ragu/bingung/batuk/mual + animasi muntah kartun, blur ikut menutup kanvas). Terlalu cepat → **mentah**, terlambat → **gosong** — **ditentukan server**, bukan kanvas.
+- **Nyaman di HP**: sasaran sentuh ≥ 38×34 px, ketuk di mana saja pada kanvas dihitung untuk gerakan ketuk; putar/gosok menghitung jarak jari di mana pun (tidak perlu presisi); mode Tenang mengurangi gerak.
+- Tidak ada perubahan backend/kontrak: kanvas hanya memanggil aksi yang sama (nama langkah); langkah `tuang` untuk panci ("isi air") adalah langkah resmi server yang opsional.
 
 ## Perbaikan kecil 08B (dikerjakan lebih dulu)
 - Sheet kasir HP: bottom sheet **maks 45% tinggi layar**, ada pegangan; **ketuk = diperkecil/dibuka**, **tarik = ubah tinggi** (64 px – 45%), Enter/Spasi juga bekerja.
@@ -34,7 +46,7 @@ Harga bahan, harga pemanggang 250 dan angka kualitas adalah **nilai uji** — be
 
 ## Tes
 - `node tests/unit-dapur.js` — **26 lulus** (17 dari 08B + 9 baru: tingkat hasil/efek, pad, badan Mulai/Cuci, batas masak bebas, Percepat, alat kotor tanpa penilaian di klien, perkiraan visual, fishPool, galat).
-- `python3 tests/browser/test_dapur_masak.py` — **93 lulus, 0 gagal**, dengan **backend ASLI (PR #60)** lewat jembatan lokal `tests/browser/dapur_bridge.mjs` (Firestore tiruan, jam bisa dimajukan, data sintetis). Butuh `NUSA_BACKEND=/jalur/nusa-island-control-center`; tanpa itu uji DILEWATI, bukan lulus palsu.
+- `python3 tests/browser/test_dapur_masak.py` — **133 lulus, 0 gagal** (termasuk 26 uji workstation `WB*` dan 14 uji ukuran layar `WS-*`), dengan **backend ASLI (PR #60)** lewat jembatan lokal `tests/browser/dapur_bridge.mjs` (Firestore tiruan, jam bisa dimajukan, data sintetis). Butuh `NUSA_BACKEND=/jalur/nusa-island-control-center`; tanpa itu uji DILEWATI, bukan lulus palsu.
   Cakupan: 10 resep (4 awal + 6 rahasia ditemukan lewat masak bebas), gosong / mentah / aneh / tidak layak, makan & buang, blur 4 dtk dan hilangnya, mode tenang & reduced-motion, retry & klik ganda & putus koneksi (mulai, langkah, api, sajikan, makan) dengan jawaban hilang, ikan tepat sekali (mulai & batal), audio mute / slider 0 / lazy, cuci normal & percepat (+ 409 dari server), layar 360×740 / 412×915 / 740×360 / 1280×800 (panel & sheet kasir ≤45%, bisa diperkecil/ditarik, Bu Indah & kasir tidak tertutup).
 - `python3 tests/browser/test_dapur.py` (08B) — 59 lulus, 0 gagal setelah perubahan sheet.
 - Regresi lulus: semua `unit-*` (kecuali 2 yang sudah gagal di basis: `unit-leaderboard-stats`, `unit-username`), `test_ekonomi` 22, `test_house` 83, `test_rumahku_sosial` 25, `test_rumahku_flag_server` 2, `test_delivery` 35, `test_kedai_hidup` 16, `test_rombongan` 51.
@@ -43,7 +55,8 @@ Harga bahan, harga pemanggang 250 dan angka kualitas adalah **nilai uji** — be
 - Build: `bash firebase/scripts/build-hosting.sh` dan `node firebase/scripts/cek-rilis.js` (lihat laporan PR). Pindai rahasia: bersih.
 
 ## Screenshot (`docs/ide08c/`)
-c01 menyiapkan bahan · c02 menggoreng (api besar) · c03 gosong + reaksi karakter · c04 mual + blur · c05 aneh · c06 tidak layak (Buang / Tetap makan) · c07 bak cuci · c08 cuci: bilas · c09 kasir HP 360×740 · c09b kasir diperkecil · c10 panel masak lanskap 740×360 · c11 mual dalam mode tenang.
+Workstation utama: c12 pilih resep (kompor) · c13 talenan · c14 kompor + api · c15 angkat · c16 meja saji · c17 mentah (terlalu cepat) · c18 gosong (terlambat) + reaksi · c19 mual + blur · c20 panci · c21 wastafel · c23 gelas · c26 pemanggang · c24 kompor 360×740 & 740×360 · c25 panel diperkecil.
+Dari rangkaian lengkap: c01 menyiapkan bahan · c02 menggoreng · c03 gosong + reaksi · c04 mual + blur · c05 aneh · c06 tidak layak · c07/c08 bak cuci · c09 kasir ≤45% (+ c09b diperkecil, 740×360) · c10 panel masak · c11 mual dalam mode tenang.
 
 ## Keterbatasan (jujur)
 - Tes di Chromium headless; FPS BUKAN bukti performa HP (Galaxy M15 5G belum diuji fisik). Audio sintetis belum didengar di perangkat nyata; mixing/volume butuh telinga Owner.
