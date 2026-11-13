@@ -154,6 +154,133 @@ function reach(L, cell) {
   return { at: (x, y) => { const i = Math.floor(x / cell), j = Math.floor(y / cell); return i >= 0 && j >= 0 && i < nx && j < ny && seen[j * nx + i] === 1; }, nx, ny, seen };
 }
 
-const api = { LIM, SHELVES, SHELF_ORDER, shelfOf, newBasket, kinds, count, sig, catalogMap, stockOf, add, whyText, lines, total, buyBody, newOpId, errText, definite, mergeEco, LAYOUT, walk, reach, PR, homeDoor };
+// ===================== 08C · Memasak interaktif, hasil masakan, cuci peralatan =====================
+// SEMUA keputusan (kualitas, kematangan, resep ditemukan, hasil gagal, cuci sah) ada di server (dapurCook*, dapurEat, dapurDiscard, dapurWash).
+// Di sini hanya: bentuk body (niat pemain), pemetaan gerakan layar → langkah, daftar ikan yang boleh dipilih, dan tabel REAKSI tampilan per hasil server.
+const PREP_ORDER = ["cuci", "kupas", "potong", "pecah", "aduk", "bumbui", "tuang"];
+// gerakan layar untuk tiap langkah. need = ambang gerakan (ketukan / putaran / milidetik / piksel). Itu hanya "rasa" bermain: server tetap hanya menerima NAMA langkah.
+const ACT = {
+  cuci:   { icon: "🚿", label: "Cuci",           kind: "tap",    need: 3,    hint: "Ketuk-ketuk untuk menyiram" },
+  kupas:  { icon: "🧅", label: "Kupas",          kind: "tap",    need: 4,    hint: "Ketuk untuk mengupas lapisannya" },
+  potong: { icon: "🔪", label: "Potong",         kind: "tap",    need: 5,    hint: "Ketuk berirama: tok, tok, tok" },
+  pecah:  { icon: "🥚", label: "Pecahkan telur", kind: "tap",    need: 2,    hint: "Ketuk dua kali di pinggir mangkuk" },
+  aduk:   { icon: "🥄", label: "Aduk",           kind: "circle", need: 1.5,  hint: "Putar jarimu melingkar (atau ketuk-ketuk)" },
+  bumbui: { icon: "🧂", label: "Tambah bumbu",   kind: "tap",    need: 2,    hint: "Ketuk untuk menaburkan" },
+  tuang:  { icon: "🥛", label: "Tuang",          kind: "hold",   need: 900,  hint: "Tahan untuk menuang" },
+  taruh:  { icon: "🔥", label: "Taruh di api",   kind: "tap",    need: 1,    hint: "Ketuk untuk menaruh" },
+  balik:  { icon: "🔄", label: "Balik",          kind: "tap",    need: 2,    hint: "Ketuk dua kali untuk membalik" },
+  angkat: { icon: "🫕", label: "Angkat",         kind: "hold",   need: 500,  hint: "Tahan sebentar untuk mengangkat" },
+};
+const WASH_ACT = {
+  sabun: { icon: "🧼", label: "Sabun",  kind: "tap",   need: 3,    hint: "Ketuk untuk menggosokkan sabun" },
+  gosok: { icon: "🧽", label: "Gosok",  kind: "scrub", need: 520,  hint: "Gosok bolak-balik dengan jarimu (atau ketuk-ketuk)" },
+  bilas: { icon: "🚰", label: "Bilas",  kind: "hold",  need: 1000, hint: "Tahan untuk membilas" },
+  rak:   { icon: "🍽️", label: "Taruh di rak", kind: "tap", need: 1, hint: "Ketuk untuk menaruh di rak" },   // hanya tampilan; tidak dikirim ke server
+};
+const WASH_SERVER = ["sabun", "gosok", "bilas"];                           // = catalog.washSteps; urutan wajib
+const WASHABLE = ["piring", "gelas", "sendok", "wajan", "panci", "pemanggang"];
+const ITEM = { piring: ["🍽️", "Piring"], gelas: ["🥛", "Gelas"], sendok: ["🥄", "Sendok"], wajan: ["🍳", "Wajan"], panci: ["🍲", "Panci"], pemanggang: ["♨️", "Pemanggang"] };
+const TOOL_OF_STATION = { kompor: ["wajan", "panci"], pemanggang: ["pemanggang"], persiapan: ["gelas"] };
+const TOOL_NAME = { wajan: "Wajan", panci: "Panci", pemanggang: "Pemanggang", gelas: "Gelas" };
+const HEAT_TOOLS = ["wajan", "panci", "pemanggang"];
+const FREE_LIM = { units: 12, per: 6, kinds: 8, fish: 2 };
+const TIER = {   // label & reaksi karton PER HASIL SERVER. face: ekspresi pemain; fx: efek; dish: warna sajian
+  enak:        { label: "Enak sekali!",     face: "puas",   emoji: "😋", fx: "bintang", dish: "#d9923a", line: "Wangi dan pas. Bu Indah pasti bangga!" },
+  lumayan:     { label: "Lumayan",          face: "biasa",  emoji: "🙂", fx: "none",    dish: "#c9a45c", line: "Tidak buruk. Bisa lebih mantap lagi." },
+  aneh:        { label: "Rasanya aneh",     face: "bingung", emoji: "🤨", fx: "tanya",  dish: "#a98f58", line: "Hmm… rasanya apa ini ya?" },
+  gosong:      { label: "Gosong",           face: "batuk",  emoji: "😵", fx: "asap",    dish: "#2a2420", line: "Uhuk! Asapnya ke mana-mana." },
+  mentah:      { label: "Masih mentah",     face: "ragu",   emoji: "😬", fx: "keringat", dish: "#e8dcc0", line: "Hmm… kayaknya belum matang." },
+  tidak_layak: { label: "Tidak layak makan", face: "bingung", emoji: "😖", fx: "tanya", dish: "#6f6a52", line: "Sebaiknya jangan dimakan. Buang saja?" },
+};
+const EAT = {     // hasil dapurEat.effect (server): kosmetik saja
+  puas:  { face: "puas",  emoji: "😋", line: "Nyam! Enak sekali." },
+  biasa: { face: "biasa", emoji: "🙂", line: "Lumayan, kenyang." },
+  ragu:  { face: "ragu",  emoji: "😬", line: "Hmm… aneh, tapi habis juga." },
+  mual:  { face: "mual",  emoji: "🤢", line: "Blegh… perutku jungkir balik." },
+};
+const tierInfo = (t) => TIER[t] || TIER.aneh;
+const eatInfo = (e) => EAT[e] || EAT.biasa;
+// batas durasi efek yang ditampilkan: server mengirim ms (maks 4000); klien tidak pernah memperpanjang.
+const effectMs = (ms) => Math.max(0, Math.min(4000, Number.isFinite(ms) ? Math.floor(ms) : 0));
+
+// ikan yang boleh dipilih untuk dimasak: ada uid, bukan Samudra Follower, bukan sampah/terlindungi, tidak terkunci. (Server tetap memeriksa kepemilikan.)
+function fishPool(cooler, FISH, isSF) {
+  const by = {}; for (const f of FISH || []) by[f.id] = f; const out = [];
+  for (const it of Array.isArray(cooler) ? cooler : []) {
+    if (!it || typeof it.uid !== "string" || !/^[A-Za-z0-9_-]{6,64}$/.test(it.uid) || it.lock === true) continue;
+    const f = by[it.id]; if (!f || f.rarity === "sampah" || f.protected) continue; if (isSF && isSF(it.id)) continue;
+    out.push({ uid: it.uid, id: it.id, w: Number(it.w) || 0, name: f.name });
+  }
+  return out;
+}
+// apakah resep bisa dimulai dari stok? need dari katalog server (ikan dihitung terpisah)
+function recipeReady(rec, dapur, fishCount) {
+  const miss = []; if (!rec) return { ok: false, miss };
+  for (const [k, n] of Object.entries(rec.ing || {})) { if (k === "ikan") { if (fishCount < n) miss.push({ id: "ikan", need: n, have: fishCount }); } else { const h = stockOf(dapur, k); if (h < n) miss.push({ id: k, need: n, have: h }); } }
+  return { ok: miss.length === 0, miss };
+}
+function validateFree(ing, fishN) {   // kemudahan tampilan; server menolak yang melanggar
+  let units = fishN | 0, kindsN = fishN ? 1 : 0;
+  for (const [k, n] of Object.entries(ing || {})) { if (!(n > 0)) continue; if (!isInt(n) || n > FREE_LIM.per) return { ok: false, why: "per-jenis" }; units += n; kindsN++; }
+  if (!units) return { ok: false, why: "kosong" }; if (units > FREE_LIM.units) return { ok: false, why: "terlalu-banyak" }; if (kindsN > FREE_LIM.kinds) return { ok: false, why: "jenis" };
+  return { ok: true, units };
+}
+const opOk = (o) => typeof o === "string" && LIM.opRe.test(o);
+function startBody(opId, tool, rec, ing, fishUids) {
+  if (!opOk(opId)) return { ok: false, why: "op" }; if (!TOOL_NAME[tool]) return { ok: false, why: "alat" };
+  const fish = Array.isArray(fishUids) ? fishUids.slice(0, FREE_LIM.fish) : [];
+  if (new Set(fish).size !== fish.length) return { ok: false, why: "ikan-kembar" };
+  const body = { opId, tool, rec: rec || null }; if (fish.length) body.fish = fish;
+  if (!rec) { const i = {}; for (const [k, n] of Object.entries(ing || {})) if (n > 0) i[k] = n; const v = validateFree(i, fish.length); if (!v.ok) return v; body.ing = i; }   // resep: jumlah bahan DIABAIKAN server, jadi tidak dikirim
+  return { ok: true, body };
+}
+function stepBody(opId, step, arg) {
+  if (!opOk(opId)) return { ok: false, why: "op" };
+  if (!(PREP_ORDER.includes(step) || ["taruh", "api", "balik", "angkat"].includes(step))) return { ok: false, why: "langkah" };
+  const body = { opId, step }; if (step === "api") { if (![1, 2, 3].includes(arg)) return { ok: false, why: "api" }; body.arg = arg; }
+  return { ok: true, body };
+}
+const opBody = (opId, extra) => (opOk(opId) ? { ok: true, body: Object.assign({ opId }, extra || {}) } : { ok: false, why: "op" });
+const finishBody = (opId) => opBody(opId), abortBody = (opId) => opBody(opId);
+const eatBody = (opId, dish) => (typeof dish === "string" && dish.length > 0 && dish.length <= 40 ? opBody(opId, { dish }) : { ok: false, why: "dish" });
+const discardBody = eatBody;
+function washBody(opId, item, quick) {
+  if (!WASHABLE.includes(item)) return { ok: false, why: "alat" };
+  return opBody(opId, quick === true ? { item, quick: true } : { item, steps: WASH_SERVER.slice() });
+}
+// percepat boleh DITAWARKAN hanya setelah ≥1 cuci lengkap (server menghitung washOk); server tetap menolak bila belum.
+const canQuick = (dapur) => !!(dapur && dapur.washOk >= 1);
+const dirtyList = (dapur) => WASHABLE.filter((k) => dapur && dapur.dirty && dapur.dirty[k] > 0).map((k) => ({ id: k, n: dapur.dirty[k], icon: ITEM[k][0], name: ITEM[k][1] }));
+const dirtyTotal = (dapur) => dirtyList(dapur).reduce((a, d) => a + d.n, 0);
+// saran urutan persiapan dari resep (tampilan). Urutan yang benar dinilai server.
+function nextHint(rec, done) {
+  if (!rec) return null; const need = rec.prep || []; let i = 0; for (const d of done || []) if (i < need.length && d === need[i]) i++;
+  return i < need.length ? need[i] : null;
+}
+// PERKIRAAN visual tingkat kematangan (hanya warna/asap di layar; BUKAN penilaian). eff = detik efektif perkiraan; win dari katalog server (resep yang sudah ditemukan) atau umum.
+const GENERIC_WIN = { min: 10, ideal: [14, 24], burn: 38 };
+function visualStage(eff, win) {
+  const w = win || GENERIC_WIN; if (!(eff > 0)) return { k: 0, name: "mentah" };
+  if (eff < w.min) return { k: 0.15 + 0.3 * eff / w.min, name: "mentah" };
+  if (eff < w.ideal[0]) return { k: 0.45 + 0.2 * (eff - w.min) / (w.ideal[0] - w.min), name: "hampir" };
+  if (eff <= w.ideal[1]) return { k: 0.75, name: "pas" };
+  if (eff <= w.burn) return { k: 0.75 + 0.25 * (eff - w.ideal[1]) / (w.burn - w.ideal[1]), name: "terlalu" };
+  return { k: 1, name: "gosong" };
+}
+const FACTOR = { 1: 0.6, 2: 1, 3: 1.6 };
+function errTextCook(e) {
+  const c = e && e.code, m = e && e.message ? String(e.message) : "";
+  if (c === "unauthenticated") return "Masuk dulu dengan akun Google.";
+  if (c === "unavailable" || c === "internal" || c === "deadline-exceeded") return "Jaringan bermasalah. Tenang, bahan dan masakanmu aman — coba lagi.";
+  if (c === "not-found") return "Dapur belum dibuka oleh server.";
+  if (c === "resource-exhausted") return "Terlalu cepat. Tunggu sebentar lalu coba lagi.";
+  if (c === "failed-precondition" || c === "invalid-argument") return m && m.length <= 140 ? m : "Aksi ditolak server. Bahanmu aman.";
+  return "Belum berhasil. Bahan dan masakanmu aman.";
+}
+// larangan bocor: body ke server tidak boleh memuat bidang yang hanya boleh diputuskan server
+const FORBID = ["uid", "email", "token", "price", "balance", "coins", "own", "reward", "quality", "q", "tier", "doneness", "heat", "time", "now"];
+const hasForbidden = (o) => { if (!o || typeof o !== "object") return false; for (const k of Object.keys(o)) { if (FORBID.includes(k) || hasForbidden(o[k])) return true; } return false; };
+
+const api = { PREP_ORDER, ACT, WASH_ACT, WASH_SERVER, WASHABLE, ITEM, TOOL_OF_STATION, TOOL_NAME, HEAT_TOOLS, FREE_LIM, TIER, EAT, tierInfo, eatInfo, effectMs, fishPool, recipeReady, validateFree, startBody, stepBody, finishBody, abortBody, eatBody, discardBody, washBody, canQuick, dirtyList, dirtyTotal, nextHint, visualStage, GENERIC_WIN, FACTOR, errTextCook, hasForbidden, LIM, SHELVES, SHELF_ORDER, shelfOf, newBasket, kinds, count, sig, catalogMap, stockOf, add, whyText, lines, total, buyBody, newOpId, errText, definite, mergeEco, LAYOUT, walk, reach, PR, homeDoor };
 if (typeof module !== "undefined" && module.exports) module.exports = api; else root.NusaDapurCore = api;
 })(typeof window !== "undefined" ? window : globalThis);

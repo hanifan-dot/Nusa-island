@@ -136,7 +136,7 @@ function ensureUI() {
   chip.innerHTML = '<button type="button" id="kdChipBtn" aria-label="Lihat keranjang">🧺 <b id="kdChipN">0</b><i></i>🪙 <b id="kdChipOwn">–</b></button>';
   const sh = document.createElement("div"); sh.id = "kdSheet"; sh.className = "kd-sheet hidden"; sh.setAttribute("role", "dialog"); sh.setAttribute("aria-modal", "false");
   document.body.appendChild(chip); document.body.appendChild(sh);
-  sh.addEventListener("click", onSheetClick); $("kdChipBtn").addEventListener("click", () => { sfx("click"); if (K.sheet === "pay") return; openSheet("pay"); });
+  NW.room.watchSheet(sh); sh.addEventListener("click", onSheetClick); $("kdChipBtn").addEventListener("click", () => { sfx("click"); if (K.sheet === "pay") return; openSheet("pay"); });
 }
 function syncChip() {
   const c = $("kdChip"); if (!c) return; const on = NW.room.active && NW.room.scene === "kedai"; c.classList.toggle("hidden", !on);
@@ -145,7 +145,7 @@ function syncChip() {
 let blocked = false;
 function setBlock(on) { if (on === blocked) return; blocked = on; NW.room.block(on); }
 function openSheet(kind, arg) {
-  ensureUI(); K.sheet = kind; K.arg = arg || null; K.msg = ""; K.confirmTool = false; setBlock(true); $("kdSheet").classList.remove("hidden"); render();
+  ensureUI(); K.sheet = kind; K.arg = arg || null; K.msg = ""; K.confirmTool = false; setBlock(true); $("kdSheet").classList.remove("hidden", "mini"); render();
   if (!K.cat && !K.loading) load();
 }
 function closeSheet() { K.sheet = null; const s = $("kdSheet"); if (s) { s.classList.add("hidden"); s.innerHTML = ""; } setBlock(false); syncChip(); }
@@ -183,7 +183,7 @@ function render() {
       }
     }
   }
-  sh.innerHTML = h;
+  sh.innerHTML = NW.room.GRIP + h;
 }
 function toolRow() {
   const t = K.tools && K.tools.find((x) => x.id === "pemanggang"); if (!t) return "";

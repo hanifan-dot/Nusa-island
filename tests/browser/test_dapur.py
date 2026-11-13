@@ -50,8 +50,8 @@ class Srv:
         else: return s.err("not-found", "Fungsi tidak dikenal.")
         s.ops[op] = r; return 200, {"result": r}
 
-def page(b, flag, srv=None, vp=(360, 740), reqs=None, touch=True, dpr=2):
-    ctx = b.new_context(viewport={"width": vp[0], "height": vp[1]}, has_touch=touch, device_scale_factor=dpr)
+def page(b, flag, srv=None, vp=(360, 740), reqs=None, touch=True, dpr=2, **kw):
+    ctx = b.new_context(viewport={"width": vp[0], "height": vp[1]}, has_touch=touch, device_scale_factor=dpr, **kw)
     sd = seed("Budi")
     init = "window.__demoAuto='demo-a';" + ("window.NUSA_DAPUR=true;" if flag else "")
     init += "window.firebase={apps:[1],auth:()=>({currentUser:{getIdToken:async()=>'TOKEN-UJI'}})};"
@@ -67,7 +67,7 @@ def page(b, flag, srv=None, vp=(360, 740), reqs=None, touch=True, dpr=2):
         except Exception: pass
         if srv and (name == "gameFlags" or name.startswith("dapur")):
             if srv.delay: time.sleep(srv.delay)
-            if srv.fail_net > 0 and name == "dapurBuy":
+            if srv.fail_net > 0 and name in getattr(srv, "fail_names", ("dapurBuy",)):
                 srv.fail_net -= 1; srv.calls.append((name + "!net", body))
                 # SATU kali dikerjakan server lalu jawaban hilang (kasus paling berbahaya: bayar sudah masuk, klien tidak tahu)
                 if srv.fail_net == 0 and getattr(srv, "lose_reply", False): srv.handle(name, body)

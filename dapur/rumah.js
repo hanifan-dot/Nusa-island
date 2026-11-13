@@ -1,5 +1,5 @@
 // NUSA ISLAND — Ide 08B · Dapur Rumahku (interior dapur dari pintu di dalam Rumahku). Visual 2.5D ringan + tabrakan benar.
-// 08B hanya MEMBANGUN ruangannya: bahan yang sudah dibeli bisa dilihat di lemari/kulkas (jawaban server). Memasak interaktif = 08C (belum ada di PR ini).
+// 08B membangun ruangannya; 08C (dapur/masak.js) menambahkan memasak interaktif, nampan, dan bak cuci lewat stasiun kompor/pemanggang/persiapan/cuci/meja/sampah.
 // Pintu dapur hanya ada bila SERVER menyatakan dapurRumahku=true (klien memanggil install() setelah gerbang). Tamu yang berkunjung tidak melihat/memakai pintu ini.
 (function () {
 "use strict";
@@ -192,7 +192,8 @@ function drawTop(c, t) {
   c.fillStyle = "#2f8f7a"; c.beginPath(); c.moveTo(b.x + sw - 12, b.y); c.lineTo(b.x + sw + 12, b.y); c.lineTo(b.x + sw + 5, b.y - 10); c.lineTo(b.x + sw - 5, b.y - 10); c.fill(); c.fillStyle = "#fff1c4"; c.beginPath(); c.arc(b.x + sw, b.y + 2, 4, 0, TAU); c.fill();
 }
 // celemek untuk pemain (hanya tampilan; tidak mengubah gaya/penampilan tersimpan). Terlihat dari depan/samping.
-function afterPlayer(c, pl) {
+function afterPlayer(c, pl, t) { apron(c, pl); if (NW.dapurMasak) NW.dapurMasak.afterPlayer(c, pl, t); }
+function apron(c, pl) {
   const o = P(pl.x, pl.y, 0), d = [1, 0.7, 0, -0.7, -1, -0.7, 0, 0.7][pl.dir | 0], fy = [0, 0.7, 1, 0.7, 0, -0.7, -1, -0.7][pl.dir | 0];
   if (fy < -0.1) return; const w = 4.4 * (1 - Math.abs(d) * 0.35) + 1.2;
   c.fillStyle = "#fff6e4"; c.fillRect(o.x - w, o.y - 19, w * 2, 11); c.strokeStyle = "#d94f3d"; c.lineWidth = 1; c.strokeRect(o.x - w, o.y - 19, w * 2, 11);
@@ -200,7 +201,9 @@ function afterPlayer(c, pl) {
 }
 
 // ---------- status & interaksi ----------
+function setData(d, tools, cat) { R.dapur = d || R.dapur; if (tools) R.tools = tools; if (cat) R.cat = cat; R.at = Date.now(); }   // dari masak.js: satu sumber data dapur
 async function load() {
+  if (NW.dapurMasak) return NW.dapurMasak.load(true);
   if (R.loading || !api()) return; R.loading = true; R.loadErr = "";
   try { const r = await api().state(); R.cat = Core.catalogMap(r && r.catalog); R.dapur = (r && r.dapur) || null; R.tools = r && r.catalog && Array.isArray(r.catalog.tools) ? r.catalog.tools : null; R.at = Date.now(); NW.room.invalidate(); }
   catch (e) { R.loadErr = Core.errText(e); }
@@ -213,25 +216,25 @@ const stockLines = (ids) => {
 const COLD = ["telur", "susu", "air_es", "tempe", "sayuran"];
 function interact(t, pl, openDialog) {
   const say = (name, avatar, ...lines) => openDialog({ name, avatar, lines });
-  const soon = "Memasak langsung di layar menyusul di tahap berikutnya (Ide 08C). Bahan yang kamu beli sudah tersimpan aman.";
   if (t.id === "d_lemari" || t.id === "d_kulkas") {
     if (!R.dapur) { load(); return say(t.id === "d_lemari" ? "Lemari Bahan" : "Kulkas", t.id === "d_lemari" ? "🗄️" : "🧊", R.loading ? "Sebentar, memeriksa isinya…" : (R.loadErr || "Isi belum dimuat. Coba lagi sebentar.")); }
     const all = Object.keys(R.dapur.ing || {}), cold = all.filter((i) => COLD.includes(i)), dry = all.filter((i) => !COLD.includes(i));
     const ls = stockLines(t.id === "d_kulkas" ? cold : dry), name = t.id === "d_lemari" ? "Lemari Bahan" : "Kulkas";
     return say(name, t.id === "d_lemari" ? "🗄️" : "🧊", ls.length ? `Isi ${name.toLowerCase()}: ${ls.join(", ")}.` : `${name} masih kosong.`, ls.length ? "Batas simpan: 30 untuk tiap jenis bahan." : "Belanja dulu di Kedai Bu Indah, dekat NUSA STYLE.");
   }
-  if (t.id === "d_pemanggang") return say("Pemanggang", "♨️", toolOpen("pemanggang") ? "Pemanggangmu siap dipakai." : "Alat ini masih tertutup terpal. Bu Indah menjualnya di etalase kedai.", soon);
-  if (t.id === "d_kompor") return say("Kompor Dua Tungku", "🔥", "Wajan di kiri, panci di kanan. Apinya bisa diatur kecil, sedang, atau besar.", soon);
-  if (t.id === "d_persiapan") return say("Meja Persiapan", "🔪", "Talenan, pisau, dan mangkuk bawang sudah siap.", soon);
-  if (t.id === "d_cuci") return say("Bak Cuci", "🚰", "Piring dan gelas kotor dicuci di sini: sabun, gosok, bilas.", soon);
-  if (t.id === "d_meja") return say("Meja Makan", "🍽️", "Dua bangku, dua piring. Nanti di sini kamu makan masakanmu, atau bersama teman.", soon);
-  if (t.id === "d_sampah") return say("Tempat Sampah", "🗑️", "Masakan yang gagal dibuang ke sini.", soon);
+  const MK = NW.dapurMasak;
+  if (t.id === "d_pemanggang") { if (!toolOpen("pemanggang")) return say("Pemanggang", "♨️", "Alat ini masih tertutup terpal. Bu Indah menjualnya di etalase kedai."); return MK ? MK.open("pemanggang") : say("Pemanggang", "♨️", "Pemanggangmu siap dipakai."); }
+  if (t.id === "d_kompor") return MK ? MK.open("kompor") : say("Kompor Dua Tungku", "🔥", "Wajan di kiri, panci di kanan.");
+  if (t.id === "d_persiapan") return MK ? MK.open("persiapan") : say("Meja Persiapan", "🔪", "Talenan, pisau, dan mangkuk bawang sudah siap.");
+  if (t.id === "d_cuci") return MK ? MK.open("cuci") : say("Bak Cuci", "🚰", "Piring dan gelas kotor dicuci di sini.");
+  if (t.id === "d_meja") return MK ? MK.open("meja") : say("Meja Makan", "🍽️", "Dua bangku, dua piring.");
+  if (t.id === "d_sampah") return MK ? MK.open("sampah") : say("Tempat Sampah", "🗑️", "Masakan yang gagal dibuang ke sini.");
 }
 const def = {
   id: "dapur", layout: L, wallH: 112, bg: ["#2f3a38", "#101615"], shellKey: () => "v1",
   drawShell: shell,
   onEnter() { if (!R.dapur || Date.now() - R.at > 20000) load(); },
-  onExit() {},
+  onExit() { if (NW.dapurMasak) NW.dapurMasak.leave(); },
   candidates() {
     const S = L.stations, o = [{ id: "exit", x: S.pintu.x, y: S.pintu.y, r: S.pintu.r, icon: S.pintu.icon, label: S.pintu.label }];
     for (const k of ["lemari", "kulkas", "persiapan", "cuci", "kompor", "pemanggang", "meja", "sampah"]) o.push({ id: "d_" + k, x: S[k].x, y: S[k].y, r: S[k].r, icon: S[k].icon, label: S[k].label });
@@ -240,7 +243,8 @@ const def = {
   interact,
   items(t) {
     const m = L.solids.meja, p = L.solids.pemanggang, sa = L.solids.sampah;
-    return [{ d: (m.x0 + m.x1) / 2 + (m.y0 + m.y1) / 2, draw: (c) => drawMeja(c, t) }, { d: (p.x0 + p.x1) / 2 + (p.y0 + p.y1) / 2, draw: (c) => drawPemanggang(c, t) }, { d: (sa.x0 + sa.x1) / 2 + (sa.y0 + sa.y1) / 2, draw: drawSampah }];
+    const k = L.solids.kompor, MK = NW.dapurMasak;
+    return [{ d: (k.x0 + k.x1) / 2 + (k.y0 + k.y1) / 2 - 0.2, draw: (c) => { if (MK) MK.drawCook(c, t); } }, { d: (m.x0 + m.x1) / 2 + (m.y0 + m.y1) / 2, draw: (c) => { drawMeja(c, t); if (MK) MK.drawPlate(c); } }, { d: (p.x0 + p.x1) / 2 + (p.y0 + p.y1) / 2, draw: (c) => drawPemanggang(c, t) }, { d: (sa.x0 + sa.x1) / 2 + (sa.y0 + sa.y1) / 2, draw: drawSampah }];
   },
   afterPlayer, drawTop,
   glow(c, t, a) { NW.lightAt(c, 4.0, 2.0, 130, 120, "#ffd9a0", 0.3 * a); NW.lightAt(c, 6.4, 0.5, 40, 70, "#ff9a3c", 0.12 * a); },
@@ -274,5 +278,5 @@ function install() {
   NW.home.hooks.dapur = { candidate: homeCandidate, draw: homeDraw, enter: enterKitchen };
   NW.HD.extraClear.push(clearRect); if (NW.home.bump) NW.home.bump();
 }
-NW.dapurRumah = { install, def, R, load, doorRect, clearRect, homeCandidate, _toolOpen: toolOpen };
+NW.dapurRumah = { install, def, R, load, doorRect, clearRect, homeCandidate, _toolOpen: toolOpen, setData };
 })();
