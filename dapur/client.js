@@ -5,7 +5,7 @@
 "use strict";
 const NW = (window.NW = window.NW || {}), Core = window.NusaDapurCore; if (!Core || !NW.room) return;
 const N = () => window.Nusa;
-const st = { srv: false, gateTried: false, hooked: false, homeHooked: false };
+const st = { srv: false, gateTried: false, gateFail: 0, hooked: false, homeHooked: false };
 const call = (name, body) => (window.NusaApi && window.NusaApi.enabled() ? window.NusaApi.call(name, body || {}, true) : Promise.reject(Object.assign(new Error("offline"), { code: "unavailable" })));
 
 // ---------- adapter server (kontrak CONTRACT-08A) ----------
@@ -25,6 +25,12 @@ const api = {
   async eat(body) { return absorbEco(await call("dapurEat", body)); },                    // {opId, dish}
   async discard(body) { return absorbEco(await call("dapurDiscard", body)); },            // {opId, dish}
   async wash(body) { return absorbEco(await call("dapurWash", body)); },                  // {opId, item, steps|quick}
+  // 08D — meja halaman & tawaran (kontrak CONTRACT-08D, backend PR #61). Identitas dari token; klien hanya mengirim niat + pid publik.
+  mejaState: (body) => call("dapurMejaState", body || {}),                                // pemilik: {} → meja:{slots,table,offers}
+  mejaTaruh: (body) => call("dapurMejaTaruh", body), mejaAmbil: (body) => call("dapurMejaAmbil", body), mejaBersih: (body) => call("dapurMejaBersih", body),   // {opId, dish|slot}
+  mejaTawar: (body) => call("dapurMejaTawar", body), mejaBatal: (body) => call("dapurMejaBatal", body), mejaTutup: (body) => call("dapurMejaTutup", body),     // {opId, slot, to:pid} / {opId, offer} / {opId}
+  mejaLihat: (body) => call("dapurMejaLihat", body),                                      // tamu: {owner:pid} → meja:{table,mine}
+  tawaranJawab: (body) => call("dapurTawaranJawab", body), mejaKeluar: (body) => call("dapurMejaKeluar", body),                                           // tamu: {opId, owner, offer, accept} / {opId, owner}
 };
 
 // ---------- bangunan Kedai Bu Indah di Muara (di bekas "Lahan Pengembangan", barat plaza NUSA STYLE) ----------
@@ -49,11 +55,11 @@ function mountKedai() {
 // ---------- gerbang server ----------
 async function gate() {
   if (st.srv || st.gateTried) return; st.gateTried = true;
-  try { const r = await call("gameFlags", {}); if (r && r.dapurRumahku === true) { st.srv = true; mountKedai(); if (NW.dapurRumah && NW.dapurRumah.install) NW.dapurRumah.install(); } } catch (e) { /* server lama/mati: tetap tersembunyi */ }
+  try { const r = await call("gameFlags", {}); if (r && r.dapurRumahku === true) { st.srv = true; st.social = r.socialHome === true; mountKedai(); if (NW.dapurRumah && NW.dapurRumah.install) NW.dapurRumah.install(); if (NW.dapurSosial && NW.dapurSosial.install) NW.dapurSosial.install(); } } catch (e) { /* server lama/mati: tetap tersembunyi; gagal sementara (jaringan/token belum siap) dicoba lagi paling banyak 3x */ if (++st.gateFail <= 3) setTimeout(() => { st.gateTried = false; gate(); }, 4000 * st.gateFail); }
 }
 function hook() {
   if (st.hooked) return; st.hooked = true;
   const t = setInterval(() => { if (st.srv || st.gateTried) return clearInterval(t); if (!(window.NusaApi && window.NusaApi.enabled() && NW.cloud && NW.cloud.user)) return; clearInterval(t); gate(); }, 3000);
 }
-NW.dapur = { hook, api, gate, mountKedai, KB, SPOT, _st: st, get serverOn() { return st.srv; } };
+NW.dapur = { hook, api, gate, mountKedai, KB, SPOT, _st: st, get serverOn() { return st.srv; }, get socialOn() { return st.srv && st.social; } };
 })();

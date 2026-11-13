@@ -103,6 +103,7 @@ function plotWalk(x, y, r = 0.22) {
   if (x < 0.6 + r || y < 0.6 + r || x > HS.PW - 0.6 - r || y > HS.PH - 0.4 - r) return false;
   for (const s of HS.PLOT_SOLIDS(HS.plotLayout(lvl()))) if (x > s.x0 - r && x < s.x1 + r && y > s.y0 - r && y < s.y1 + r) return false;
   if (NW.pondDraw && NW.pondDraw.solid(x, y, r)) return false;      // Kolam Ikanku (pond/draw.js)
+  if (hooks.halaman && hooks.halaman.blocked(x, y, r, lvl())) return false;   // meja makan & perabot halaman sosial (Ide 08D; hanya bila server dapurRumahku aktif)
   return true;
 }
 const walkable = (x, y) => (state.scene === "room" ? roomWalk(x, y) : plotWalk(x, y));
@@ -118,6 +119,7 @@ function candidates() {
     ];
     if (!state.visit && NW.pondDraw) list.push({ id: "p_kolam", x: NW.pondDraw.SPOT.x, y: NW.pondDraw.SPOT.y, r: 1.0, icon: "🐟", label: "Kelola Kolam" });
     if (state.visit) list[0] = { id: "p_gate", x: L.gate.x, y: L.gate.y - 0.5, r: 0.9, icon: "⬅", label: "Pulang" };
+    if (hooks.halaman) list.push(...hooks.halaman.candidates(!!state.visit, lvl()));   // meja makan, kursi, nampan, kopi (Ide 08D)
     if (L.ex.paviliun) list.push({ id: "p_pav", x: L.ex.paviliun.x1 + 0.4, y: (L.ex.paviliun.y0 + L.ex.paviliun.y1) / 2, r: 0.9, icon: "🍵", label: "Duduk" });
     if (L.ex.kolam) list.push({ id: "p_pond", x: (L.ex.kolam.x0 + L.ex.kolam.x1) / 2, y: L.ex.kolam.y0 - 0.4, r: 1.0, icon: "🐟", label: "Kolam" });
     return list;
@@ -169,6 +171,7 @@ function exitToIsland(player) {
 function interact(t, player, openDialog) {
   if (state.visit) return visitInteract(t, player, openDialog);
   const S = N().S, h = H();
+  if (t.id.startsWith("hl_") && hooks.halaman) return hooks.halaman.interact(t, player, openDialog);
   if (t.id === "h_dapur" && hooks.dapur) return hooks.dapur.enter(player);
   if (t.id === "p_gate") return exitToIsland(player);
   if (t.id === "p_door") return fadeThen(() => goRoom(player));
@@ -205,6 +208,7 @@ function visitHome(snap) {
 function visitInteract(t, player, openDialog) {
   const v = state.visit, h = v.home, who = v.name;
   const say = (name, avatar, ...lines) => openDialog({ name, avatar, lines });
+  if (t.id.startsWith("hl_") && hooks.halaman) return hooks.halaman.interact(t, player, openDialog);
   if (t.id === "p_gate") return leaveVisit(player);
   if (t.id === "p_door") return fadeThen(() => goRoom(player));
   if (t.id === "h_door") return fadeThen(() => goPlot(player, "door"));
@@ -436,7 +440,8 @@ function hook() {
 function camTarget(player, W, H2, ZW) {
   if (state.scene === "plot") { // sedikit lebih jauh & lebih tinggi supaya rumah besar terlihat utuh
     const p = P(player.x, player.y, 0), L = HS.plotLayout(lvl()), hc = P((L.house.x0 + L.house.x1) / 2, (L.house.y0 + L.house.y1) / 2, 60);
-    return { x: p.x * 0.75 + hc.x * 0.25, y: (p.y - 22) * 0.7 + hc.y * 0.3, z: ZW * (lvl() >= 7 ? 0.82 : 0.9) };
+    const z = ZW * (lvl() >= 7 ? 0.82 : 0.9), ins = NW.room && NW.room.inset ? NW.room.inset() : { b: 0, r: 0 };   // sheet bawah/samping (Ide 08D): pusat kamera bergeser ke area yang masih terlihat
+    return { x: p.x * 0.75 + hc.x * 0.25 + ins.r / 2 / z, y: (p.y - 22) * 0.7 + hc.y * 0.3 + ins.b / 2 / z, z };
   }
   const { w, d } = HD.roomOf(lvl()), c = P(w / 2, d / 2, 30);
   const fit = Math.min((W - 24) / ((w + d) * 32 + 40), (H2 - 230) / ((w + d) * 16 + 150));
@@ -456,6 +461,7 @@ function drawScene(ctx, t, dk, player, V) {
     if (NW.pondDraw) for (const it of NW.pondDraw.items(t, night, state.visit ? null : NW.pond.drawState(), player)) list.push(it);     // Kolam Ikanku
     list.push({ d: player.x + player.y, draw: (c) => NW.drawCharacter(c, player, t) });
     for (const it of remoteItems(t)) list.push(it);
+    if (hooks.halaman) for (const it of hooks.halaman.items(lvl(), t, night, player)) list.push(it);   // halaman sosial (Ide 08D)
     list.sort((a, b) => a.d - b.d).forEach((it) => it.draw(ctx));
     // pemain di belakang rumah tetap terlihat (siluet)
     const hb = L.house; if (player.y < hb.y1 && player.x > hb.x0 - 0.5 && player.x < hb.x1 + 0.5) { ctx.globalAlpha = 0.5; NW.drawCharacter(ctx, player, t); ctx.globalAlpha = 1; }
@@ -465,6 +471,7 @@ function drawScene(ctx, t, dk, player, V) {
       const a = clamp((dk - 0.15) * 1.3, 0, 0.75) * 0.5, e = L.e, z0 = e.stilts;
       NW.lightAt(ctx, HX(), L.doorPt.y - 0.5, z0 + 20, 90, "#ffa94d", a);
       if (NW.pondDraw && !state.visit) NW.pondDraw.glow(ctx, a * 2, NW.pond.drawState());
+      if (hooks.halaman) hooks.halaman.glow(ctx, lvl(), clamp((dk - 0.1) * 1.4, 0, 1));
       if (e.extras.includes("obor")) for (const [x, y] of [[4.4, 11], [6.6, 10.3]]) NW.lightAt(ctx, x, y, 30, 60, "#ff9a3c", a);
       if (e.extras.includes("lentera") && L.porch) NW.lightAt(ctx, L.porch.x0 + 0.5, L.porch.y1, z0 + 30, 70, "#ffb347", a);
       ctx.globalCompositeOperation = "source-over";
@@ -525,6 +532,7 @@ NW.home = {
   walkable, candidates, interact, enter, hook, camTarget, drawScene, isEditing: () => state.editing,
   update(dt) {
     updateCat(dt);
+    if (hooks.halaman && hooks.halaman.update) hooks.halaman.update(dt, NW.world.player);
     if (state.upgradeT > 0) state.upgradeT = Math.max(0, state.upgradeT - dt);
     if (state.flash > 0) state.flash = Math.max(0, state.flash - dt * 1.5);
   },
