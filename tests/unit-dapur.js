@@ -92,4 +92,51 @@ T("HD.canPlace menolak perabot di area pintu dapur HANYA setelah dipasang (extra
   const r = HD.canPlace(h, f); a.ok(!r.ok && /dapur/.test(r.why), r.why); a.ok(HD.canPlace(h, { uid: "t2", type: "tanaman", x: 3, y: 3, rot: 0 }).ok, "perabot di tempat lain tetap boleh");
   HD.extraClear.length = 0;
 });
+
+// ===================== Ide 08C — memasak, cuci, hasil gagal (logika murni) =====================
+const OP = "kbmwedabc123";
+T("08C: 6 tingkat hasil punya label, wajah & efek; efek makan sesuai kontrak server (mual/ragu/puas/biasa)", () => {
+  for (const t of ["enak", "lumayan", "aneh", "gosong", "mentah", "tidak_layak"]) { const i = C.tierInfo(t); a.ok(i && i.label && i.face && i.line, t); }
+  a.strictEqual(C.eatInfo("mual").face, "mual"); a.strictEqual(C.eatInfo("ragu").face, "ragu"); a.ok(C.eatInfo("puas")); a.ok(C.eatInfo("biasa"));   // lamanya efek (ms) datang dari SERVER; klien hanya menjepit 0–4000
+  a.strictEqual(C.effectMs(99999), 4000); a.strictEqual(C.effectMs(-5), 0); a.strictEqual(C.effectMs(NaN), 0); a.strictEqual(C.effectMs("x"), 0);
+});
+T("08C: pad gerakan — 12 interaksi terdefinisi, semua nama langkah ada di kontrak server", () => {
+  for (const k of ["cuci", "kupas", "potong", "pecah", "aduk", "bumbui", "tuang", "taruh", "balik", "angkat"]) { const x = C.ACT[k]; a.ok(x && ["tap", "circle", "hold", "scrub"].includes(x.kind) && x.need > 0 && x.label, k); }
+  for (const k of ["sabun", "gosok", "bilas", "rak"]) a.ok(C.WASH_ACT[k] && C.WASH_ACT[k].need > 0, k);
+  a.deepStrictEqual(C.WASH_SERVER, ["sabun", "gosok", "bilas"]);
+});
+T("08C: badan Mulai — resep tanpa ing; masak bebas dengan ing; ikan maks 2 & tidak kembar; tanpa bidang terlarang", () => {
+  const r = C.startBody(OP, "wajan", "telur_ceplok", { telur: 5 }, []); a.ok(r.ok); a.deepStrictEqual(r.body, { opId: OP, tool: "wajan", rec: "telur_ceplok" });
+  const f = C.startBody(OP, "wajan", null, { telur: 1, minyak: 0, garam: 2 }, ["fish-a-1", "fish-b-2"]); a.ok(f.ok); a.deepStrictEqual(f.body.ing, { telur: 1, garam: 2 }); a.deepStrictEqual(f.body.fish, ["fish-a-1", "fish-b-2"]);
+  a.strictEqual(C.startBody(OP, "wajan", null, {}, ["x1", "x1"]).why, "ikan-kembar"); a.strictEqual(C.startBody(OP, "kuali", null, {}, []).why, "alat"); a.strictEqual(C.startBody("", "wajan", null, {}, []).why, "op");
+  a.ok(!C.hasForbidden(f.body)); a.ok(C.hasForbidden({ a: { price: 1 } })); a.ok(C.hasForbidden({ uid: "x" })); a.ok(C.hasForbidden({ q: 100 })); a.ok(C.hasForbidden({ tier: "enak" }));
+});
+T("08C: validasi masak bebas mengikuti batas server (≤12 unit, ≤6 per jenis, ≤8 jenis, ≤2 ikan)", () => {
+  a.strictEqual(C.validateFree({}, 0).why, "kosong"); a.ok(C.validateFree({ telur: 6 }, 0).ok); a.strictEqual(C.validateFree({ telur: 7 }, 0).why, "per-jenis");
+  a.strictEqual(C.validateFree({ telur: 6, tempe: 6 }, 1).why, "terlalu-banyak"); a.strictEqual(C.validateFree({ telur: 1.5 }, 0).why, "per-jenis");
+  const k9 = {}; for (let i = 0; i < 9; i++) k9["b" + i] = 1; a.strictEqual(C.validateFree(k9, 0).why, "jenis");
+});
+T("08C: Percepat cuci hanya setelah satu cuci lengkap (washOk≥1); badan cuci normal = steps tetap, cepat = quick:true", () => {
+  a.ok(!C.canQuick(null)); a.ok(!C.canQuick({ washOk: 0 })); a.ok(C.canQuick({ washOk: 1 }));
+  const n = C.washBody(OP, "piring", false); a.deepStrictEqual(n.body, { opId: OP, item: "piring", steps: ["sabun", "gosok", "bilas"] });
+  const q = C.washBody(OP, "gelas", true); a.deepStrictEqual(q.body, { opId: OP, item: "gelas", quick: true }); a.strictEqual(C.washBody(OP, "talenan", false).why, "alat");
+});
+T("08C: alat kotor — daftar & total mengikuti angka server; penalti kualitas TIDAK dihitung klien", () => {
+  const d = { dirty: { wajan: 1, piring: 2, sendok: 0, aneh: 3 } }; const l = C.dirtyList(d); a.ok(l.every((x) => x.n > 0)); a.strictEqual(C.dirtyTotal(d), l.reduce((s, x) => s + x.n, 0));
+  a.ok(!Object.keys(C).some((k) => /penalti|penalty|kualitas|quality|computeQ|score/i.test(k)), "klien tidak boleh punya fungsi penilaian kualitas");
+});
+T("08C: warna matang di layar hanya perkiraan tampilan; urutan petunjuk mengikuti resep", () => {
+  const w = { min: 10, ideal: [14, 20], burn: 40 }; a.strictEqual(C.visualStage(0, w).name, "mentah"); a.strictEqual(C.visualStage(5, w).name, "mentah"); a.strictEqual(C.visualStage(12, w).name, "hampir");
+  a.strictEqual(C.visualStage(16, w).name, "pas"); a.strictEqual(C.visualStage(30, w).name, "terlalu"); a.strictEqual(C.visualStage(99, w).name, "gosong"); a.ok(C.visualStage(7).k >= 0);
+  const rec = { prep: ["cuci", "potong", "bumbui"] }; a.strictEqual(C.nextHint(rec, []), "cuci"); a.strictEqual(C.nextHint(rec, ["cuci"]), "potong"); a.strictEqual(C.nextHint(rec, ["cuci", "potong", "bumbui"]), null); a.strictEqual(C.nextHint(null, []), null);
+});
+T("08C: fishPool — hanya ikan layak pilih (bukan sampah/dilindungi/terkunci/uid aneh)", () => {
+  const FISH = [{ id: "nila", name: "Nila" }, { id: "kaleng", name: "Kaleng", rarity: "sampah" }, { id: "paus", name: "Paus", protected: true }, { id: "sf1", name: "SF" }];
+  const cooler = [{ uid: "fish-ab-1", id: "nila", w: 1.2 }, { uid: "fish-ab-2", id: "kaleng", w: 1 }, { uid: "fish-ab-3", id: "paus", w: 9 }, { uid: "x", id: "nila", w: 1 }, { uid: "fish-ab-5", id: "nila", w: 1, lock: true }, { uid: "fish-ab-6", id: "sf1", w: 1 }, { uid: "fish-ab-7", id: "ghaib", w: 1 }, null];
+  const p = C.fishPool(cooler, FISH, (id) => id === "sf1"); a.deepStrictEqual(p.map((x) => x.uid), ["fish-ab-1"]); a.strictEqual(C.fishPool("x", FISH).length, 0);
+});
+T("08C: pesan galat ramah untuk aturan/form/jaringan dan ditandai definitif (opId baru) vs sementara (opId sama)", () => {
+  a.ok(C.definite({ code: "failed-precondition" })); a.ok(C.definite({ code: "invalid-argument" })); a.ok(C.definite({ code: "not-found" })); a.ok(!C.definite({ code: "unavailable" })); a.ok(!C.definite({ message: "network" }));
+  a.ok(/Jaringan bermasalah/.test(C.errTextCook({ code: "unavailable" }))); a.ok(/Masuk dulu/.test(C.errTextCook({ code: "unauthenticated" }))); a.strictEqual(typeof C.errTextCook({ code: "failed-precondition", message: "Nampan penuh" }), "string");
+});
 console.log("unit-dapur OK:", n);

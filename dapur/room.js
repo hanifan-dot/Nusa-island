@@ -50,12 +50,12 @@ function enter(id, player, opts) {
 function exit(player) {
   fadeThen(() => {
     const def = st.def, ret = st.ret, cb = st.onExit; if (def && def.onExit) def.onExit(player);
-    st.active = false; mark(false); st.id = null; st.def = null; st.block = 0; st.onExit = null; st.layer = null; st.layerKey = "";
+    st.active = false; mark(false); setInset(0, 0); st.id = null; st.def = null; st.block = 0; st.onExit = null; st.layer = null; st.layerKey = "";
     if (cb) cb(player); else if (ret) { player.x = ret.x; player.y = ret.y; player.dir = ret.dir === undefined ? 2 : ret.dir; }
     player.moving = false; NW.world.snapCamera();
   });
 }
-function reset() { if (!st.active) return; try { if (st.def && st.def.onExit) st.def.onExit(NW.world.player); } catch (e) { /* tampilan saja */ } st.active = false; mark(false); st.id = null; st.def = null; st.block = 0; st.onExit = null; st.layer = null; st.layerKey = ""; }
+function reset() { if (!st.active) return; try { if (st.def && st.def.onExit) st.def.onExit(NW.world.player); } catch (e) { /* tampilan saja */ } st.active = false; mark(false); setInset(0, 0); st.id = null; st.def = null; st.block = 0; st.onExit = null; st.layer = null; st.layerKey = ""; }
 
 // ---------- antarmuka adegan (dipakai world/world.js) ----------
 const walkable = (x, y) => !!st.def && Core.walk(st.def.layout, x, y) && !(st.def.blocked && st.def.blocked(x, y));
@@ -65,13 +65,50 @@ function interact(t, player, openDialog) {
   if (st.def && st.def.interact) return st.def.interact(t, player, openDialog);
 }
 function update(dt) { st.t += dt; if (st.def && st.def.update) st.def.update(dt, NW.world.player); }
+// Sheet (kasir, masak, cuci) menutupi sebagian layar: ruangan digeser/dikecilkan ke area yang MASIH terlihat (bawah di HP potret, kanan di lanskap).
+const inset = { b: 0, r: 0 };
+function setInset(b, r) { inset.b = Math.max(0, b | 0); inset.r = Math.max(0, r | 0); }
 function camTarget(player, W, H, ZW) {
-  const L = st.def.layout, c = P(L.w / 2, L.d / 2, 34), portrait = H >= W;
+  const L = st.def.layout, c = P(L.w / 2, L.d / 2, 34), vw = W - inset.r, vh = H - inset.b, portrait = vh >= vw;
   const rw = (L.w + L.d) * 32 + 60, rh = (L.w + L.d) * 16 + 170;
-  const fit = Math.min((W - 16) / rw, (H - (portrait ? 250 : 90)) / rh), z = clamp(fit, 0.5, 1.5);
-  if (fit >= 0.56) return { x: c.x, y: c.y - 8, z };
+  const fit = Math.min((vw - 16) / rw, (vh - (portrait ? (inset.b ? 120 : 250) : 90)) / rh), z = clamp(fit, 0.5, 1.5);
+  const sx = inset.r / 2, sy = inset.b / 2;                                   // geser pusat kamera supaya fokus ada di tengah area yang terlihat
+  if (fit >= 0.56) return { x: c.x + sx / z, y: c.y - 8 + sy / z, z };
   const p = P(player.x, player.y, 0), k = 0.6;                                // layar sempit: kamera ikut pemain sebagian
-  return { x: c.x + (p.x - c.x) * k, y: c.y - 8 + (p.y - c.y) * k, z: 0.56 };
+  return { x: c.x + (p.x - c.x) * k + sx / 0.56, y: c.y - 8 + (p.y - c.y) * k + sy / 0.56, z: 0.56 };
+}
+// Pasang perilaku sheet bawah (HP) / panel samping (lanskap): pegangan geser, ringkas/besarkan, dan laporan tinggi ke kamera.
+const GRIP = '<button type="button" class="kd-grip" aria-label="Ringkas atau besarkan panel"><i></i></button>';
+const SIDE = "(orientation: landscape) and (max-height: 520px)";
+function watchSheet(el) {
+  if (!el || el._watched) return; el._watched = true;
+  const mq = window.matchMedia ? window.matchMedia(SIDE) : { matches: false, addEventListener() {} };
+  const report = () => {
+    if (el.classList.contains("hidden")) return setInset(0, 0);
+    const r = el.getBoundingClientRect(); if (!r.width || !r.height) return setInset(0, 0);
+    mq.matches ? setInset(0, r.width) : setInset(r.height, 0);
+  };
+  try { new ResizeObserver(report).observe(el); } catch (e) { /* tanpa ResizeObserver: laporan lewat MutationObserver saja */ }
+  try { new MutationObserver(report).observe(el, { attributes: true, attributeFilter: ["class", "style"] }); } catch (e) { /* abaikan */ }
+  if (mq.addEventListener) mq.addEventListener("change", report);
+  let drag = null;
+  el.addEventListener("pointerdown", (e) => {
+    const g = e.target.closest && e.target.closest(".kd-grip"); if (!g || mq.matches) return;
+    drag = { y: e.clientY, h: el.getBoundingClientRect().height, moved: false }; try { g.setPointerCapture(e.pointerId); } catch (x) { /* abaikan */ }
+  });
+  el.addEventListener("pointermove", (e) => {
+    if (!drag) return; const dy = e.clientY - drag.y; if (Math.abs(dy) > 6) drag.moved = true; if (!drag.moved) return;
+    const mx = Math.round(window.innerHeight * 0.45), h = clamp(drag.h - dy, 64, mx);
+    el.classList.remove("mini"); el.style.maxHeight = h + "px"; el.style.height = h + "px";
+  });
+  const end = () => {
+    if (!drag) return; const d = drag; drag = null;
+    if (!d.moved) { el.classList.toggle("mini"); el.style.height = ""; el.style.maxHeight = ""; return; }   // ketuk = ringkas / besarkan
+    const h = el.getBoundingClientRect().height; if (h < 120) { el.classList.add("mini"); el.style.height = ""; el.style.maxHeight = ""; }
+  };
+  el.addEventListener("pointerup", end); el.addEventListener("pointercancel", () => { drag = null; });
+  el.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.classList && e.target.classList.contains("kd-grip")) { e.preventDefault(); el.classList.toggle("mini"); } });
+  report();
 }
 function drawScene(ctx, t, dk, player, V) {
   const def = st.def, night = dk > 0.45;
@@ -93,7 +130,7 @@ function drawScene(ctx, t, dk, player, V) {
 }
 
 NW.room = {
-  register, enter, exit, reset, invalidate, walkable, candidates, interact, update, camTarget, drawScene,
+  register, enter, exit, reset, invalidate, setInset, watchSheet, GRIP, walkable, candidates, interact, update, camTarget, drawScene,
   get active() { return st.active; }, get scene() { return st.id; }, get def() { return st.def; }, get t() { return st.t; },
   isEditing: () => false, speed: () => 118,
   blocking: () => st.block > 0, block: (on) => { st.block = Math.max(0, st.block + (on ? 1 : -1)); }, unblockAll: () => { st.block = 0; },

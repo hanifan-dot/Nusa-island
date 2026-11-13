@@ -17,6 +17,14 @@ const api = {
   async state() { return absorbEco(await call("dapurState", {})); },
   async buy(body) { return absorbEco(await call("dapurBuy", body)); },                    // {opId, items:[{id,n}]}; harga, saldo, stok = server
   async unlock(body) { return absorbEco(await call("dapurUnlock", body)); },              // {opId, tool}
+  // 08C — memasak (semua hasil dari server; klien hanya mengirim niat)
+  async cookStart(body) { return absorbEco(await call("dapurCookStart", body)); },        // {opId, tool, rec|null, ing?, fish?:[uid]}
+  async cookStep(body) { return absorbEco(await call("dapurCookStep", body)); },          // {opId, step, arg?}
+  async cookFinish(body) { return absorbEco(await call("dapurCookFinish", body)); },      // {opId}
+  async cookAbort(body) { return absorbEco(await call("dapurCookAbort", body)); },        // {opId}
+  async eat(body) { return absorbEco(await call("dapurEat", body)); },                    // {opId, dish}
+  async discard(body) { return absorbEco(await call("dapurDiscard", body)); },            // {opId, dish}
+  async wash(body) { return absorbEco(await call("dapurWash", body)); },                  // {opId, item, steps|quick}
 };
 
 // ---------- bangunan Kedai Bu Indah di Muara (di bekas "Lahan Pengembangan", barat plaza NUSA STYLE) ----------
