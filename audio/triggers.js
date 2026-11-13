@@ -35,7 +35,7 @@ const sceneStack = [];
 
 function gather() {
   const Nu = N(), St = Nu.S, h = St.hour, fish = Nu.mode() === "fish";
-  const home = NW.home && NW.home.active, room = home && NW.home.scene === "room";
+  const home = (NW.home && NW.home.active) || (NW.room && NW.room.active), room = home && ((NW.room && NW.room.active) || NW.home.scene === "room");
   const area = NW.areas && NW.areas.cur;
   let areaKey = area ? area.id : "muara";
   if (fish) { const a = NW.areas.forLoc(St.loc); areaKey = a ? a.id : "muara"; }
@@ -145,8 +145,8 @@ function frame(dt) {
   const d = Math.hypot(p.x - lastFoot.x, p.y - lastFoot.y); lastFoot.x = p.x; lastFoot.y = p.y;
   if (d > 1.5 || d < 0.0004) { return; } // teleport (pindah area) atau diam
   foot += d; if (foot < 0.66) return; foot = 0;
-  const home = NW.home && NW.home.active;
-  if (home) return a.sfx(NW.home.scene === "room" ? "step_lantai" : "step_rumput");
+  const home = (NW.home && NW.home.active) || (NW.room && NW.room.active);
+  if (home) return a.sfx((NW.room && NW.room.active) || NW.home.scene === "room" ? "step_lantai" : "step_rumput");
   const t = NW.tileAt(Math.floor(p.x), Math.floor(p.y));
   a.sfx(t === 5 ? "step_kayu" : t === 2 ? "step_pasir" : t === 4 ? "step_tanah" : "step_rumput");
 }

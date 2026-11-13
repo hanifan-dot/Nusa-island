@@ -19,7 +19,7 @@ async function gate() {
 }
 const mpOn = () => !!(NW.mp && NW.mp.view && NW.mp.view().online);
 const live = () => st.srv && !!NW.mp && NW.mp.boatOn();                      // kedua saklar ON + tersambung
-const inMuara = () => !!(NW.areas && NW.areas.cur && NW.areas.cur.id === GAREA) && !(NW.home && NW.home.active);
+const inMuara = () => !!(NW.areas && NW.areas.cur && NW.areas.cur.id === GAREA) && !(NW.home && NW.home.active) && !(NW.room && NW.room.active);
 const mineInfo = () => (live() ? NW.mp.boatMine() : null);
 const seated = () => !!mineInfo() && !st.ashore;   // kapten yang turun ke dermaga pelabuhan (visual) berjalan bebas
 const BERTH = { x: 13.6, y: 21.95 };                  // tambatan kapal rombongan di Pelabuhan Kota (area "selat"); sama di semua awak
