@@ -1,0 +1,105 @@
+# Deploy PR #146 from an exact game commit. Push of this workflow on main triggers one release.
+name: Deploy Hotfix Jumlah Pemain Server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/deploy-presence-20261113.yml
+
+concurrency:
+  group: nusa-island-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Uji lalu deploy multiplayer dan Hosting
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    env:
+      GAME_SHA: 02368ede8edc515ebb173dc2c26a4356bbc78a57
+      NUSA_CI: "1"
+      NUSA_CONFIRM: "ya"
+      NUSA_TARGET: semua
+      # The candidate is a hotfix of the already deployed game/backend. No nusa-api deploy.
+      NUSA_API_DEPLOYED: "ya"
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Owner dan cabang rilis
+        env:
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+          REF: ${{ github.ref }}
+        run: |
+          set -e
+          [ "$ACTOR" = "$OWNER" ] || { echo "::error::Hanya Owner yang boleh deploy."; exit 1; }
+          [ "$REF" = "refs/heads/main" ] || { echo "::error::Hanya workflow di main."; exit 1; }
+
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/Nusa-island
+          ref: 02368ede8edc515ebb173dc2c26a4356bbc78a57
+          fetch-depth: 0
+          path: game
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Pastikan commit tepat dan tes multiplayer
+        run: |
+          set -e
+          cd game
+          [ "$(git rev-parse HEAD)" = "$GAME_SHA" ] || exit 1
+          bash -n firebase/scripts/rilis.sh firebase/scripts/build-hosting.sh
+          node tests/unit-server-presence.js
+          node tests/unit-mp.js
+          node firebase/scripts/cek-rilis.js --live https://nusa-island-d2023.web.app --require-live
+
+      - name: Login Firebase OIDC
+        if: ${{ vars.GCP_WIF_PROVIDER != '' && vars.GCP_DEPLOY_SA != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+          create_credentials_file: true
+
+      - name: Login Firebase dengan secret cadangan
+        if: ${{ vars.GCP_WIF_PROVIDER == '' || vars.GCP_DEPLOY_SA == '' }}
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          set -e
+          [ -n "$SERVICE_ACCOUNT" ] || { echo "::error::Secret Firebase belum tersedia."; exit 1; }
+          umask 077
+          printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/nusa-sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/nusa-sa.json" >> "$GITHUB_ENV"
+
+      - name: Deploy Worker multiplayer dan game
+        run: cd game && bash firebase/scripts/rilis.sh --target semua --ci
+
+      - name: Verifikasi aset hotfix live
+        run: |
+          set -e
+          SITE=https://nusa-island-d2023.web.app
+          ready=tidak
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "$SITE/mp/client.js?v=$GAME_SHA" | grep -Fq 'function serverCount()' && \
+               curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "$SITE/mp/ui.js?v=$GAME_SHA" | grep -Fq 'Menghitung pemain di server' && \
+               curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "$SITE/mp/mp.css?v=$GAME_SHA" | grep -Fq 'border-color: #2fb39a'; then
+              ready=ya
+              break
+            fi
+            sleep 5
+          done
+          [ "$ready" = ya ] || { echo "::error::Aset hotfix belum tampak di Hosting."; exit 1; }
+
+      - name: Bersihkan kredensial sementara
+        if: always()
+        run: rm -f "$RUNNER_TEMP/nusa-sa.json"
