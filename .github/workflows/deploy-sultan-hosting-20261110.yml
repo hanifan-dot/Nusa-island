@@ -1,6 +1,6 @@
-# Podium Sultan Samudra — rilis game/Hosting SAJA.
+# Hotfix indikator Single/multiplayer dan koneksi online-only — rilis game/Hosting SAJA.
 # Tidak men-deploy nusa-api, D1, multiplayer, Functions, atau mengubah variable produksi.
-name: Deploy Podium Sultan (Hosting saja)
+name: Deploy Hotfix Status Dunia (Hosting saja)
 
 on:
   push:
@@ -10,12 +10,12 @@ on:
   workflow_dispatch:
     inputs:
       game_sha:
-        description: "SHA game Mercusuar Emas yang sudah diuji"
+        description: "SHA hotfix status dunia yang sudah diuji"
         type: string
         required: true
-        default: "435c63d7dcbe098ddc935e6e582feb1df4012b53"
+        default: "6515475cd2ef8734a716ee6fdf02a9f3338d9630"
       konfirmasi:
-        description: "Ketik persis deploy-sultan"
+        description: "Ketik persis deploy-status"
         type: string
         required: true
 
@@ -39,19 +39,19 @@ jobs:
           ACTOR: ${{ github.actor }}
           OWNER: ${{ github.repository_owner }}
           REF: ${{ github.ref }}
-          GAME_SHA: ${{ inputs.game_sha || '435c63d7dcbe098ddc935e6e582feb1df4012b53' }}
-          CONFIRM: ${{ inputs.konfirmasi || (github.event_name == 'push' && 'deploy-sultan') }}
+          GAME_SHA: ${{ inputs.game_sha || '6515475cd2ef8734a716ee6fdf02a9f3338d9630' }}
+          CONFIRM: ${{ inputs.konfirmasi || (github.event_name == 'push' && 'deploy-status') }}
         run: |
           set -e
           [ "$ACTOR" = "$OWNER" ] || { echo "::error::Hanya Owner."; exit 1; }
           [ "$REF" = "refs/heads/main" ] || { echo "::error::Jalankan dari main."; exit 1; }
-          [ "$CONFIRM" = "deploy-sultan" ] || { echo "::error::Konfirmasi harus deploy-sultan."; exit 1; }
-          [ "$GAME_SHA" = "435c63d7dcbe098ddc935e6e582feb1df4012b53" ] || { echo "::error::Hanya SHA Mercusuar Emas teruji yang diizinkan."; exit 1; }
+          [ "$CONFIRM" = "deploy-status" ] || { echo "::error::Konfirmasi harus deploy-status."; exit 1; }
+          [ "$GAME_SHA" = "6515475cd2ef8734a716ee6fdf02a9f3338d9630" ] || { echo "::error::Hanya SHA hotfix status dunia teruji yang diizinkan."; exit 1; }
 
       - uses: actions/checkout@v4
         with:
           repository: hanifan-dot/Nusa-island
-          ref: ${{ inputs.game_sha || '435c63d7dcbe098ddc935e6e582feb1df4012b53' }}
+          ref: ${{ inputs.game_sha || '6515475cd2ef8734a716ee6fdf02a9f3338d9630' }}
           fetch-depth: 0
           path: game
 
@@ -59,10 +59,12 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Tes Sultan dan bukti aset masuk build
+      - name: Tes status dunia, multiplayer, Sultan dan bukti aset masuk build
         run: |
           set -e
           bash -n game/firebase/scripts/rilis.sh game/firebase/scripts/build-hosting.sh
+          node game/tests/unit-online-status.js
+          node game/tests/unit-mp.js
           node game/tests/unit-sultan.js
           node game/tests/unit-kontolodon.js
           grep -Fq 'sf2_kontolodon' game/economy/sf2-core.js
@@ -99,7 +101,7 @@ jobs:
           NUSA_CONFIRM: "ya"
         run: cd game && bash firebase/scripts/rilis.sh --target game --ci
 
-      - name: Verifikasi Mercusuar Emas live
+      - name: Verifikasi hotfix status dunia live
         env:
           GAME_SHA: ${{ inputs.game_sha }}
         run: |
@@ -107,17 +109,19 @@ jobs:
           SITE=https://nusa-island-d2023.web.app
           ready=tidak
           for i in 1 2 3 4 5 6; do
-            if curl -fsS --max-time 20 -H "Cache-Control: no-cache" "$SITE/sultan/client.js?v=$GAME_SHA" | grep -Fq "NW.sultan" && \
-               curl -fsS --max-time 20 -H "Cache-Control: no-cache" "$SITE/sultan/core.js?v=$GAME_SHA" | grep -Fq "Sultan" && \
-               curl -fsS --max-time 20 -H "Cache-Control: no-cache" "$SITE/index.html?v=$GAME_SHA" | grep -Fq "sultan/sultan.css"; then
+            if curl -fsS --max-time 20 -H "Cache-Control: no-cache" "$SITE/mp/ui.js?v=$GAME_SHA" | grep -Fq 'Singleplayer · online' && \
+               curl -fsS --max-time 20 -H "Cache-Control: no-cache" "$SITE/mp/ui.js?v=$GAME_SHA" | grep -Fq 'netRequired' && \
+               curl -fsS --max-time 20 -H "Cache-Control: no-cache" "$SITE/mp/mp.css?v=$GAME_SHA" | grep -Fq '.net-required' && \
+               curl -fsS --max-time 20 -H "Cache-Control: no-cache" "$SITE/sultan/client.js?v=$GAME_SHA" | grep -Fq "NW.sultan"; then
               ready=ya
               break
             fi
             sleep 5
           done
-          [ "$ready" = "ya" ] || { echo "::error::Aset Sultan belum terlihat di Hosting."; exit 1; }
-          echo "OK: Mercusuar Emas terdeploy. nusa-api, D1, multiplayer, dan Firestore tidak disentuh."
+          [ "$ready" = "ya" ] || { echo "::error::Hotfix status dunia belum terlihat di Hosting."; exit 1; }
+          echo "OK: hotfix status dunia terdeploy. nusa-api, D1, multiplayer, dan Firestore tidak disentuh."
 
       - name: Bersihkan kredensial sementara
         if: always()
         run: rm -f "$RUNNER_TEMP/nusa-sa.json"
+
