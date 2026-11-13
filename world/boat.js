@@ -111,7 +111,7 @@ function board() {
   syncPlayer(); persist(); N().save();
   N().sfx("boat_naik");
   const q = S().sea;
-  if (!q.tut) { q.tut = 1; N().toast("⛵ Joystick ATAS = maju · BAWAH = mundur · KIRI/KANAN = belok", "good"); }
+  if (!q.tut) { q.tut = 1; N().toast(NW.kemudi ? "⛵ Putar setir untuk belok · tuas MAJU / NETRAL / MUNDUR" : "⛵ Joystick ATAS = maju · BAWAH = mundur · KIRI/KANAN = belok", "good"); }
   else N().toast(`⛵ Naik ${UPGRADES.boat.levels[lv()]}`, "good");
   showUI(); NW.world.updateHint();
   return true;
@@ -154,6 +154,7 @@ function update(dt, inp) {
   if (!B.on) { stepWake(dt); return; }
   const ar = A(), sea = seaOf(ar), sp = spec();
   if (B.busy) { stepBusy(dt); if (B.on) syncPlayer(); stepWake(dt); return; }
+  if (NW.kemudi && NW.kemudi.on) inp = NW.kemudi.input() || inp;   // UI Kemudi (flag NUSA_KEMUDI): setir + tuas menggantikan joystick; fisika sama
   let thr = -inp.y, steer = inp.x;
   if (Math.abs(thr) < 0.12) thr = 0; if (Math.abs(steer) < 0.12) steer = 0;
   if (B.anchor) { if (thr || steer) toastOnce("⚓ Jangkar terpasang. Tekan ⛵ Angkat Jangkar untuk berlayar lagi."); thr = 0; steer = 0; }
@@ -332,11 +333,11 @@ function stepWake(dt) {
 // ---------- Gambar kapal (2.5D dari bentuk lambung) ----------
 // pose { x, y, a }, opt { style:{hull,trim,inner}, player, decor, moored, t }
 function drawVessel(c, pose, t, opt = {}) {
-  const sp = opt.decor ? Object.assign({}, SPEC[1], { L: 1.05, B: 0.38, canopy: false }) : spec();
+  const sp = opt.decor ? Object.assign({}, SPEC[1], { L: 1.05, B: 0.38, canopy: false }) : opt.spec != null ? SPEC[opt.spec] : spec();
   const ex = opt.player && NW.streak ? NW.streak.shipStyle() : null; // Kapal Perintis Eksklusif (hadiah Login Streak) mengganti warna kapal pemain
   const hull = (opt.style && opt.style.hull) || (ex && ex.hull) || sp.hull, trim = (opt.style && opt.style.trim) || (ex && ex.trim) || sp.trim, inner = (opt.style && opt.style.inner) || (ex && ex.inner) || sp.inner;
   const f = fwd(pose.a), L = sp.L, Bm = sp.B, ph = pose.x * 1.3 + pose.y;
-  const moving = !opt.decor && opt.player && Math.abs(B.v) > 20;
+  const moving = opt.remote ? Math.abs(opt.v || 0) > 0.3 : !opt.decor && opt.player && Math.abs(B.v) > 20;   // opt.remote: kapal rombongan (kecepatan server, tile/dtk)
   const wk = NW.weather ? 1 + NW.weather.state.wind * 0.7 + NW.weather.state.rain * 0.3 : 1; // ombak sedikit lebih besar saat berangin/hujan (aman, tanpa kerusakan)
   const bob = Math.sin(t * 1.6 + ph) * 1.4 * (moving ? 0.6 : 1) * wk, roll = Math.sin(t * 1.15 + ph) * (opt.decor ? 1.2 : 1.8) * wk, pitch = moving ? -1.2 : Math.sin(t * 0.9 + ph) * 0.8;
   const night = N().darkness();
@@ -406,6 +407,7 @@ function drawVessel(c, pose, t, opt = {}) {
   }
   // 5) pemain duduk di buritan memegang kemudi
   if (opt.player) opt.player(dz(-0.6, 0));
+  if (opt.crew) opt.crew(dz);   // Kapal Rombongan: tiga awak digambar di kursinya (rombongan/client.js)
   // 6) sisi luar yang menghadap kamera
   for (const fc of faces.filter((x) => x.front).sort((a2, b2) => a2.d - b2.d)) {
     const col = mix(shade(hull, fc.light * 0.18 - 0.05), "#0a1426", night * 0.55);
@@ -453,7 +455,7 @@ function drawWake(c, t, view) {
 // item yang disisipkan ke daftar kedalaman world.draw
 function layer(t, drawPlayer) {
   const ar = A(); if (!seaOf(ar) || B.area !== ar.id) return [];
-  if (B.on) return [{ d: B.x + B.y + 0.35, draw: (c) => drawVessel(c, B, t, { player: drawPlayer }) }];
+  if (B.on) return [{ d: B.x + B.y + 0.35, draw: (c) => { drawVessel(c, B, t, { player: drawPlayer }); if (NW.delivery && NW.delivery.drawCargo) NW.delivery.drawCargo(c, B, t); } }];
   const m = moorById(ar, B.moor); if (!m) return [];
   return [{ d: B.x + B.y + 0.35, draw: (c) => drawVessel(c, B, t, { moored: m }) }];
 }
@@ -569,8 +571,8 @@ function buildUI() {
   tap("seaHome", () => { N().sfx("click"); rescue(); });
   for (const id of ["seaAnchor", "seaFish", "seaMap", "seaHome"]) $(id).addEventListener("pointerdown", (e) => e.stopPropagation());
 }
-function showUI() { buildUI(); $("seaBar").classList.remove("hidden"); $("seaHud").classList.remove("hidden"); document.body.classList.add("sailing"); uiShown = true; refreshUI(true); }
-function hideUI() { if (!$("seaBar")) return; $("seaBar").classList.add("hidden"); $("seaHud").classList.add("hidden"); document.body.classList.remove("sailing"); uiShown = false; }
+function showUI() { if (NW.kemudi) NW.kemudi.show(); buildUI(); $("seaBar").classList.remove("hidden"); $("seaHud").classList.remove("hidden"); document.body.classList.add("sailing"); uiShown = true; refreshUI(true); }
+function hideUI() { if (NW.kemudi) NW.kemudi.hide(); if (!$("seaBar")) return; $("seaBar").classList.add("hidden"); $("seaHud").classList.add("hidden"); document.body.classList.remove("sailing"); uiShown = false; }
 function refreshUI(force) {
   if (!uiShown) return;
   const key = `${B.anchor}|${canFish()}`;

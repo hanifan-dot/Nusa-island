@@ -196,18 +196,21 @@ let target = null, busy = false, busyT = 0, fishSpotId = null;
 function areaCandidates() {
   const a = A(), list = a.map.points.filter((p) => !(p.id === "boat" && a.sea && NW.boat)).concat(H().points ? H().points() : []); // Bumbu 2.4: kapal pemain = "Naik Kapal" (NW.boat)
   if (NW.boat) list.push(...NW.boat.landCandidates(player));
+  if (NW.rombongan) list.push(...NW.rombongan.candidates(player));
+  if (NW.port) list.push(...NW.port.candidates(player));   // Pelabuhan Kota: ambil kotak / mobil Pak Damar (hanya bila server pakDamar ON)   // Kapal Rombongan: Buat Kapal / Duduk (hanya bila server menyalakan)
   for (const n of a.npcs) if (!n.hidden && n.cur && (!H().npcTalkable || H().npcTalkable(n))) list.push({ id: "npc:" + n.id, x: n.x, y: n.y, r: 1.15, icon: "💬", label: "Bicara", npc: n });
   return list;
 }
 const sailing = () => !!(NW.boat && NW.boat.on);
-const candidates = () => (inHome() ? NW.home.candidates() : sailing() ? NW.boat.seaCandidates() : seat.on ? [{ id: "seat:stand", x: player.x, y: player.y, r: 9, icon: "🧍", label: "Berdiri", stand: true }] : areaCandidates());
+const rbSeated = () => !!(NW.rombongan && NW.rombongan.seated());   // Kapal Rombongan (server): duduk di kursi = tidak berjalan, tidak ada titik interaksi darat
+const candidates = () => (inHome() ? NW.home.candidates() : rbSeated() ? [] : sailing() ? NW.boat.seaCandidates() : seat.on ? [{ id: "seat:stand", x: player.x, y: player.y, r: 9, icon: "🧍", label: "Berdiri", stand: true }] : areaCandidates());
 const walkable = (x, y) => (inHome() ? NW.home.walkable(x, y) : NW.walkable(x, y));
 function findTarget() {
   let best = null, bestS = 1e9;
   for (const p of candidates()) {
     const d = Math.hypot(player.x - p.x, player.y - p.y);
     if (d > p.r) continue;
-    const s = d / p.r - (p.npc ? 0.45 : 0); /* NPC didahulukan */ if (s < bestS) { bestS = s; best = p; }
+    const s = d / p.r - (p.npc ? 0.45 : 0) - (p.pri || 0); /* NPC didahulukan */ if (s < bestS) { bestS = s; best = p; }
   }
   return best;
 }
@@ -225,6 +228,8 @@ function interact() {
   const t = target;
   if (inHome()) return NW.home.interact(t, player, openDialog);
   if (t.stand) return standUp();
+  if (t.rb && NW.rombongan) return NW.rombongan.interact(t);
+  if (t.pk && NW.port) return NW.port.interact(t);
   if (t.boat && NW.boat) return NW.boat.interact(t);
   if (t.npc) return t.npc.talk(t.npc, api);
   if (t.id === "spot" || t.fish) { // titik mancing (semua area): memakai lokasi mancing LOCATIONS milik area
@@ -286,6 +291,7 @@ function onEnter(at, areaId) {
     else if (switched) NW.boat.restore(a);
   }
   if (onBoat) { player.sit = false; NW.boat.syncPlayer(); }
+  else if (at === "rombongan" && rbSeated()) { player.sit = false; NW.rombongan.syncPlayer(); } // kembali dari memancing: tetap di kursi kapal rombongan
   else {
     player.sit = false;
     if (at === "dock") { const s = a.map.fishSpots.find((f) => f.id === fishSpotId) || a.map.fishSpots[0]; place(s ? s.ret : sp.start || a.map.START); }
@@ -419,10 +425,13 @@ function update(dt) {
   if (cine) { cine.t += dt; cine.k = clamp(Math.min(cine.t / 1.1, (cine.dur - cine.t) / 1.1), 0, 1); const e = cine.k; cine.k = e * e * (3 - 2 * e); if (cine.t >= cine.dur) { const done = cine.done; cine = null; if (done) done(); } }
   const v = blocked() ? { x: 0, y: 0, m: 0 } : inputVec();
   if (NW.boat) NW.boat.update(dt, v); // Bumbu 2.4: joystick mengemudikan kapal saat di atas kapal
+  if (NW.port) NW.port.update(dt);
+  if (NW.rombongan) NW.rombongan.update(dt, v); // Kapal Rombongan: pemain mengikuti kursinya; kapten: joystick → niat kemudi (server yang memutuskan)
+  const rbFrozen = rbSeated() || !!(NW.port && NW.port.busy());   // duduk di kapal rombongan / sedang mengangkat-memuat kotak: tidak berjalan
   if (sailing()) { /* posisi pemain mengikuti tempat duduk di buritan */ }
   else if (v.m > 0.05 && seat.on) standUp(); // geser joystick = berdiri dari bangku
-  if (!sailing() && v.m > 0.05) {
-    const SPEED = inHome() ? (NW.home.scene === "room" ? 115 : 140) : 180;
+  if (!sailing() && !rbFrozen && v.m > 0.05) {
+    const SPEED = (inHome() ? (NW.home.scene === "room" ? 115 : 140) : 180) * (NW.port ? NW.port.speedK() : 1);   // membawa kotak = lebih lambat
     const VK = inHome() ? 1 : 1.1; // imbangan kecil untuk proyeksi isometrik 2:1 (1.3 terlalu kencang saat ke bawah)
     const d = screenToWorld(v.x * SPEED * dt, v.y * SPEED * VK * dt);
     const nx = player.x + d.x, ny = player.y + d.y;
@@ -431,7 +440,7 @@ function update(dt) {
     else if (walkable(player.x, ny)) player.y = ny;
     player.dir = dirOf(v.x, v.y); player.moving = true; player.walk += dt * 11 * (0.5 + v.m * 0.6);
     if (!moved) { moved = true; NW.story.mark("walk"); updateHint(); }
-  } else if (!sailing()) player.moving = false;
+  } else if (!sailing() && !rbFrozen) player.moving = false;
   if (seat.on) { seat.t += dt; if (seat.tick) seat.tick(seat.t, dt); }
   player.z = inHome() ? 0 : undefined;
 
@@ -450,9 +459,10 @@ function update(dt) {
 function updateHint() {
   if (inHome()) return;
   const h = H().hint ? H().hint() : "";
+  if (rbSeated()) return N().setHint("⛵ Kapal Rombongan · obrolan, emoji, peta tetap bisa dipakai");
   if (sailing()) { // Bumbu 2.4: petunjuk berlayar (cerita area tetap didahulukan bila ada)
     const story = h && h.startsWith("📖") ? h : "";
-    return N().setHint(story || (NW.boat.anchor ? "⚓ Berjangkar · 🎣 Memancing menyala · ⛵ Angkat jangkar untuk berlayar" : "⛵ Joystick atas = maju · kiri/kanan = belok · ⚓ Jangkar untuk berhenti"));
+    return N().setHint(story || (NW.boat.anchor ? "⚓ Berjangkar · 🎣 Memancing menyala · ⛵ Angkat jangkar untuk berlayar" : (NW.kemudi ? "⛵ Setir = belok · tuas = maju/mundur · ⚓ Jangkar untuk berhenti" : "⛵ Joystick atas = maju · kiri/kanan = belok · ⚓ Jangkar untuk berhenti")));
   }
   N().setHint(h);
 }
@@ -512,7 +522,8 @@ function draw(ctx, t) {
   player.rodSpec = NW.look.rodSpec(); // joran aktif (dari S.up.rod) → tampil di punggung
   const onBoat = sailing();
   if (NW.boat) for (const it of NW.boat.layer(t, (dz) => drawSeated(ctx, t, dz))) list.push({ d: it.d, fn: it.draw }); // kapal (pemain duduk di dalamnya)
-  if (!onBoat) list.push({ d: pDepth, ch: player });
+  if (NW.rombongan) for (const it of NW.rombongan.layer(t, view, inView)) list.push(it); // kapal rombongan + 3 awak di kursi (keadaan server)
+  if (!onBoat && !(NW.rombongan && NW.rombongan.hidesSelf())) list.push({ d: pDepth, ch: player });
   if (NW.mp && !inHome()) for (const it of NW.mp.layer(view, inView)) list.push(it); // pemain lain (nyata) di Muara Kampung
   list.sort((x, y) => x.d - y.d);
   const night = dk / 0.85, claim = L() ? L().claimable() > 0 : false;
@@ -520,6 +531,7 @@ function draw(ctx, t) {
     if (it.fn) it.fn(ctx);
     else if (it.ch) {
       NW.drawCharacter(ctx, it.ch, t);
+      if (it.ch === player && NW.port) NW.port.drawCarry(ctx, player, t);   // kotak dibawa dua tangan
       if (it.ch === player) { // label nama + gelar: ikut urutan kedalaman, jadi tertutup bangunan di depannya
         const pb = NW.P(player.x, player.y, gz(player.x, player.y) - (player.sit ? 6 : 0));
         NW.look.drawPlayerLabel(ctx, pb, 1.0 / Z, NW.hold ? NW.hold.labelLift() : 0);
@@ -539,7 +551,7 @@ function draw(ctx, t) {
       ctx.globalAlpha = 1;
     }
   }
-  if (hiddenBehind && !onBoat) { ctx.globalAlpha = 0.5; NW.drawCharacter(ctx, player, t); ctx.globalAlpha = 1; }
+  if (hiddenBehind && !onBoat && !(NW.rombongan && NW.rombongan.hidesSelf())) { ctx.globalAlpha = 0.5; NW.drawCharacter(ctx, player, t); ctx.globalAlpha = 1; }
   if (hk.drawOver) hk.drawOver(ctx, t, dk, view, inView);
   if (NW.mp && !inHome() && !onBoat) NW.mp.drawBubbles(ctx, 1.0 / Z); // bubble chat & emoji
   if (NW.weather) NW.weather.drawRoofs(ctx, t, view, m, player.x, player.y); // tetes dari atap

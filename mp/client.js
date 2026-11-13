@@ -18,7 +18,7 @@ let prefs = loadPrefs();
 const savePrefs = () => { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) {} };
 
 const R = { house: null, fails: 0, kickedAt: {}, roomNo: 0, vcount: 0, want: null, resume: null, pending: null, manualLeave: false, err: null, rooms: null, roomsAt: 0, hbSent: 0, helloAt: 0, holdSent: undefined, ws: null, state: "off", why: "", me: null, room: "", n: 0, cap: P.ROOM_CAP, players: new Map(), log: [], self: { bubble: null, emote: null }, typing: false,
-  tx: 0, rx: 0, lastProf: 0, profKey: "", gotWelcomeEver: false, listeners: [], retry: 0, nextTry: 0, lastSend: 0, lastHb: 0, sent: null, hiddenAt: 0, vis: false, endpoint: undefined, helloSent: false, gotWelcome: false };
+  boatOn: false, boats: new Map(), mine: null, bListeners: [], tx: 0, rx: 0, lastProf: 0, profKey: "", gotWelcomeEver: false, listeners: [], retry: 0, nextTry: 0, lastSend: 0, lastHb: 0, sent: null, hiddenAt: 0, vis: false, endpoint: undefined, helloSent: false, gotWelcome: false };
 const emit = () => R.listeners.forEach((f) => { try { f(); } catch (e) {} });
 const setState = (s, why) => { if (R.state !== s || (why !== undefined && why !== R.why)) { R.state = s; if (why !== undefined) R.why = why; emit(); } };
 const now = () => performance.now();
@@ -51,8 +51,9 @@ function local() {
     return { vis, x: w.x, y: w.y, d: w.dir | 0, f: (w.moving ? P.F.MOVING : 0) | (w.sit ? P.F.SIT : 0) | (sc === "room" ? P.F.IN : 0) };
   }
   const fishing = mode === "fish" && N().fishFrom() === "dock";
-  const inMuara = !!a && a.id === P.AREA && !(NW.home && NW.home.active) && !(NW.boat && NW.boat.on);
-  const vis = !!w && inMuara && (mode === "world" || fishing) && N().isStarted();
+  const aboard = R.boatOn && !!R.mine;   // Kapal Rombongan: pemain di kursi kapal server TETAP tampak (kapal & kursi disinkronkan server; bukan lagi vis:false)
+  const inMuara = aboard || (!!a && a.id === P.AREA && !(NW.home && NW.home.active) && !(NW.boat && NW.boat.on));
+  const vis = !!w && inMuara && (aboard || mode === "world" || fishing) && N().isStarted();
   if (!w) return { vis: false };
   return { vis, x: w.x, y: w.y, d: w.dir | 0, f: (w.moving && !fishing ? P.F.MOVING : 0) | (w.sit ? P.F.SIT : 0) | (fishing ? P.F.FISH : 0) };
 }
@@ -116,7 +117,7 @@ function helloNow() {
   if (send({ t: "hello", n: p.n, r: p.r, rd: p.rd, x: P.qz(L.x), y: P.qz(L.y), d: L.d, f: L.f })) { R.helloSent = true; R.sent = { x: L.x, y: L.y, d: L.d, f: L.f }; R.vis = true; R.holdSent = undefined; if (prefs.low) send({ t: "o", lo: 1 }); }
 }
 function backoff() { R.retry = Math.min(R.retry + 1, 6); R.nextTry = now() + Math.min(30000, 1000 * Math.pow(2, R.retry)) * (0.7 + Math.random() * 0.6); }
-function reset() { R.players.clear(); R.me = null; R.vis = false; R.helloSent = false; R.gotWelcome = false; R.n = 0; R.vcount = 0; R.holdSent = undefined; }
+function reset() { R.boats.clear(); R.mine = null; R.boatOn = false; R.players.clear(); R.me = null; R.vis = false; R.helloSent = false; R.gotWelcome = false; R.n = 0; R.vcount = 0; R.holdSent = undefined; }
 function onClose(ws, e) {
   if (R.ws !== ws) return;
   R.ws = null; reset();
@@ -176,17 +177,39 @@ function upsert(row) {
   return p;
 }
 function addLog(name, text, mine) { R.log.push({ name, text, t: Date.now(), mine: !!mine }); if (R.log.length > 80) R.log.shift(); }
+// ---------- Kapal Rombongan (protokol; gambar kapal/kursi = tugas visual Worker 02, memakai NW.mp.boats()/boatMine()) ----------
+// Baris server: [id, x, y, arah, kecepatan×10, bendera(1 jangkar|2 pergi), kursi0, kursi1, kursi2] — kursi = id publik pemain (0 = kosong). Posisi di-smooth klien dari target server.
+function setBoat(r) {
+  if (!Array.isArray(r) || typeof r[0] !== "string") return;
+  const o = R.boats.get(r[0]) || { id: r[0], x: r[1] / P.Q, y: r[2] / P.Q, vx: 0, vy: 0 };
+  o.tx = r[1] / P.Q; o.ty = r[2] / P.Q; o.d = r[3] | 0; o.v = (r[4] | 0) / 10; o.anchor = !!(r[5] & 1); o.away = !!(r[5] & 2); o.seats = [r[6] || 0, r[7] || 0, r[8] || 0]; o.at = now();
+  R.boats.set(o.id, o);
+  const me = R.me && o.seats.indexOf(R.me); if (R.me && me >= 0) R.mine = { id: o.id, s: me }; else if (R.mine && R.mine.id === o.id) R.mine = null;
+}
+function boatEvent(m) {
+  if (m.ev === "board" && m.p === R.me) R.mine = { id: m.b, s: m.s };
+  else if (m.ev === "leave" && m.p === R.me) R.mine = null;
+  else if (m.ev === "cap" && m.p === R.me && R.mine) R.mine.s = 0;
+  boatEmit(m.ev, { b: m.b, p: m.p, s: m.s, ar: m.ar });
+}
+const boatEmit = (type, d) => R.bListeners.forEach((f) => { try { f(Object.assign({ type }, d || {})); } catch (e) {} });
+const boatSend = (o) => (R.boatOn && R.state === "online" ? send(Object.assign({ t: "bt" }, o)) : false);
 function onMsg(m, ws) {
   switch (m.t) {
     case "w":
       R.me = m.me; R.room = m.room; R.n = m.n; R.vcount = m.v; R.cap = m.cap; R.players.clear();
       for (const row of m.ps) upsert(row).ch.moving = false;
       if (m.ou && typeof m.ou === "object") for (const id of Object.keys(m.ou)) { const q = R.players.get(id); if (q) setOutfit(q, m.ou[id]); }
+      R.boatOn = m.bo === 1; R.boats.clear(); R.mine = null; if (R.boatOn) { for (const r of m.bs || []) setBoat(r); if (Array.isArray(m.mb)) R.mine = { id: m.mb[0], s: m.mb[1] }; boatEmit("sync"); }
       R.gotWelcome = true; R.gotWelcomeEver = true; R.fails = 0; R.holdSent = undefined;
       if (m.k !== "house") { R.roomNo = m.rn || parseInt(String(m.room).split("-")[1], 10) || 0; R.resume = R.roomNo; R.pending = null; }   // ruang rumah TIDAK mengganti server Muara yang diingat
       clockSample(m.st, R.helloAt); setTimeout(() => { if (R.ws === ws) { R.hbSent = now(); send({ t: "h" }); } }, 600); setTimeout(() => { if (R.ws === ws) { R.hbSent = now(); send({ t: "h" }); } }, 2500);   // beberapa sampel awal → jam akurat
       setState("online", ""); break;
     case "k": clockSample(m.st, R.hbSent); R.hbSent = 0; break;
+    case "bs": if (R.boatOn && Array.isArray(m.u)) { for (const r of m.u) setBoat(r); boatEmit("state"); } break;
+    case "bd": if (R.boatOn) { R.boats.delete(m.id); if (R.mine && R.mine.id === m.id) R.mine = null; boatEmit("gone", { b: m.id }); } break;
+    case "bv": if (R.boatOn) { boatEvent(m); } break;
+    case "bn": boatEmit("note", { r: String(m.r || "") }); break;
     case "cnt": R.n = m.n; R.vcount = m.v; emit(); break;
     case "n": addLog("Sistem", m.r, false); emit(); break;
     case "j": { if (m.p[0] === R.me) break; const p = upsert(m.p); p.ch.x = p.tx; p.ch.y = p.ty; emit(); break; }
@@ -251,6 +274,7 @@ function netTick() {
 
 // ---------- tampilan (dipanggil world.js) ----------
 function update(dt) {
+  if (R.boats.size) { const kb = 1 - Math.exp(-dt * 7); for (const o of R.boats.values()) { const dx = o.tx - o.x, dy = o.ty - o.y; if (Math.hypot(dx, dy) > 6) { o.x = o.tx; o.y = o.ty; } else { o.x += dx * kb; o.y += dy * kb; } } }   // kapal dihaluskan menuju target server (Worker 02 menggambar dari boats())
   if (!R.players.size) return;
   const k = 1 - Math.exp(-dt * 9);
   for (const p of R.players.values()) {
@@ -265,6 +289,7 @@ function layer(view, inView) {
   const me = NW.world.player, low = prefs.low, maxN = low ? 8 : 12;
   let arr = [...R.players.values()]; if (arr.length > maxN) arr.sort((a, b) => Math.hypot(a.ch.x - me.x, a.ch.y - me.y) - Math.hypot(b.ch.x - me.x, b.ch.y - me.y)), arr = arr.slice(0, maxN);
   for (const p of arr) {
+    if (R.seatedSkip && R.seatedSkip(p.id)) continue;   // Kapal Rombongan: awak di kursi digambar modul kapal, bukan di titik server
     const pt = NW.P(p.ch.x, p.ch.y); if (!inView(view, pt.x, pt.y)) continue;
     out.push({ d: p.ch.x + p.ch.y, ch: p.ch, remote: p });
     if (p.f & P.F.FISH) out.push({ d: p.ch.x + p.ch.y + 0.2, fn: (c) => drawBobber(c, p) });
@@ -414,6 +439,8 @@ function hook() {
   if (NW.cloud && NW.cloud.onChange) NW.cloud.onChange(() => { if (!user() && R.ws) disconnect("logout"); emit(); });
 }
 
-NW.mp = { sendOutfit: (c) => { R.outWant = typeof c === "string" ? c : ""; }, eject, clearKick, homeLayer, inHouse: () => !!R.house && R.vis && R.state === "online", hook, update, layer, drawTag, drawBubbles, view, sendChat, sendEmote, setPref, joinRoom, joinRandom, joinAuto, leaveServer, fetchRooms, sharedHour, onChange: (f) => R.listeners.push(f), eligible, EMOTES: P.EMOTES, ERR,
+NW.mp = { player: (id) => R.players.get(id) || null, setSeatedSkip: (f) => { R.seatedSkip = typeof f === "function" ? f : null; }, boatOn: () => R.boatOn, boats: () => [...R.boats.values()], boatMine: () => (R.mine && R.boats.get(R.mine.id) ? { id: R.mine.id, seat: R.mine.s, captain: R.mine.s === 0, boat: R.boats.get(R.mine.id) } : null), onBoat: (f) => R.bListeners.push(f),
+  boatNew: () => boatSend({ a: "new" }), boatJoin: (b, s) => boatSend({ a: "join", b, s }), boatLeave: () => boatSend({ a: "leave" }), boatSteer: (d, th) => boatSend({ a: "steer", d, th }), boatAnchor: (on) => boatSend({ a: "anchor", on: !!on }), boatGo: (ar) => boatSend({ a: "go", ar }),
+  sendOutfit: (c) => { R.outWant = typeof c === "string" ? c : ""; }, eject, clearKick, homeLayer, inHouse: () => !!R.house && R.vis && R.state === "online", hook, update, layer, drawTag, drawBubbles, view, sendChat, sendEmote, setPref, joinRoom, joinRandom, joinAuto, leaveServer, fetchRooms, sharedHour, onChange: (f) => R.listeners.push(f), eligible, EMOTES: P.EMOTES, ERR,
   get typing() { return R.typing; }, set typing(v) { R.typing = !!v; }, hasChatPref: () => prefs.chat, _R: R, _prefs: () => prefs, _net: netTick, _clock: CK, _serverNow: serverNow };
 })();

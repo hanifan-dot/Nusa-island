@@ -465,6 +465,7 @@ function placeMarkers() {
   return L;
 }
 function hint() {
+  const ov = NW.port && NW.port.goalHint && NW.port.goalHint(); if (ov) return ov;   // pengiriman Pak Damar sedang berjalan: arahkan ke mobil pendingin (cerita Pak Hasan tak berubah)
   const c = cur(); if (!c) return "";
   if (c.kind === "talk") { const n = byId(c.who); return `📖 ${c.goal}${n.hidden ? " (ketuk pintu rumahnya)" : ""} ❗`; }
   if (c.key === "spots") return `📖 Spot laut ditemukan ${spotsFound()}/2 — naik kapal, ikuti burung, warna air, atau riak`;
