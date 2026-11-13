@@ -44,7 +44,7 @@ Sistem dekorasi lama (`furn` Rumahku) tidak punya slot tervalidasi untuk set mej
 - Gagal bawaan lama yang tidak terkait: `test_multiplayer` (`#gwContinue`), `test_rumah_akuarium`.
 
 ## Bukti visual (`docs/ide08d/`)
-`d01-halaman-rumahku-siang.png`, `d02-pemilik-menawarkan-tamu-menerima.png`, `d03-tiga-pemain-makan-bersama.png`, `d04-malam-lampu-halaman-kopi.png`.
+`d01-halaman-rumahku-siang.png`, `d02-pemilik-menawarkan-tamu-menerima.png`, `d03-tiga-pemain-makan-bersama.png`, `d04-malam-lampu-halaman-kopi.png`, `d05-kartu-tawaran-landscape-hp.png`.
 
 ## Temuan & catatan
 - Perbaikan sepanjang uji: sheet tidak dibangun ulang saat hanya hitung mundur berubah (ketukan Terima bisa hilang); tawaran yang sudah dijawab/habis tidak muncul lagi; pencocokan animasi makan tamu yang baru duduk; gerbang flag dicoba ulang.

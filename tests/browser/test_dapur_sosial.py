@@ -631,6 +631,13 @@ def sec_shots(b, br, X):
         time.sleep(0.15)
     out(save(A, "s3"), "d03-tiga-pemain-makan-bersama")
     ok("S3 pemain lain tampak makan dari sudut pemilik", ev(A, "Object.keys(NW.dapurSosial._S.eatRemote).length") >= 0)
+    # 3b) kartu tawaran di layar landscape HP (tamu)
+    idle(B, 20); idle(C, 20); ev(A, "NW.dapurSosial.closeSheet()")
+    ev(A, "NW.world.standUp&&NW.world.standUp()"); time.sleep(0.6)
+    B.set_viewport_size({"width": 740, "height": 360}); time.sleep(1.0)
+    offer_to(A, 2, hB); ok("S5 kartu tawaran tampil (landscape)", wait_offer_card(B, 9)); time.sleep(0.6)
+    out(save(B, "s5"), "d05-kartu-tawaran-landscape-hp", 900)
+    click(B, "#hlSheet [data-a=tolak]", 0.5); B.set_viewport_size({"width": 412, "height": 760}); time.sleep(0.6)
     # 4) malam: lampu halaman & kopi
     for pg in (A, B, C): ev(pg, "window.__nusa.S.hour=21.5")
     time.sleep(2.0)
