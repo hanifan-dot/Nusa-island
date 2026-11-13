@@ -1,6 +1,7 @@
 // Uji logika multiplayer (murni, tanpa jaringan): node tests/unit-mp.js
 const P = require("../mp/proto.js"), { Room } = require("../mp/room-core.js"), Jwt = require("../mp/jwt.js"), { Lobby, LIM } = require("../mp/lobby-core.js");
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
+require("./unit-server-presence.js");
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) pass++; else { fail++; console.log("GAGAL:", m); } };
 const eq = (a, b, m) => ok(JSON.stringify(a) === JSON.stringify(b), `${m}: ${JSON.stringify(a)} != ${JSON.stringify(b)}`);

@@ -53,7 +53,7 @@ class Room {
     const prof = profile || {};
     const x = Number.isFinite(startPos && startPos.x) ? startPos.x : 19.5, y = Number.isFinite(startPos && startPos.y) ? startPos.y : 20.6;
     const p = { conn, uid, pid, name: P.cleanName(prof.n, "Nelayan-" + pid.slice(1)), rank: P.clampInt(prof.r, 0, 8, 0), rod: P.clampInt(prof.rd, 0, 19, 0),
-      x: Math.max(0, Math.min(this.mapW, x)), y: Math.max(0, Math.min(this.mapH, y)), d: 2, f: 0, vis: false, role: (extra && extra.role) === "owner" ? "owner" : "visitor", hid: String((extra && extra.hid) || "").slice(0, 8), bKick: new Bucket(0.2, 3, now), dirty: false, last: now, lastMove: now, lastTp: 0,
+      x: Math.max(0, Math.min(this.mapW, x)), y: Math.max(0, Math.min(this.mapH, y)), d: 2, f: 0, vis: false, role: (extra && extra.role) === "owner" ? "owner" : "visitor", hid: String((extra && extra.hid) || "").slice(0, 8), sr: this.house ? (P.roomId(extra && extra.parentRoom) || 0) : 0, bKick: new Bucket(0.2, 3, now), dirty: false, last: now, lastMove: now, lastTp: 0,
       lo: false, tickN: 0, bMove: new Bucket(10, 14, now), bChat: new Bucket(0.5, 3, now), bEmote: new Bucket(1, 2, now), bProf: new Bucket(0.2, 2, now), bAr: new Bucket(0.5, 2, now), area: "muara", kc: false, lastHop: 0, bAny: new Bucket(25, 40, now), bHold: new Bucket(1, 4, now), bOutfit: new Bucket(0.5, 3, now), outfit: "", hold: null, lastChat: "", viol: 0 };
     this.players.set(conn, p); this.byUid.set(uid, conn); this.countDirty = true;
     return { ok: true, pid };
@@ -100,7 +100,7 @@ class Room {
     const w = { t: "w", me: p.pid, room: this.id, rn: this.number(), n: this.size(), v: this.count(), cap: this.cap, ps: list, hz: Math.round(1000 / P.TICK_MS), st: this.now() };
     if (this.house) { w.k = "house"; w.own = p.role === "owner" ? 1 : 0; }
     if (this.boat) { w.bo = 1; w.bs = this.boatRows(p); if (p.boat) w.mb = [p.boat.id, p.boat.s]; }   // bo = server mendukung kapal; bs = kapal terlihat; mb = kapalku (setelah reconnect)
-    if (this.kota) { w.ko = 1; w.ar = p.area; }                                                             // ko = server mendukung Kota Nusa; ar = area kamu menurut server
+    if (this.kota) { w.ko = 1; w.ar = p.area; if (p.kc && !p.boat) { w.px = P.qz(p.x); w.py = P.qz(p.y); } }              // ko = server mendukung Kota Nusa; ar = area kamu menurut server; px,py = posisimu menurut server (klien menyelaraskan bila berbeda — mis. dijepit saat sambung ulang / dipindah ke titik masuk)
     const ou = {}; let nou = 0; for (const [c, q] of this.players) if (c !== conn && same(q) && q.outfit) { ou[q.pid] = q.outfit; nou++; } if (nou) w.ou = ou;     // penampilan pemain yang sudah ada (tambahan; klien lama mengabaikan)
     this.send(conn, w);
   }
@@ -128,7 +128,7 @@ class Room {
     if ((p.lastHop && now - p.lastHop < P.KOTA.HOP_MS) || !p.bAr.take(now)) return false;
     const [bw, bh] = P.KOTA.MAP[a]; let x = Number(m.x) / P.Q, y = Number(m.y) / P.Q;
     if (a === P.KOTA.AREA) { const E = P.KOTA.ENTRY; if (!Number.isFinite(x) || !Number.isFinite(y) || Math.hypot(x - E[0], y - E[1]) > P.KOTA.ENTRY_R) { x = E[0]; y = E[1]; } }
-    else if (!Number.isFinite(x) || !Number.isFinite(y)) { x = 19.5; y = 20.6; }
+    else { const H = P.KOTA.HOME; if (!Number.isFinite(x) || !Number.isFinite(y) || Math.hypot(x - H[0], y - H[1]) > P.KOTA.HOME_R) { x = H[0]; y = H[1]; } }   // kembali ke Muara hanya di sekitar dermaga (titik tiba kapal), bukan di sembarang tempat
     p.bud = P.KOTA.BURST; p.budAt = now; p.area = a; p.x = Math.max(0, Math.min(bw, x)); p.y = Math.max(0, Math.min(bh, y)); p.d = P.clampInt(m.d, 0, 7, 2); p.f = 0; p.lastMove = now; p.lastHop = now; p.dirty = false; p.pend = null; p.hold = null;
     return true;
   }
@@ -210,18 +210,26 @@ class Room {
     p.bud = Math.min(K.BURST, (p.bud == null ? K.BURST : p.bud) + dt * K.SPEED);
     const allow = Math.min(want, p.bud); p.bud -= allow; return allow;
   }
+  // Koreksi posisi (Kota Nusa): gerak ditahan batas kecepatan → beri tahu PEMAIN ITU SAJA posisi yang diterima server, supaya klien menyusulkan karakternya dengan halus
+  // (tidak melihat dirinya jauh di depan sementara orang lain melihatnya tertinggal). Hanya bila server kota ON dan klien menyatakan dukungan; selisih kecil diabaikan; ≤ 1 pesan / 400 ms.
+  correct(conn, p, now, wx, wy, x, y) {
+    if (!this.kota || !p.kc) return;
+    if (Math.hypot(wx - x, wy - y) < P.KOTA.CORR_MIN) { p.pcDue = false; return; }      // klaim terakhir diterima (atau selisih kecil): tak ada utang koreksi
+    if (now - (p.pcAt || 0) < P.KOTA.CORR_MS) { p.pcDue = true; return; }               // ditunda: tick() mengirim koreksi penutup (klien berhenti mengirim posisi setelah pesan terakhirnya ditahan)
+    p.pcAt = now; p.pcDue = false; this.send(conn, { t: "pc", x: P.qz(x), y: P.qz(y), ar: p.area });
+  }
   move(conn, p, m, now) {
     if (p.boat) return;                                              // di atas kapal: posisi mengikuti kapal (server), gerak sendiri diabaikan
     if (!p.bMove.take(now)) return;                                 // kelebihan pesan posisi dibuang diam-diam
     let x = Number(m.x), y = Number(m.y);
     if (!Number.isFinite(x) || !Number.isFinite(y)) return this.strike(conn, p);
-    x /= P.Q; y /= P.Q;
+    x /= P.Q; y /= P.Q; const rx = x, ry = y;                          // klaim klien apa adanya (sebelum dijepit batas peta / ditahan kecepatan): dasar koreksi posisi
     const [bw, bh] = this.mapOf(p); x = Math.max(0, Math.min(bw, x)); y = Math.max(0, Math.min(bh, y));      // batas peta per area (Kota Nusa 92×48)
     const d = P.clampInt(m.d, 0, 7, p.d); let f = P.clampInt(m.f, 0, this.fMask, 0);
     if (this.kota && p.area === "selat") {                           // Kota Nusa: anggaran jarak (rata-rata ≤ KOTA.SPEED petak/dtk, lonjakan ≤ KOTA.BURST), tidak bergantung pada laju pesan; tidak ada teleport
       const dist = Math.hypot(x - p.x, y - p.y), allow = this.spend(p, dist, now);
       if (allow < dist) { const k = allow / dist; x = p.x + (x - p.x) * k; y = p.y + (y - p.y) * k; }
-      f &= ~F.TP;
+      this.correct(conn, p, now, rx, ry, x, y); f &= ~F.TP;
       if (x === p.x && y === p.y && d === p.d && f === p.f) { p.lastMove = now; return; }
       p.x = x; p.y = y; p.d = d; p.f = f; p.lastMove = now; p.dirty = true; return;
     }
@@ -231,7 +239,7 @@ class Room {
       if ((f & F.TP) && p.area === "muara" && now - p.lastTp > 5000) p.lastTp = now;   // lompatan sah (mis. kembali dari rumah), dibatasi 1× / 5 detik — hanya di Muara; di kota tidak ada teleport (pindah area lewat `ar`/kapal)
       else { const k = lim / dist; x = p.x + (x - p.x) * k; y = p.y + (y - p.y) * k; }   // ditahan: tidak bisa teleport/speedhack
     }
-    f &= ~F.TP;
+    this.correct(conn, p, now, rx, ry, x, y); f &= ~F.TP;
     if (x === p.x && y === p.y && d === p.d && f === p.f) { p.lastMove = now; return; }
     p.x = x; p.y = y; p.d = d; p.f = f; p.lastMove = now; p.dirty = true;
   }
@@ -253,6 +261,7 @@ class Room {
   // Mengirim hanya pemain yang BERUBAH sejak siaran terakhir. Penerima "hemat data" menerima gabungan tiap 3 siaran, dan sisa
   // yang tertunda dikirim begitu gerakan berhenti (posisi akhir selalu sampai). Mengembalikan true bila masih ada gerakan.
   tick() {
+    if (this.kota) { const now = this.now(); for (const [c, p] of this.players) if (p.pcDue && now - (p.pcAt || 0) >= P.KOTA.CORR_MS) { p.pcDue = false; p.pcAt = now; this.send(c, { t: "pc", x: P.qz(p.x), y: P.qz(p.y), ar: p.area }); } }   // koreksi penutup (lihat correct())
     if (this.countDirty) { this.countDirty = false; const n = this.size(), v = this.count(); for (const c of this.players.keys()) this.send(c, { t: "cnt", n, v }); }   // jumlah tersambung nyata (server yang menghitung)
     const bmore = this.tickBoats();
     const dirty = []; for (const p of this.players.values()) if (p.vis && p.dirty && !p.off) dirty.push(p);
@@ -496,10 +505,10 @@ class Room {
 
   // ---- pemulihan setelah Durable Object hibernasi ----
   snapshot(conn) { const p = this.players.get(conn); if (!p) return null; const s = { pid: p.pid, uid: p.uid, n: p.name, r: p.rank, rd: p.rod, x: p.x, y: p.y, d: p.d, f: p.f, v: p.vis ? 1 : 0, l: p.last, lo: p.lo ? 1 : 0, hd: p.hold || null, oc: p.outfit || "", bt: p.boat ? [p.boat.id, p.boat.s] : 0, of: p.off ? 1 : 0 };
-    if (this.kota) { s.ar = p.area; s.kc = p.kc ? 1 : 0; s.lh = p.lastHop || 0; s.he = p.helloed ? 1 : 0; } if (this.house) s.ro = p.role; if (p.hid) s.h = p.hid; return s; }
+    if (this.kota) { s.ar = p.area; s.kc = p.kc ? 1 : 0; s.lh = p.lastHop || 0; s.he = p.helloed ? 1 : 0; } if (this.house) { s.ro = p.role; s.sr = p.sr; } if (p.hid) s.h = p.hid; return s; }
   restore(conn, s) {
     const now = this.now();
-    const r = this.join(conn, s.uid, { n: s.n, r: s.r, rd: s.rd }, { x: s.x, y: s.y }, { role: s.ro, hid: s.h }); if (!r.ok) return r;
+    const r = this.join(conn, s.uid, { n: s.n, r: s.r, rd: s.rd }, { x: s.x, y: s.y }, { role: s.ro, hid: s.h, parentRoom: s.sr }); if (!r.ok) return r;
     const p = this.players.get(conn); p.pid = s.pid; p.d = s.d; p.f = s.f; p.vis = !!s.v; p.last = Math.max(s.l || 0, now - 1000); p.lo = !!s.lo; p.hold = s.hd || null; p.outfit = typeof s.oc === "string" ? s.oc : ""; if (this.kota) { p.area = P.cleanArea(s.ar) || "muara"; p.kc = s.kc === 1; p.lastHop = s.lh || 0; p.helloed = s.he === 1; } if (Array.isArray(s.bt) && this.boats.has(s.bt[0])) { p.boat = { id: s.bt[0], s: s.bt[1] }; p.off = !!s.of; }
     const n = parseInt(String(s.pid).slice(1), 36); if (Number.isFinite(n) && n >= this.nextId) this.nextId = n + 1;
     return r;

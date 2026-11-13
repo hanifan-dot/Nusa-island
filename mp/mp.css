@@ -2,7 +2,20 @@
 .mp-dock { position: fixed; left: 8px; top: calc(env(safe-area-inset-top, 0px) + 50px); z-index: 12; display: flex; gap: 6px; pointer-events: auto; }
 .mp-dock.hidden, .mp-log.hidden, .mp-chat.hidden, .mp-ask.hidden, .mp-dock .hidden, .mp-emo.hidden, .mp-unread.hidden { display: none !important; }
 .mp-dock .chip { font-weight: 800; position: relative; min-height: 36px; }
-.mp-dock #mpCount.on { box-shadow: 0 0 0 2px #2fb39a inset; } .mp-dock #mpCount.ask { box-shadow: 0 0 0 2px #f0b53a inset; } .mp-dock #mpChatBtn.open { background: #173f50; }
+.mp-dock #mpCount { min-width: 58px; white-space: nowrap; box-sizing: border-box; border: 2px solid transparent; background-clip: padding-box; overflow: hidden; }
+.mp-dock #mpCount.on { border-color: #2fb39a; }
+.mp-dock #mpCount.single { border-color: #4c91c7; }
+.mp-dock #mpCount.lost { border-color: #e2574c; color: #9b2118; }
+.mp-dock #mpCount.ask { border-color: #f0b53a; } .mp-dock #mpChatBtn.open { background: #173f50; }
+.net-required.hidden { display: none !important; }
+.net-required { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: max(18px, env(safe-area-inset-top, 0px)) 18px max(18px, env(safe-area-inset-bottom, 0px)); background: rgba(7, 27, 34, .78); pointer-events: auto; }
+.net-required-card { width: min(92vw, 390px); padding: 22px 18px; border: 2px solid #e2574c; border-radius: 20px; background: #fffaf0; color: #173f50; text-align: center; box-shadow: 0 16px 46px rgba(0, 0, 0, .38); }
+.net-required-card b { display: block; margin: 8px 0 5px; font: 800 21px var(--display, system-ui); }
+.net-required-card p { margin: 0 0 7px; font-size: 14px; line-height: 1.4; }
+.net-required-card small { display: block; opacity: .72; font-size: 12px; line-height: 1.35; }
+.net-required-mark { display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: #e2574c; color: #fff; font: 900 29px/1 system-ui; }
+body.net-required-blocked .mp-chat, body.net-required-blocked .mp-log, body.net-required-blocked .mp-ask { display: none !important; }
+@media (max-height: 420px) { .net-required-card { padding: 14px 16px; } .net-required-mark { width: 38px; height: 38px; font-size: 24px; } .net-required-card b { font-size: 18px; } }
 .mp-unread { position: absolute; top: -5px; right: -4px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: #e2574c; color: #fff; font: 800 11px/17px system-ui; text-align: center; box-shadow: 0 0 0 2px #fff6e0; }
 /* umpan singkat saat panel tertutup: di atas joystick (tidak menabrak teks petunjuk di tengah atas) */
 .mp-log { position: fixed; left: 8px; bottom: calc(env(safe-area-inset-bottom, 0px) + 150px); z-index: 11; max-width: min(66vw, 280px); font-size: 12px; pointer-events: none; display: flex; flex-direction: column; gap: 3px; }
@@ -49,3 +62,4 @@ body.mp-chat-open #hint, body.mp-chat-open .banner, body.hm-open #hint, body.hm-
 .sv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 6px 0; }
 .sv-chip { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 52px; border: 1px solid #cfe6dc; border-radius: 12px; background: #f6fbf8; color: #173f50; } .sv-chip b { font-size: 17px; } .sv-chip small { font-size: 10.5px; opacity: .75; }
 .sv-chip.cur { background: #2fb39a; color: #fff; border-color: #2fb39a; } .sv-chip.full { background: #f1e6e3; opacity: .6; }
+

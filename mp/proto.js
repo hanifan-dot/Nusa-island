@@ -52,7 +52,7 @@ const BOAT = { CAP: 3, MAX_BOATS: 5, BOARD_R: 3.2, DIRV: _DIRV, SPD: [0, 1.6, 3.
 const KOTA = { AREAS: ["muara", "selat"], AREA: "selat", MAP: { muara: [MAP_W, MAP_H], selat: [92, 48] },   // selat = peta Kota Nusa 92×48 (peta lama 40×40 ada di dalamnya)
   ENTRY: [10.6, 20.5], ENTRY_R: 7,       // tiba berlayar sendiri (kapal tunggal lama) di Pelabuhan Kota: posisi klaim harus ≤ ENTRY_R dari sini, kalau tidak dipindah ke sini
   BERTH: [13.6, 21.95], BERTH_D: 0, LAND: [13.1, 20.45], BOARD_R: 3.4,       // tambatan kapal rombongan & titik turun di dermaga Pelabuhan Kota (sama dengan klien rombongan/delivery)
-  HOP_MS: 6000, BOAT_IDLE_MS: 5 * 60000, SPEED: 8, BURST: 5 };   // SPEED/BURST: anggaran jarak (petak/dtk rata-rata, lonjakan maks) — jalan kaki ≈ 4–6 petak/dtk    // jeda minimal pindah area; kapal kosong di tambatan kota bubar setelah ini
+  HOP_MS: 6000, BOAT_IDLE_MS: 5 * 60000, SPEED: 8, BURST: 5, CORR_MIN: 0.75, CORR_MS: 400, HOME: [35.5, 20.6], HOME_R: 8 };   // SPEED/BURST: anggaran jarak (petak/dtk rata-rata, lonjakan maks) — jalan kaki ≈ 4–6 petak/dtk; HOME/HOME_R: titik tiba di dermaga Muara saat pindah area dari kota (klaim jauh → dipindah ke sini); CORR_*: koreksi posisi `pc` ke pemain yang ditahan (selisih min petak, jeda min ms)    // jeda minimal pindah area; kapal kosong di tambatan kota bubar setelah ini
 const cleanArea = (v) => (typeof v === "string" && KOTA.AREAS.indexOf(v) >= 0 ? v : null);
 const BOAT_ACTS = ["new", "join", "leave", "steer", "anchor", "go"];
 // pesan klien → kapal. Mengembalikan objek bersih atau null (tidak sah). Tidak ada posisi/kecepatan/hadiah dari klien: hanya NIAT (arah, gas, jangkar, kursi).

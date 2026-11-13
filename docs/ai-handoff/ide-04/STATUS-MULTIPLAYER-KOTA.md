@@ -45,21 +45,29 @@ PR baru, bertumpuk di atas #59 (`fitur/fase-a-kontrak-20261112`), cabang `fitur/
 ## Tes (semua berurutan, tidak paralel)
 | Suite | Hasil |
 |---|---|
-| `unit-mp-kota` (baru, Room saja: area, spoof, kecepatan, teleport, spam, hop, kapal kota, reconnect, snapshot, kota OFF) | 91 lolos |
-| unit lain (47 berkas; `unit-mp` 193, `unit-boat` 105, `unit-rombongan` 11, `unit-kota` 22) | semua lolos; `unit-username` = baseline lama |
-| `test_kota_mp` (baru; 4 klien Chromium nyata + server dev memakai `room-core` asli) | 58/58 |
+| `unit-mp-kota` (baru, Room saja: area, spoof, kecepatan, teleport, spam, hop, kapal kota, reconnect, snapshot, kota OFF, koreksi `pc`, `px/py`, HOME) | 106 lolos |
+| unit lain (48 berkas; `unit-mp` 193, `unit-boat` 105, `unit-rombongan` 11, `unit-kota` 22) | semua lolos; `unit-username` = baseline lama |
+| `test_kota_mp` (4 klien Chromium nyata + server dev memakai `room-core` asli) | 58/58 |
+| `test_kota_presence` (BARU, integrasi #146; 4 klien: hitungan server di Muara, Rumahku, kapal, Pelabuhan Kota, pusat kota; satu akun dihitung sekali; koreksi posisi & batas kecepatan) | 22/22 |
+| `test_kota_damar` (BARU; Pak Damar penuh dengan gerbang Kota ON: kapal sandar, 3 awak turun, kotak ke truk, hadiah hanya pemilik misi, pemain kembali; kegagalan & ulang) | 29/29 |
 | `test_kota` (Visual Kota) | 38/38 |
 | Pak Damar: `test_delivery` 35, `test_port` 41, `test_port_polish` 49, `test_port_rombongan` 16 | semua lolos |
-| `test_rombongan` 51 · `test_kemudi_rombongan` 72 (1 kali K16 gagal waktu-tunggu di pelari penuh, ulang sendiri 72/72) | lolos |
-| Rumahku: `test_house` 83, `test_rumahku_sosial` 25, `test_rumahku_flag_server` 2 · `test_quest_owner` 48 · `test_podium` 24 · `test_pilih_dunia` 43 · `test_ekonomi` 22 · `test_bumbu24` 104 · `test_bumbu241` 83 · `test_boat` 17 | lolos |
+| `test_rombongan` 51 · `test_kemudi_rombongan` 72/72 (setelah perbaikan tata letak 360px, lihat bawah) | lolos |
+| Rumahku: `test_house` 83, `test_rumahku_sosial` 25, `test_rumahku_flag_server` 2 · `test_quest_owner` 48 · `test_podium` 24 · `test_ekonomi` 22 · `test_bumbu24` 104 · `test_bumbu241` 83 · `test_boat` 17 | lolos |
 | `test_kota_regresi` (NUSA_KOTA=true): `test_port` 41, `test_port_rombongan` 16, `test_rombongan` 51 | lolos |
+| `test_pilih_dunia` | **gagal sama persis di baseline #146 (02368ed)**: 41 lolos, lalu berhenti di klik langkah 6 yang tertutup `#netRequired` — bukan dari cabang ini, tidak diperbaiki di sini |
 | `build-hosting.sh`, `cek-rilis.js` | exit 0 |
 Cakupan `test_kota_mp`: empat klien/empat outfit saling terlihat di pusat kota; jalan, berhenti, berbelok, chat, emoji; server lain (muara-2) dan area Muara tidak terlihat (dua arah); spoof UID/role diabaikan; lalu lintas jaringan tidak memuat uid/email/saldo/role/save; teleport, kecepatan berlebih, spam chat/posisi, area palsu ditolak; kapal tiba → tiga awak turun → berjalan bersama; naik lagi; kapten keluar → promosi; reconnect; pulang ke Muara; flag klien OFF (tanpa unduhan `kota/*`, tanpa `ko/ar`); flag server OFF (kapal memakai jalur lama).
+
+Catatan integrasi #146: lebar dock pemain bertambah (hitungan server), sehingga panel atas Kemudi menutup tombol obrolan di layar potret ≤480px (satu-satunya regresi dari penggabungan; basis sebelum integrasi 72/72). Perbaikan: di potret sempit panel Kemudi dan teks petunjuk turun ke bawah dock (`kemudi/kemudi.css`, hanya saat Kemudi aktif). Spanduk sementara 'Kamu duduk di kapten' sebentar menutupi petunjuk — sengaja diterima.
 
 ## Bukti visual (`docs/ai-handoff/ide-04/shots-mp/`)
 1. `kmp-01-pusat-kota-siang.png` — tiga pemain asli (+ pemain kamera) berjalan di pusat kota siang.
 2. `kmp-02a-kapal-tiba.png` (kapal rombongan tiba, tiga awak di kursi) dan `kmp-02b-tiga-awak-turun.png` (ketiganya turun, berdiri di dermaga).
 3. `kmp-03-taman-malam.png` — tiga pemain di taman kota malam (fountain, lampu menyala).
+5. `kp-01-pelabuhan-kota-angka-4.png` — empat pemain di Pelabuhan Kota, hitungan kiri atas = 4.
+6. `kp-02-pusat-kota-A-di-rumahku-angka-4.png` — satu pemain masuk Rumahku, tiga lain terlihat di pusat kota; hitungan tetap 4 (satu akun dihitung sekali).
+7. `kp-03-koreksi-posisi.png` — klien yang melompat melebihi batas kecepatan disusulkan halus ke posisi yang diterima server.
 4. `kmp-04-flag-off-klien.png` — flag OFF: tidak ada unduhan `kota/*`, tidak ada `NW.kota`/`NW.mpKota`, tidak ada `ko/ar`, tidak ada pesan `ar`, selat tetap 40×40 (angka diukur tes dan dicetak di gambar).
 
 ## Risiko & hal yang BELUM teruji
@@ -67,11 +75,14 @@ Cakupan `test_kota_mp`: empat klien/empat outfit saling terlihat di pusat kota; 
 - Hibernasi DO: snapshot/restore diuji di unit test saja; posisi terakhir anti-teleport (`recent`) hanya di memori — setelah DO restart sambung ulang langsung ke kota diterima pada posisi klaim (dalam batas peta).
 - Sesi baru yang langsung masuk kota (`hello` pertama dengan `ar:selat`) diterima di posisi klaim bila tak ada catatan; klien hanya melakukan ini bila `R.kota` pernah dikonfirmasi server. Pemain yang memuat ulang halaman saat berada di selat baru tersambung setelah kembali ke Muara bila `R.kota` belum diketahui.
 - Selama server belum mengonfirmasi pindah area (maks ~3 dtk, jeda 6 dtk), posisi tidak dikirim; pemain bisa terlihat "menyusul" setelah konfirmasi.
-- Klien yang posisinya ditahan server (anggaran jarak) bisa tertinggal dari posisi lokal; server mengejar ≤ 8 petak/dtk (tidak ada pesan koreksi posisi).
+- Koreksi posisi: klien yang ditahan batas kecepatan disusulkan ke posisi server (pesan `pc` ke pemain itu saja; glide ≤ 12 petak/dtk, langsung bila > 10 petak atau terhalang rintangan). Diuji dengan lompatan/lari 14 petak/dtk di Chromium; bila klien berhenti mengirim posisi, koreksi penutup dikirim dari `tick()`. Selisih < 0,75 petak tidak dikoreksi.
 - Kapal kota tanpa kapten dan kapal kosong: bubar 5 menit; awak yang berjalan di kota saat kapal bubar tidak punya kapal untuk kembali (harus memakai jalur kapal tunggal lama).
-- Pengiriman Pak Damar di mode kota: titik antar tetap di Pelabuhan Kota lama; alur kirim kotak dengan kapal yang berlabuh sebagai pemain terlihat **hanya diuji lewat regresi** (`test_port_rombongan` dengan NUSA_KOTA=true, flag server kota OFF), tidak diuji dengan flag server kota ON.
+- Pengiriman Pak Damar dengan gerbang Kota ON kini diuji penuh (`test_kota_damar`), tetapi memakai Pengiriman Segar TIRUAN (kontrak sama, bukan server `ecoDamar*` produksi) dan pelaut berjalan lewat penempatan posisi bertahap 3–4 petak/dtk; tombol 'Kembali ke Muara' dari darat memakai jalur kapal tunggal lama (server menempatkan pemain di dermaga Muara).
 - Tes `test_kota_mp` memakai sebagian pergerakan lewat pengaturan posisi langsung (kecepatan wajar 4–6 petak/dtk) untuk menempuh jarak jauh; jalan dengan keyboard hanya diuji sebentar.
 - Anggaran jarak (8 petak/dtk, lonjakan 5) memakai kecepatan jalan ≈ 4–6 petak/dtk sebagai acuan; bila kelak ada kendaraan pemain di kota, angka ini harus ditinjau.
+
+- Hitungan server (#146) diuji dengan server dev yang meniru `HouseRoom` (lapor penghuni + ruang induk ke lobi) dan lobi ASLI; BELUM diuji di Durable Object nyata (hibernasi DO + `memberSync` rumah tidak tersentuh).
+- `unit-online-status.js` di `main`/#146 usang (masih mengharapkan angka ruang lokal); diperbarui di cabang ini ke `serverCount` — perubahan yang sama mungkin dilakukan cabang lain.
 
 ## Irisan dengan Ide 08 / pekerjaan lain (berkas bersama)
 `mp/client.js`, `mp/room-core.js`, `mp/proto.js`, `rombongan/client.js`, `rombongan/core.js`, `index.html`, `cloud/config.js` (tidak diubah di PR ini), `cf-multiplayer/src/index.js`, `cf-multiplayer/wrangler.toml`, `tests/dev/mp-dev-server.js`, `tests/run-fase-a.sh`, `tests/browser/kota_lib.py`, `docs/ai-handoff/CONTRACTS.md`. Perubahan di berkas bersama dibuat sekecil mungkin (penambahan, bukan penulisan ulang); semua logika kota ada di `kota/mp.js` dan cabang `kota`/`ar` yang tidak aktif saat flag OFF. Backend: sentuh hanya `server/features.js`, `worker/index.js` (satu baris `gameFlags`), 3 berkas tes, `docs/ai-handoff/CONTRACTS.md` — berpotensi bentrok dengan PR #60/#61 bila mereka mengubah baris yang sama.
