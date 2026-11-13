@@ -29,7 +29,7 @@ suite() { # nama kali
 }
 K=${KRITIS_ULANG:-3}
 suite test_ekonomi; suite test_bumbu24; suite test_bumbu241; suite test_boat
-suite test_delivery "$K"; suite test_rombongan "$K"; suite test_port "$K"; suite test_port_polish "$K"; suite test_port_rombongan "$K"
+suite test_delivery "$K"; suite test_rombongan "$K"; suite test_kemudi_rombongan "$K"; suite test_port "$K"; suite test_port_polish "$K"; suite test_port_rombongan "$K"
 suite test_quest_owner
 suite test_house; suite test_rumahku_sosial; suite test_rumahku_flag_server
 suite test_pilih_dunia; suite test_podium

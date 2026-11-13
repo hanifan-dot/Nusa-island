@@ -66,7 +66,7 @@ function update(dt, v) {
     if (!st.ashore) {
       const p = seatPoint(b, m.seat), ps = st.trk.pose(NW.mp._R.me, now(), p, C.SEAT_Z);
       if (ps) { P.x = ps.x; P.y = ps.y; P.z = undefined; P.dir = C.charDir(inPort() ? 0 : b.d); P.sit = false; P.moving = false; }
-      if (m.captain) drive(v, b);
+      if (m.captain) { syncKm(); if (!(kmOn() && driveKm(b, dt))) drive(v, b); }
     }
   } else if (st.wasSeated) {
     if (mpOn()) { st.wasSeated = false; st.limbo = 0; st.ashore = false; st.awayAr = null; st.snap = null; if (areaId() === "selat") { st.port = null; goArea("muara"); } P.x = C.DISEMBARK.x; P.y = C.DISEMBARK.y; P.dir = 6; P.moving = false; st.hideUntil = now() + C.T.LEAVE; }   // turun: lompat ke dermaga
@@ -85,6 +85,62 @@ function drive(v, b) {
   NW.mp.boatSteer(s.th ? s.d : b.d, s.th);
 }
 function note(text, kind) { st.noteAt = now(); N().toast(text, kind || ""); }
+// ---------- UI Kemudi untuk KAPTEN (flag NUSA_KEMUDI; tanpa flag → joystick lama persis seperti sebelumnya) ----------
+// Otoritas tetap di server: setir + tuas hanya menghasilkan NIAT {d, th} lewat NW.mp.boatSteer (protokol #132). Klien tidak menentukan posisi/kecepatan.
+// Hanya kapten yang melihat dan memakai kontrol ini; penumpang tidak pernah mendapat kontrol dan tidak mengirim steer/anchor.
+const KC = () => window.NusaKemudiCore;
+const kmOn = () => !!(NW.kemudi && NW.kemudi.on && NW.kemudi.host === "rombongan");
+const stoppedBoat = (m) => !!m && m.boat.anchor && m.boat.v < 0.05 && !m.boat.away;
+function wantKm() { const m = mineInfo(); return !!NW.kemudi && !!KC() && st.srv && !!m && m.captain && !st.ashore && live() && mpOn() && N().mode() === "world" && !(NW.world && NW.world.cine) && !(NW.boat && NW.boat.on); }
+function syncKm() {
+  if (!NW.kemudi) return;
+  if (wantKm()) { if (!kmOn()) { const m = mineInfo(); st.helm = KC().helmNew(m.boat.d); st.helmBoat = m.id; st.steerKey = m.boat.d + ":0"; NW.kemudi.show(KM_HOST); } }
+  else if (NW.kemudi.host === "rombongan") NW.kemudi.hide("rombongan");
+}
+function driveKm(b, dt) {
+  const ks = NW.kemudi.state("rombongan"), k = KC(); if (!ks) return false;
+  if (b.away || inPort()) return true;                       // berlayar antar area / berlabuh: tidak ada perintah gerak
+  const t = now(); if (!st.helm || st.helmBoat !== b.id) { st.helm = k.helmNew(b.d); st.helmBoat = b.id; st.steerKey = b.d + ":0"; }
+  if (b.anchor) {                                            // server menolak steer saat jangkar turun → jangan dikirim
+    st.helm.d = b.d; st.helm.acc = 0; st.steerKey = b.d + ":0";
+    if ((k.throttleOf(ks.gear) || Math.abs(ks.steer) > k.DEAD) && t - st.noteAt > 2.5) note("⚓ Angkat jangkar dulu untuk berlayar.", "bad");
+    return true;
+  }
+  const turning = Math.abs(ks.steer) > k.DEAD;
+  if (!turning && t - st.steerAt > 0.6) st.helm.d = b.d;      // selaras dengan arah server bila setir tidak dipakai
+  k.helmTurn(st.helm, ks.steer, dt);
+  const th = k.throttleOf(ks.gear), key = st.helm.d + ":" + th;
+  if (key === st.steerKey || t - st.steerAt < 0.15) return true;
+  st.steerKey = key; st.steerAt = t; NW.mp.boatSteer(st.helm.d, th); return true;
+}
+const AREA_NAME = { selat: "Pelabuhan Kota", muara: "Muara" };
+const KM_HOST = {
+  id: "rombongan", ok: () => { const m = mineInfo(); return !!m && m.captain && !st.ashore; },
+  view() {
+    const m = mineInfo(), b = m.boat, away = !!b.away, port = inPort(), mv = b.v > 0.05, k = KC();
+    const cg = NW.delivery && NW.delivery.cargoView ? NW.delivery.cargoView() : null, loaded = !!(cg && cg.boxes && cg.boxes.some((x) => x && x.n > 0));
+    const dst = loaded && NW.delivery.dest ? NW.delivery.dest() : null;
+    const status = !mpOn() ? "Terputus — kursimu ditahan sebentar…" : port ? "Berlabuh di Pelabuhan Kota" : away ? "Berlayar" + (st.awayAr ? " ke " + (AREA_NAME[st.awayAr] || st.awayAr) : "") + "…" : dst ? null : b.anchor ? "⚓ Berjangkar" : mv ? "Kapal bergerak" : "Jangkar naik · siap berlayar";
+    return { knots: k.knotsTile(away || port ? 0 : b.v), head: k.heading(b.d), dest: dst, status, cargo: cg, anchor: b.anchor, canFish: canFish(m), steerOk: !away && !port && mpOn(), reverse: false, neutralOnAnchor: true,
+      anchorShow: !port, fishShow: !port, home: { icon: "🪑", label: "Turun", aria: port ? "Turun ke dermaga" : "Turun dari kapal", show: true }, go: { show: port } };
+  },
+  anchor: () => toggleAnchor(), fish: () => fishNow(), home: () => leave(), go: () => goHome(),
+};
+function toggleAnchor() { const m = mineInfo(); if (!m || !m.captain || m.boat.away || inPort()) return false; N().sfx("click"); return NW.mp.boatAnchor(!m.boat.anchor) !== false; }
+function leave() {
+  const m = mineInfo(); if (!m) return false; N().sfx("click");
+  if (inPort()) { if (!m.captain || !mpOn()) return false; disembark(NW.port && NW.port.positions ? NW.port.positions.BOARD_SPOT : { x: 13.1, y: 20.45 }); return true; }
+  if (!stoppedBoat(m) || !mpOn()) { note("⚓ Jangkar harus turun dan kapal berhenti dulu untuk turun.", "bad"); return false; }
+  if (NW.mp.boatLeave() === false) { note("Belum tersambung. Coba lagi.", "bad"); return false; }
+  return true;
+}
+// memancing dari kursi hanya sah saat jangkar turun & kapal berhenti. Bila kapal mulai bergerak/jangkar diangkat saat layar memancing terbuka → ditutup aman (lemparan dibatalkan; hasil ikan tidak pernah dari klien).
+function fishGuard() {
+  if (!st.srv || N().mode() !== "fish" || N().fishFrom() !== "sea" || (NW.boat && NW.boat.on)) return;
+  const m = mineInfo(); if (!m || stoppedBoat(m)) return;
+  if (N().fishState().phase === "result") return;            // hasil tangkapan sedang ditampilkan: jangan dipotong
+  N().goWorld("rombongan", areaId()); note("⚓ Jangkar diangkat / kapal bergerak — memancing dihentikan.", "bad");
+}
 // ---------- gambar ----------
 function crewDrawer(ctx, t, b, v, pose) {
   return (dz) => {
@@ -199,9 +255,9 @@ function build() {
   r.innerHTML = `<div class="rb-top"><b id="rbRole"></b><span id="rbInfo" aria-live="polite"></span></div><div class="rb-btns"><button type="button" id="rbAnchor" class="hidden">⚓<small>Jangkar</small></button><button type="button" id="rbFish">🎣<small>Pancing</small></button><button type="button" id="rbHome" class="hidden">🏠<small>Pulang</small></button><button type="button" id="rbLeave">🪑<small>Turun</small></button></div>`;
   document.body.appendChild(r); st.root = r;
   const stop = (e) => e.stopPropagation(); r.addEventListener("pointerdown", stop); r.addEventListener("touchstart", stop, { passive: true });
-  $("rbAnchor").addEventListener("click", () => { const m = mineInfo(); if (m && m.captain) { N().sfx("click"); NW.mp.boatAnchor(!m.boat.anchor); } });
+  $("rbAnchor").addEventListener("click", () => { toggleAnchor(); });
   $("rbHome").addEventListener("click", () => { N().sfx("click"); goHome(); });
-  $("rbLeave").addEventListener("click", () => { const m = mineInfo(); if (!m) return; N().sfx("click"); if (inPort()) { if (m.captain) disembark(NW.port && NW.port.positions ? NW.port.positions.BOARD_SPOT : { x: 13.1, y: 20.45 }); return; } if (NW.mp.boatLeave() === false) note("Belum tersambung. Coba lagi.", "bad"); });
+  $("rbLeave").addEventListener("click", () => { leave(); });
   $("rbFish").addEventListener("click", fishNow);
 }
 function canFish(m) { return !!m && m.boat.anchor && m.boat.v < 0.05 && !m.boat.away && N().mode() === "world"; }
@@ -213,7 +269,8 @@ function fishNow() {
 }
 function hud() {
   if (!st.root) build();
-  const m = mineInfo(), show = !!m && !st.ashore && N().mode() === "world" && !(NW.world.cine); st.root.classList.toggle("hidden", !show); document.body.classList.toggle("rb-on", !!m);
+  syncKm();
+  const m = mineInfo(), show = !!m && !st.ashore && N().mode() === "world" && !(NW.world.cine) && !kmOn(); st.root.classList.toggle("hidden", !show); document.body.classList.toggle("rb-on", !!m);
   if (!show) return;
   const b = m.boat, role = C.SEATS[m.seat].role, away = b.away, sig = [m.seat, b.anchor, b.v > 0.05, away, st.limbo ? 1 : 0, mpOn(), N().coolerFull(), inPort() ? 1 : 0].join();
   if (sig === st.lastSig) return; st.lastSig = sig;
@@ -236,7 +293,7 @@ function onEv(e) {
   else if (e.type === "sync") { st.trk.clear(); st.chs.clear(); st.last.clear(); st.lastSig = ""; if (!(areaId() === "selat" && st.awayAr)) st.awayAr = null; }
   st.lastSig = "";
 }
-function bind() { if (st.srv && !st.evBound && NW.mp && NW.mp.onBoat) { st.evBound = true; NW.mp.onBoat(onEv); NW.mp.setSeatedSkip((id) => live() && boatsList().some((b) => b.seats.indexOf(id) >= 0)); } }
+function bind() { if (st.srv && !st.evBound && NW.mp && NW.mp.onBoat) { st.evBound = true; setInterval(() => { try { syncKm(); fishGuard(); } catch (e) { /* pemantau aman */ } }, 200); NW.mp.onBoat(onEv); NW.mp.setSeatedSkip((id) => live() && boatsList().some((b) => b.seats.indexOf(id) >= 0)); } }
 function hook() {
   build();
   const t = setInterval(() => { if (st.gateTried) return clearInterval(t); if (!(window.NusaApi && window.NusaApi.enabled() && NW.cloud && NW.cloud.user)) return; clearInterval(t); gate().then(bind); }, 3000);
@@ -247,7 +304,7 @@ const syncPlayer = () => { const m = mineInfo(); if (m) { const p = seatPoint(m.
 NW.rombongan = {
   hook, update, layer, candidates, interact, seated, fishPos, syncPlayer, hidesSelf: () => seated() || now() < st.hideUntil || (st.wasSeated && !mpOn()), isFrozen: () => seated(),
   mine: () => { const m = mineInfo(); return m ? { id: m.id, seat: m.seat, captain: m.captain, ashore: st.ashore, away: !!m.boat.away, port: inPort() } : null }, disembark, reboard, goHome,
-  go: (ar) => { const m = mineInfo(); return m && m.captain ? NW.mp.boatGo(ar) : false; },
+  go: (ar) => { const m = mineInfo(); return m && m.captain ? NW.mp.boatGo(ar) : false; }, toggleAnchor, leave, fishNow, kemudi: () => kmOn(), _fishGuard: fishGuard,
   state: () => ({ srv: st.srv, live: live(), seated: seated(), seat: seated() ? mineInfo().seat : null, boats: boatsList().map((b) => C.publicBoat(b, nameOf)), away: st.away }),   // bentuk publik: tanpa UID
   _pts: () => boatsList().map((b) => ({ id: b.id, d: b.d, seats: [0, 1, 2].map((q) => seatPoint(b, q)) })), _last: () => [...st.last].map(([k, v]) => [k, v.x, v.y, v.z]),
   _st: st, _gate: gate,

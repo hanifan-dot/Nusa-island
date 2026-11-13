@@ -5,7 +5,14 @@
 "use strict";
 const NW = (window.NW = window.NW || {}), K = window.NusaKemudiCore; if (!K) return;
 const $ = (id) => document.getElementById(id), N = () => window.Nusa;
-const st = { on: false, deg: 0, gear: "NETRAL", drag: null, root: null, raf: 0, last: 0, key: "" };
+const st = { on: false, deg: 0, gear: "NETRAL", drag: null, root: null, raf: 0, last: 0, key: "", host: null };
+// "host" = sumber data & aksi UI ini. Bawaan: kapal tunggal (NW.boat). Kapal Rombongan memasang host sendiri (rombongan/client.js) HANYA untuk kapten.
+// Host rombongan hanya menyatakan NIAT lewat protokol server; tidak ada posisi/kecepatan/hadiah yang ditentukan di sini.
+const BOAT_HOST = {
+  id: "boat", ok: () => !!(NW.boat && NW.boat.on),
+  view() { const B = NW.boat.B, cg = NW.delivery && NW.delivery.cargoView ? NW.delivery.cargoView() : null, d = dest(); return { knots: K.knots(B.v), head: K.heading(NW.boat.dir8(B.a)), dest: d, destKey: d && d.name + "|" + Math.round((d.m || 0) / 5), cargo: cg, anchor: B.anchor, canFish: NW.boat.canFish(), steerOk: true, reverse: true, home: { icon: "🛟", label: "Dermaga", aria: "Ke Dermaga", show: true }, go: { show: false } }; },
+  anchor: () => NW.boat.toggleAnchor(), fish: () => NW.boat.fish(), home: () => { N().sfx("click"); NW.boat.rescue(); }, go: () => {},
+};
 function build() {
   if (st.root) return;
   const r = document.createElement("div"); r.id = "kmRoot"; r.className = "hidden";
@@ -23,12 +30,12 @@ function build() {
   const up = (e) => { if (st.drag && e.pointerId === st.drag.id) st.drag = null; };
   W.addEventListener("pointerup", up); W.addEventListener("pointercancel", up); W.addEventListener("lostpointercapture", () => { st.drag = null; });
   W.addEventListener("keydown", (e) => { if (e.key === "ArrowLeft") st.deg = Math.max(-K.MAX_DEG, st.deg - 20); else if (e.key === "ArrowRight") st.deg = Math.min(K.MAX_DEG, st.deg + 20); else return; e.preventDefault(); paintWheel(); });
-  $("kmLever").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => setGear(b.dataset.g)));
-  const act = (id, fn) => $(id).addEventListener("click", (e) => { e.stopPropagation(); if (!NW.boat || !NW.boat.on) return; fn(); });
-  act("kmAnchor", () => { NW.boat.toggleAnchor(); setGear("NETRAL"); paintTop(true); });
+  $("kmLever").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { if (b.disabled || !st.host || !st.host.ok() || st.host.view().steerOk === false) return; setGear(b.dataset.g); }));
+  const act = (id, fn) => $(id).addEventListener("click", (e) => { e.stopPropagation(); if (!st.host || !st.host.ok()) return; fn(); });
+  act("kmAnchor", () => { st.host.anchor(); setGear("NETRAL"); paintTop(true); });
   act("kmMap", () => { N().sfx("click"); N().openPanel("seamap"); });
-  act("kmFish", () => NW.boat.fish());
-  act("kmHome", () => { N().sfx("click"); NW.boat.rescue(); });
+  act("kmFish", () => st.host.fish());
+  act("kmHome", () => st.host.home());
 }
 function setGear(g) { st.gear = g; $("kmLever").querySelectorAll("button").forEach((b) => { const on = b.dataset.g === g; b.classList.toggle("on", on); b.setAttribute("aria-checked", String(on)); }); }
 function paintWheel() { const g = $("kmWheelG"); if (g) g.setAttribute("transform", `rotate(${st.deg.toFixed(1)})`); const w = $("kmWheel"); if (w) w.setAttribute("aria-valuenow", String(Math.round(st.deg))); }
@@ -38,21 +45,30 @@ function dest() {
   try { const t = NW.boat.rescueTarget(); if (!t.moor) return null; const B = NW.boat.B, here = NW.sea.toChart(B.area, B.x, B.y), d = NW.sea.toChart(t.area.id, t.moor.x, t.moor.y); return { name: t.moor.name, m: Math.hypot(d.x - here.x, d.y - here.y) * 5 }; } catch (e) { return null; }
 }
 function paintTop(force) {
-  if (!NW.boat) return; const B = NW.boat.B, cg = NW.delivery && NW.delivery.cargoView ? NW.delivery.cargoView() : null;
-  const d = dest(), key = [K.knots(B.v), NW.boat.dir8(B.a), B.anchor, d && d.name, d && Math.round((d.m || 0) / 5), JSON.stringify(cg && cg.boxes && cg.boxes.map((b) => b.n + b.st))].join("|");
+  if (!st.host || !st.host.ok()) return; const V = st.host.view();
+  const key = [V.knots, V.head, V.anchor, V.destKey || (V.dest && V.dest.name), V.status || "", JSON.stringify(V.cargo && V.cargo.boxes && V.cargo.boxes.map((b) => b.n + b.st)), V.canFish, V.steerOk, V.home && V.home.show, V.go && V.go.show, V.home && V.home.label, V.reverse].join("|");
   if (!force && key === st.key) return; st.key = key;
-  $("kmKnot").textContent = `${K.knots(B.v)} knot`; $("kmHead").textContent = "➤ " + K.heading(NW.boat.dir8(B.a)); $("kmDest").textContent = K.destText(d); $("kmCargo").textContent = K.cargoText(cg);
-  const an = $("kmAnchor"); an.classList.toggle("on", !!B.anchor); an.innerHTML = B.anchor ? "⛵<small>Angkat</small>" : "⚓<small>Jangkar</small>"; an.setAttribute("aria-label", B.anchor ? "Angkat jangkar" : "Jangkar");
-  $("kmFish").classList.toggle("dim", !NW.boat.canFish());
+  $("kmKnot").textContent = `${V.knots} knot`; $("kmHead").textContent = "➤ " + V.head; $("kmDest").textContent = V.status || K.destText(V.dest); $("kmCargo").textContent = K.cargoText(V.cargo);
+  const an = $("kmAnchor"); an.classList.toggle("on", !!V.anchor); an.innerHTML = V.anchor ? "⛵<small>Angkat</small>" : "⚓<small>Jangkar</small>"; an.setAttribute("aria-label", V.anchor ? "Angkat jangkar" : "Jangkar");
+  an.classList.toggle("hidden", V.anchorShow === false);
+  $("kmFish").classList.toggle("dim", !V.canFish); $("kmFish").classList.toggle("hidden", V.fishShow === false);
+  const h = $("kmHome"); if (V.home) { h.innerHTML = `${V.home.icon}<small>${V.home.label}</small>`; h.setAttribute("aria-label", V.home.aria); h.classList.toggle("hidden", !V.home.show); }
+  // tombol "Pulang" hanya ada di DOM saat dibutuhkan (Pelabuhan Kota, kapten rombongan): tombol tersembunyi 0×0 mengganggu ukuran target sentuh kapal tunggal
+  let go = $("kmGo"); if (V.go && V.go.show) { if (!go) { go = document.createElement("button"); go.type = "button"; go.id = "kmGo"; go.setAttribute("aria-label", "Pulang ke Muara"); go.innerHTML = "🏠<small>Pulang</small>"; go.addEventListener("click", (e) => { e.stopPropagation(); if (st.host && st.host.ok()) st.host.go(); }); st.root.querySelector(".km-btns").appendChild(go); } } else if (go) go.remove();
+  const rv = $("kmLever").querySelector('[data-g="MUNDUR"]'); rv.disabled = V.reverse === false; rv.setAttribute("aria-disabled", String(V.reverse === false)); rv.title = V.reverse === false ? "Kapal Rombongan belum punya gigi mundur" : "";
+  st.root.classList.toggle("km-off", V.steerOk === false);
+  if (V.steerOk === false || (V.anchor && V.neutralOnAnchor)) { if (st.gear !== "NETRAL") setGear("NETRAL"); }
 }
 function loop(t) {
   if (!st.on) { st.raf = 0; return; } const dt = Math.min(0.1, (t - (st.last || t)) / 1000); st.last = t;
   if (!st.drag && st.deg) { st.deg = K.recenter(st.deg, dt); paintWheel(); }
   paintTop(false); st.raf = requestAnimationFrame(loop);
 }
-function show() { build(); st.on = true; st.deg = 0; st.gear = "NETRAL"; setGear("NETRAL"); paintWheel(); st.root.classList.remove("hidden"); document.body.classList.add("kemudi-on"); paintTop(true); if (!st.raf) { st.last = 0; st.raf = requestAnimationFrame(loop); } }
-function hide() { st.on = false; st.drag = null; st.deg = 0; st.gear = "NETRAL"; if (st.root) st.root.classList.add("hidden"); document.body.classList.remove("kemudi-on"); }
+function show(host) { build(); st.host = host || BOAT_HOST; st.key = ""; st.on = true; st.deg = 0; st.gear = "NETRAL"; setGear("NETRAL"); paintWheel(); st.root.classList.remove("hidden"); document.body.classList.add("kemudi-on"); paintTop(true); if (!st.raf) { st.last = 0; st.raf = requestAnimationFrame(loop); } }
+function hide(id) { if (st.host && st.host.id !== (id || "boat")) return; st.host = null; st.key = ""; st.on = false; st.drag = null; st.deg = 0; st.gear = "NETRAL"; if (st.root) st.root.classList.add("hidden"); document.body.classList.remove("kemudi-on"); }
 // masukan untuk NW.boat.update; null bila UI kemudi tidak aktif (joystick lama dipakai)
-function input() { return st.on ? K.input(st.deg, st.gear) : null; }
-NW.kemudi = { show, hide, input, get on() { return st.on; }, _st: st };
+function input() { return st.on && st.host && st.host.id === "boat" ? K.input(st.deg, st.gear) : null; }
+// keadaan setir/tuas untuk host lain (kapten rombongan): hanya dibaca; mengubahnya tidak menggerakkan apa pun sebelum host mengirim niat ke server
+function state(id) { return st.on && st.host && st.host.id === id ? { steer: K.steerOf(st.deg), gear: st.gear, dragging: !!st.drag } : null; }
+NW.kemudi = { show, hide, input, state, paint: (f) => paintTop(!!f), get on() { return st.on; }, get host() { return st.host ? st.host.id : null; }, BOAT_HOST, _st: st };
 })();

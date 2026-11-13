@@ -12,3 +12,8 @@ body.kemudi-on #joy,body.kemudi-on #seaBar,body.kemudi-on #seaHud{display:none!i
 .km-lever button{width:74px;height:44px;border-radius:10px;border:2px solid #fff6e0;background:#2b5d73;color:#fff6e0;font:800 12px system-ui;touch-action:manipulation}
 .km-lever button.on{background:#e0b84c;color:#3b2a05}
 @media (orientation:landscape) and (max-height:420px){.km-wheel{width:92px;height:92px;bottom:calc(env(safe-area-inset-bottom,0px) + 10px)}.km-btns{bottom:calc(env(safe-area-inset-bottom,0px) + 110px)}.km-btns button{width:44px;height:44px}.km-lever{right:132px;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);flex-direction:row-reverse}.km-lever button{width:72px;height:40px}.km-top{top:calc(env(safe-area-inset-top,0px) + 50px);font-size:10.5px}}
+
+/* host Kapal Rombongan: tombol tersembunyi per keadaan; kontrol dimatikan saat berlayar antar area/berlabuh/terputus; gigi mundur tak ada di protokol */
+.km-btns button.hidden{display:none}
+.km-lever button:disabled{opacity:.4;cursor:not-allowed}
+.km-off .km-wheel,.km-off .km-lever{opacity:.45;pointer-events:none}

@@ -1,4 +1,4 @@
-"""Bukti visual Fase A (4 gambar terpisah + 1 pelengkap). SEMUA data dev/mock: server tiruan lokal mengikuti kontrak (docs/ai-handoff/CONTRACTS.md),
+"""Bukti visual Fase A (4 gambar terpisah). SEMUA data dev/mock: server tiruan lokal mengikuti kontrak (docs/ai-handoff/CONTRACTS.md),
 dev server multiplayer lokal. BUKAN produksi: tiap gambar diberi pita merah "DEV/MOCK". Angka hadiah (777) = angka tiruan dari server tiruan.
 Pakai: python3 tests/browser/shots_fase_a.py [folder-keluaran]   (jalankan SESUDAH suite lain selesai; berurutan)."""
 import os, sys, time, json
@@ -46,16 +46,21 @@ def main():
             for k in range(3): A.click(".dl-bag .dl-fish"); A.click(".dl-box[data-box='1'] h4")
             wait_for(A, "!document.getElementById('dlSend').disabled", 4); time.sleep(0.3)
             shot(A, "fase-a-1-enam-ikan-dua-kotak.png", "6 ikan → 2 kotak (3+3)")
-            # ---- 2) kapal rombongan tiga pemain BERLAYAR (kapten pegang joystick; UI Kemudi belum terpasang ke kapal rombongan) ----
+            # ---- 2) kapal rombongan tiga pemain BERLAYAR: KAPTEN memakai UI Kemudi (setir + tuas + knot + kompas + jangkar), penumpang hanya HUD penumpang ----
             A.click("#dlSend"); wait_for(A, "document.querySelector('.dl-un')", 8); time.sleep(0.4)
             ev(A, "NW.delivery.close && NW.delivery.close()"); time.sleep(0.4)
-            A.click("#rbAnchor"); assert wait_for(C, "!NW.mp.boats()[0].anchor", 5), "jangkar tak naik"
-            A.keyboard.down("s")
-            assert all(wait_for(x, "NW.mp.boats()[0].v>0.3", 6) for x in (A, B, C)), "kapal tak bergerak"; time.sleep(1.6)
+            assert wait_for(A, "NW.kemudi && NW.kemudi.on && NW.kemudi.host==='rombongan'", 5), "Kemudi kapten tak muncul"
+            assert not any(ev(x, "!!(NW.kemudi && NW.kemudi.on)") for x in (B, C)), "penumpang tak boleh punya Kemudi"
+            A.click("#kmAnchor"); assert wait_for(C, "!NW.mp.boats()[0].anchor", 5), "jangkar tak naik"
+            wr = ev(A, "(()=>{const b=document.getElementById('kmWheel').getBoundingClientRect();return {x:b.left+b.width/2,y:b.top+b.height/2,r:b.width/2}})()")
+            while ev(A, "NW.mp.boats()[0].d") != 3:     # setir dengan penunjuk nyata sampai arah Barat Daya (searah garis pelayaran yang lapang)
+                A.mouse.move(wr["x"] + 0.69 * wr["r"], wr["y"] + 0.4 * wr["r"]); A.mouse.down(); time.sleep(0.5); A.mouse.up(); wait_for(A, "Math.abs(NW.kemudi._st.deg)<1", 4); time.sleep(0.3)
+            A.click("#kmLever button[data-g='MAJU']")
+            assert all(wait_for(x, "NW.mp.boats()[0].v>0.3", 6) for x in (A, B, C)), "kapal tak bergerak"; time.sleep(0.9)
             for n_, x in (("A", A), ("B", B), ("C", C)): shot(x, "_s2_%s.png" % n_, "kapal rombongan berlayar (Muara)")
-            A.keyboard.up("s"); time.sleep(0.3)
-            strip(["_s2_A.png", "_s2_B.png", "_s2_C.png"], "fase-a-2-kapal-rombongan-tiga-pemain-berlayar.png", ["Kapten (A) berlayar", "Penumpang (B)", "Penumpang (C)"])
-            A.click("#rbAnchor"); assert wait_for(A, "NW.mp.boats()[0].anchor && NW.mp.boats()[0].v===0", 8), "jangkar tak turun"; time.sleep(0.5)
+            A.click("#kmLever button[data-g='NETRAL']"); assert all(wait_for(x, "NW.mp.boats()[0].v<0.05", 8) for x in (A, B, C)); time.sleep(0.3)
+            strip(["_s2_A.png", "_s2_B.png", "_s2_C.png"], "fase-a-2-kapal-rombongan-tiga-pemain-berlayar.png", ["Kapten (A) memakai UI Kemudi", "Penumpang (B): tanpa Kemudi", "Penumpang (C): tanpa Kemudi"])
+            A.click("#kmAnchor"); assert wait_for(A, "NW.mp.boats()[0].anchor && NW.mp.boats()[0].v===0", 8), "jangkar tak turun"; time.sleep(0.5)
             ev(A, "NW.delivery.open()"); wait_for(A, "!!document.getElementById('pkSail')", 8); A.click("#pkSail")
             assert all(wait_for(x, "NW.areas.cur.id==='selat'", 16) for x in (A, B, C)), "belum tiba di Pelabuhan Kota"
             time.sleep(4.0)
@@ -76,13 +81,7 @@ def main():
             wait_for(A, "!document.getElementById('pkRes').classList.contains('hidden')", 40); time.sleep(0.8)
             shot(A, "_s4b.png", "hadiah 777 = angka tiruan server tiruan"); print("s4 truck@a=", st4, "res=", ev(A, "document.getElementById('pkRes').innerText")[:110].replace("\n", " | "), flush=True)
             strip(["_s4a.png", "_s4b.png"], "fase-a-4-mobil-berangkat-hasil-server.png", ["Mobil Pak Damar berangkat", "Panel hasil dari server"])
-            # ---- pelengkap 2b) UI Kemudi (setir + tuas) pada kapal tunggal ----
-            sk = pn["Srv"](True); ctx, K, ek = pn["page"](b, True, sk, vp=(412, 915), kemudi=True)
-            wait_for(K, "NW.port && NW.port.ready", 10); time.sleep(0.5)
-            ev(K, "(()=>{const ar=NW.areas.cur;const m=NW.boat.moorById(ar,NW.boat.B.moor);const p=NW.world.player;p.x=m.board.x;p.y=m.board.y;NW.boat.board();NW.world.snapCamera&&NW.world.snapCamera()})()"); time.sleep(1.2)
-            K.click("#kmLever button[data-g='MAJU']"); time.sleep(2.0)
-            shot(K, "fase-a-2b-ui-kemudi-kapal-tunggal.png", "UI Kemudi (kapal tunggal)")
-            print("errs", eA + eB + eC + ek, flush=True)
+            print("errs", eA + eB + eC, flush=True)
         finally:
             s.terminate(); b.close()
 main()
