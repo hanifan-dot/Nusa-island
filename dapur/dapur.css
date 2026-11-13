@@ -1,0 +1,39 @@
+/* NUSA ISLAND — Ide 08B · Kedai Bu Indah & Dapur Rumahku (UI). Hanya dimuat bila NUSA_DAPUR=true. Sheet kecil di bawah: dunia (rak, kasir) tetap terlihat. */
+.kd-chip{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 58px);transform:translateX(-50%);z-index:30;pointer-events:none}
+.kd-chip.hidden,.kd-sheet.hidden{display:none}
+.kd-chip button{pointer-events:auto;display:flex;align-items:center;gap:6px;min-height:36px;padding:4px 12px;border-radius:18px;border:2px solid #173f50;background:rgba(255,249,236,.96);color:#173f50;font:700 13px system-ui,sans-serif;box-shadow:0 2px 0 rgba(23,63,80,.35)}
+.kd-chip i{width:1px;height:14px;background:rgba(23,63,80,.3)}
+.kd-sheet{position:fixed;left:50%;bottom:0;transform:translateX(-50%);z-index:40;width:min(100%,520px);max-height:46vh;overflow:auto;box-sizing:border-box;padding:10px 14px calc(env(safe-area-inset-bottom,0px) + 12px);background:#fff6e4;color:#173f50;border:2px solid #173f50;border-bottom:0;border-radius:18px 18px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.35);font:14px/1.35 system-ui,sans-serif;animation:kdUp .18s ease-out}
+@keyframes kdUp{from{transform:translate(-50%,24px);opacity:.4}to{transform:translate(-50%,0);opacity:1}}
+.kd-sheet header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.kd-sheet h3{margin:0;font-size:16px}
+.kd-x{min-width:40px;min-height:40px;border:0;border-radius:20px;background:rgba(23,63,80,.1);color:#173f50;font-size:16px}
+.kd-list{list-style:none;margin:0;padding:0}
+.kd-row,.kd-tool{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 0;border-bottom:1px dashed rgba(23,63,80,.2)}
+.kd-ic{width:34px;height:34px;display:grid;place-items:center;font-size:22px;border-radius:10px;background:rgba(232,181,58,.28)}
+.kd-nm{flex:1;min-width:0;display:flex;flex-direction:column}
+.kd-nm b{font-size:14px}.kd-nm small{font-size:11.5px;opacity:.75}
+.kd-sub{font-weight:700;font-size:13px;white-space:nowrap}
+.kd-step{display:flex;align-items:center;gap:2px}
+.kd-step button{width:40px;height:40px;border-radius:12px;border:2px solid #173f50;background:#fff;color:#173f50;font:800 20px system-ui;line-height:1;padding:0}
+.kd-step button:disabled{opacity:.35}
+.kd-step output{min-width:26px;text-align:center;font-weight:800;font-size:15px}
+.kd-sheet footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;font-weight:700}
+.kd-btn{min-height:44px;padding:0 16px;border-radius:14px;border:2px solid #173f50;background:#fff;color:#173f50;font:800 14px system-ui}
+.kd-btn.gold{background:#f0c53a;box-shadow:0 2px 0 #b8901a}.kd-btn.ghost{background:transparent}.kd-btn:disabled{opacity:.45}
+.kd-note{margin:6px 0 0;font-size:12.5px;opacity:.85}.kd-note.warn{color:#a31f1a;opacity:1;font-weight:700}
+.kd-total,.kd-bal{display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;font-size:14px}.kd-total b{font-size:18px}.kd-bal.bad b{color:#a31f1a}
+.kd-done{font-size:20px;color:#2f8f7a;padding-right:8px}
+/* struk belanja: kertas dengan tepi bergerigi, muncul dari bawah */
+.kd-receipt{position:relative;margin:6px auto 0;max-width:330px;padding:10px 14px 16px;background:#fffdf4;border:1px solid rgba(23,63,80,.25);font:12.5px/1.4 ui-monospace,Menlo,monospace;color:#2a2a2a;animation:kdPrint .45s ease-out;
+  -webkit-mask:linear-gradient(#000,#000) top/100% calc(100% - 6px) no-repeat,conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) bottom/12px 6px repeat-x;mask:linear-gradient(#000,#000) top/100% calc(100% - 6px) no-repeat,conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) bottom/12px 6px repeat-x}
+@keyframes kdPrint{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+.kd-rh{text-align:center;border-bottom:1px dashed #888;padding-bottom:6px;margin-bottom:6px}.kd-rh b{display:block;font-size:14px;letter-spacing:.06em}.kd-rh small{opacity:.7}
+.kd-receipt ul{list-style:none;margin:0;padding:0}.kd-receipt li{display:flex;justify-content:space-between;gap:8px}.kd-receipt li small{opacity:.65}
+.kd-rt,.kd-rs{display:flex;justify-content:space-between;border-top:1px dashed #888;margin-top:6px;padding-top:6px}.kd-rt b{font-size:15px}.kd-rs{border-top:0;margin-top:2px;padding-top:0;opacity:.8}
+.kd-receipt p{margin:8px 0 0;text-align:center}
+@media (max-height:420px){.kd-sheet{max-height:62vh}.kd-chip{top:calc(env(safe-area-inset-top,0px) + 8px)}}
+@media (prefers-reduced-motion:reduce){.kd-sheet,.kd-receipt{animation:none}}
+
+/* di dalam Kedai/Dapur: tombol milik Rumahku tidak relevan */
+body.room-active #layoutBtn, body.room-active #visitBtn { display: none !important; }

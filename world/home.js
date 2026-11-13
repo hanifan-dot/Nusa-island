@@ -31,6 +31,8 @@ function replicas(rarity) {
   return FISH.filter((f) => !f.emoji && has(f.id) && (!rarity || f.rarity === rarity)).sort((a, b) => order.indexOf(a.rarity) - order.indexOf(b.rarity));
 }
 
+// kait ke modul lain (Ide 08: pintu Dapur Rumahku). Kosong bila fitur tidak aktif.
+const hooks = {};
 // ---------- Status ----------
 const state = { visit: null, active: false, scene: null, editing: false, sel: null, ghost: null, valid: true, drag: null, upgradeT: 0, upgrading: false, flash: 0 };
 let radioOn = false, radioT = null, ver = 0, cache = { ver: -1 };
@@ -122,6 +124,7 @@ function candidates() {
   }
   const h = H(), C = computed(), sp = HD.doorOf(lvl()).spawn;
   const list = [{ id: "h_door", x: sp.x, y: sp.y, r: 0.75, icon: "🚪", label: state.visit ? "Ke halaman" : "Keluar" }];
+  if (!state.visit && hooks.dapur) { const q = hooks.dapur.candidate(h, C.R, lvl()); if (q) list.push(q); }   // pintu Dapur Rumahku (Ide 08; hanya bila server dapurRumahku aktif)
   for (const { f, p } of C.pts) {
     if (!p) continue;
     const T = HD.FURN[f.type];
@@ -166,6 +169,7 @@ function exitToIsland(player) {
 function interact(t, player, openDialog) {
   if (state.visit) return visitInteract(t, player, openDialog);
   const S = N().S, h = H();
+  if (t.id === "h_dapur" && hooks.dapur) return hooks.dapur.enter(player);
   if (t.id === "p_gate") return exitToIsland(player);
   if (t.id === "p_door") return fadeThen(() => goRoom(player));
   if (t.id === "p_kolam") return NW.pondUI.open(player);
@@ -474,6 +478,7 @@ function drawScene(ctx, t, dk, player, V) {
   V.worldXf();
   const h = H(), lv = lvl();
   HS.drawRoomShell(ctx, lv, t, dk, h.decorations);
+  if (!state.visit && hooks.dapur) hooks.dapur.draw(ctx, lv, t, dk);
   const ctxF = { replicas, fishFor: (uid) => HD.fishIn(h, uid), speedOf, sizeOf, radioOn, highlight: state.editing ? state.sel : null, valid: state.valid };
   const show = (f) => (state.editing && state.ghost && f.uid === state.sel ? state.ghost : f);
   // karpet di lantai dulu
@@ -525,7 +530,7 @@ NW.home = {
   },
   lit: () => hasDeco("lampu") || lvl() >= 5, center: () => { const { w, d } = HD.roomOf(lvl()); return P(w / 2, d / 2, 20); },
   reset() { state.active = false; state.scene = null; state.visit = null; setEditing(false); radio(false); },
-  goRoom, goPlot, bump, spriteCache,
+  goRoom, goPlot, bump, spriteCache, hooks,
   get visit() { return state.visit; }, enterVisit, leaveVisit,
 };
 })();

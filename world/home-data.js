@@ -136,12 +136,15 @@ function interactPoint(f, R) {
   for (const [x, y] of cand) if (R.at(x, y)) return { x, y };
   return null;
 }
+// area bebas tambahan (mis. pintu Dapur Rumahku, Ide 08): fungsi (h) → kotak. Kosong = perilaku lama persis.
+const EXTRA_CLEAR = [];
 // cek apakah perabot f (posisi barunya) valid di rumah h
 function canPlace(h, f) {
   const T = FURN[f.type], r = fp(f), { w, d } = roomOf(h.level), door = doorOf(h.level);
   if (r.x0 < 0.05 - 1e-6 || r.y0 < 0.05 - 1e-6 || r.x1 > w - 0.05 + 1e-6 || r.y1 > d - 0.05 + 1e-6) return { ok: false, why: "Keluar dari ruangan" };
   if (T.kind === "floor") return { ok: true };
   if (overlaps(r, { x0: 0, y0: door.y0 - 0.15, x1: 1.35, y1: door.y1 + 0.15 })) return { ok: false, why: "Menghalangi pintu" };
+  for (const fn of EXTRA_CLEAR) { const z = fn(h); if (z && overlaps(r, z)) return { ok: false, why: "Menghalangi pintu dapur" }; }
   for (const s of solidRects(h, f.uid)) if (overlaps(r, s)) return { ok: false, why: "Menabrak perabot lain" };
   // jalan tidak boleh tertutup: semua perabot (termasuk yang ini) tetap bisa didekati
   const trial = { ...h, furniture: h.furniture.map((x) => (x.uid === f.uid ? f : x)) };
@@ -293,7 +296,7 @@ function visitorCan(h, action, visitorId) {
 const API = {
   HOME_VERSION, LEVELS, MAX_LEVEL, FURN, CATALOG, catName, catIcon, SNAP, roomOf, doorOf, fp, builtinRects, solidRects,
   newHome, newUid, addFurniture, canPlace, findSpot, relayout, reachable, interactPoint, migrateHome,
-  ensureFishUids, eligible, putFish, takeFish, swapFish, fishIn, aquariumOf, waterOf, inventoryReport, visitorCan, HABITAT, WATER_NAME,
+  ensureFishUids, eligible, putFish, takeFish, swapFish, fishIn, aquariumOf, waterOf, inventoryReport, visitorCan, HABITAT, WATER_NAME, extraClear: EXTRA_CLEAR,
 };
 if (typeof module !== "undefined" && module.exports) module.exports = API;
 else { root.NW = root.NW || {}; root.NW.HD = API; }
