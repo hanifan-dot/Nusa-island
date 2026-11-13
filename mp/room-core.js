@@ -213,21 +213,23 @@ class Room {
   // Koreksi posisi (Kota Nusa): gerak ditahan batas kecepatan → beri tahu PEMAIN ITU SAJA posisi yang diterima server, supaya klien menyusulkan karakternya dengan halus
   // (tidak melihat dirinya jauh di depan sementara orang lain melihatnya tertinggal). Hanya bila server kota ON dan klien menyatakan dukungan; selisih kecil diabaikan; ≤ 1 pesan / 400 ms.
   correct(conn, p, now, wx, wy, x, y) {
-    if (!this.kota || !p.kc || Math.hypot(wx - x, wy - y) < P.KOTA.CORR_MIN || now - (p.pcAt || 0) < P.KOTA.CORR_MS) return;
-    p.pcAt = now; this.send(conn, { t: "pc", x: P.qz(x), y: P.qz(y), ar: p.area });
+    if (!this.kota || !p.kc) return;
+    if (Math.hypot(wx - x, wy - y) < P.KOTA.CORR_MIN) { p.pcDue = false; return; }      // klaim terakhir diterima (atau selisih kecil): tak ada utang koreksi
+    if (now - (p.pcAt || 0) < P.KOTA.CORR_MS) { p.pcDue = true; return; }               // ditunda: tick() mengirim koreksi penutup (klien berhenti mengirim posisi setelah pesan terakhirnya ditahan)
+    p.pcAt = now; p.pcDue = false; this.send(conn, { t: "pc", x: P.qz(x), y: P.qz(y), ar: p.area });
   }
   move(conn, p, m, now) {
     if (p.boat) return;                                              // di atas kapal: posisi mengikuti kapal (server), gerak sendiri diabaikan
     if (!p.bMove.take(now)) return;                                 // kelebihan pesan posisi dibuang diam-diam
     let x = Number(m.x), y = Number(m.y);
     if (!Number.isFinite(x) || !Number.isFinite(y)) return this.strike(conn, p);
-    x /= P.Q; y /= P.Q;
+    x /= P.Q; y /= P.Q; const rx = x, ry = y;                          // klaim klien apa adanya (sebelum dijepit batas peta / ditahan kecepatan): dasar koreksi posisi
     const [bw, bh] = this.mapOf(p); x = Math.max(0, Math.min(bw, x)); y = Math.max(0, Math.min(bh, y));      // batas peta per area (Kota Nusa 92×48)
     const d = P.clampInt(m.d, 0, 7, p.d); let f = P.clampInt(m.f, 0, this.fMask, 0);
     if (this.kota && p.area === "selat") {                           // Kota Nusa: anggaran jarak (rata-rata ≤ KOTA.SPEED petak/dtk, lonjakan ≤ KOTA.BURST), tidak bergantung pada laju pesan; tidak ada teleport
       const dist = Math.hypot(x - p.x, y - p.y), allow = this.spend(p, dist, now);
-      if (allow < dist) { const wx = x, wy = y, k = allow / dist; x = p.x + (x - p.x) * k; y = p.y + (y - p.y) * k; this.correct(conn, p, now, wx, wy, x, y); }
-      f &= ~F.TP;
+      if (allow < dist) { const k = allow / dist; x = p.x + (x - p.x) * k; y = p.y + (y - p.y) * k; }
+      this.correct(conn, p, now, rx, ry, x, y); f &= ~F.TP;
       if (x === p.x && y === p.y && d === p.d && f === p.f) { p.lastMove = now; return; }
       p.x = x; p.y = y; p.d = d; p.f = f; p.lastMove = now; p.dirty = true; return;
     }
@@ -235,9 +237,9 @@ class Room {
     const door = this.house && ((f ^ p.f) & F.IN);                  // lewat pintu rumah (halaman ↔ dalam): koordinat berganti ruang, lompatan sah
     if (dist > lim && !door) {
       if ((f & F.TP) && p.area === "muara" && now - p.lastTp > 5000) p.lastTp = now;   // lompatan sah (mis. kembali dari rumah), dibatasi 1× / 5 detik — hanya di Muara; di kota tidak ada teleport (pindah area lewat `ar`/kapal)
-      else { const wx = x, wy = y, k = lim / dist; x = p.x + (x - p.x) * k; y = p.y + (y - p.y) * k; this.correct(conn, p, now, wx, wy, x, y); }   // ditahan: tidak bisa teleport/speedhack
+      else { const k = lim / dist; x = p.x + (x - p.x) * k; y = p.y + (y - p.y) * k; }   // ditahan: tidak bisa teleport/speedhack
     }
-    f &= ~F.TP;
+    this.correct(conn, p, now, rx, ry, x, y); f &= ~F.TP;
     if (x === p.x && y === p.y && d === p.d && f === p.f) { p.lastMove = now; return; }
     p.x = x; p.y = y; p.d = d; p.f = f; p.lastMove = now; p.dirty = true;
   }
@@ -259,6 +261,7 @@ class Room {
   // Mengirim hanya pemain yang BERUBAH sejak siaran terakhir. Penerima "hemat data" menerima gabungan tiap 3 siaran, dan sisa
   // yang tertunda dikirim begitu gerakan berhenti (posisi akhir selalu sampai). Mengembalikan true bila masih ada gerakan.
   tick() {
+    if (this.kota) { const now = this.now(); for (const [c, p] of this.players) if (p.pcDue && now - (p.pcAt || 0) >= P.KOTA.CORR_MS) { p.pcDue = false; p.pcAt = now; this.send(c, { t: "pc", x: P.qz(p.x), y: P.qz(p.y), ar: p.area }); } }   // koreksi penutup (lihat correct())
     if (this.countDirty) { this.countDirty = false; const n = this.size(), v = this.count(); for (const c of this.players.keys()) this.send(c, { t: "cnt", n, v }); }   // jumlah tersambung nyata (server yang menghitung)
     const bmore = this.tickBoats();
     const dirty = []; for (const p of this.players.values()) if (p.vis && p.dirty && !p.off) dirty.push(p);

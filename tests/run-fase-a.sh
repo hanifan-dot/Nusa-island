@@ -36,6 +36,8 @@ suite test_pilih_dunia; suite test_podium
 # Visual Kota Nusa (Ide 04): uji khusus + regresi Pak Damar / Kapal Rombongan dengan NUSA_KOTA=true (flag default tetap OFF)
 suite test_kota
 suite test_kota_mp   # Multiplayer Kota Nusa: 4 klien nyata + server dev (NUSA_KOTA=ya, NUSA_BOAT=ya); termasuk mode flag klien OFF dan flag server OFF
+suite test_kota_presence   # Integrasi #146: angka server di Muara/Rumahku/kapal/Pelabuhan/pusat kota (satu akun sekali) + koreksi posisi saat gerak ditahan (4 klien nyata)
+suite test_kota_damar   # Pak Damar penuh dengan gerbang Kota ON: kapal berlabuh, tiga awak turun, kotak ke mobil, hadiah hanya pemilik, kasus gagal + retry, pulang
 for r in test_port test_port_rombongan test_rombongan; do
   timeout 1800 python3 "tests/browser/test_kota_regresi.py" "$r" > "$OUT/kota_regresi_$r.out" 2>&1; rc=$?
   p=$(grep -c '^PASS' "$OUT/kota_regresi_$r.out"); f=$(grep -c '^FAIL' "$OUT/kota_regresi_$r.out"); catat "kota_regresi($r) exit=$rc PASS=$p FAIL=$f"; { [ $rc -ne 0 ] || [ "$f" -ne 0 ]; } && BAD=1

@@ -290,7 +290,7 @@ function applyCorr(dt) {
   if (dist < 0.05) { R.corr = null; return; }
   const walk = (x, y) => { try { return NW.walkable ? NW.walkable(x, y) : true; } catch (e) { return true; } };
   if (dist > 10) { if (walk(c.x, c.y)) { w.x = c.x; w.y = c.y; } R.corr = null; return; }      // selisih besar (mis. lompatan ditolak): ikuti posisi server langsung
-  const step = Math.min(dist, Math.max(dist * (1 - Math.exp(-dt * 6)), 2.2 * dt)), nx = w.x + dx / dist * step, ny = w.y + dy / dist * step;
+  const step = Math.min(dist, Math.max(dist * (1 - Math.exp(-dt * 4)), 2.2 * dt), 12 * dt), nx = w.x + dx / dist * step, ny = w.y + dy / dist * step;
   if (walk(nx, ny)) { w.x = nx; w.y = ny; } else if (walk(nx, w.y)) w.x = nx; else if (walk(w.x, ny)) w.y = ny; else R.corr = null;   // terhalang: berhenti (tidak menembus rintangan)
 }
 function update(dt) {

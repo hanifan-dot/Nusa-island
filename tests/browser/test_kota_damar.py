@@ -3,7 +3,7 @@
 tiga awak turun & berjalan → kotak dibawa ke mobil → hadiah HANYA untuk pemilik pesanan → pemain kembali. Termasuk kasus gagal (Sail jaringan putus, Deliver jaringan putus → retry opId sama,
 Deliver ditolak server) dan awak non-pemilik yang tidak bisa mengambil kotak/hadiah.
 Jalankan: python3 tests/browser/test_kota_damar.py   Bukti visual: /tmp/kota-damar-shots/ (env SHOTS)."""
-import os, sys, time, json, subprocess, urllib.request
+import os, sys, time, json, subprocess, urllib.request, urllib.error
 H = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, H)
 SHOTS = os.environ.get("SHOTS", "/tmp/kota-damar-shots/"); os.makedirs(SHOTS, exist_ok=True)
 src = open(os.path.join(H, "test_rombongan.py")).read().replace("\nmain()\n", "\n").replace('if __name__ == "__main__":\n    main()\n', "")
@@ -19,17 +19,17 @@ SRV = os.path.join(H, "..", "dev", "mp-dev-server.js"); PORT = int(os.environ.ge
 OUT = ns["OUT"]
 
 def srv(port=PORT):
-    env = dict(os.environ, NUSA_DEV_NO_RATE="1", NUSA_BOAT="ya", NUSA_KOTA="ya")
+    env = dict(os.environ, NUSA_DEV_NO_RATE="1", NUSA_BOAT="ya", NUSA_KOTA="ya", DEV_FLAG_SOCIAL="1")
     p = subprocess.Popen(["node", SRV, str(port)], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     for _ in range(60):
         try: urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=0.3); return p
         except Exception: time.sleep(0.1)
     raise RuntimeError("server uji tidak naik")
 
-def page(b, acc, sv, outfit, kota=True, kota_srv=True, vp=(412, 915)):
+def page(b, acc, sv, outfit, kota=True, kota_srv=True, vp=(412, 915), home=False, uid=None, name="Awak"):
     ctx = b.new_context(viewport={"width": vp[0], "height": vp[1]}, has_touch=True, device_scale_factor=2)
-    sd = seed("Awak"); sd["cooler"] = [{"uid": "i%d" % k, "id": "nila", "w": 1.0 + k * 0.5, "t": 1} for k in range(8)]
-    init = f"window.__demoAuto='{acc}';window.NUSA_MP_TEST={{ws:'ws://127.0.0.1:{PORT}',token:(uid)=>'dev.'+uid}};window.NUSA_ROMBONGAN=true;window.NUSA_DELIVERY=true;window.NUSA_KEMUDI=true;" + ("window.NUSA_KOTA=true;" if kota else "")
+    sd = seed(name); sd["cooler"] = [{"uid": "i%d" % k, "id": "nila", "w": 1.0 + k * 0.5, "t": 1} for k in range(8)]
+    init = f"window.__demoAuto='{acc}';window.NUSA_MP_TEST={{ws:'ws://127.0.0.1:{PORT}',token:(uid)=>'dev.'+uid}};window.NUSA_ROMBONGAN=true;window.NUSA_DELIVERY=true;window.NUSA_KEMUDI=true;" + ("window.NUSA_SOCIAL_HOME=true;" if home else "") + ("window.NUSA_KOTA=true;" if kota else "")
     init += "window.firebase={apps:[1],auth:()=>({currentUser:{getIdToken:async()=>'TOKEN-UJI'}})};"
     init += "if(!localStorage.getItem('__seeded')){localStorage.setItem('nusa-island-v1', %s);localStorage.setItem('__seeded','1');localStorage.setItem('nusa-mp-prefs-v1', JSON.stringify({consent:true}))}" % json.dumps(json.dumps(sd))
     ctx.add_init_script(init)
@@ -39,8 +39,12 @@ def page(b, acc, sv, outfit, kota=True, kota_srv=True, vp=(412, 915)):
         u = r.request.url; nm = u.split("/fn/")[1] if "/fn/" in u else ""; body = {}
         try: body = (json.loads(r.request.post_data or "{}") or {}).get("data", {})
         except Exception: pass
-        if nm == "gameFlags": return r.fulfill(status=200, content_type="application/json", body=json.dumps({"result": {"leaderboard": False, "socialHome": False, "pakDamar": True, "kapalRombongan": True, "kotaNusa": bool(kota_srv)}}))
+        if nm == "gameFlags": return r.fulfill(status=200, content_type="application/json", body=json.dumps({"result": {"leaderboard": False, "socialHome": bool(home), "pakDamar": True, "kapalRombongan": True, "kotaNusa": bool(kota_srv)}}))
         if nm.startswith("ecoDamar"): code, js = sv.handle(nm, body); return r.fulfill(status=code, content_type="application/json", body=json.dumps(js))
+        if home and (nm.startswith("home") or nm in ("writeSave", "loadSave")):   # Rumahku: jalur HTTP ke server uji (house/core asli) sebagai akun ini
+            rq = urllib.request.Request(f"http://127.0.0.1:{PORT}/fn/{nm}", data=json.dumps({"data": body}).encode(), headers={"content-type": "application/json", "authorization": "Bearer dev." + (uid or acc)})
+            try: return r.fulfill(status=200, content_type="application/json", body=urllib.request.urlopen(rq, timeout=5).read())
+            except urllib.error.HTTPError as e: return r.fulfill(status=e.code, content_type="application/json", body=e.read())
         return r.fulfill(status=404, content_type="application/json", body=json.dumps({"error": {"status": "not_found"}}))
     ctx.route(MOCK + "/**", mock)
     pg = ctx.new_page(); errs = []; pg.on("pageerror", lambda e: errs.append("PAGEERR " + str(e)))
