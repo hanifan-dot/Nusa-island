@@ -65,7 +65,7 @@ const server = http.createServer((req, res) => {
       const m = /^Bearer dev\.([\w-]+)$/.exec(req.headers.authorization || ""); const auth = m ? { uid: m[1], token: { email_verified: true, firebase: { sign_in_provider: "google.com" } } } : null;
       const fnName = fm[1], ok = ["writeSave", "loadSave", "homeSearch", "homeVisit", "homeAccess", "homeSettings", "homeSetPrivacy", "homeAllow", "homeKick", "homeVisitRequest", "homeInbox", "homeVisitRespond", "homePrefs", "gameFlags"];
       if (!ok.includes(fnName)) return send(404, { error: { status: "not-found", message: "Fungsi tidak dikenal." } });
-      if (fnName === "gameFlags") return send(200, { result: { socialHome: process.env.DEV_FLAG_SOCIAL === "1", leaderboard: false } });
+      if (fnName === "gameFlags") return send(200, { result: { socialHome: process.env.DEV_FLAG_SOCIAL === "1", leaderboard: false, kotaNusa: process.env.DEV_FLAG_KOTA === "1", kapalRombongan: process.env.DEV_FLAG_ROMBONGAN === "1" } });
       try { const out = await api[fnName](auth, (JSON.parse(body || "{}").data) || {}); send(200, { result: JSON.parse(JSON.stringify(out)) }); }
       catch (e) { send(HTTP_OF[e.code] || 500, { error: { status: e.code || "internal", message: e.message } }); }
     });

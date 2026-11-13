@@ -285,13 +285,15 @@ function netTick() {
 function applyCorr(dt) {
   const c = R.corr; if (!c) return;
   const w = NW.world && NW.world.player;
-  if (!w || R.mine || !R.kota || now() - c.at > 4000 || c.ar !== R.area || !(NW.areas.cur && NW.areas.cur.id === (R.area === "selat" ? "selat" : P.AREA))) { R.corr = null; return; }
+  if (!w || R.mine || !R.kota || now() - c.at > 4000 || c.ar !== R.area || !(NW.areas.cur && NW.areas.cur.id === (R.area === "selat" ? "selat" : "muara"))) { R.corr = null; return; }
   const dx = c.x - w.x, dy = c.y - w.y, dist = Math.hypot(dx, dy);
   if (dist < 0.05) { R.corr = null; return; }
   const walk = (x, y) => { try { return NW.walkable ? NW.walkable(x, y) : true; } catch (e) { return true; } };
   if (dist > 10) { if (walk(c.x, c.y)) { w.x = c.x; w.y = c.y; } R.corr = null; return; }      // selisih besar (mis. lompatan ditolak): ikuti posisi server langsung
   const step = Math.min(dist, Math.max(dist * (1 - Math.exp(-dt * 4)), 2.2 * dt), 12 * dt), nx = w.x + dx / dist * step, ny = w.y + dy / dist * step;
-  if (walk(nx, ny)) { w.x = nx; w.y = ny; } else if (walk(nx, w.y)) w.x = nx; else if (walk(w.x, ny)) w.y = ny; else R.corr = null;   // terhalang: berhenti (tidak menembus rintangan)
+  const sx = w.x, sy = w.y;
+  if (walk(nx, ny)) { w.x = nx; w.y = ny; } else if (walk(nx, w.y)) w.x = nx; else if (walk(w.x, ny)) w.y = ny;
+  if (Math.hypot(w.x - sx, w.y - sy) < step * 0.5) { if (walk(c.x, c.y)) { w.x = c.x; w.y = c.y; } R.corr = null; }   // terhalang rintangan (mis. lompatan menembus tembok): langsung ke posisi terakhir yang diterima server (titik yang pernah dilalui sah)
 }
 function update(dt) {
   applyCorr(dt);
@@ -470,6 +472,6 @@ function hook() {
 
 NW.mp = { area: () => R.area, kotaLive: () => R.kota && R.state === "online", player: (id) => R.players.get(id) || null, setSeatedSkip: (f) => { R.seatedSkip = typeof f === "function" ? f : null; }, boatOn: () => R.boatOn, boats: () => [...R.boats.values()], boatMine: () => (R.mine && R.boats.get(R.mine.id) ? { id: R.mine.id, seat: R.mine.s, captain: R.mine.s === 0, boat: R.boats.get(R.mine.id) } : null), onBoat: (f) => R.bListeners.push(f),
   boatNew: () => boatSend({ a: "new" }), boatJoin: (b, s) => boatSend({ a: "join", b, s }), boatLeave: () => boatSend({ a: "leave" }), boatSteer: (d, th) => boatSend({ a: "steer", d, th }), boatAnchor: (on) => boatSend({ a: "anchor", on: !!on }), boatGo: (ar) => boatSend({ a: "go", ar }),
-  sendOutfit: (c) => { R.outWant = typeof c === "string" ? c : ""; }, eject, clearKick, homeLayer, inHouse: () => !!R.house && R.vis && R.state === "online", hook, update, layer, drawTag, drawBubbles, view, sendChat, sendEmote, setPref, joinRoom, joinRandom, joinAuto, leaveServer, fetchRooms, sharedHour, onChange: (f) => R.listeners.push(f), eligible, EMOTES: P.EMOTES, ERR,
+  _corr: () => (R.corr ? { x: R.corr.x, y: R.corr.y, ar: R.corr.ar } : null), sendOutfit: (c) => { R.outWant = typeof c === "string" ? c : ""; }, eject, clearKick, homeLayer, inHouse: () => !!R.house && R.vis && R.state === "online", hook, update, layer, drawTag, drawBubbles, view, sendChat, sendEmote, setPref, joinRoom, joinRandom, joinAuto, leaveServer, fetchRooms, sharedHour, onChange: (f) => R.listeners.push(f), eligible, EMOTES: P.EMOTES, ERR,
   get typing() { return R.typing; }, set typing(v) { R.typing = !!v; }, hasChatPref: () => prefs.chat, _R: R, _prefs: () => prefs, _net: netTick, _clock: CK, _serverNow: serverNow };
 })();

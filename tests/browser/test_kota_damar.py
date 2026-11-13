@@ -116,7 +116,7 @@ def main():
             ev(A, "document.getElementById('pkRetry').click()")
             for _ in range(60):
                 if sa.delivered >= 3 and len([c for c in sa.calls if c[0] == 'ecoDamarDeliver']) >= 2: break
-                time.sleep(0.25)
+                A.wait_for_timeout(250)   # bukan time.sleep: penangan rute tiruan baru jalan saat Playwright dipompa
             op_b = [c[1].get("opId") for c in sa.calls if c[0] == "ecoDamarDeliver"]
             if os.environ.get("KDM_DEBUG"): print("DEBUG", ev(A, "(()=>{const s=NW.port._st;return JSON.stringify({lock:s.lock,retry:!!s.retry,msg:s.msg,carry:s.carry,load:!!s.load,inTruck:s.inTruck})})()"), [(c[0], c[1]) for c in sa.calls], sa.st, sa.delivered, flush=True)
             ok("D14 retry Deliver memakai opId SAMA & tercatat sekali di server", len(op_b) == 2 and op_b[0] == op_b[1] and sa.delivered == 3 and len(sa.counted) == 1, (op_b, sa.delivered, sa.counted))
