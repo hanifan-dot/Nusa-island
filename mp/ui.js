@@ -107,7 +107,10 @@ function dockState(v, browserOnline, hadOnline) {
   const prefsOn = !(v && v.prefs && v.prefs.on === false);
   if (browserOnline === false) return { text: "!", kind: "lost", blocked: true, label: "Koneksi internet terputus" };
   if (!prefsOn) return { text: "Single", kind: "single", blocked: false, label: "Singleplayer · online" };
-  if (v && v.online) return { text: String(Math.max(1, Number(v.n) || 1)), kind: "online", blocked: false, label: `${Math.max(1, Number(v.n) || 1)} pemain online` };
+  if (v && v.online) {
+    if (!Number.isInteger(v.serverCount)) return { text: "…", kind: "waiting", blocked: false, label: "Menghitung pemain di server" };
+    return { text: String(v.serverCount), kind: "online", blocked: false, label: v.serverCount + " pemain di server ini" };
+  }
   const state = v && v.state, why = v && v.why;
   const waiting = state === "connecting" || (state === "off" && why === "pindah");
   if (waiting) return { text: "…", kind: "waiting", blocked: false, label: "Sedang menyambung" };
@@ -171,7 +174,7 @@ function refresh() {
   // lencana belum dibaca: hanya pesan NYATA dari pemain lain sejak panel terakhir dibuka/ditutup
   const unread = chatOpen || !v.prefs.chat ? 0 : v.log.filter((l) => l.t > lastSeen && !l.mine && l.name !== "Sistem").length;
   const ub = $("mpUnread"); ub.textContent = unread > 9 ? "9+" : String(unread); ub.classList.toggle("hidden", !unread);
-  $("mpChatCount").textContent = v.online ? v.n + " pemain" : ds.kind === "single" ? "Singleplayer" : ds.kind === "lost" ? "koneksi putus" : "menyambung…";
+  $("mpChatCount").textContent = v.online ? (Number.isInteger(v.serverCount) ? v.serverCount : "…") + " pemain di server" : ds.kind === "single" ? "Singleplayer" : ds.kind === "lost" ? "koneksi putus" : "menyambung…";
   const inp = $("mpInput"); if (inp) { inp.disabled = !v.online; inp.placeholder = v.online ? "Ketik pesan…" : "Tidak tersambung"; }
   // umpan singkat saat panel tertutup (5 pesan terakhir, 9 detik)
   const lg = $("mpLog"), cut = Date.now() - 9000, rec = !chatOpen && v.prefs.chat ? v.log.filter((l) => l.t > cut && l.name !== "Sistem").slice(-4) : [];
