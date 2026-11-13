@@ -17,7 +17,7 @@ const loadPrefs = () => { try { return Object.assign({ consent: null, on: true, 
 let prefs = loadPrefs();
 const savePrefs = () => { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) {} };
 
-const R = { house: null, fails: 0, kickedAt: {}, roomNo: 0, vcount: 0, want: null, resume: null, pending: null, manualLeave: false, err: null, rooms: null, roomsAt: 0, hbSent: 0, helloAt: 0, holdSent: undefined, ws: null, state: "off", why: "", me: null, room: "", n: 0, cap: P.ROOM_CAP, players: new Map(), log: [], self: { bubble: null, emote: null }, typing: false,
+const R = { house: null, fails: 0, kickedAt: {}, roomNo: 0, vcount: 0, want: null, resume: null, pending: null, manualLeave: false, err: null, rooms: null, roomsAt: 0, roomsBusy: false, hbSent: 0, helloAt: 0, holdSent: undefined, ws: null, state: "off", why: "", me: null, room: "", n: 0, cap: P.ROOM_CAP, players: new Map(), log: [], self: { bubble: null, emote: null }, typing: false,
   tx: 0, rx: 0, lastProf: 0, profKey: "", gotWelcomeEver: false, listeners: [], retry: 0, nextTry: 0, lastSend: 0, lastHb: 0, sent: null, hiddenAt: 0, vis: false, endpoint: undefined, helloSent: false, gotWelcome: false };
 const emit = () => R.listeners.forEach((f) => { try { f(); } catch (e) {} });
 const setState = (s, why) => { if (R.state !== s || (why !== undefined && why !== R.why)) { R.state = s; if (why !== undefined) R.why = why; emit(); } };
@@ -99,7 +99,7 @@ async function connect() {
     if (!R.endpoint) { R.endpoint = undefined; R.nextTry = now() + 60000; return setState("off", "no-endpoint"); }
     const token = await getToken(), target = R.house;
     if (target !== wantHouse() || (target && (R.kickedAt[target] || 0) > now())) { setState("off", ""); return; }   // pindah ruang / dikeluarkan saat menunggu token
-    const ws = new WebSocket(R.endpoint + "/ws" + (target ? "?h=" + encodeURIComponent(target) : wsQuery()), [P.SUBPROTOCOL, token]);
+    const ws = new WebSocket(R.endpoint + "/ws" + (target ? "?h=" + encodeURIComponent(target) + (R.roomNo ? "&sr=" + encodeURIComponent(R.roomNo) : "") : wsQuery()), [P.SUBPROTOCOL, token]);
     R.ws = ws; R.helloSent = false; R.gotWelcome = false; R.err = null; R.attempt = target ? {} : R.pending || (R.resume ? { room: R.resume, resumed: true } : {});
     ws.onopen = () => { R.retry = 0; helloNow(); };
     ws.onmessage = (e) => { R.rx += (e.data || "").length; try { onMsg(JSON.parse(e.data), ws); } catch (err) { /* abaikan paket rusak */ } };
@@ -185,7 +185,7 @@ function onMsg(m, ws) {
       R.gotWelcome = true; R.gotWelcomeEver = true; R.fails = 0; R.holdSent = undefined;
       if (m.k !== "house") { R.roomNo = m.rn || parseInt(String(m.room).split("-")[1], 10) || 0; R.resume = R.roomNo; R.pending = null; }   // ruang rumah TIDAK mengganti server Muara yang diingat
       clockSample(m.st, R.helloAt); setTimeout(() => { if (R.ws === ws) { R.hbSent = now(); send({ t: "h" }); } }, 600); setTimeout(() => { if (R.ws === ws) { R.hbSent = now(); send({ t: "h" }); } }, 2500);   // beberapa sampel awal → jam akurat
-      setState("online", ""); break;
+      R.roomsAt = 0; R.rooms = null; setState("online", ""); fetchRooms(true); break;
     case "k": clockSample(m.st, R.hbSent); R.hbSent = 0; break;
     case "cnt": R.n = m.n; R.vcount = m.v; emit(); break;
     case "n": addLog("Sistem", m.r, false); emit(); break;
@@ -393,22 +393,30 @@ function switchTo(q) {
 }
 function leaveServer() { R.manualLeave = true; R.pending = null; R.resume = null; R.lastError = null; disconnect("keluar"); }
 async function fetchRooms(force) {
+  if (R.roomsBusy) return R.rooms;
   if (!force && R.rooms && now() - R.roomsAt < 8000) return R.rooms;
   if (R.endpoint === undefined) R.endpoint = await findEndpoint(); if (!R.endpoint || !user()) return null;
+  R.roomsBusy = true;
   try {
     const tok = await getToken(), base = R.endpoint.replace(/^wss:/, "https:").replace(/^ws:/, "http:");
     const r = await fetch(base + "/rooms", { headers: { Authorization: "Bearer " + tok } }); if (!r.ok) return null;
     const j = await r.json(); R.rooms = j; R.roomsAt = now(); emit(); return j;
-  } catch (e) { return null; }
+  } catch (e) { return null; } finally { R.roomsBusy = false; }
+}
+function serverCount() {
+  if (!R.roomNo || !R.rooms || !Array.isArray(R.rooms.rooms) || now() - R.roomsAt > 30000) return null;
+  const row = R.rooms.rooms.find((entry) => Array.isArray(entry) && Number(entry[0]) === R.roomNo);
+  return row && Number.isInteger(row[1]) && row[1] >= 0 ? Math.max(1, row[1]) : null;
 }
 function view() {
-  return { house: R.house, state: R.state, why: R.why, room: R.room, roomNo: R.roomNo, n: R.n, visible: R.vcount, cap: R.cap, me: R.me, prefs: Object.assign({}, prefs), tx: R.tx, rx: R.rx, log: R.log.slice(-30), typing: R.typing,
+  return { serverCount: serverCount(), house: R.house, state: R.state, why: R.why, room: R.room, roomNo: R.roomNo, n: R.n, visible: R.vcount, cap: R.cap, me: R.me, prefs: Object.assign({}, prefs), tx: R.tx, rx: R.rx, log: R.log.slice(-30), typing: R.typing,
     lastError: R.lastError || null, manualLeave: R.manualLeave, rooms: R.rooms, pending: R.pending, clock: CK.have, hour: sharedHour(),
     players: [...R.players.values()].map((p) => ({ id: p.id, name: p.name, rank: p.rank, x: p.ch.x, y: p.ch.y, f: p.f, owner: !!p.owner, hid: p.hid || "", outfit: p.outfit || "", style: p.ch && p.ch.style, holding: p.hold ? p.hold.i : null })), online: R.state === "online" };
 }
 function hook() {
   if (NW.mpUI) NW.mpUI.mount();
   setInterval(netTick, 100);
+  setInterval(() => { if (R.state === "online" && !document.hidden) fetchRooms(true); }, 12000);
   document.addEventListener("visibilitychange", () => { if (document.hidden) R.hiddenAt = now(); });
   window.addEventListener("pagehide", () => { try { if (R.ws) R.ws.close(1000, "bye"); } catch (e) {} });
   if (NW.cloud && NW.cloud.onChange) NW.cloud.onChange(() => { if (!user() && R.ws) disconnect("logout"); emit(); });
