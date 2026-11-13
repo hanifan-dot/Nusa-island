@@ -130,7 +130,7 @@ function drawScene(ctx, t, dk, player, V) {
 }
 
 NW.room = {
-  register, enter, exit, reset, invalidate, setInset, watchSheet, GRIP, walkable, candidates, interact, update, camTarget, drawScene,
+  register, enter, exit, reset, invalidate, setInset, inset: () => ({ b: inset.b, r: inset.r }), watchSheet, GRIP, walkable, candidates, interact, update, camTarget, drawScene,
   get active() { return st.active; }, get scene() { return st.id; }, get def() { return st.def; }, get t() { return st.t; },
   isEditing: () => false, speed: () => 118,
   blocking: () => st.block > 0, block: (on) => { st.block = Math.max(0, st.block + (on ? 1 : -1)); }, unblockAll: () => { st.block = 0; },

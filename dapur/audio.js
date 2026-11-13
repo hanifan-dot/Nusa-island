@@ -41,11 +41,15 @@ Object.assign(L, {
   dapur_batuk: (c, o, t) => { nz(c, o, t, "bandpass", 700, 400, 1.2, 0.09, 0.08, 0.005); nz(c, o, t + 0.13, "bandpass", 650, 380, 1.2, 0.09, 0.07, 0.005); },
   dapur_ragu: (c, o, t) => { tone(c, o, t, 300, 250, 0.2, 0.04, "triangle", 0.01); tone(c, o, t + 0.2, 280, 330, 0.2, 0.03, "triangle", 0.01); },
   dapur_mual: (c, o, t) => { tone(c, o, t, 260, 120, 0.7, 0.05, "sine", 0.05); tone(c, o, t + 0.05, 330, 150, 0.6, 0.03, "triangle", 0.05); nz(c, o, t + 0.55, "lowpass", 900, 300, 0.6, 0.3, 0.06, 0.04); },    // bunyi "bleeeh" lembut (kartun)
+  dapur_seruput: (c, o, t) => { nz(c, o, t, "bandpass", 1600, 2600, 1.6, 0.35, 0.05, 0.05); tone(c, o, t + 0.32, 2400, 0, 0.1, 0.02, "sine", 0.004); },                                  // seruput kopi
+  dapur_burung: (c, o, t) => { for (let i = 0; i < 3; i++) { const b = t + i * 0.14, f = rand(2300, 3200); tone(c, o, b, f, f * rand(1.15, 1.45), 0.09, 0.022, "sine", 0.008); } tone(c, o, t + 0.55, rand(2600, 3400), rand(2000, 2600), 0.14, 0.018, "sine", 0.01); },   // siang: kicau pendek
+  dapur_jangkrik: (c, o, t) => { for (let i = 0; i < 4; i++) { const b = t + i * 0.11; tone(c, o, b, 4300, 4300, 0.05, 0.016, "square", 0.004); tone(c, o, b + 0.05, 4500, 4500, 0.035, 0.012, "square", 0.004); } },        // malam: jangkrik
   dapur_buang: (c, o, t) => { nz(c, o, t, "lowpass", 1200, 400, 0.6, 0.18, 0.08, 0.01); tone(c, o, t + 0.1, 140, 90, 0.1, 0.06, "triangle", 0.002); },
 });
 Object.assign(RULE, {
   dapur_potong: { gap: 0.06 }, dapur_kupas: { gap: 0.08 }, dapur_cuci: { gap: 0.2 }, dapur_telur: { gap: 0.1 }, dapur_aduk: { gap: 0.12 }, dapur_desis: { gap: 0.5, g: 0.8 }, dapur_didih: { gap: 0.5, g: 0.9 },
   dapur_piring: { gap: 0.1 }, dapur_gelas: { gap: 0.15 }, dapur_sendok: { gap: 0.1 }, dapur_air: { gap: 0.6 }, dapur_sabun: { gap: 0.1 }, dapur_gosok: { gap: 0.08 }, dapur_bumbu: { gap: 0.15 },
+  dapur_seruput: { gap: 0.5 }, dapur_burung: { gap: 4, g: 0.6 }, dapur_jangkrik: { gap: 4, g: 0.6 },
   dapur_balik: { gap: 0.2 }, dapur_taruh: { gap: 0.3 }, dapur_api: { gap: 0.2 }, dapur_ding: { gap: 0.4, g: 0.8 }, dapur_puas: { gap: 0.6, g: 0.8 }, dapur_batuk: { gap: 0.5 }, dapur_ragu: { gap: 0.5 }, dapur_mual: { gap: 1, g: 0.8 }, dapur_buang: { gap: 0.3 },
 });
 NW.dapurAudio = { ready: true, names: Object.keys(L).filter((k) => k.indexOf("dapur_") === 0) };

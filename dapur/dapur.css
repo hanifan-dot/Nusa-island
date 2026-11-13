@@ -97,3 +97,20 @@ body.room-active #layoutBtn, body.room-active #visitBtn { display: none !importa
 .mk-bench{position:fixed;z-index:4;display:block;touch-action:none;-webkit-user-select:none;user-select:none;cursor:pointer;background:#f3e4c4}
 .mk-bench.hidden{display:none}
 body.mk-bench-on .joy,body.mk-bench-on .act-btn{display:none!important}
+
+/* ===== Ide 08D · Halaman Sosial Rumahku: meja makan, nampan, tawaran. Sheet ≤45% tinggi layar (HP) / panel samping (lanskap); joystick, chat, keluar tetap terjangkau. ===== */
+.hl-sheet .hl-tabs{display:flex;gap:8px;margin:4px 0 6px}.hl-sheet .hl-tabs .kd-btn{flex:1;min-height:40px;padding:0 8px;font-size:13px}
+.hl-chip{display:inline-block;padding:1px 7px;border-radius:9px;color:#fff;font-size:11px;font-weight:800;vertical-align:1px}.hl-chip.bad{background:#a31f1a}
+.hl-s{min-height:40px;padding:0 10px;font-size:13px}.hl-slots{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.hl-n{min-width:40px;min-height:40px;padding:0;font-size:15px}
+.hl-av{width:36px;height:46px;flex:none}
+.hl-offer-t{display:flex;gap:10px;align-items:center;margin:2px 0 8px}.hl-offer-t b{font-size:14px}
+.hl-bar{height:8px;border-radius:5px;background:rgba(23,63,80,.15);overflow:hidden}.hl-bar i{display:block;height:100%;background:#2fb39a;transition:width .3s linear}
+.hl-offer-b{display:flex;gap:10px;margin-top:8px}.hl-offer-b .kd-btn{flex:1}
+.hl-sheet.mini .hl-tabs,.hl-sheet.mini .hl-offer-t,.hl-sheet.mini .hl-bar,.hl-sheet.mini .hl-offer-b{display:none}
+body.hl-open .visit-back{z-index:45}
+@media (orientation:landscape) and (max-height:520px){
+  body.hl-open .visit-back{right:calc(min(46vw,360px) + 8px)}
+  .hl-sheet.mini .hl-tabs,.hl-sheet.mini .hl-offer-t,.hl-sheet.mini .hl-bar,.hl-sheet.mini .hl-offer-b{display:revert}
+  .hl-sheet .hl-s{min-height:36px}
+}
+@media (prefers-reduced-motion:reduce){.hl-bar i{transition:none}}

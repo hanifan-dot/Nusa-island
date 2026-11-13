@@ -100,8 +100,14 @@ server.on("upgrade", (req, sock) => {
   if (!room) return fail(503, "full");
   attach(req, sock, key, uid, room, conn, { hid: HouseCore.pidOf(uid) });
 });
+// Ide 08D (HANYA uji): bila NUSA_HOUSE_API diisi, izin masuk ruang rumah ditanyakan ke Worker backend ASLI (jembatan uji) supaya izin tamu satu sumber dengan fungsi sosial dapur.
+async function remoteAccess(uid, pid) {
+  const r = await fetch(process.env.NUSA_HOUSE_API + "/fn/homeAccess", { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer dev." + uid }, body: JSON.stringify({ data: { pid } }) });
+  const j = await r.json().catch(() => ({})); if (r.status !== 200) { const e = new Error("ditolak"); e.code = r.status === 404 ? "not-found" : "permission-denied"; throw e; }
+  return j.result;
+}
 async function houseUpgrade(req, sock, key, uid, pid) {
-  let a; try { a = await houseSrv.homeAccess({ uid }, { pid: pid.toUpperCase() }); } catch (e) { sock.write(`HTTP/1.1 ${e.code === "not-found" ? 404 : 403} Denied\r\n\r\n`); return sock.destroy(); }
+  let a; try { a = process.env.NUSA_HOUSE_API ? await remoteAccess(uid, pid.toUpperCase()) : await houseSrv.homeAccess({ uid }, { pid: pid.toUpperCase() }); } catch (e) { sock.write(`HTTP/1.1 ${e.code === "not-found" ? 404 : 403} Denied\r\n\r\n`); return sock.destroy(); }
   if ((houseBans.get(a.room + ":" + a.me) || 0) > Date.now() && a.role === "visitor") { sock.write("HTTP/1.1 403 Denied\r\n\r\n"); return sock.destroy(); }
   const room = getHouseRoom(a.room);
   if (room.size() >= room.cap && !room.byUid.has(uid)) { sock.write("HTTP/1.1 503 Full\r\n\r\n"); return sock.destroy(); }
