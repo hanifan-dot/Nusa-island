@@ -55,8 +55,12 @@ Harga bahan, harga pemanggang 250 dan angka kualitas adalah **nilai uji** — be
 - Build: `bash firebase/scripts/build-hosting.sh` dan `node firebase/scripts/cek-rilis.js` (lihat laporan PR). Pindai rahasia: bersih.
 
 ## Screenshot (`docs/ide08c/`)
-Workstation utama: c12 pilih resep (kompor) · c13 talenan · c14 kompor + api · c15 angkat · c16 meja saji · c17 mentah (terlalu cepat) · c18 gosong (terlambat) + reaksi · c19 mual + blur · c20 panci · c21 wastafel · c23 gelas · c26 pemanggang · c24 kompor 360×740 & 740×360 · c25 panel diperkecil.
-Dari rangkaian lengkap: c01 menyiapkan bahan · c02 menggoreng · c03 gosong + reaksi · c04 mual + blur · c05 aneh · c06 tidak layak · c07/c08 bak cuci · c09 kasir ≤45% (+ c09b diperkecil, 740×360) · c10 panel masak · c11 mual dalam mode tenang.
+Dipertahankan (sisanya dihapus lewat commit Git, bisa dipulihkan dari riwayat PR #139 sebelum pembersihan, commit `f817af7`):
+1. `c01-menyiapkan-bahan.png` menyiapkan bahan (talenan).
+2. `c02-menggoreng.png` menggoreng (kompor).
+3. `c03-gagal-gosong.png` masakan gagal (gosong) dan reaksi karakter.
+4. `c08-cuci-bilas.png` mencuci peralatan (langkah bilas).
+5. `c-semua-workstation.png` gambar gabungan: talenan, kompor/wajan, panci, pemanggang, meja saji, wastafel.
 
 ## Keterbatasan (jujur)
 - Tes di Chromium headless; FPS BUKAN bukti performa HP (Galaxy M15 5G belum diuji fisik). Audio sintetis belum didengar di perangkat nyata; mixing/volume butuh telinga Owner.
