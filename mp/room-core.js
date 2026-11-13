@@ -28,6 +28,7 @@ class Room {
     this.players = new Map();          // connId → pemain
     this.byUid = new Map();            // uid → connId (satu sesi per akun; uid TIDAK pernah dikirim ke klien)
     this.boat = opts.boat === true; this.boats = new Map(); this.nextBoat = 1; this.holds = new Map(); this.lastBt = 0; this.boatDirty = false; this.btN = 0;   // Kapal Rombongan: bawaan MATI
+    this.recent = new Map();           // uid → {area,x,y,at}: posisi terakhir di kota (anti-teleport lewat sambung ulang; hanya di memori, uid tidak keluar)
     this.seq = 0; this.nextId = 1; this.violations = new Map(); this.countDirty = false;
   }
   now() { return this.io.now(); }
@@ -61,14 +62,27 @@ class Room {
   hello(conn, m) {
     const p = this.players.get(conn); if (!p) return;
     p.name = P.cleanName(m.n, p.name); p.rank = P.clampInt(m.r, 0, 8, 0); p.rod = P.clampInt(m.rd, 0, 19, 0);
-    let placed = false;
+    let placed = false; const first = !p.helloed;
     if (this.kota && m.ko === 1) {                                         // klien mendukung Kota Nusa. Sesi baru boleh mulai di Muara atau di kota (sambung ulang); hello berikutnya yang berbeda area = pindah area TERVALIDASI
       p.kc = true; const a = P.cleanArea(m.ar) || "muara";
       if (!p.boat) { if (!p.helloed || a === p.area) p.area = a; else { const from = p.area; placed = this.hopTo(p, a, m, this.now()); if (placed && p.vis) { this.bcast({ t: "l", id: p.pid }, conn, from); p.vis = false; } } }
       p.helloed = true;
     }
     const x = Number(m.x) / P.Q, y = Number(m.y) / P.Q, [bw, bh] = this.mapOf(p);
-    if (!placed && Number.isFinite(x) && Number.isFinite(y)) { p.x = Math.max(0, Math.min(bw, x)); p.y = Math.max(0, Math.min(bh, y)); }
+    if (!placed && Number.isFinite(x) && Number.isFinite(y)) {
+      let nx = Math.max(0, Math.min(bw, x)), ny = Math.max(0, Math.min(bh, y));
+      if (this.kota && !first && p.area === "selat") {                                               // hello ulang di kota (umumkan dukungan kota / tampil lagi setelah sembunyi): bukan jalan pintas teleport — dibatasi jarak yang bisa ditempuh sejak gerak terakhir
+        const K = P.KOTA, allow = K.BURST + K.SPEED * Math.min(300, Math.max(0, (this.now() - p.lastMove) / 1000)), dist = Math.hypot(nx - p.x, ny - p.y);
+        if (dist > allow) { const k = allow / dist; nx = p.x + (nx - p.x) * k; ny = p.y + (ny - p.y) * k; }
+        p.bud = K.BURST; p.budAt = this.now();
+      }
+      if (this.kota && first && p.area === "selat" && !p.boat) {                                     // sesi baru langsung di kota (sambung ulang): tidak boleh lebih jauh dari yang bisa ditempuh sejak posisi terakhir
+        const rc = this.recent.get(p.uid), now = this.now();
+        if (rc && rc.area === "selat") { const K = P.KOTA, allow = K.BURST + K.SPEED * Math.min(300, (now - rc.at) / 1000), dist = Math.hypot(nx - rc.x, ny - rc.y); if (dist > allow) { const k = allow / dist; nx = rc.x + (nx - rc.x) * k; ny = rc.y + (ny - rc.y) * k; } }
+        p.bud = P.KOTA.BURST; p.budAt = now;
+      }
+      p.x = nx; p.y = ny;
+    }
     p.d = P.clampInt(m.d, 0, 7, 2); p.f = P.clampInt(m.f, 0, 7 | (this.house ? F.IN : 0), 0) & ~F.TP; p.lastMove = this.now();
     this.show(conn);
   }
@@ -95,6 +109,7 @@ class Room {
   leave(conn) {
     const p = this.players.get(conn); if (!p) return;
     if (p.boat) this.dropAboard(p);
+    if (this.kota && p.vis && !p.boat && p.area === "selat") this.recent.set(p.uid, { area: "selat", x: p.x, y: p.y, at: this.now() });
     this.players.delete(conn); if (this.byUid.get(p.uid) === conn) this.byUid.delete(p.uid); this.countDirty = true;
     if (p.vis) this.bcast({ t: "l", id: p.pid }, conn, p.area);
   }
@@ -114,7 +129,7 @@ class Room {
     const [bw, bh] = P.KOTA.MAP[a]; let x = Number(m.x) / P.Q, y = Number(m.y) / P.Q;
     if (a === P.KOTA.AREA) { const E = P.KOTA.ENTRY; if (!Number.isFinite(x) || !Number.isFinite(y) || Math.hypot(x - E[0], y - E[1]) > P.KOTA.ENTRY_R) { x = E[0]; y = E[1]; } }
     else if (!Number.isFinite(x) || !Number.isFinite(y)) { x = 19.5; y = 20.6; }
-    p.area = a; p.x = Math.max(0, Math.min(bw, x)); p.y = Math.max(0, Math.min(bh, y)); p.d = P.clampInt(m.d, 0, 7, 2); p.f = 0; p.lastMove = now; p.lastHop = now; p.dirty = false; p.pend = null; p.hold = null;
+    p.bud = P.KOTA.BURST; p.budAt = now; p.area = a; p.x = Math.max(0, Math.min(bw, x)); p.y = Math.max(0, Math.min(bh, y)); p.d = P.clampInt(m.d, 0, 7, 2); p.f = 0; p.lastMove = now; p.lastHop = now; p.dirty = false; p.pend = null; p.hold = null;
     return true;
   }
   areaMsg(conn, p, m, now) {
@@ -189,6 +204,12 @@ class Room {
       default: return this.strike(conn, p);
     }
   }
+  // anggaran jarak pemain di kota: terisi KOTA.SPEED × detik (maks KOTA.BURST); `want` petak diminta → yang diberikan ≤ saldo
+  spend(p, want, now) {
+    const K = P.KOTA, dt = Math.max(0, Math.min(2, (now - (p.budAt || now)) / 1000)); p.budAt = now;
+    p.bud = Math.min(K.BURST, (p.bud == null ? K.BURST : p.bud) + dt * K.SPEED);
+    const allow = Math.min(want, p.bud); p.bud -= allow; return allow;
+  }
   move(conn, p, m, now) {
     if (p.boat) return;                                              // di atas kapal: posisi mengikuti kapal (server), gerak sendiri diabaikan
     if (!p.bMove.take(now)) return;                                 // kelebihan pesan posisi dibuang diam-diam
@@ -197,6 +218,13 @@ class Room {
     x /= P.Q; y /= P.Q;
     const [bw, bh] = this.mapOf(p); x = Math.max(0, Math.min(bw, x)); y = Math.max(0, Math.min(bh, y));      // batas peta per area (Kota Nusa 92×48)
     const d = P.clampInt(m.d, 0, 7, p.d); let f = P.clampInt(m.f, 0, this.fMask, 0);
+    if (this.kota && p.area === "selat") {                           // Kota Nusa: anggaran jarak (rata-rata ≤ KOTA.SPEED petak/dtk, lonjakan ≤ KOTA.BURST), tidak bergantung pada laju pesan; tidak ada teleport
+      const dist = Math.hypot(x - p.x, y - p.y), allow = this.spend(p, dist, now);
+      if (allow < dist) { const k = allow / dist; x = p.x + (x - p.x) * k; y = p.y + (y - p.y) * k; }
+      f &= ~F.TP;
+      if (x === p.x && y === p.y && d === p.d && f === p.f) { p.lastMove = now; return; }
+      p.x = x; p.y = y; p.d = d; p.f = f; p.lastMove = now; p.dirty = true; return;
+    }
     const dt = Math.max(0.1, Math.min(2.5, (now - p.lastMove) / 1000)), dist = Math.hypot(x - p.x, y - p.y), lim = P.MAX_SPEED * dt + 0.5;
     const door = this.house && ((f ^ p.f) & F.IN);                  // lewat pintu rumah (halaman ↔ dalam): koordinat berganti ruang, lompatan sah
     if (dist > lim && !door) {
@@ -245,6 +273,7 @@ class Room {
   // buang pemain yang tak memberi kabar > TIMEOUT. Mengembalikan jumlah yang dibuang.
   sweep() {
     const now = this.now(); let n = 0; this.expireHolds(now);
+    for (const [u, r] of [...this.recent]) if (now - r.at > 300000) this.recent.delete(u);
     if (this.kota) for (const b of [...this.boats.values()]) if (b.kota && b.idleAt && now - b.idleAt > P.KOTA.BOAT_IDLE_MS) { this.boats.delete(b.id); this.boatDirty = true; this.bcastBoat({ t: "bd", id: b.id }, null, b); }   // kapal kosong di kota bubar
     for (const [c, p] of [...this.players]) if (now - p.last > P.TIMEOUT_MS) { this.kick(c, 4003, "Terputus (tidak ada kabar)."); n++; }
     return n;
@@ -413,7 +442,7 @@ class Room {
       this.bcastBoat({ t: "bd", id: b.id }, (r) => !r.boat || r.boat.id !== b.id, b);                                           // hilang dari Muara (sebelum area berubah)
       for (const q of crew) this.bcast({ t: "l", id: q.pid }, this.connOfPid(q.pid), "muara");
       b.kota = true; b.area = K.AREA; b.awayAt = now; b.x = K.BERTH[0]; b.y = K.BERTH[1]; b.d = K.BERTH_D; b.v = 0; b.th = 0; b.anchor = true; b.idleAt = 0; this.boatDirty = true;
-      this.bcastBoat({ t: "bv", ev: "depart", b: b.id, ar: K.AREA }, (r) => r.boat && r.boat.id === b.id);
+      this.bcastBoat({ t: "bv", ev: "depart", b: b.id, ar: K.AREA, ko: 1 }, (r) => r.boat && r.boat.id === b.id);
       for (const q of crew) { q.area = K.AREA; q.x = b.x; q.y = b.y; q.d = b.d; q.pend = null; q.dirty = false; q.off = false; this.welcome(this.connOfPid(q.pid), q); }
       for (const q of crew) this.rejoinView(q);
       this.bcastBoat({ t: "bs", q: ++this.seq, u: [this.boatRow(b)] }, (r) => !r.boat || r.boat.id !== b.id, b); this.bcastBoat({ t: "bv", ev: "dock", b: b.id }, null, b);
@@ -426,7 +455,7 @@ class Room {
       const crew = this.crewOf(b); for (const q of crew) this.bcast({ t: "l", id: q.pid }, this.connOfPid(q.pid), K.AREA);
       b.kota = false; b.area = P.BOAT.HOME; const [sx, sy] = P.BOAT.SLOTS[b.slot]; b.x = sx; b.y = sy; b.d = 0; b.v = 0; b.anchor = true; b.idleAt = 0; this.boatDirty = true;
       for (const q of crew) { q.area = "muara"; q.x = b.x; q.y = b.y; q.d = b.d; q.pend = null; q.dirty = false; q.off = false; }
-      this.bcastBoat({ t: "bv", ev: "arrive", b: b.id, ar: P.BOAT.HOME }, (r) => r.boat && r.boat.id === b.id);
+      this.bcastBoat({ t: "bv", ev: "arrive", b: b.id, ar: P.BOAT.HOME, ko: 1 }, (r) => r.boat && r.boat.id === b.id);
       for (const q of crew) this.welcome(this.connOfPid(q.pid), q);
       for (const q of crew) this.rejoinView(q);
       this.bcastBoat({ t: "bs", q: ++this.seq, u: [this.boatRow(b)] }, (r) => !r.boat || r.boat.id !== b.id, b); this.bcastBoat({ t: "bv", ev: "arrive", b: b.id, ar: P.BOAT.HOME }, (r) => !r.boat || r.boat.id !== b.id, b);

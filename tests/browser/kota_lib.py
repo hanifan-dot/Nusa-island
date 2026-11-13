@@ -12,7 +12,7 @@ def clickid(pg, id):
     r = ev(pg, "(id)=>{const b=document.getElementById(id).getBoundingClientRect();return {x:b.left+b.width/2,y:b.top+b.height/2}}", id)
     pg.mouse.click(r["x"], r["y"])
 
-def boot(b, name="Uji", acc="demo-a", kota=True, vp=(412, 915), hour=None, extra="", mp_port=None, dsf=1, quality=None, rom_flag=False, seed_over=None):
+def boot(b, name="Uji", acc="demo-a", kota=True, vp=(412, 915), hour=None, extra="", mp_port=None, dsf=1, quality=None, rom_flag=False, seed_over=None, kota_srv=False, nfetch=None):
     ctx = b.new_context(viewport={"width": vp[0], "height": vp[1]}, has_touch=True, device_scale_factor=dsf)
     init = f"window.__demoAuto='{acc}';" + ("window.NUSA_KOTA=true;" if kota else "") + extra
     if mp_port: init += f"window.NUSA_MP_TEST={{ws:'ws://127.0.0.1:{mp_port}',token:(uid)=>'dev.'+uid}};"
@@ -25,7 +25,7 @@ def boot(b, name="Uji", acc="demo-a", kota=True, vp=(412, 915), hour=None, extra
     MOCK = "https://api.mock.test"
     cfg = open(os.path.join(H, "..", "..", "cloud", "config.js")).read().replace('apiBase: ""', 'apiBase: "%s"' % MOCK)
     ctx.route("**/cloud/config.js", lambda r: r.fulfill(status=200, content_type="application/javascript", body=cfg))
-    ctx.route(MOCK + "/**", lambda r: r.fulfill(status=200, content_type="application/json", body=json.dumps({"result": {"leaderboard": False, "socialHome": False, "pakDamar": False, "kapalRombongan": bool(rom_flag)}})) if "/fn/gameFlags" in r.request.url else r.fulfill(status=404, content_type="application/json", body=json.dumps({"error": {"status": "not_found"}})))
+    ctx.route(MOCK + "/**", lambda r: r.fulfill(status=200, content_type="application/json", body=json.dumps({"result": {"leaderboard": False, "socialHome": False, "pakDamar": False, "kapalRombongan": bool(rom_flag), "kotaNusa": bool(kota_srv)}})) if "/fn/gameFlags" in r.request.url else r.fulfill(status=404, content_type="application/json", body=json.dumps({"error": {"status": "not_found"}})))
     reqs = []
     ctx.on("request", lambda r: reqs.append(r.url))
     pg = ctx.new_page(); errs = []
