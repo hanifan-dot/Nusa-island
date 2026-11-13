@@ -84,8 +84,9 @@ async function houseDoor(request, env, lobby, ip, who, token, pidRaw, cors) {
   if (!res.ok) return json({ error: "house_unavailable" }, 502, cors);
   let a; try { a = (await res.json()).result; } catch (e) { a = null; }
   if (!a || !a.ok || (a.role !== "owner" && a.role !== "visitor") || a.room !== "rumah-" + pid && a.role === "visitor" || !/^rumah-[A-Z2-9]{8}$/.test(a.room || "") || !/^[A-Z2-9]{8}$/.test(a.me || "")) return json({ error: "denied" }, 403, cors);
+  const parent = (await lobby.parent(who.uid)) || Proto.roomId(new URL(request.url).searchParams.get("sr"));
   const stub = env.HOUSE.get(env.HOUSE.idFromName(a.room));
-  const h = new Headers(request.headers); h.set("Sec-WebSocket-Protocol", Proto.SUBPROTOCOL); h.set("x-nusa-uid", who.uid); h.set("x-nusa-room", a.room); h.set("x-nusa-role", a.role); h.set("x-nusa-hid", a.me);
+  const h = new Headers(request.headers); h.set("Sec-WebSocket-Protocol", Proto.SUBPROTOCOL); h.set("x-nusa-uid", who.uid); h.set("x-nusa-room", a.room); h.set("x-nusa-role", a.role); h.set("x-nusa-hid", a.me); if (parent) h.set("x-nusa-parent", String(parent));
   const r = await stub.fetch(new Request(request.url, { headers: h }));
   if (r.status === 101) return r;
   if (r.status === 403) return json({ error: "denied" }, 403, cors);
@@ -111,7 +112,9 @@ export class Lobby extends DurableObject {
     if (r.kick) { try { await this.roomStub(r.kick).kickUid(uid); } catch (e) {} this.core.left(r.kick, uid); }   // tutup sesi lama di instance lain
     return { room: r.room, error: r.error };
   }
-  async gate(uid, ip) { return this.core.gate(uid, ip); }                       // pembatas laju masuk rumah (terpisah dari Muara)
+  async gate(uid, ip) { return this.core.gate(uid, ip); }
+  async parent(uid) { return this.core.parent(uid); }
+  async houseSync(house, rows) { this.core.houseSync(house, rows); }                       // pembatas laju masuk rumah (terpisah dari Muara)
   // instance melapor DAFTAR LENGKAP anggotanya tiap berubah (hitungan tidak bisa drift); sesi ganda lintas instance ditutup
   async sync(k, uids) { const dups = this.core.sync(k, uids); for (const d of dups) { try { await this.roomStub(d.room).kickUid(d.uid); } catch (e) {} } }
   async list(ip) { return this.core.list(ip); }
@@ -180,7 +183,7 @@ export class MuaraRoom extends DurableObject {
   async webSocketClose(ws) { const c = this.connOf(ws); if (c != null) { this.room.leave(c); this.sockets.delete(c); this.memberSync(); this.persistBoats(); } try { ws.close(); } catch (e) {} }
   async webSocketError(ws) { return this.webSocketClose(ws); }
   async alarm() {
-    this.room.sweep(); this.memberSync();
+    this.room.sweep(); this.memberSync(this.room.house);
     const more = this.room.tick(); this.persistBoats();
     for (const [c, ws] of this.sockets) if (this.room.players.has(c)) this.save(ws, c);
     if (more || this.room.hasDirty()) await this.schedule(Proto.TICK_MS);
@@ -200,7 +203,11 @@ export class HouseRoom extends MuaraRoom {
     ctx.blockConcurrencyWhile(async () => { const b = await ctx.storage.get("bans"); if (b) this.bans = new Map(Object.entries(b)); });
   }
   roomOpts() { return { kind: "house", cap: Proto.HOUSE.CAP }; }
-  lobbyCall() {}                                    // rumah tidak memakai lobi Muara
+  memberSync(force) {
+    const members = [...this.room.players.values()].filter((p) => p.sr).map((p) => ({ uid: p.uid, room: p.sr })).sort((a, b) => a.uid.localeCompare(b.uid));
+    const sig = JSON.stringify(members);
+    if (force || sig !== this.sig) { this.sig = sig; this.lobbyCall("houseSync", this.roomName, members); }
+  }
   // Larangan di sisi ruang: berlaku seketika saat pemilik mengeluarkan tamu (lapisan kedua; lapisan pertama = homeKick/homeAccess di nusa-api)
   onEject(q) {
     if (!q.hid) return;
@@ -214,5 +221,5 @@ export class HouseRoom extends MuaraRoom {
     if (role === "visitor" && (this.bans.get(hid) || 0) > Date.now()) return new Response("denied", { status: 403 });
     return null;
   }
-  joinExtra(request) { return { role: request.headers.get("x-nusa-role"), hid: request.headers.get("x-nusa-hid") }; }
+  joinExtra(request) { return { role: request.headers.get("x-nusa-role"), hid: request.headers.get("x-nusa-hid"), parentRoom: request.headers.get("x-nusa-parent") }; }
 }

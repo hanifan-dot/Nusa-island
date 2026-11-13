@@ -53,7 +53,7 @@ class Room {
     const prof = profile || {};
     const x = Number.isFinite(startPos && startPos.x) ? startPos.x : 19.5, y = Number.isFinite(startPos && startPos.y) ? startPos.y : 20.6;
     const p = { conn, uid, pid, name: P.cleanName(prof.n, "Nelayan-" + pid.slice(1)), rank: P.clampInt(prof.r, 0, 8, 0), rod: P.clampInt(prof.rd, 0, 19, 0),
-      x: Math.max(0, Math.min(this.mapW, x)), y: Math.max(0, Math.min(this.mapH, y)), d: 2, f: 0, vis: false, role: (extra && extra.role) === "owner" ? "owner" : "visitor", hid: String((extra && extra.hid) || "").slice(0, 8), bKick: new Bucket(0.2, 3, now), dirty: false, last: now, lastMove: now, lastTp: 0,
+      x: Math.max(0, Math.min(this.mapW, x)), y: Math.max(0, Math.min(this.mapH, y)), d: 2, f: 0, vis: false, role: (extra && extra.role) === "owner" ? "owner" : "visitor", hid: String((extra && extra.hid) || "").slice(0, 8), sr: this.house ? (P.roomId(extra && extra.parentRoom) || 0) : 0, bKick: new Bucket(0.2, 3, now), dirty: false, last: now, lastMove: now, lastTp: 0,
       lo: false, tickN: 0, bMove: new Bucket(10, 14, now), bChat: new Bucket(0.5, 3, now), bEmote: new Bucket(1, 2, now), bProf: new Bucket(0.2, 2, now), bAr: new Bucket(0.5, 2, now), area: "muara", kc: false, lastHop: 0, bAny: new Bucket(25, 40, now), bHold: new Bucket(1, 4, now), bOutfit: new Bucket(0.5, 3, now), outfit: "", hold: null, lastChat: "", viol: 0 };
     this.players.set(conn, p); this.byUid.set(uid, conn); this.countDirty = true;
     return { ok: true, pid };
@@ -496,10 +496,10 @@ class Room {
 
   // ---- pemulihan setelah Durable Object hibernasi ----
   snapshot(conn) { const p = this.players.get(conn); if (!p) return null; const s = { pid: p.pid, uid: p.uid, n: p.name, r: p.rank, rd: p.rod, x: p.x, y: p.y, d: p.d, f: p.f, v: p.vis ? 1 : 0, l: p.last, lo: p.lo ? 1 : 0, hd: p.hold || null, oc: p.outfit || "", bt: p.boat ? [p.boat.id, p.boat.s] : 0, of: p.off ? 1 : 0 };
-    if (this.kota) { s.ar = p.area; s.kc = p.kc ? 1 : 0; s.lh = p.lastHop || 0; s.he = p.helloed ? 1 : 0; } if (this.house) s.ro = p.role; if (p.hid) s.h = p.hid; return s; }
+    if (this.kota) { s.ar = p.area; s.kc = p.kc ? 1 : 0; s.lh = p.lastHop || 0; s.he = p.helloed ? 1 : 0; } if (this.house) { s.ro = p.role; s.sr = p.sr; } if (p.hid) s.h = p.hid; return s; }
   restore(conn, s) {
     const now = this.now();
-    const r = this.join(conn, s.uid, { n: s.n, r: s.r, rd: s.rd }, { x: s.x, y: s.y }, { role: s.ro, hid: s.h }); if (!r.ok) return r;
+    const r = this.join(conn, s.uid, { n: s.n, r: s.r, rd: s.rd }, { x: s.x, y: s.y }, { role: s.ro, hid: s.h, parentRoom: s.sr }); if (!r.ok) return r;
     const p = this.players.get(conn); p.pid = s.pid; p.d = s.d; p.f = s.f; p.vis = !!s.v; p.last = Math.max(s.l || 0, now - 1000); p.lo = !!s.lo; p.hold = s.hd || null; p.outfit = typeof s.oc === "string" ? s.oc : ""; if (this.kota) { p.area = P.cleanArea(s.ar) || "muara"; p.kc = s.kc === 1; p.lastHop = s.lh || 0; p.helloed = s.he === 1; } if (Array.isArray(s.bt) && this.boats.has(s.bt[0])) { p.boat = { id: s.bt[0], s: s.bt[1] }; p.off = !!s.of; }
     const n = parseInt(String(s.pid).slice(1), 36); if (Number.isFinite(n) && n >= this.nextId) this.nextId = n + 1;
     return r;
