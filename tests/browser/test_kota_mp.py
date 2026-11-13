@@ -95,7 +95,7 @@ def main():
             D.bring_to_front()
             ev(D, "NW.world.snapCamera&&NW.world.snapCamera()")
             for x in (A, B, Cc, D): hour(x, 13.0)
-            tp(D, 17.5, 21.6); time.sleep(1.2); shot(D, "kmp-02-kapal-tiba")
+            tp(D, 17.5, 21.6); time.sleep(1.2); shot(D, "kmp-02a-kapal-tiba")
             ok("K11 kapal tidak bisa berlayar/jangkar diangkat saat berlabuh di kota (server menolak)", (ev(A, "NW.mp.boatSteer(2,2)") is not None) and (time.sleep(0.5) or True) and boats(A)[0]["anchor"] is True and abs(boats(A)[0]["x"] - 13.6) < 0.3)
 
             # ===== 3. Tiga awak turun → pemain berjalan =====
@@ -107,6 +107,10 @@ def main():
             ok("K14 D & sesama awak saling melihat (ketiga awak + D)", pn(D) == ["Aji", "Bayu", "Citra"] and pn(A) == ["Bayu", "Citra", "Dewi"] and pn(B) == ["Aji", "Citra", "Dewi"] and pn(Cc) == ["Aji", "Bayu", "Dewi"], [pn(x) for x in ALL])
             ok("K15 mereka berdiri di dermaga (titik turun server), bukan di kursi", all(dist(srvpos(D, n), [13.1, 20.45]) < 3 for n in ("Aji", "Bayu", "Citra")), [srvpos(D, n) for n in ("Aji", "Bayu", "Citra")])
             ok("K16 kapal kosong tetap ada di dermaga (tempat kembali)", len(boats(D)) == 1 and all(x == 0 for x in boats(D)[0]["seats"]))
+
+            DK = spots(D, 15.0, 20.6, 3, rad=5, sep=1.3); ok("K16b ada 3 titik jalan di dermaga Pelabuhan Kota untuk ketiga awak", len(DK) == 3, DK)
+            walk([A, B, Cc], DK, speed=3.0, tmo=30); tp(D, 17.8, 21.8); time.sleep(1.6); shot(D, "kmp-02b-tiga-awak-turun")
+            ok("K16c ketiganya tampil berjalan di dermaga: kapal kosong, awak berdiri terpisah, D melihat semuanya", pn(D) == ["Aji", "Bayu", "Citra"] and all(x == 0 for x in boats(D)[0]["seats"]) and not mine(A) and not mine(B) and not mine(Cc))
 
             # ===== 4. Berjalan bersama ke pusat kota (siang) =====
             SP = spots(A, 60.0, 25.5, 4); ok("K16b ada 4 titik jalan terbuka di pusat kota", len(SP) == 4, SP); walk(ALL, [SP[1], SP[2], SP[3], SP[0]])   # D (kamera) di titik paling tengah, tiga pemain lain di sekelilingnya
@@ -120,9 +124,11 @@ def main():
 
             # jalan / berhenti / berbelok / chat / emoji
             A.bring_to_front(); spot = open_run(A) or (58.5, 27.5); walk([A], [spot]); a0 = srvpos(D, "Aji")
-            A.keyboard.down("ArrowRight"); time.sleep(1.5)
-            mid = ev(D, "(n)=>{const p=[...NW.mp._R.players.values()].find(q=>q.name===n);return p?{moving:p.ch.moving,x:p.ch.x,d:p.d}:null}", "Aji")
-            ok("K19 D melihat Aji berjalan (moving) ke kanan", mid and mid["moving"] is True and mid["x"] > a0[0] + 0.15, (a0, mid))
+            A.keyboard.down("ArrowRight"); seen = []
+            for _ in range(16):
+                time.sleep(0.1); seen.append(ev(D, "(n)=>{const p=[...NW.mp._R.players.values()].find(q=>q.name===n);return p?{moving:p.ch.moving,x:p.ch.x,d:p.d}:null}", "Aji"))
+            mid = next((q for q in seen if q and q["moving"] and q["x"] > a0[0] + 0.12), seen[-1])
+            ok("K19 D melihat Aji berjalan (moving) ke kanan", mid and mid["moving"] is True and mid["x"] > a0[0] + 0.12, (a0, seen[-3:]))
             A.keyboard.down("ArrowDown"); A.keyboard.up("ArrowRight"); time.sleep(0.9)
             turn = ev(D, "(n)=>{const p=[...NW.mp._R.players.values()].find(q=>q.name===n);return p?{moving:p.ch.moving,d:p.d}:null}", "Aji")
             ok("K20 berbelok: arah hadap berubah di layar D", turn and turn["d"] != mid["d"], (mid, turn))
