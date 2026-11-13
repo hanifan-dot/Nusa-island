@@ -100,6 +100,41 @@ function after(body) {
   if (!NW.mp._R.rooms && NW.mp.view().prefs.consent === true) NW.mp.fetchRooms(false).then((r) => { if (r && N().currentPanel() === "mp") N().renderPanel(); });
 }
 let askDismissed = false, chatOpen = false, lastSeen = Date.now(), histKey = "", raf = 0;
+let everOnline = false, netBlocked = false;
+// Label HUD tidak boleh ambigu: Singleplayer tetap online (Cloud Save/server),
+// sedangkan angka hanya berarti jumlah pemain nyata di room multiplayer.
+function dockState(v, browserOnline, hadOnline) {
+  const prefsOn = !(v && v.prefs && v.prefs.on === false);
+  if (browserOnline === false) return { text: "!", kind: "lost", blocked: true, label: "Koneksi internet terputus" };
+  if (!prefsOn) return { text: "Single", kind: "single", blocked: false, label: "Singleplayer · online" };
+  if (v && v.online) return { text: String(Math.max(1, Number(v.n) || 1)), kind: "online", blocked: false, label: `${Math.max(1, Number(v.n) || 1)} pemain online` };
+  const state = v && v.state, why = v && v.why;
+  const waiting = state === "connecting" || (state === "off" && why === "pindah");
+  if (waiting) return { text: "…", kind: "waiting", blocked: false, label: "Sedang menyambung" };
+  const dropped = state === "reconnecting" || why === "putus" || (hadOnline && (state === "error" || why === "gagal-token"));
+  if (dropped) return { text: "!", kind: "lost", blocked: true, label: "Koneksi multiplayer terputus" };
+  if (state === "error" || state === "blocked" || state === "kicked" || state === "replaced" || why === "no-endpoint" || why === "no-backend") {
+    return { text: "!", kind: "lost", blocked: false, label: "Server multiplayer tidak tersambung" };
+  }
+  return { text: "…", kind: "waiting", blocked: false, label: "Menunggu koneksi" };
+}
+function updateNetworkGuard(ds) {
+  const guard = $("netRequired");
+  if (!guard) return;
+  const changed = netBlocked !== ds.blocked; netBlocked = ds.blocked;
+  guard.classList.toggle("hidden", !netBlocked);
+  guard.setAttribute("aria-hidden", netBlocked ? "false" : "true");
+  document.body.classList.toggle("net-required-blocked", netBlocked);
+  if (changed && netBlocked) {
+    // Lepaskan input yang mungkin masih tertahan ketika jaringan putus.
+    try { window.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 1 })); } catch (e) {}
+    try { window.dispatchEvent(new Event("blur")); } catch (e) {}
+  }
+}
+function stopWhileDisconnected(e) {
+  if (!netBlocked) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+}
 const COLORS = ["#ffe08a", "#9fe3d2", "#ffb3a1", "#b9d4ff", "#e3c2ff", "#c8f08f", "#ffc98a", "#f5a9d0"];
 const hue = (n) => { let h = 0; for (let i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0; return COLORS[h % COLORS.length]; };
 function histHTML(v) {
@@ -125,14 +160,18 @@ function refresh() {
   const v = NW.mp.view(), dock = $("mpDock"); if (!dock) return;
   const loggedIn = !!(NW.cloud && NW.cloud.enabled && NW.cloud.user);
   dock.classList.toggle("hidden", !loggedIn || !N().isStarted());
-  $("mpN").textContent = v.online ? v.n : "–";
-  $("mpCount").classList.toggle("on", v.online); $("mpCount").classList.toggle("ask", v.prefs.consent === null && loggedIn);
+  if (v.online) everOnline = true;
+  const ds = dockState(v, navigator.onLine !== false, everOnline), count = $("mpCount");
+  $("mpN").textContent = ds.text; count.setAttribute("aria-label", ds.label);
+  count.classList.toggle("on", ds.kind === "online"); count.classList.toggle("single", ds.kind === "single"); count.classList.toggle("lost", ds.kind === "lost");
+  count.classList.toggle("ask", v.prefs.consent === null && loggedIn);
+  updateNetworkGuard(ds);
   $("mpChatBtn").classList.toggle("hidden", !v.online);
   if (chatOpen && !v.online) setChat(false);
   // lencana belum dibaca: hanya pesan NYATA dari pemain lain sejak panel terakhir dibuka/ditutup
   const unread = chatOpen || !v.prefs.chat ? 0 : v.log.filter((l) => l.t > lastSeen && !l.mine && l.name !== "Sistem").length;
   const ub = $("mpUnread"); ub.textContent = unread > 9 ? "9+" : String(unread); ub.classList.toggle("hidden", !unread);
-  $("mpChatCount").textContent = v.online ? v.n + " pemain" : "offline";
+  $("mpChatCount").textContent = v.online ? v.n + " pemain" : ds.kind === "single" ? "Singleplayer" : ds.kind === "lost" ? "koneksi putus" : "menyambung…";
   const inp = $("mpInput"); if (inp) { inp.disabled = !v.online; inp.placeholder = v.online ? "Ketik pesan…" : "Tidak tersambung"; }
   // umpan singkat saat panel tertutup (5 pesan terakhir, 9 detik)
   const lg = $("mpLog"), cut = Date.now() - 9000, rec = !chatOpen && v.prefs.chat ? v.log.filter((l) => l.t > cut && l.name !== "Sistem").slice(-4) : [];
@@ -144,8 +183,13 @@ function refresh() {
 function mount() {
   if ($("mpDock")) return;
   const d = document.createElement("div"); d.id = "mpDock"; d.className = "mp-dock hidden";
-  d.innerHTML = `<button id="mpCount" class="chip icon-btn" aria-label="Dunia Bersama">👥 <b id="mpN">–</b></button><button id="mpChatBtn" class="chip icon-btn hidden" aria-label="Obrolan" aria-expanded="false">💬<span id="mpUnread" class="mp-unread hidden">0</span></button>`;
+  d.innerHTML = `<button id="mpCount" class="chip icon-btn" aria-label="Menunggu koneksi">👥 <b id="mpN">…</b></button><button id="mpChatBtn" class="chip icon-btn hidden" aria-label="Obrolan" aria-expanded="false">💬<span id="mpUnread" class="mp-unread hidden">0</span></button>`;
   document.body.appendChild(d);
+  const guard = document.createElement("section"); guard.id = "netRequired"; guard.className = "net-required hidden"; guard.setAttribute("role", "alert"); guard.setAttribute("aria-live", "assertive"); guard.setAttribute("aria-hidden", "true");
+  guard.innerHTML = `<div class="net-required-card"><span class="net-required-mark" aria-hidden="true">!</span><b>Koneksi terputus</b><p>Nusa Island membutuhkan internet. Mencoba menyambungkan kembali…</p><small>Aksi dikunci sementara agar progres dan item tetap aman.</small></div>`;
+  document.body.appendChild(guard);
+  for (const ev of ["pointerdown", "touchstart", "keydown", "click", "submit", "wheel"]) window.addEventListener(ev, stopWhileDisconnected, { capture: true, passive: false });
+  window.addEventListener("offline", refresh); window.addEventListener("online", refresh);
   const log = document.createElement("div"); log.id = "mpLog"; log.className = "mp-log hidden"; document.body.appendChild(log);
   const chat = document.createElement("section"); chat.id = "mpChat"; chat.className = "mp-chat hidden"; chat.setAttribute("role", "dialog"); chat.setAttribute("aria-label", "Obrolan");
   chat.innerHTML = `<header><b>Obrolan</b><span id="mpChatCount" class="mp-cc">offline</span><button type="button" id="mpEmoBtn" aria-label="Emoji cepat">😊</button><button type="button" id="mpClose" aria-label="Tutup obrolan">✕</button></header>
@@ -178,5 +222,6 @@ function mount() {
   setInterval(refresh, 1500);
   refresh();
 }
-NW.mpUI = { mount, refresh, setChat, isChatOpen: () => chatOpen };
+NW.mpUI = { mount, refresh, setChat, isChatOpen: () => chatOpen, _dockState: dockState, isNetworkBlocked: () => netBlocked };
 })();
+
