@@ -18,12 +18,13 @@ const CHAIRS = [   // id, arah hadap bawaan (untuk dokumentasi/tes); posisi sebe
 const SLOT_OFF = [[-0.6, -0.3], [0, -0.3], [0.6, -0.3], [-0.6, 0.3], [0, 0.3], [0.6, 0.3]];   // 6 slot makanan di atas meja (3×2), relatif pusat meja
 const TZ = 22, seatDir = { s: 3, n: 7, e: 1, w: 5 };
 // Posisi benda = DARI SERVER (halaman.items efektif) atau bawaan. Tidak ada penyimpanan lokal; null = bawaan.
-let ITEMS_NOW = null, CACHE = null;
-function setItems(it) { ITEMS_NOW = it && typeof it === "object" ? it : null; CACHE = null; }
+let ITEMS_NOW = null, ITEMS_LV = null, CACHE = null;
+function setItems(it, lv) { ITEMS_NOW = it && typeof it === "object" ? it : null; ITEMS_LV = ITEMS_NOW && lv ? GEO.clampLv(lv) : null; CACHE = null; }   // susunan hanya berlaku pada level yang dipakai saat memeriksanya
 const itemsNow = () => ITEMS_NOW;
 const R4 = (c, hw, hd) => ({ x0: c[0] - hw, y0: c[1] - hd, x1: c[0] + hw, y1: c[1] + hd });
 function layout(lv, itemsArg) {
-  const it = itemsArg || ITEMS_NOW || GEO.defaults(lv), key = !itemsArg && lv + "|" + (ITEMS_NOW ? JSON.stringify(ITEMS_NOW) : "");
+  const own = ITEMS_NOW && (ITEMS_LV == null || ITEMS_LV === GEO.clampLv(lv)) ? ITEMS_NOW : null;
+  const it = itemsArg || own || GEO.defaults(lv), key = !itemsArg && lv + "|" + (own ? JSON.stringify(own) : "");
   if (key && CACHE && CACHE.key === key) return CACHE.L;
   const z = zoneOf(lv), B = GEO.BY, tb = it.meja, tcx = tb[0], tcy = tb[1];
   const faceOf = (x, y) => { const dx = tcx - x, dy = tcy - y; return Math.abs(dy) >= Math.abs(dx) ? (dy >= 0 ? "s" : "n") : (dx >= 0 ? "e" : "w"); };

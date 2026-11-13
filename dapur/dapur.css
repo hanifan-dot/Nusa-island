@@ -126,5 +126,5 @@ body.hl-open .visit-back{z-index:45}
 .hl-editr{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
 .hl-valid{margin:0;font-size:12px;font-weight:800;line-height:1.25;min-height:30px}.hl-valid.ok{color:#0f6b5a}.hl-valid.bad{color:#a82424}
 .hl-edit-b{display:flex;gap:6px;flex-wrap:wrap}.hl-edit-b .kd-btn{flex:1;min-width:64px;min-height:40px;padding:0 8px;font-size:13px}
-@media (max-height:420px) and (orientation:landscape){.hl-help{display:none}.hl-pad{grid-template-rows:repeat(3,36px)}.hl-pad button{min-height:36px}}
+@media (max-height:420px) and (orientation:landscape){.hl-help{display:none}}
 @media (prefers-reduced-motion:reduce){.hl-bar i{transition:none}}

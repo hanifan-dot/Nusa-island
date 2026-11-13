@@ -731,15 +731,15 @@ def sec_tata(b, br, X):
     ok("35f layout main = yang disimpan", all(abs(items_of(A)[k][0] - v[0]) < 1e-6 for k, v in plan["mv"].items()), items_of(A))
     # ---- refresh pemilik: posisi sama dari server
     mine = {k: items_of(A)[k] for k in plan["mv"]}
-    relogin(A); enter_house_room(A); tick(A); sync_o(A); time.sleep(0.8)
+    relogin(A); lv_after = ev(A, "(Nusa.S.home&&Nusa.S.home.level)||1"); level_up(A, 3); enter_house_room(A); tick(A); sync_o(A); time.sleep(0.8)   # harness: level lokal dipulihkan = level di server (3)
     now = items_of(A)
-    ok("36a setelah refresh + masuk ulang: posisi identik (dari server)", all(abs(now[k][0] - mine[k][0]) < 1e-6 and abs(now[k][1] - mine[k][1]) < 1e-6 for k in mine), (mine, {k: now[k] for k in mine}))
+    ok("36a setelah refresh + masuk ulang: posisi identik (dari server; level lokal setelah muat ulang=%s)" % lv_after, all(abs(now[k][0] - mine[k][0]) < 1e-6 and abs(now[k][1] - mine[k][1]) < 1e-6 for k in mine), (mine, {k: now[k] for k in mine}))
     # ---- tamu melihat sama
     tick(B); sync_g(B); time.sleep(0.6); gb = items_of(B)
     ok("36b tamu melihat posisi identik dengan pemilik", all(abs(gb[k][0] - mine[k][0]) < 1e-6 and abs(gb[k][1] - mine[k][1]) < 1e-6 for k in mine), {k: gb[k] for k in mine})
-    ra, rb = reach_all(A, 3), reach_all(B, 3)
+    lvA = ev(A, "(Nusa.S.home&&Nusa.S.home.level)||1"); ra, rb = reach_all(A, lvA), reach_all(B, 3)
     ok("36c gerbang → pintu & semua titik pakai tetap terjangkau (pemilik & tamu, walkable asli)", ra["ok"] and rb["ok"], (ra, rb))
-    m_new = ev(A, "NW.dapurHalaman.layout(3).table"); m_old = oldMeja
+    m_new = ev(A, "(lv)=>NW.dapurHalaman.layout(lv).table", lvA); m_old = oldMeja
     cx_new, cy_new = (m_new["x0"] + m_new["x1"]) / 2, (m_new["y0"] + m_new["y1"]) / 2
     ok("36d tengah meja baru padat; titik tengah meja lama dilewati jika tak tertimpa", ev(A, "([x,y])=>!NW.home.walkable(x,y)", [cx_new, cy_new]), (cx_new, cy_new))
     # ---- hak: tamu tidak bisa simpan, tidak bisa membuka mode atur
@@ -771,6 +771,26 @@ def sec_tata(b, br, X):
     A.unroute("**/fn/dapurHalamanSimpan*"); time.sleep(0.3)
     hs2 = srv_doc(br, "a").get("halaman") or {}
     ok("38b retry dengan opId yang sama → tersimpan satu kali (rev naik paling banyak 1)", (hs2.get("rev") or 0) - rev1 <= 1 and n_w["n"] >= 1, (rev1, hs2.get("rev"), n_w))
+    # ---- empat ukuran layar: panel Atur tidak menutup layar, tombol bisa diklik, joystick tetap jalan
+    for (w, h, name) in ((360, 740, "portrait kecil"), (412, 915, "portrait besar"), (740, 360, "landscape HP"), (1280, 800, "desktop")):
+        A.set_viewport_size({"width": w, "height": h}); time.sleep(1.2)
+        ev(A, "NW.dapurSosial.closeSheet()"); goto_hl(A, "hl_meja"); interact(A); wait_for(A, "!!document.querySelector('#hlSheet [data-a=atur]')", 6)
+        click(A, "#hlSheet [data-a=atur]", 0.6)
+        r = ev(A, "(()=>{const s=document.getElementById('hlSheet').getBoundingClientRect();return {h:s.height,w:s.width,t:s.top,iw:innerWidth,ih:innerHeight}})()")
+        okh = r["h"] <= r["ih"] * 0.46 + 1 or (r["w"] <= r["iw"] * 0.5 + 1 and w > h)
+        ok("39 %s %dx%d: panel Atur ≤45%% tinggi layar (atau panel samping ≤50%% lebar di lanskap)" % (name, w, h), okh, r)
+        sels = ["#hlSheet [data-a=nudge][data-d=up]", "#hlSheet [data-a=nudge][data-d=down]", "#hlSheet [data-a=nudge][data-d=left]", "#hlSheet [data-a=nudge][data-d=right]", "#hlSave", "#hlSheet [data-a=ebatal]", "#hlSheet [data-a=ebawaan]", "#hlSheet .hl-pick"]
+        ok("39 %s: panah, Simpan, Batal, Bawaan & chip benda bisa diklik (tidak tertutup apa pun)" % name, all(center_hit(A, sl) == "ok" for sl in sels), [(sl, center_hit(A, sl)) for sl in sels if center_hit(A, sl) != "ok"])
+        mins = ev(A, "[...document.querySelectorAll('#hlSheet [data-a=nudge], #hlSave, #hlSheet [data-a=ebatal]')].map(b=>{const r=b.getBoundingClientRect();return Math.min(r.width,r.height)})")
+        ok("39 %s: target sentuh ≥ 40 px" % name, min(mins) >= 40, mins)
+        p0 = ev(A, "({x:NW.world.player.x,y:NW.world.player.y})"); yy = max(40, int(r["t"] * 0.5)); x0 = int(w * 0.2)
+        for _try in range(3):
+            A.mouse.move(x0, yy); A.mouse.down(); A.mouse.move(x0 + 50, yy, steps=4); time.sleep(0.6); mv = ev(A, "({x:NW.world.player.x,y:NW.world.player.y})"); A.mouse.up(); time.sleep(0.3)
+            if abs(mv["x"] - p0["x"]) + abs(mv["y"] - p0["y"]) > 0.05: break
+        ok("39 %s: joystick tetap menggerakkan pemain saat panel Atur terbuka" % name, abs(mv["x"] - p0["x"]) + abs(mv["y"] - p0["y"]) > 0.05, (p0, mv))
+        if name == "portrait kecil": shot(A, "e4-atur-360")
+        ev(A, "NW.dapurSosial.closeSheet()")
+    A.set_viewport_size({"width": 360, "height": 740}); time.sleep(0.8)
     return st
 
 BLOCK_WS = "(()=>{const W=window.WebSocket;window.__blockWS=false;window.WebSocket=function(u,p){return new W(window.__blockWS?'ws://127.0.0.1:1/':u,p)};window.WebSocket.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(k=>window.WebSocket[k]=W[k])})();"

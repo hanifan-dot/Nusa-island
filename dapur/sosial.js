@@ -76,7 +76,7 @@ function absorbGuest(m) {
 // ---------- tata letak halaman (08E): posisi efektif DARI SERVER; tidak ada penyimpanan lokal ----------
 function applyHalaman(h) {
   if (!h || !h.items) return; S.hal = h; if (S.edit) return;   // sedang menata: salinan kerja jangan ditimpa
-  const j = JSON.stringify(h.items); if (j === S.halKey) return; S.halKey = j; HL.setItems(GEO.resolve(lvNow(), h.items).items); onLayoutChanged();   // dicek ulang pada level lokal: tak pernah tampil susunan tak sah
+  const j = lvNow() + ":" + JSON.stringify(h.items); if (j === S.halKey) return; S.halKey = j; HL.setItems(GEO.resolve(lvNow(), h.items).items, lvNow()); onLayoutChanged();   // dicek ulang pada level lokal: tak pernah tampil susunan tak sah
 }
 function onLayoutChanged() {   // benda berpindah: yang duduk di kursi yang pindah berdiri; yang terjepit di dalam benda digeser ke titik bebas terdekat
   if (!inYard()) return; const P = player(), L = HL.layout(lvNow());
@@ -187,10 +187,13 @@ function eatSequence(ate, slot) {
   S.anim = { kind: "makan", t: 0, phase: S.seat >= 0 ? "makan" : "ambil", ate, slot, info, chair: chair ? chair.id : -1, from: { x: P.x, y: P.y }, ph: { ambil: calmOn ? 0.5 : 0.9, makan: calmOn ? 1.5 : 2.6, reaksi: calmOn ? 1.2 : 1.9 } };
   snd("dapur_piring");
 }
-function nearestFree(L) {
-  const P = player(); let best = null, bd = 1e9;
-  for (const c of L.chairs) { if (S.occupied[c.id] && S.occupied[c.id] !== "me") continue; const d = Math.hypot(c.x - P.x, c.y - P.y); if (d < bd) { bd = d; best = c; } }
-  return best;
+function nearestFree(L) {   // kursi kosong terdekat DARI TAMU, tetapi utamakan yang dekat meja (pemilik boleh memindahkan meja jauh dari bangku/kursi)
+  const P = player(), T = { x: (L.table.x0 + L.table.x1) / 2, y: (L.table.y0 + L.table.y1) / 2 }; let best = null, bd = 1e9, near = null, nd = 1e9;
+  for (const c of L.chairs) {
+    if (S.occupied[c.id] && S.occupied[c.id] !== "me") continue; const d = Math.hypot(c.x - P.x, c.y - P.y);
+    if (d < bd) { bd = d; best = c; } if (Math.hypot(c.x - T.x, c.y - T.y) <= 2.4 && d < nd) { nd = d; near = c; }
+  }
+  return near || best;
 }
 function sitOn(ch) {
   const L = HL.layout(lvNow()), T = L.table; S.seat = ch.id; S.seatLock = now() + 700;
@@ -268,7 +271,7 @@ const iconOf = (it) => (it.id === "lampu" ? "💡" : ICON[it.kind] || "▫️");
 function startEdit() {
   if (S.mode !== "owner" || !S.own.ok || !S.hal) { toast("Tunggu sebentar, halaman belum tersinkron.", "bad"); return; }
   const lv = lvNow(), cur = HL.layout(lv).items, work = {}; for (const id of GEO.IDS) work[id] = cur[id].slice();
-  S.edit = { sel: "meja", work, bad: {}, errs: [], ok: true, step: 0.25, drag: null, changed: false, rep: null }; revalidate(); S.msg = ""; HL.setItems(work); openSheet("meja"); S.tab = "atur"; render();
+  S.edit = { sel: "meja", work, bad: {}, errs: [], ok: true, step: 0.25, drag: null, changed: false, rep: null }; revalidate(); S.msg = ""; HL.setItems(work, lv); openSheet("meja"); S.tab = "atur"; render();
 }
 function revalidate() {
   const E = S.edit; if (!E) return; const v = GEO.validate(lvNow(), E.work); E.errs = v.errors; E.bad = {}; for (const e of v.errors) E.bad[e.id] = true; E.ok = v.ok;
@@ -276,15 +279,15 @@ function revalidate() {
 }
 function editMove(id, x, y) {
   const E = S.edit; if (!E) return; const p = [GEO.q05(x), GEO.q05(y)]; if (p[0] === E.work[id][0] && p[1] === E.work[id][1]) return;
-  E.work[id] = p; HL.setItems(E.work); revalidate(); refreshEditUI();
+  E.work[id] = p; HL.setItems(E.work, lvNow()); revalidate(); refreshEditUI();
 }
 function nudge(dir) {
   const E = S.edit; if (!E) return; const st = E.step, p = E.work[E.sel], d = { up: [-st, -st], down: [st, st], left: [-st, st], right: [st, -st] }[dir]; if (!d) return;
   editMove(E.sel, p[0] + d[0], p[1] + d[1]);
 }
 function editSel(id) { const E = S.edit; if (!E || !GEO.BY[id]) return; E.sel = id; refreshEditUI(); }
-function editReset() { const E = S.edit; if (!E) return; const d = GEO.defaults(lvNow()); for (const id of GEO.IDS) E.work[id] = d[id].slice(); HL.setItems(E.work); revalidate(); refreshEditUI(); }
-function editCancel() { S.edit = null; S.tab = "meja"; HL.setItems(S.hal ? GEO.resolve(lvNow(), S.hal.items).items : null); S.msg = ""; S.halKey = S.hal ? JSON.stringify(S.hal.items) : ""; render(); }
+function editReset() { const E = S.edit; if (!E) return; const d = GEO.defaults(lvNow()); for (const id of GEO.IDS) E.work[id] = d[id].slice(); HL.setItems(E.work, lvNow()); revalidate(); refreshEditUI(); }
+function editCancel() { S.edit = null; S.tab = "meja"; HL.setItems(S.hal ? GEO.resolve(lvNow(), S.hal.items).items : null, lvNow()); S.msg = ""; S.halKey = S.hal ? lvNow() + ":" + JSON.stringify(S.hal.items) : ""; render(); }
 function editSave() {
   const E = S.edit; if (!E || !E.ok || S.busy) return; const items = GEO.diffFromDefault(lvNow(), E.work), key = "hal:" + JSON.stringify(items);
   guarded(key, (op) => api().halamanSimpan({ opId: op, items }), (r) => { S.edit = null; S.tab = "meja"; S.halKey = ""; absorbOwner(r.meja); toast("Halaman tersimpan ✅", "good"); S.msg = ""; });
@@ -330,7 +333,7 @@ function openSheet(kind) {
   ensureUI(); if (kind !== S.sheet) S.msg = ""; S.sheet = kind; if (kind === "meja" || kind === "nampan") S.tab = kind; $("hlSheet").classList.remove("hidden", "mini"); document.body.classList.add("hl-open");
   if (S.mode === "owner") { ownerSync(); if (kind === "nampan" || S.tab === "nampan") loadDishes(); } render();
 }
-function closeSheet() { if (S.edit) { S.edit = null; S.tab = "meja"; HL.setItems(S.hal ? GEO.resolve(lvNow(), S.hal.items).items : null); } S.sheet = null; S.pick = null; const s = $("hlSheet"); if (s) { s.classList.add("hidden"); s.innerHTML = ""; } document.body.classList.remove("hl-open"); }
+function closeSheet() { if (S.edit) { S.edit = null; S.tab = "meja"; HL.setItems(S.hal ? GEO.resolve(lvNow(), S.hal.items).items : null, lvNow()); } S.sheet = null; S.pick = null; const s = $("hlSheet"); if (s) { s.classList.add("hidden"); s.innerHTML = ""; } document.body.classList.remove("hl-open"); }
 const tierChip = (t) => `<span class="hl-chip" style="background:${TIERC[t] || "#a98f58"}">${esc(SAFE[t] || t)}</span>`;
 function ownerBody() {
   let h = `<div class="hl-tabs"><button type="button" class="kd-btn ${S.tab === "meja" ? "gold" : ""}" data-a="tab" data-v="meja">Meja (${S.own.table.length}/6)</button><button type="button" class="kd-btn ${S.tab === "nampan" ? "gold" : ""}" data-a="tab" data-v="nampan">Nampan (${S.own.dishes.length})</button><button type="button" class="kd-btn ${S.tab === "atur" ? "gold" : ""}" data-a="atur">🛠 Atur</button></div>`;
