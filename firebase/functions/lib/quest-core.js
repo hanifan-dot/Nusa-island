@@ -4,7 +4,7 @@
 //   1) "open"  : pemain menekan tombol → klien membuka tautan → SERVER mencatat waktu buka (jam server).
 //   2) "claim" : baru boleh setelah >= MIN_AWAY_MS sejak buka (pemain benar-benar pergi lalu kembali; klik beruntun tak langsung cair).
 //   3) hadiah SEKALI per akun: dicatat di buku server (eco.quest) + opId idempotent; refresh/logout/login/banyak tab/perangkat lain tidak menggandakan.
-// Buku: { ig:{o:waktuBuka, c:waktuKlaim}, wa:{o,c} }  (o/c = ms epoch server; c ada = sudah diklaim, TIDAK pernah dihapus).
+// Buku: { ig:{o,c}, wa:{o,c,r?} }. c tidak dihapus saat Owner mencabut joran; r.at adalah waktu pencabutan agar klaim ulang tetap tertolak.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.NusaQuestCore = factory();
@@ -16,18 +16,18 @@
       rewardText: "25.000 koin gratis ke dompet utama", desc: "Follow akun Instagram resmi Nusa Island, lalu kembali ke game untuk klaim." },
     wa: { id: "wa", name: "Join Grup WhatsApp Nusa Island", short: "WhatsApp", icon: "💬", btn: "Buka WhatsApp",
       url: "https://chat.whatsapp.com/FtZDVA66ogELWSYACMy45F?s=cl&p=a&iam=2", reward: { rod: "wa" },
-      rewardText: "Joran WhatsApp (milik permanen, angkat sampai 100 kg, partikel hijau)", desc: "Gabung grup WhatsApp resmi Nusa Island, lalu kembali ke game untuk klaim." },
+      rewardText: "Joran WhatsApp (angkat sampai 100 kg, partikel hijau; dapat dicabut jika keanggotaan tidak berlaku)", desc: "Gabung grup WhatsApp resmi Nusa Island. Owner bisa meninjau keanggotaan dan mencabut joran jika terbukti keluar." },
   };
   const IDS = Object.keys(QUESTS);
   const isQuest = (id) => typeof id === "string" && Object.prototype.hasOwnProperty.call(QUESTS, id);   // '__proto__' / 'constructor' bukan quest
   const ROD = { id: "wa", name: "Joran WhatsApp", capKg: 100 };
-  const entry = (doc, id) => { const e = doc && typeof doc === "object" ? doc[id] : null; return e && typeof e === "object" ? { o: Number.isFinite(e.o) ? e.o : 0, c: Number.isFinite(e.c) ? e.c : 0 } : { o: 0, c: 0 }; };
+  const entry = (doc, id) => { const e = doc && typeof doc === "object" ? doc[id] : null; return e && typeof e === "object" ? { o: Number.isFinite(e.o) ? e.o : 0, c: Number.isFinite(e.c) ? e.c : 0, r: e.r && Number.isFinite(e.r.at) ? e.r.at : 0 } : { o: 0, c: 0, r: 0 }; };
   /** → "belum" | "proses" | "selesai" | "klaim"  (selesai = siap diklaim; klaim = hadiah sudah diklaim) */
   function status(doc, id, now) {
-    const e = entry(doc, id); if (e.c) return "klaim"; if (!e.o) return "belum";
+    const e = entry(doc, id); if (id === "wa" && e.c && e.r) return "dicabut"; if (e.c) return "klaim"; if (!e.o) return "belum";
     return now - e.o >= MIN_AWAY_MS ? "selesai" : "proses";
   }
-  const claimedCount = (doc) => IDS.filter((id) => entry(doc, id).c).length;
+  const claimedCount = (doc) => IDS.filter((id) => id === "wa" ? rodOwned(doc) : entry(doc, id).c > 0).length;
   const allDone = (doc) => claimedCount(doc) === IDS.length;
   /** Buka tautan: dicatat sekali (pembukaan ulang sebelum klaim tidak mengundurkan waktu, supaya tak bisa diulur/dipercepat). */
   function planOpen(doc, id, now) {
@@ -46,15 +46,15 @@
     return { ok: true, doc: next, reward: QUESTS[id].reward };
   }
   /** Ringkasan kecil untuk view() server: tidak berisi apa pun selain status & waktu. */
-  function view(doc) { const o = {}; for (const id of IDS) { const e = entry(doc, id); o[id] = { o: e.o, c: e.c }; } o.eq = eqOn(doc); o.cap = rodCap(doc); return o; }
-  /** Joran WhatsApp: dimiliki bila quest wa sudah diklaim (buku server). Terpasang otomatis kecuali eq === false. */
-  const rodOwned = (doc) => entry(doc, "wa").c > 0;
+  function view(doc) { const o = {}; for (const id of IDS) { const e = entry(doc, id); o[id] = id === "wa" ? { o: e.o, c: e.c, r: e.r } : { o: e.o, c: e.c }; } o.eq = eqOn(doc); o.cap = rodCap(doc); return o; }
+  /** Joran WhatsApp: diklaim dan belum dicabut Owner. Terpasang otomatis kecuali eq === false. */
+  const rodOwned = (doc) => { const e = entry(doc, "wa"); return e.c > 0 && !e.r; };
   const eqOn = (doc) => !(doc && typeof doc === "object" && doc.eq === false);
   /** Batas angkat (kg) yang SERVER akui: 100 hanya bila dimiliki DAN dipakai; selain itu 0 (tidak ada manfaat). */
   const rodCap = (doc) => (rodOwned(doc) && eqOn(doc) ? ROD.capKg : 0);
   /** Batas kewajaran berat tangkapan (kg) yang SERVER pakai. Hasil adu joran-vs-ikan terjadi di klien, jadi server tidak bisa membuktikan satu tangkapan;
    *  yang bisa: menolak klaim yang mustahil bagi kemampuan joran TERVERIFIKASI. Kemampuan = max(joran upgrade reguler (level dari server) x 1,15 [maks Joran Pelaut],
-   *  100 kg bila Joran WhatsApp DIMILIKI [bukan sekadar terpasang: laporan tertunda saat dilepas tetap sah]). Pengali PLAUS (toleransi 2x + overload besar)
+   *  100 kg bila Joran WhatsApp masih SAH [bukan sekadar terpasang: laporan tertunda saat dilepas tetap sah]). Pengali PLAUS (toleransi 2x + overload besar)
    *  sengaja longgar supaya tangkapan sah joran mana pun, ikan lama, dan overload tidak ditolak. */
   const ROD_CAP = [8, 18, 40, 80, 150, 200, 260, 330, 420, 500, 525, 550, 575, 600, 625, 650, 675, 700, 725, 750];          // cermin data.js UPGRADES.rod.cap (dijaga uji kesamaan)
   const STREAK_CAP_MUL = 1.15, PLAUS = 20;

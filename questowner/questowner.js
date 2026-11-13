@@ -33,6 +33,11 @@ const api = () => NW.shopApi;
 const rid = () => "Q" + Date.now().toString(36) + Math.floor(Math.random() * 1e9).toString(36) + Math.floor(Math.random() * 1e9).toString(36);
 const serverNow = () => Date.now() + R.offset;
 const uid = () => { const a = api(); try { return a && a.uid ? a.uid() : null; } catch (e) { return null; } };
+async function copyAccountId() {
+  const id = uid(); if (!id) return;
+  try { await navigator.clipboard.writeText(id); toast("ID akun disalin. Kirim secara pribadi kepada admin untuk pemeriksaan grup.", "good"); }
+  catch { window.prompt("Salin ID akun untuk admin:", id); }
+}
 function access() {
   const eco = NW.eco;
   if (eco && eco.active && eco.active()) return { ok: true };
@@ -49,12 +54,14 @@ function seen(r) {
 }
 function syncOwnership() {              // salinan lokal mengikuti buku server (idempotent)
   if (!R.loaded) return;
-  const t = t_(), has = Q.entry(R.doc, "wa").c > 0, u = uid();
+  const t = t_(), has = Q.rodOwned(R.doc), u = uid();
   let ch = false;
   const eq = Q.eqOn(R.doc);
   if (has && !t.rod) { t.rod = true; t.equip = eq; ch = true; }
   if (has && t.equip !== eq) { t.equip = eq; ch = true; }          // status Pakai/Lepaskan mengikuti SERVER (ganti perangkat)
-  if (!has && t.rod) { t.rod = false; ch = true; }          // salinan lokal tanpa bukti server (mis. simpanan diubah) → dibuang
+  if (!has && t.rod) { t.rod = false; t.equip = false; ch = true;
+    if (Q.entry(R.doc, "wa").r) toast("Wkwk, ketahuan ya? 😄 Joran WhatsApp dinonaktifkan oleh Owner. Kalau ini keliru, minta admin memeriksa lagi.", "bad");
+  }          // server selalu memutus hak joran, termasuk sesudah pencabutan
   if (u && Q.allDone(R.doc) && t.doneUid !== u) { t.doneUid = u; ch = true; }
   if (ch) { try { N().save(); N().refreshHUD(); } catch (e) {} }
 }
@@ -120,7 +127,7 @@ async function setEquip(on) {
 }
 const bagCard = () => {
   if (!rodOwned()) return ""; const on = rodOn();
-  return `<div class="bg-card"><div class="bg-ic" style="background:linear-gradient(135deg,#1f9d55,#5dff9a)"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 27 25 5" stroke="#eafff2" stroke-width="2.6" stroke-linecap="round"/><circle cx="25" cy="5" r="2.4" fill="#5dff9a"/></svg></div><div><div class="bg-h">Joran WhatsApp <span class="bg-tag ${on ? "use" : ""}">${on ? "Sedang dipakai" : "Dimiliki"}</span></div><div class="bg-s">Hadiah Quest Owner. Angkat sampai 100 kg (diverifikasi server) + partikel hijau. Dilepas ≠ hilang; hak milik permanen.</div><button class="bg-b ${on ? "ghost" : ""}" data-act="qoBagEquip" data-arg="${on ? "0" : "1"}">${on ? "Lepaskan" : "Pakai"}</button></div></div>`;
+  return `<div class="bg-card"><div class="bg-ic" style="background:linear-gradient(135deg,#1f9d55,#5dff9a)"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 27 25 5" stroke="#eafff2" stroke-width="2.6" stroke-linecap="round"/><circle cx="25" cy="5" r="2.4" fill="#5dff9a"/></svg></div><div><div class="bg-h">Joran WhatsApp <span class="bg-tag ${on ? "use" : ""}">${on ? "Sedang dipakai" : "Dimiliki"}</span></div><div class="bg-s">Hadiah Quest Owner. Angkat sampai 100 kg (diverifikasi server) + partikel hijau. Dilepas ≠ hilang; keanggotaan grup tetap harus berlaku.</div><button class="bg-b ${on ? "ghost" : ""}" data-act="qoBagEquip" data-arg="${on ? "0" : "1"}">${on ? "Lepaskan" : "Pakai"}</button></div></div>`;
 };
 
 // ---------- joran ----------
@@ -196,7 +203,7 @@ function icon(size) {
 function badge() {
   const btn = document.getElementById("questBtn"); if (!btn) return;
   const u = uid(), t = t_(), v = view();
-  const finished = (v.loaded && v.allDone && !R.justDone) || (!!u && t.doneUid === u && !R.justDone);
+  const finished = v.loaded ? (v.allDone && !R.justDone) : (!!u && t.doneUid === u && !R.justDone);
   btn.classList.toggle("hidden", finished);                         // semua selesai: tombol hilang; data & hadiah tetap
   const b = document.getElementById("questBadge"); if (b) b.classList.toggle("hidden", finished || (v.loaded && v.done >= v.total));
   btn.setAttribute("data-progress", v.loaded ? v.done + "/" + v.total : "");
@@ -219,14 +226,16 @@ function hook() {
   document.addEventListener("visibilitychange", () => { if (document.hidden) return; const was = R.opened; refresh().then(() => { if (was) { R.opened = null; const v = view(); const it = v.items.find((x) => x.id === was); if (it && it.st !== "klaim" && it.e.o) toast("👋 Selamat datang kembali! " + (it.st === "selesai" ? "Hadiah " + it.short + " siap diklaim." : "Tunggu sebentar lalu klaim hadiahnya."), "good"); } }); });
   window.addEventListener("focus", () => { if (R.opened) refresh(); });
   if (NW.cloud && NW.cloud.onChange) NW.cloud.onChange(() => { refresh(); });
-  setInterval(() => { if (!document.hidden) { if (!R.loaded && !R.loading && Date.now() >= qAt && access().ok) refresh(); badge(); } }, 4000);
+  let lastCheck = Date.now();
+  setInterval(() => { if (!document.hidden) { if (Date.now() - lastCheck >= 300000 && access().ok && Date.now() >= qAt) { lastCheck = Date.now(); refresh(); }
+    else if (!R.loaded && !R.loading && Date.now() >= qAt && access().ok) refresh(); badge(); } }, 4000);
 }
 // Baris "Joran WhatsApp" di Toko → Joran (tetap ada walau panel Quest sudah hilang), + delegasi klik Pakai/Lepaskan
 function rodRowHTML() {
   if (!rodOwned()) return "";
   const on = rodOn();
   return `<div class="rod-card qo-rodrow ${on ? "cur" : ""}"><div class="qo-rodic">🎣</div><div class="grow"><div class="nm">${Q.ROD.name} ${on ? `<span class="rod-tag on">✔ Dipakai</span>` : ""}</div>
-    <div class="sub">Hadiah Quest Owner · angkat sampai ${Q.ROD.capKg} kg · partikel hijau · milik permanen</div></div>
+    <div class="sub">Hadiah Quest Owner · angkat sampai ${Q.ROD.capKg} kg · partikel hijau</div></div>
     <button class="btn small ${on ? "" : "gold"}" data-qo-equip="${on ? "0" : "1"}">${on ? "Lepaskan" : "Pakai"}</button></div>`;
 }
 document.addEventListener("click", (e) => {
@@ -235,5 +244,5 @@ document.addEventListener("click", (e) => {
 });
 
 NW.quest = { icon, _particles: () => P.length, Core: Q, SPEC, migrate, hook, view, refresh, open, claim, access, setEquip, rodOwned, rodOn, rodSpec, capFloor, visualOn, event, drawParticles, rodFx, rodAccent, rodRowHTML, bagCard,
-  onChange: (f) => R.listeners.push(f), _state: R };
+  copyAccountId, onChange: (f) => R.listeners.push(f), _state: R };
 })();
