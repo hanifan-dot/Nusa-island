@@ -157,7 +157,7 @@ export class MuaraRoom extends DurableObject {
     await this.schedule(Proto.TIMEOUT_MS / 3);
     return new Response(null, { status: 101, webSocket: client, headers: { "Sec-WebSocket-Protocol": Proto.SUBPROTOCOL } });
   }
-  roomOpts() { return { boat: this.env.NUSA_BOAT === "ya" }; }   // Muara: Kapal Rombongan HANYA bila env NUSA_BOAT=ya (bawaan MATI; flag klien kapalRombongan di nusa-api harus ikut ON)
+  roomOpts() { return { boat: this.env.NUSA_BOAT === "ya", kota: this.env.NUSA_KOTA === "ya" }; }   // Muara: Kapal Rombongan HANYA bila env NUSA_BOAT=ya; Kota Nusa multiplayer (area selat) HANYA bila env NUSA_KOTA=ya (keduanya bawaan MATI; flag gameFlags kapalRombongan / kotaNusa di nusa-api harus ikut ON)
   onEject() {}
   // Simpan kapal ke penyimpanan DO HANYA saat struktur berubah (kapal baru/bubar, kursi, area) — tidak pernah per frame/tick posisi.
   boatStructSig() { return JSON.stringify([...this.room.boats.values()].map((b) => [b.id, b.seats, b.away ? 1 : 0, b.area, b.hold || {}])); }

@@ -19,12 +19,16 @@ async function gate() {
 }
 const mpOn = () => !!(NW.mp && NW.mp.view && NW.mp.view().online);
 const live = () => st.srv && !!NW.mp && NW.mp.boatOn();                      // kedua saklar ON + tersambung
-const inMuara = () => !!(NW.areas && NW.areas.cur && NW.areas.cur.id === GAREA) && !(NW.home && NW.home.active);
+const kotaLive = () => !!(NW.mp && NW.mp.kotaLive && NW.mp.kotaLive());           // Multiplayer Kota Nusa: klien+server mendukung (kotaNusa + welcome ko===1)
+const inMuara = () => !!(NW.areas && NW.areas.cur && (NW.areas.cur.id === GAREA || (kotaLive() && NW.areas.cur.id === "selat" && NW.mp.area() === "selat")) && !(NW.home && NW.home.active));   // area tempat kapal server terlihat
+const LAND = { x: 13.1, y: 20.45 };                    // titik turun di dermaga Pelabuhan Kota (sama dengan KOTA.LAND di server)
+const dockMode = () => { const m = mineInfo(); return !!m && !!m.boat.kota; };   // kapal ini berlabuh di kota sebagai pemain terlihat (bukan jalur "pergi" lama)
 const mineInfo = () => (live() ? NW.mp.boatMine() : null);
 const seated = () => !!mineInfo() && !st.ashore;   // kapten yang turun ke dermaga pelabuhan (visual) berjalan bebas
 const BERTH = { x: 13.6, y: 21.95 };                  // tambatan kapal rombongan di Pelabuhan Kota (area "selat"); sama di semua awak
 const areaId = () => NW.areas && NW.areas.cur && NW.areas.cur.id;
-const inPort = () => areaId() === "selat" && !!mineInfo() && !!mineInfo().boat.away;
+const inPort = () => areaId() === "selat" && !!mineInfo() && !!mineInfo().boat.away && !mineInfo().boat.kota;
+const shore = () => (areaId() === "selat" ? LAND : C.DISEMBARK);
 function portPose() { const u = Math.min(1, (now() - (st.port ? st.port.t0 : 0)) / 4.5), e = 1 - (1 - u) * (1 - u); return { x: BERTH.x - 7 * (1 - e), y: BERTH.y, d: 0, a: 0, v: (1 - e) * 1.6, docked: u >= 1 }; }
 const boatsList = () => (live() ? NW.mp.boats() : []);
 const lastPose = (pid) => st.last.get(pid) || null;
@@ -61,7 +65,7 @@ function update(dt, v) {
   lastT = dt; const P = NW.world.player, m = mineInfo();
   if (live()) { for (const b of boatsList()) visOf(b, dt); sync(); }
   if (m) {
-    st.wasSeated = true; st.limbo = 0; st.snap = { id: m.id, seats: m.boat.seats.slice(), away: m.boat.away, anchor: m.boat.anchor, d: m.boat.d, x: m.boat.x, y: m.boat.y, v: 0 };
+    st.wasSeated = true; st.limbo = 0; st.snap = { id: m.id, kota: !!m.boat.kota, seats: m.boat.seats.slice(), away: m.boat.away, anchor: m.boat.anchor, d: m.boat.d, x: m.boat.x, y: m.boat.y, v: 0 };
     const b = m.boat;
     if (!st.ashore) {
       const p = seatPoint(b, m.seat), ps = st.trk.pose(NW.mp._R.me, now(), p, C.SEAT_Z);
@@ -69,7 +73,7 @@ function update(dt, v) {
       if (m.captain) { syncKm(); if (!(kmOn() && driveKm(b, dt))) drive(v, b); }
     }
   } else if (st.wasSeated) {
-    if (mpOn()) { st.wasSeated = false; st.limbo = 0; st.ashore = false; st.awayAr = null; st.snap = null; if (areaId() === "selat") { st.port = null; goArea("muara"); } P.x = C.DISEMBARK.x; P.y = C.DISEMBARK.y; P.dir = 6; P.moving = false; st.hideUntil = now() + C.T.LEAVE; }   // turun: lompat ke dermaga
+    if (mpOn()) { const kota = !!(st.snap && st.snap.kota); st.wasSeated = false; st.limbo = 0; st.ashore = false; st.awayAr = null; st.snap = null; if (kota) { P.x = LAND.x; P.y = LAND.y; P.dir = 6; } else { if (areaId() === "selat") { st.port = null; goArea("muara"); } P.x = C.DISEMBARK.x; P.y = C.DISEMBARK.y; P.dir = 6; } P.moving = false; st.hideUntil = now() + C.T.LEAVE; }   // turun: lompat ke dermaga (kota: tetap di area selat, titik turun server)   // turun: lompat ke dermaga
     else { if (!st.limbo) st.limbo = now(); if (now() - st.limbo > 26) { st.wasSeated = false; st.limbo = 0; P.x = C.DISEMBARK.x; P.y = C.DISEMBARK.y; st.trk.clear(); } }
   }
   if (!live() && st.trk.seatOf.size) st.trk.clear();
@@ -77,7 +81,7 @@ function update(dt, v) {
 }
 // kapten: joystick → niat kemudi. Server menegakkan semua aturan (jangkar, batas jalur air, kecepatan).
 function drive(v, b) {
-  if (b.away) return;
+  if (b.away || b.kota) return;
   const s = C.steerFrom(v), key = s.th ? s.d + ":" + s.th : "0", t = now();
   if (b.anchor) { if (s.th && t - st.noteAt > 2.5) { note("⚓ Angkat jangkar dulu untuk berlayar.", "bad"); } st.steerKey = "0"; return; }
   if (key === st.steerKey || t - st.steerAt < 0.15) return;
@@ -99,7 +103,7 @@ function syncKm() {
 }
 function driveKm(b, dt) {
   const ks = NW.kemudi.state("rombongan"), k = KC(); if (!ks) return false;
-  if (b.away || inPort()) return true;                       // berlayar antar area / berlabuh: tidak ada perintah gerak
+  if (b.away || b.kota || inPort()) return true;            // berlayar antar area / berlabuh: tidak ada perintah gerak
   const t = now(); if (!st.helm || st.helmBoat !== b.id) { st.helm = k.helmNew(b.d); st.helmBoat = b.id; st.steerKey = b.d + ":0"; }
   if (b.anchor) {                                            // server menolak steer saat jangkar turun → jangan dikirim
     st.helm.d = b.d; st.helm.acc = 0; st.steerKey = b.d + ":0";
@@ -117,7 +121,7 @@ const AREA_NAME = { selat: "Pelabuhan Kota", muara: "Muara" };
 const KM_HOST = {
   id: "rombongan", ok: () => { const m = mineInfo(); return !!m && m.captain && !st.ashore; },
   view() {
-    const m = mineInfo(), b = m.boat, away = !!b.away, port = inPort(), mv = b.v > 0.05, k = KC();
+    const m = mineInfo(), b = m.boat, away = !!b.away, dock = !!b.kota, port = inPort() || dock, mv = b.v > 0.05, k = KC();
     const cg = NW.delivery && NW.delivery.cargoView ? NW.delivery.cargoView() : null, loaded = !!(cg && cg.boxes && cg.boxes.some((x) => x && x.n > 0));
     const dst = loaded && NW.delivery.dest ? NW.delivery.dest() : null;
     const status = !mpOn() ? "Terputus — kursimu ditahan sebentar…" : port ? "Berlabuh di Pelabuhan Kota" : away ? "Berlayar" + (st.awayAr ? " ke " + (AREA_NAME[st.awayAr] || st.awayAr) : "") + "…" : dst ? null : b.anchor ? "⚓ Berjangkar" : mv ? "Kapal bergerak" : "Jangkar naik · siap berlayar";
@@ -126,7 +130,7 @@ const KM_HOST = {
   },
   anchor: () => toggleAnchor(), fish: () => fishNow(), home: () => leave(), go: () => goHome(),
 };
-function toggleAnchor() { const m = mineInfo(); if (!m || !m.captain || m.boat.away || inPort()) return false; N().sfx("click"); return NW.mp.boatAnchor(!m.boat.anchor) !== false; }
+function toggleAnchor() { const m = mineInfo(); if (!m || !m.captain || m.boat.away || m.boat.kota || inPort()) return false; N().sfx("click"); return NW.mp.boatAnchor(!m.boat.anchor) !== false; }
 function leave() {
   const m = mineInfo(); if (!m) return false; N().sfx("click");
   if (inPort()) { if (!m.captain || !mpOn()) return false; disembark(NW.port && NW.port.positions ? NW.port.positions.BOARD_SPOT : { x: 13.1, y: 20.45 }); return true; }
@@ -172,7 +176,7 @@ function drawHeld(ctx, h, t) {   // kursi tertahan 20 dtk untuk pemain yang putu
 }
 function layer(t, view, inView) {
   const out = []; if (!NW.boat || !NW.boat.drawVessel) return out;
-  if (areaId() === "selat" && (st.snap || mineInfo())) return portLayer(t, view, inView);   // Pelabuhan Kota: kapal & awak dari keadaan server, ditambatkan di BERTH
+  if (areaId() === "selat" && !dockMode() && !(st.snap && st.snap.kota) && (st.snap || mineInfo())) return portLayer(t, view, inView);   // Pelabuhan Kota: kapal & awak dari keadaan server, ditambatkan di BERTH
   if (!live() || !inMuara()) return out;
   const mi = mineInfo();
   for (const b of boatsList()) {
@@ -188,7 +192,7 @@ function layer(t, view, inView) {
   }
   // yang baru turun: animasi lompat ke dermaga (pelaku lokal maupun jarak jauh)
   for (const g of st.trk.ghosts) {
-    const to = { x: C.DISEMBARK.x + (g.s - 1) * 0.5, y: C.DISEMBARK.y, z: groundZ(C.DISEMBARK.x, C.DISEMBARK.y) }, gp = st.trk.ghostPose(g, now(), to), ch = gp && chOf(g.pid); if (!gp || !ch) continue;
+    const sh = shore(), to = { x: sh.x + (g.s - 1) * 0.5, y: sh.y, z: groundZ(sh.x, sh.y) }, gp = st.trk.ghostPose(g, now(), to), ch = gp && chOf(g.pid); if (!gp || !ch) continue;
     out.push({ d: gp.x + gp.y + 0.4, fn: (ctx) => { Object.assign(ch, { x: gp.x, y: gp.y, z: gp.z, sit: false, moving: true, dir: 6 }); ch.walk += 0.4; NW.drawCharacter(ctx, ch, t); } });
   }
   return out;
@@ -224,17 +228,18 @@ function goHome() {
 const DOCK_POINT = { x: 37.2, y: 21.3 };
 function candidates(player) {
   const out = []; if (!st.srv || !inMuara() || seated() || (NW.boat && NW.boat.on)) return out;
+  const muara = areaId() === GAREA;
   if (!live()) {   // keadaan gagal aman: server menyala tetapi realtime belum siap → hanya penjelasan, tanpa kapal/kursi palsu
-    if (Math.hypot(player.x - DOCK_POINT.x, player.y - DOCK_POINT.y) < 5) out.push({ id: "rb:fail", x: DOCK_POINT.x, y: DOCK_POINT.y, r: 3, icon: "⛵", label: "Kapal Rombongan", rb: { k: "fail" }, bz: 40 });
+    if (muara && Math.hypot(player.x - DOCK_POINT.x, player.y - DOCK_POINT.y) < 5) out.push({ id: "rb:fail", x: DOCK_POINT.x, y: DOCK_POINT.y, r: 3, icon: "⛵", label: "Kapal Rombongan", rb: { k: "fail" }, bz: 40 });
     return out;
   }
   const bl = boatsList().filter((b) => !b.away);
-  for (const b of bl) for (const s of [1, 2]) {
+  for (const b of bl) for (const s of [1, 2]) {   // kapal kota tanpa kapten: server menjadikan yang pertama naik sebagai kapten (permintaan tetap kursi 1/2)
     if (!C.seatFree(b, s) || !C.boardable(b)) continue;
     const p = seatPoint(b, s); if (Math.hypot(player.x - p.x, player.y - p.y) > 6) continue;
-    out.push({ id: "rb:" + b.id + ":" + s, x: p.x, y: p.y, r: 2.7, icon: "🪑", label: "Duduk: " + C.SEATS[s].role, rb: { k: "join", b: b.id, s }, bz: 34, pri: 0.6 });
+    out.push({ id: "rb:" + b.id + ":" + s, x: p.x, y: p.y, r: 2.7, icon: "🪑", label: b.kota && !b.seats[0] ? "Naik kapal (jadi Kapten)" : "Duduk: " + C.SEATS[s].role, rb: { k: "join", b: b.id, s }, bz: 34, pri: 0.6 });
   }
-  if (!out.length && bl.length < 5 && Math.hypot(player.x - DOCK_POINT.x, player.y - DOCK_POINT.y) < 4.2) out.push(   // ada kursi kosong di dekatmu → tawarkan duduk, bukan kapal baru
+  if (muara && !out.length && bl.length < 5 && Math.hypot(player.x - DOCK_POINT.x, player.y - DOCK_POINT.y) < 4.2) out.push(   // ada kursi kosong di dekatmu → tawarkan duduk, bukan kapal baru
    { id: "rb:new", x: DOCK_POINT.x, y: DOCK_POINT.y, r: 2.0, icon: "⛵", label: "Buat Kapal Rombongan", rb: { k: "new" }, bz: 40 });
   return out;
 }
@@ -260,7 +265,7 @@ function build() {
   $("rbLeave").addEventListener("click", () => { leave(); });
   $("rbFish").addEventListener("click", fishNow);
 }
-function canFish(m) { return !!m && m.boat.anchor && m.boat.v < 0.05 && !m.boat.away && N().mode() === "world"; }
+function canFish(m) { return !!m && m.boat.anchor && m.boat.v < 0.05 && !m.boat.away && !m.boat.kota && N().mode() === "world"; }
 function fishNow() {
   const m = mineInfo(); if (!canFish(m)) return note(m && !m.boat.anchor ? "⚓ Jangkar harus turun dulu supaya bisa memancing." : "Tunggu kapal berhenti dulu…", "bad");
   if (N().coolerFull()) return NW.world.openDialog({ name: "Coolbox penuh", avatar: "🧊", lines: ["Coolbox-mu penuh. Jual dulu tangkapanmu di pasar."] });
@@ -272,15 +277,15 @@ function hud() {
   syncKm();
   const m = mineInfo(), show = !!m && !st.ashore && N().mode() === "world" && !(NW.world.cine) && !kmOn(); st.root.classList.toggle("hidden", !show); document.body.classList.toggle("rb-on", !!m);
   if (!show) return;
-  const b = m.boat, role = C.SEATS[m.seat].role, away = b.away, sig = [m.seat, b.anchor, b.v > 0.05, away, st.limbo ? 1 : 0, mpOn(), N().coolerFull(), inPort() ? 1 : 0].join();
+  const b = m.boat, role = C.SEATS[m.seat].role, away = b.away, sig = [m.seat, b.anchor, b.v > 0.05, away, st.limbo ? 1 : 0, mpOn(), N().coolerFull(), inPort() ? 1 : 0, b.kota ? 1 : 0].join();
   if (sig === st.lastSig) return; st.lastSig = sig;
   $("rbRole").textContent = (m.seat === 0 ? "⛵ " : "🪑 ") + role;
   const dep = st.away ? ` ke ${st.away}` : "";
-  $("rbInfo").textContent = !mpOn() ? "Terputus — kursimu ditahan sebentar…" : inPort() ? "Berlabuh di Pelabuhan Kota" : away ? `Berlayar${dep}…` : b.v > 0.05 ? "Kapal bergerak" : b.anchor ? "Berjangkar" : m.seat === 0 ? "Geser joystick untuk berlayar" : "Menunggu kapten";
-  $("rbAnchor").classList.toggle("hidden", m.seat !== 0); $("rbAnchor").classList.toggle("on", !!b.anchor);
+  $("rbInfo").textContent = !mpOn() ? "Terputus — kursimu ditahan sebentar…" : (inPort() || b.kota) ? "Berlabuh di Pelabuhan Kota" : away ? `Berlayar${dep}…` : b.v > 0.05 ? "Kapal bergerak" : b.anchor ? "Berjangkar" : m.seat === 0 ? "Geser joystick untuk berlayar" : "Menunggu kapten";
+  $("rbAnchor").classList.toggle("hidden", m.seat !== 0 || !!b.kota); $("rbAnchor").classList.toggle("on", !!b.anchor);
   const stopped = b.anchor && b.v < 0.05 && !away;
-  $("rbHome").classList.toggle("hidden", !(inPort() && m.seat === 0));
-  $("rbLeave").disabled = inPort() ? !(m.seat === 0 && mpOn()) : !stopped || !mpOn(); $("rbFish").disabled = !stopped || !mpOn() || N().coolerFull();
+  $("rbHome").classList.toggle("hidden", !((inPort() || b.kota) && m.seat === 0));
+  $("rbLeave").disabled = inPort() ? !(m.seat === 0 && mpOn()) : !stopped || !mpOn(); $("rbFish").disabled = !stopped || !mpOn() || N().coolerFull() || !!b.kota;
 }
 // ---------- peristiwa protokol ----------
 function onEv(e) {
@@ -288,8 +293,8 @@ function onEv(e) {
   if (e.type === "note") { if (e.r) note(C.reasonText(e.r), "bad"); return; }
   if (e.type === "board" && e.p === me) { const role = C.SEATS[e.s] ? C.SEATS[e.s].role : "Kursi"; note("Kamu duduk di " + role.toLowerCase() + ".", "good"); }
   else if (e.type === "cap" && e.p === me) note("⛵ Kamu sekarang kapten! Jangkar diturunkan.", "good");
-  else if (e.type === "depart") { st.away = e.ar || null; const m = mineInfo(); if (m && m.id === e.b) { st.awayAr = e.ar || null; if (e.ar === "selat") { st.port = { t0: now() + 0.5 }; goArea("selat"); } else note("⛵ Berlayar" + (e.ar ? " ke " + e.ar : "") + "…"); } }
-  else if (e.type === "arrive") { st.away = null; const m = mineInfo(); if (m && m.id === e.b) { st.awayAr = null; st.ashore = false; if (areaId() === "selat") { st.port = null; goArea("muara"); } else note("⚓ Kapal tiba kembali di Muara.", "good"); } }
+  else if (e.type === "depart") { st.away = e.ar || null; const m = mineInfo(); if (m && m.id === e.b) { st.awayAr = e.ar || null; if (e.ar === "selat") { if (!e.ko) st.port = { t0: now() + 0.5 }; goArea("selat"); } else note("⛵ Berlayar" + (e.ar ? " ke " + e.ar : "") + "…"); } }
+  else if (e.type === "arrive") { st.away = null; const m = mineInfo(); if (m && m.id === e.b) { st.awayAr = null; st.ashore = false; if (areaId() === "selat") { st.port = null; goArea("muara"); } else note("⚓ Kapal tiba kembali di Muara.", "good"); } }   // kota maupun jalur lama: kembali ke Muara bersama kapal
   else if (e.type === "sync") { st.trk.clear(); st.chs.clear(); st.last.clear(); st.lastSig = ""; if (!(areaId() === "selat" && st.awayAr)) st.awayAr = null; }
   st.lastSig = "";
 }

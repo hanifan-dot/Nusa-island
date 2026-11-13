@@ -35,6 +35,7 @@ suite test_house; suite test_rumahku_sosial; suite test_rumahku_flag_server
 suite test_pilih_dunia; suite test_podium
 # Visual Kota Nusa (Ide 04): uji khusus + regresi Pak Damar / Kapal Rombongan dengan NUSA_KOTA=true (flag default tetap OFF)
 suite test_kota
+suite test_kota_mp   # Multiplayer Kota Nusa: 4 klien nyata + server dev (NUSA_KOTA=ya, NUSA_BOAT=ya); termasuk mode flag klien OFF dan flag server OFF
 for r in test_port test_port_rombongan test_rombongan; do
   timeout 1800 python3 "tests/browser/test_kota_regresi.py" "$r" > "$OUT/kota_regresi_$r.out" 2>&1; rc=$?
   p=$(grep -c '^PASS' "$OUT/kota_regresi_$r.out"); f=$(grep -c '^FAIL' "$OUT/kota_regresi_$r.out"); catat "kota_regresi($r) exit=$rc PASS=$p FAIL=$f"; { [ $rc -ne 0 ] || [ "$f" -ne 0 ]; } && BAD=1

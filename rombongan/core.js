@@ -16,7 +16,7 @@ const DISEMBARK = { x: 35.5, y: 20.6 };       // titik turun Muara (kontrak #132
 const REASONS = {                              // alasan penolakan server → pesan aman
   off: "Kapal Rombongan sedang tidak aktif.", hidden: "Kamu belum terlihat di Muara.", aboard: "Kamu sudah berada di kapal.", full: "Kapal ini sudah penuh.",
   far: "Terlalu jauh. Dekati dermaga atau kapalnya dulu.", none: "Kapal itu sudah tidak ada.", away: "Kapal sedang berlayar.", moving: "Tunggu kapal berhenti dulu.",
-  seat: "Kursi itu baru saja diambil orang lain.", captain: "Hanya kapten yang bisa melakukan itu.", anchor: "Turunkan jangkar dulu.", early: "Kapal belum boleh kembali secepat itu.", same: "Kamu sudah di tujuan itu.",
+  seat: "Kursi itu baru saja diambil orang lain.", captain: "Hanya kapten yang bisa melakukan itu.", anchor: "Turunkan jangkar dulu.", early: "Kapal belum boleh kembali secepat itu.", same: "Kamu sudah di tujuan itu.", port: "Kapal sedang berlabuh di Pelabuhan Kota.",
 };
 const reasonText = (r) => REASONS[r] || "Aksi kapal ditolak. Coba lagi sebentar lagi.";
 

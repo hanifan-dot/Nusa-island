@@ -33,7 +33,7 @@ def main():
             # ---------- K2 flag ON ----------
             ctx, pg, errs, reqs = boot(b, quality=2, hour=12); to_selat(pg); settle(pg)
             names = sorted(u.rsplit("/", 1)[-1] for u in reqs if "/kota/" in u)
-            ok("K2a flag ON: 3 berkas kota diunduh", names == ["art.js", "client.js", "core.js"], names)
+            ok("K2a flag ON: 4 berkas kota diunduh (core, art, client + mp = gerbang multiplayer kota)", names == ["art.js", "client.js", "core.js", "mp.js"], names)
             ok("K2b flag ON: peta selat 92x48, NW.kota hidup", ev(pg, "NW.SELAT_MAP.MW===92 && NW.SELAT_MAP.MH===48 && NW.kota.version===1"))
             ok("K2c flag ON: tanpa galat halaman", not errs, errs[:3])
             # ---------- K3 NPC & kepadatan ----------
