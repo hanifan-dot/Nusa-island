@@ -2,11 +2,11 @@
 .mp-dock { position: fixed; left: 8px; top: calc(env(safe-area-inset-top, 0px) + 50px); z-index: 12; display: flex; gap: 6px; pointer-events: auto; }
 .mp-dock.hidden, .mp-log.hidden, .mp-chat.hidden, .mp-ask.hidden, .mp-dock .hidden, .mp-emo.hidden, .mp-unread.hidden { display: none !important; }
 .mp-dock .chip { font-weight: 800; position: relative; min-height: 36px; }
-.mp-dock #mpCount { min-width: 58px; white-space: nowrap; }
-.mp-dock #mpCount.on { box-shadow: 0 0 0 2px #2fb39a inset; }
-.mp-dock #mpCount.single { box-shadow: 0 0 0 2px #4c91c7 inset; }
-.mp-dock #mpCount.lost { box-shadow: 0 0 0 2px #e2574c inset; color: #9b2118; }
-.mp-dock #mpCount.ask { box-shadow: 0 0 0 2px #f0b53a inset; } .mp-dock #mpChatBtn.open { background: #173f50; }
+.mp-dock #mpCount { min-width: 58px; white-space: nowrap; box-sizing: border-box; border: 2px solid transparent; background-clip: padding-box; overflow: hidden; }
+.mp-dock #mpCount.on { border-color: #2fb39a; }
+.mp-dock #mpCount.single { border-color: #4c91c7; }
+.mp-dock #mpCount.lost { border-color: #e2574c; color: #9b2118; }
+.mp-dock #mpCount.ask { border-color: #f0b53a; } .mp-dock #mpChatBtn.open { background: #173f50; }
 .net-required.hidden { display: none !important; }
 .net-required { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: max(18px, env(safe-area-inset-top, 0px)) 18px max(18px, env(safe-area-inset-bottom, 0px)); background: rgba(7, 27, 34, .78); pointer-events: auto; }
 .net-required-card { width: min(92vw, 390px); padding: 22px 18px; border: 2px solid #e2574c; border-radius: 20px; background: #fffaf0; color: #173f50; text-align: center; box-shadow: 0 16px 46px rgba(0, 0, 0, .38); }

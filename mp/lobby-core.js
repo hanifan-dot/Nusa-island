@@ -11,18 +11,47 @@ const P = (typeof module !== "undefined" && module.exports) ? require("./proto.j
 const LIM = { perUid: 8, perIp: 30, global: 300, houseUid: 12, houseIp: 40, houseGlobal: 400, windowMs: 60000 };
 
 class Lobby {
-  constructor(opts) { this.lim = Object.assign({}, LIM, (opts && opts.lim) || {}); this.cap = (opts && opts.cap) || P.ROOM_CAP; this.max = (opts && opts.max) || P.MAX_ROOMS; this.now = (opts && opts.now) || (() => Date.now()); this.rnd = (opts && opts.rnd) || Math.random; this.occ = new Map(); this.hits = { uid: new Map(), ip: new Map(), list: new Map(), all: [] }; }
+  constructor(opts) { this.lim = Object.assign({}, LIM, (opts && opts.lim) || {}); this.cap = (opts && opts.cap) || P.ROOM_CAP; this.max = (opts && opts.max) || P.MAX_ROOMS; this.now = (opts && opts.now) || (() => Date.now()); this.rnd = (opts && opts.rnd) || Math.random; this.occ = new Map(); this.lastRoom = new Map(); this.houses = new Map(); this.hits = { uid: new Map(), ip: new Map(), list: new Map(), all: [] }; }
   prune(arr, now) { while (arr.length && now - arr[0] > this.lim.windowMs) arr.shift(); return arr; }
   hit(map, key, limit, now) { if (!key) return true; const a = this.prune(map.get(key) || [], now); map.set(key, a); if (a.length >= limit) return false; a.push(now); return true; }
   where(uid, except) { for (const [k, s] of this.occ) if (k !== except && s.has(uid)) return k; return null; }
-  size(k) { const s = this.occ.get(k); return s ? s.size : 0; }
-  hasSpace(k, uid) { const s = this.occ.get(k); return (s ? s.size : 0) < this.cap || !!(s && s.has(uid)); }
+  parent(uid) {
+    const live = this.where(uid); if (live != null) return live;
+    const remembered = this.lastRoom.get(uid);
+    if (!remembered || this.now() - remembered.at > 120000) { this.lastRoom.delete(uid); return null; }
+    return remembered.room;
+  }
+  // Setiap rumah melaporkan seluruh penghuninya. TTL membuang catatan jika DO rumah terhenti.
+  houseSync(house, rows) {
+    if (!/^rumah-[A-Z2-9]{8}$/.test(house) || !Array.isArray(rows)) return;
+    const users = new Map();
+    for (const row of rows.slice(0, P.HOUSE.CAP)) {
+      const room = P.roomId(row && row.room);
+      if (row && typeof row.uid === "string" && room != null) users.set(row.uid, room);
+    }
+    if (users.size) { this.houses.set(house, { users, at: this.now() }); for (const [uid, room] of users) this.lastRoom.set(uid, { room, at: this.now() }); } else this.houses.delete(house);
+  }
+  activeHouses() {
+    for (const [house, record] of this.houses) if (this.now() - record.at > 45000) this.houses.delete(house);
+    return this.houses.values();
+  }
+  size(k) {
+    const users = new Set(this.occ.get(k) || []);
+    for (const record of this.activeHouses()) for (const [uid, room] of record.users) if (room === k && (this.where(uid) == null || this.where(uid) === k)) users.add(uid);
+    return users.size;
+  }
+  hasSpace(k, uid) {
+    if (this.size(k) < this.cap || !!(this.occ.get(k) && this.occ.get(k).has(uid))) return true;
+    for (const record of this.activeHouses()) if (record.users.get(uid) === k) return true;
+    return false;
+  }
   // Ruang 1–12 selalu tersedia. Bila seluruh ruang yang terbuka penuh,
   // tambah satu nomor berikutnya, tanpa membuat Durable Object kosong.
   // Jangan sembunyikan nomor server tambahan yang masih ditempati pemain.
   openMax() {
     let n = Math.min(this.max, P.MIN_ROOMS || 12);
     for (const [k, users] of this.occ) if (k > n && k <= this.max && users.size > 0) n = k;
+    for (const record of this.activeHouses()) for (const room of record.users.values()) if (room > n && room <= this.max) n = room;
     if (n < this.max) {
       let allFull = true;
       for (let k = 1; k <= n; k++) if (this.hasSpace(k, null)) { allFull = false; break; }
@@ -63,12 +92,14 @@ class Lobby {
     if (!this.hit(h.uid, uid, LIM.houseUid, now) || !this.hit(h.ip, ip, LIM.houseIp, now)) return { error: "rate" };
     h.all.push(now); return { ok: true };
   }
-  joined(k, uid) { if (!this.occ.has(k)) this.occ.set(k, new Set()); this.occ.get(k).add(uid); for (const [j, s] of this.occ) if (j !== k) s.delete(uid); }
+  joined(k, uid) { this.lastRoom.set(uid, { room: k, at: this.now() }); if (!this.occ.has(k)) this.occ.set(k, new Set()); this.occ.get(k).add(uid); for (const [j, s] of this.occ) if (j !== k) s.delete(uid); }
   left(k, uid) { const s = this.occ.get(k); if (s) { s.delete(uid); if (!s.size) this.occ.delete(k); } }
   // instance melaporkan DAFTAR LENGKAP anggotanya tiap kali berubah → hitungan tidak bisa drift. Mengembalikan sesi ganda yang harus ditutup.
   sync(k, uids) {
     const prev = this.occ.get(k) || new Set(), dups = [];
     for (const u of uids) if (!prev.has(u)) { const j = this.where(u, k); if (j != null) dups.push({ room: j, uid: u }); }
+    for (const uid of uids) this.lastRoom.set(uid, { room: k, at: this.now() });
+    if (this.lastRoom.size > 2048) for (const [uid, entry] of this.lastRoom) if (this.now() - entry.at > 120000) this.lastRoom.delete(uid);
     if (uids.length) this.occ.set(k, new Set(uids)); else this.occ.delete(k);
     for (const d of dups) this.left(d.room, d.uid);
     return dups;
