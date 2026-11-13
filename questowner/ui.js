@@ -33,6 +33,7 @@ function render() {
   return `<div class="qo"><div class="qo-hero"><div class="qo-palm">${NW.quest ? NW.quest.icon(46) : ""}</div><div><div class="qo-title">Quest Owner</div><div class="qo-sub">Misi spesial dari Owner Nusa Island. Ikuti aturan komunitas agar hadiah tetap berlaku.</div></div></div>
     <div class="qo-prog"><div class="qo-progtxt"><b>${v.loaded ? v.done : 0}/${v.total}</b> selesai</div><div class="qo-bar"><i style="width:${v.loaded ? pct : 0}%"></i></div></div>
     ${note}${done}${v.items.map((it) => card(it, v)).join("")}
+    ${v.access.ok ? `<div class="qo-note dim">Perlu diperiksa admin grup? <button class="btn small" data-act="qoCopyId">Salin ID akun game</button> lalu kirim lewat chat pribadi admin.</div>` : ""}
     <div class="qo-fine">Game tidak bisa memeriksa langsung apakah kamu sudah follow/join. Owner dapat memeriksa keanggotaan grup secara manual dan menonaktifkan Joran WhatsApp jika terbukti keluar. Klaim hanya <b>sekali per akun</b>.</div></div>`;
 }
 function after(body) {
@@ -49,6 +50,7 @@ async function act(a, arg) {
   const K = NW.quest;
   if (a === "qoOpen") { N().sfx("click"); K.open(arg); N().renderPanel(); return; }
   if (a === "qoLogin") { N().openPanel("profil"); return; }
+  if (a === "qoCopyId") { await K.copyAccountId(); return; }
   if (a === "qoRetry") { N().renderPanel(); await K.refresh(); N().renderPanel(); return; }
   if (a === "qoClaim") { N().sfx("click"); const p = K.claim(arg); N().renderPanel(); await p; N().renderPanel(); }
 }
