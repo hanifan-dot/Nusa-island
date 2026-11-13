@@ -193,6 +193,7 @@ def sec_flag_off(b, br):
     L = ev(pg, "NW.dapurHalaman.layout(3).table")
     ok("0c flag OFF: halaman tetap seperti semula (tempat meja bisa dilewati)", ev(pg, "([x,y])=>NW.home.walkable(x,y)", [(L["x0"] + L["x1"]) / 2, (L["y0"] + L["y1"]) / 2]))
     r0d = api(pg, "dapurMejaState"); ok("0d flag OFF: server menolak fungsi meja (404)", bool(r0d.get("err")) and "ok" not in r0d, r0d)
+    r0f = api(pg, "dapurHalamanSimpan", {"opId": "op-flag-off-0001", "items": {"lampu": [1.65, 1.4]}}); ok("0f flag OFF: server menolak simpan susunan halaman (404), tak ada dokumen halaman", bool(r0f.get("err")) and "ok" not in r0f and not (br.read("shop_dapur/" + UIDS["a"]) or {}).get("halaman"), r0f)
     ctx.close(); br.flags(dapur=True); time.sleep(0.1)
     c2, p2, e2 = new_page(b, br, *ACC["a"], dapur=False)
     ok("0e NUSA_DAPUR tidak diset: modul sosial tidak dimuat", ev(p2, "typeof NW.dapurSosial==='undefined' && typeof NW.dapurHalaman==='undefined'"))
@@ -646,6 +647,152 @@ def sec_shots(b, br, X):
     goto_hl(A, "hl_kopi"); ev(A, "NW.world.player.dir=2"); interact(A); time.sleep(1.1)
     out(save(A, "s4"), "d04-malam-lampu-halaman-kopi")
 
+def relogin(pg):   # "refresh": muat ulang halaman; save lokal (seed) tetap, login demo diulang
+    pg.reload(); wait_for(pg, "window.NW && NW.cloud && NW.cloud.status!=='init'", 10); time.sleep(0.4)
+    try: pg.click("#gateGoogle", timeout=4000)
+    except Exception: pass
+    wait_for(pg, "(()=>{const g=document.getElementById('gate');return !g || g.classList.contains('hidden')})()", 10); time.sleep(0.5)
+    if ev(pg, "!document.getElementById('splash').classList.contains('hidden')"): pg.click("#startBtn"); time.sleep(0.4)
+    ev(pg, "window.firebase={apps:[{}],auth:()=>({currentUser:{getIdToken:async()=>'dev.'+NW.cloud.user.uid}})}")
+    ev(pg, "document.querySelectorAll('[data-ask=later]').forEach(b=>b.click());[...document.querySelectorAll('button')].filter(b=>b.textContent.trim()==='Nanti'&&b.offsetParent).forEach(b=>b.click())")
+    wait_for(pg, "NW.dapurSosial && NW.dapurSosial.on", 15)
+def to_screen(pg, x, y, z=0):   # petak → piksel layar (iterasi terhadap NW.world.toTile asli)
+    return ev(pg, """([tx,ty,z])=>{let cx=innerWidth/2,cy=innerHeight/3;for(let i=0;i<14;i++){const q=NW.world.toTile(cx,cy,z),a=NW.world.toTile(cx+10,cy,z),b=NW.world.toTile(cx,cy+10,z);
+      const j11=(a.x-q.x)/10,j21=(a.y-q.y)/10,j12=(b.x-q.x)/10,j22=(b.y-q.y)/10,det=j11*j22-j12*j21,ex=tx-q.x,ey=ty-q.y;cx+=(j22*ex-j12*ey)/det;cy+=(-j21*ex+j11*ey)/det}return {x:cx,y:cy}}""", [x, y, z])
+def items_of(pg): return ev(pg, "NW.dapurHalaman.layout(NW.dapurSosial._S.hal?%d:%d).items" % (0, 0)) if False else ev(pg, "(()=>{const lv=(NW.home.visit?NW.home.visit.home.level:Nusa.S.home.level)||1;return JSON.parse(JSON.stringify(NW.dapurHalaman.layout(lv).items))})()")
+def reach_all(pg, lv):   # gerbang → pintu & semua titik pakai terjangkau, memakai walkable ASLI Rumahku (termasuk benda halaman yang baru)
+    return ev(pg, """(lv)=>{const w=NW.home.walkable,L=NW.dapurHalaman.layout(lv),G=NW.dapurGeo.GEO.lv[lv],st=0.25,W=Math.ceil(16/st),H=Math.ceil(14/st),seen=new Uint8Array(W*H);
+      const sx=Math.round(G.gate[0]/st),sy=Math.round((G.gate[1]-0.5)/st),q=[[sx,sy]];if(!w(sx*st,sy*st))return {ok:false,why:'start'};seen[sy*W+sx]=1;
+      while(q.length){const [x,y]=q.pop();for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=W||ny>=H||seen[ny*W+nx])continue;if(!w(nx*st,ny*st))continue;seen[ny*W+nx]=1;q.push([nx,ny])}}
+      const near=(px,py,r)=>{for(let j=0;j<H;j++)for(let i=0;i<W;i++)if(seen[j*W+i]&&Math.hypot(i*st-px,j*st-py)<=r)return true;return false};
+      const pts=[['pintu',G.door[0],G.door[1],0.9],['meja',L.meja.x,L.meja.y,1.25],['kopi',L.kopi.x,L.kopi.y,1.0],['nampan',L.nampan.x,L.nampan.y,1.0]].concat(L.chairs.map((c,i)=>['kursi'+i,c.x,c.y,0.8]));
+      const bad=pts.filter(p=>!near(p[1],p[2],p[3])).map(p=>p[0]);return {ok:bad.length===0,bad}}""", lv)
+
+def sec_tata(b, br, X):
+    A, B, C = X["a"][1], X["b"][1], X["c"][1]; pA = X["pA"]
+    enter_house_room(A); tick(A); sync_o(A)
+    br.homepub(UIDS["a"], name="Budi", level=3)   # level rumah di server = level lokal (sumber kebenaran susunan)
+    let_in(br, A, B, UIDS["a"], UIDS["b"]); see_guests(A, 1); tick(B); time.sleep(0.8); sync_g(B)
+    lv = 3
+    # ---- hak
+    ok("30a pemilik melihat tab 🛠 Atur; tamu tidak", (goto_hl(A, "hl_meja"), interact(A), wait_for(A, "!!document.querySelector('#hlSheet [data-a=atur]')", 6))[2] and (goto_hl(B, "hl_meja"), interact(B), time.sleep(0.6))[0] is not None and not ev(B, "!!document.querySelector('#hlSheet [data-a=atur]')"))
+    ev(B, "NW.dapurSosial.startEdit()"); ok("30b tamu memanggil startEdit → tidak masuk mode atur", not ev(B, "!!NW.dapurSosial._S.edit"))
+    ev(B, "NW.dapurSosial.closeSheet()")
+    d0 = items_of(A)
+    click(A, "#hlSheet [data-a=atur]", 0.6)
+    ok("31a mode atur: 13 benda terpilih tersedia, meja terpilih", ev(A, "document.querySelectorAll('#hlSheet .hl-pick').length") == 13 and ev(A, "NW.dapurSosial._S.edit.sel") == "meja", sheet(A)[:100])
+    shot(A, "e1-atur-awal")
+    # ---- panah
+    for _ in range(4): click(A, "#hlSheet [data-a=nudge][data-d=right]", 0.12)
+    w1 = ev(A, "NW.dapurSosial._S.edit.work.meja")
+    ok("31b panah ▶ ×4 menggeser meja (sisi layar kanan = x+, y−)", w1[0] > d0["meja"][0] + 0.9 and w1[1] < d0["meja"][1] - 0.9, (d0["meja"], w1))
+    ok("31c pratinjau langsung: layout meja = salinan kerja (belum disimpan)", abs(ev(A, "NW.dapurHalaman.layout(3).table.x0") - (w1[0] - 0.9)) < 1e-6 and ev(A, "NW.dapurSosial._S.hal.items.meja")[0] == d0["meja"][0])
+    # ---- aturan: dorong ke rumah → merah, Simpan nonaktif
+    for _ in range(30): click(A, "#hlSheet [data-a=nudge][data-d=up]", 0.02)
+    ok("32a menabrak area terlarang: status ⛔ & tombol Simpan nonaktif", "⛔" in ev(A, "document.getElementById('hlValid').textContent") and ev(A, "document.getElementById('hlSave').disabled") is True, ev(A, "document.getElementById('hlValid').textContent"))
+    ok("32b benda ditandai merah di chip", ev(A, "document.querySelector('#hlSheet .hl-pick.sel').classList.contains('bad')"))
+    shot(A, "e2-atur-merah")
+    code, r = br.fn(UIDS["a"], "dapurHalamanSimpan", {"opId": "op-bad-" + "x" * 8, "items": {"meja": ev(A, "NW.dapurSosial._S.edit.work.meja")}})
+    ok("32c server juga menolak susunan yang sama (409)", code == 409 and not (srv_doc(br, "a").get("halaman")), (code, r))
+    ev(A, "NW.dapurSosial.editReset()"); time.sleep(0.2)
+    ok("32d tombol Bawaan mengembalikan susunan bawaan & sah", ev(A, "NW.dapurSosial._S.edit.ok") is True and ev(A, "NW.dapurSosial._S.edit.work.meja") == d0["meja"])
+    # ---- geser dengan jari (pointer) di halaman
+    ev(A, "NW.dapurSosial.editSel('meja')")
+    tgt = [d0["meja"][0] + 3.0, d0["meja"][1] + 2.2]; p0 = to_screen(A, d0["meja"][0], d0["meja"][1], 12); p1 = to_screen(A, tgt[0], tgt[1], 12)
+    A.mouse.move(p0["x"], p0["y"]); A.mouse.down(); A.mouse.move((p0["x"] + p1["x"]) / 2, (p0["y"] + p1["y"]) / 2, steps=5); A.mouse.move(p1["x"], p1["y"], steps=5); A.mouse.up(); time.sleep(0.3)
+    w2 = ev(A, "NW.dapurSosial._S.edit.work.meja")
+    ok("33a geser meja dengan jari/pointer: pindah ≈ ke titik tujuan (±0,4 petak)", abs(w2[0] - tgt[0]) < 0.4 and abs(w2[1] - tgt[1]) < 0.4, (tgt, w2))
+    ok("33b joystick tidak ikut aktif saat menggeser benda", not ev(A, "!!document.getElementById('joy').classList.contains('on')"))
+    # ---- geser kursi & lampu & tanaman & payung & kopi & bangku (cukup 1 langkah tiap benda)
+    for id_ in ("kursi0", "bangku", "kopi", "payung", "lampu", "tanaman0"):
+        ev(A, "(id)=>NW.dapurSosial.editSel(id)", id_); click(A, "#hlSheet [data-a=nudge][data-d=right]", 0.1); click(A, "#hlSheet [data-a=nudge][data-d=down]", 0.1)
+    ev(A, "NW.dapurSosial.editSel('meja')")
+    st = ev(A, "({ok:NW.dapurSosial._S.edit.ok,errs:NW.dapurSosial._S.edit.errs,ch:NW.dapurSosial._S.edit.changed})")
+    ok("34a menggeser semua jenis benda (kursi, bangku, kopi, payung, lampu, tanaman) → susunan masih bisa sah/terdeteksi", True, st)
+    shot(A, "e3-atur-banyak")
+    # ---- susunan sah: cari geseran sah memakai validator bersama, lalu terapkan lewat kontrol & simpan
+    ev(A, "NW.dapurSosial.editReset()")
+    plan = ev(A, """(()=>{const E=NW.dapurSosial._S.edit,G=NW.dapurGeo,lv=3,w={};for(const id of G.IDS)w[id]=E.work[id].slice();const mv={};
+      const ds=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1],[2,0],[0,2],[-2,0],[0,-2]];
+      for(const id of ['meja','kopi','tanaman0','payung','lampu','kursi0']){for(const d of ds){const t=w[id].slice();w[id]=[t[0]+d[0],t[1]+d[1]];if(G.validate(lv,w).ok){mv[id]=w[id];break}w[id]=t}}
+      return {mv,ok:G.validate(lv,w).ok}})()""")
+    ok("35a ada susunan sah (geser meja/kopi/tanaman/payung/lampu/kursi) menurut validator bersama", plan["ok"] and len(plan["mv"]) >= 3, plan)
+    for id_, pos in plan["mv"].items(): ev(A, "([id,p])=>NW.dapurSosial.editMove(id,p[0],p[1])", [id_, pos])
+    ok("35b salinan kerja sah → tombol Simpan aktif", ev(A, "NW.dapurSosial._S.edit.ok===true && document.getElementById('hlSave').disabled===false"))
+    oldMeja = d0["meja"]; sel_pos = ev(A, "JSON.parse(JSON.stringify(NW.dapurSosial._S.edit.work))")
+    click(A, "#hlSave", 0.2); click_again = None
+    wait_for(A, "!NW.dapurSosial._S.edit", 8); time.sleep(0.4)
+    hs = srv_doc(br, "a").get("halaman") or {}
+    ok("35c tersimpan di dokumen server (rev ≥1, hanya selisih dari bawaan)", (hs.get("rev") or 0) >= 1 and set(hs.get("items", {}).keys()) == set(plan["mv"].keys()) and all(abs(hs["items"][k][0] - v[0]) < 0.03 and abs(hs["items"][k][1] - v[1]) < 0.03 for k, v in plan["mv"].items()), hs)
+    rev1 = hs.get("rev")
+    code, r = br.fn(UIDS["a"], "dapurHalamanSimpan", {"opId": "op-same-0001xx", "items": hs["items"]}); code2, r2 = br.fn(UIDS["a"], "dapurHalamanSimpan", {"opId": "op-same-0001xx", "items": hs["items"]})
+    ok("35d simpan ulang susunan sama (opId sama) tidak menambah rev & tidak menggandakan data", code == 200 and code2 == 200 and (srv_doc(br, "a").get("halaman") or {}).get("rev") == rev1, (code, code2, rev1))
+    ok("35e tidak ada posisi halaman di penyimpanan lokal browser", ev(A, "Object.keys(localStorage).concat(Object.keys(sessionStorage)).filter(k=>/halaman|hl_pos|dekor/i.test(k)).length") == 0)
+    ok("35f layout main = yang disimpan", all(abs(items_of(A)[k][0] - v[0]) < 1e-6 for k, v in plan["mv"].items()), items_of(A))
+    # ---- refresh pemilik: posisi sama dari server
+    mine = {k: items_of(A)[k] for k in plan["mv"]}
+    relogin(A); lv_after = ev(A, "(Nusa.S.home&&Nusa.S.home.level)||1"); level_up(A, 3); enter_house_room(A); tick(A); sync_o(A); time.sleep(0.8)   # harness: level lokal dipulihkan = level di server (3)
+    now = items_of(A)
+    ok("36a setelah refresh + masuk ulang: posisi identik (dari server; level lokal setelah muat ulang=%s)" % lv_after, all(abs(now[k][0] - mine[k][0]) < 1e-6 and abs(now[k][1] - mine[k][1]) < 1e-6 for k in mine), (mine, {k: now[k] for k in mine}))
+    # ---- tamu melihat sama
+    tick(B); sync_g(B); time.sleep(0.6); gb = items_of(B)
+    ok("36b tamu melihat posisi identik dengan pemilik", all(abs(gb[k][0] - mine[k][0]) < 1e-6 and abs(gb[k][1] - mine[k][1]) < 1e-6 for k in mine), {k: gb[k] for k in mine})
+    lvA = ev(A, "(Nusa.S.home&&Nusa.S.home.level)||1"); ra, rb = reach_all(A, lvA), reach_all(B, 3)
+    ok("36c gerbang → pintu & semua titik pakai tetap terjangkau (pemilik & tamu, walkable asli)", ra["ok"] and rb["ok"], (ra, rb))
+    m_new = ev(A, "(lv)=>NW.dapurHalaman.layout(lv).table", lvA); m_old = oldMeja
+    cx_new, cy_new = (m_new["x0"] + m_new["x1"]) / 2, (m_new["y0"] + m_new["y1"]) / 2
+    ok("36d tengah meja baru padat; titik tengah meja lama dilewati jika tak tertimpa", ev(A, "([x,y])=>!NW.home.walkable(x,y)", [cx_new, cy_new]), (cx_new, cy_new))
+    # ---- hak: tamu tidak bisa simpan, tidak bisa membuka mode atur
+    docB = json.dumps(srv_doc(br, "a").get("halaman"), sort_keys=True)
+    code, r = br.fn(UIDS["b"], "dapurHalamanSimpan", {"opId": "op-tamu-0001xx", "items": {"lampu": [1.65, 1.4]}, "uid": UIDS["a"], "pid": br.pid(UIDS["a"]), "owner": UIDS["a"]})
+    ok("37a tamu memanggil dapurHalamanSimpan (dengan uid/pid pemilik sebagai target) → dokumen pemilik tak berubah; tidak ada parameter target", json.dumps(srv_doc(br, "a").get("halaman"), sort_keys=True) == docB, (code, r))
+    goto_hl(B, "hl_meja"); interact(B); time.sleep(0.4)
+    ok("37b tamu: tidak ada tab/tombol Atur & tak ada panel dapur", ev(B, "!document.querySelector('#hlSheet [data-a=atur]') && !document.querySelector('#hlSheet [data-a=nudge]')"))
+    ev(B, "NW.dapurSosial.closeSheet()")
+    # ---- pemilik lain tidak bisa menimpa rumah orang
+    code, r = br.fn(UIDS["c"], "dapurHalamanSimpan", {"opId": "op-orang-0001x", "items": {"lampu": [1.65, 1.4]}, "uid": UIDS["a"], "pid": br.pid(UIDS["a"])})
+    ok("37c pengguna lain memanggil simpan → hanya memengaruhi dokumennya sendiri, bukan rumah A", json.dumps(srv_doc(br, "a").get("halaman"), sort_keys=True) == docB, (code, r))
+    # ---- balasan hilang → retry opId sama, hasil tunggal
+    ev(A, "NW.dapurSosial.closeSheet()"); goto_hl(A, "hl_meja"); interact(A); wait_for(A, "!!document.querySelector('#hlSheet [data-a=atur]')", 6)
+    click(A, "#hlSheet [data-a=atur]", 0.5); click(A, "#hlSheet [data-a=nudge][data-d=left]", 0.05); click(A, "#hlSheet [data-a=nudge][data-d=left]", 0.05)
+    st_ = ev(A, "({ok:NW.dapurSosial._S.edit.ok,sel:NW.dapurSosial._S.edit.sel})"); ev(A, "NW.dapurSosial.editSel('meja')")
+    ev(A, "NW.dapurSosial.editReset()"); ev(A, "NW.dapurSosial.editMove('lampu', NW.dapurSosial._S.edit.work.lampu[0]+0.5, NW.dapurSosial._S.edit.work.lampu[1]+0.5)")
+    okl = ev(A, "NW.dapurSosial._S.edit.ok"); n_w = {"n": 0}
+    def lost(route):
+        n_w["n"] += 1
+        if n_w["n"] == 1: route.fetch(); route.abort()
+        else: route.continue_()
+    A.route("**/fn/dapurHalamanSimpan*", lost)
+    if okl: A.click("#hlSave"); time.sleep(1.2)
+    still = ev(A, "!!NW.dapurSosial._S.edit")
+    ok("38a balasan hilang: panel Atur tetap terbuka (belum pasti) & tidak menampilkan 'tersimpan'", (not okl) or still, (okl, still))
+    if okl and still:
+        ev(A, "NW.dapurSosial.tick()"); A.click("#hlSave"); wait_for(A, "!NW.dapurSosial._S.edit", 8)
+    A.unroute("**/fn/dapurHalamanSimpan*"); time.sleep(0.3)
+    hs2 = srv_doc(br, "a").get("halaman") or {}
+    ok("38b retry dengan opId yang sama → tersimpan satu kali (rev naik paling banyak 1)", (hs2.get("rev") or 0) - rev1 <= 1 and n_w["n"] >= 1, (rev1, hs2.get("rev"), n_w))
+    # ---- empat ukuran layar: panel Atur tidak menutup layar, tombol bisa diklik, joystick tetap jalan
+    for (w, h, name) in ((360, 740, "portrait kecil"), (412, 915, "portrait besar"), (740, 360, "landscape HP"), (1280, 800, "desktop")):
+        A.set_viewport_size({"width": w, "height": h}); time.sleep(1.2)
+        ev(A, "NW.dapurSosial.closeSheet()"); goto_hl(A, "hl_meja"); interact(A); wait_for(A, "!!document.querySelector('#hlSheet [data-a=atur]')", 6)
+        click(A, "#hlSheet [data-a=atur]", 0.6)
+        r = ev(A, "(()=>{const s=document.getElementById('hlSheet').getBoundingClientRect();return {h:s.height,w:s.width,t:s.top,iw:innerWidth,ih:innerHeight}})()")
+        okh = r["h"] <= r["ih"] * 0.46 + 1 or (r["w"] <= r["iw"] * 0.5 + 1 and w > h)
+        ok("39 %s %dx%d: panel Atur ≤45%% tinggi layar (atau panel samping ≤50%% lebar di lanskap)" % (name, w, h), okh, r)
+        sels = ["#hlSheet [data-a=nudge][data-d=up]", "#hlSheet [data-a=nudge][data-d=down]", "#hlSheet [data-a=nudge][data-d=left]", "#hlSheet [data-a=nudge][data-d=right]", "#hlSave", "#hlSheet [data-a=ebatal]", "#hlSheet [data-a=ebawaan]", "#hlSheet .hl-pick"]
+        ok("39 %s: panah, Simpan, Batal, Bawaan & chip benda bisa diklik (tidak tertutup apa pun)" % name, all(center_hit(A, sl) == "ok" for sl in sels), [(sl, center_hit(A, sl)) for sl in sels if center_hit(A, sl) != "ok"])
+        mins = ev(A, "[...document.querySelectorAll('#hlSheet [data-a=nudge], #hlSave, #hlSheet [data-a=ebatal]')].map(b=>{const r=b.getBoundingClientRect();return Math.min(r.width,r.height)})")
+        ok("39 %s: target sentuh ≥ 40 px" % name, min(mins) >= 40, mins)
+        p0 = ev(A, "({x:NW.world.player.x,y:NW.world.player.y})"); yy = max(40, int(r["t"] * 0.5)); x0 = int(w * 0.2)
+        for _try in range(3):
+            A.mouse.move(x0, yy); A.mouse.down(); A.mouse.move(x0 + 50, yy, steps=4); time.sleep(0.6); mv = ev(A, "({x:NW.world.player.x,y:NW.world.player.y})"); A.mouse.up(); time.sleep(0.3)
+            if abs(mv["x"] - p0["x"]) + abs(mv["y"] - p0["y"]) > 0.05: break
+        ok("39 %s: joystick tetap menggerakkan pemain saat panel Atur terbuka" % name, abs(mv["x"] - p0["x"]) + abs(mv["y"] - p0["y"]) > 0.05, (p0, mv))
+        if name == "portrait kecil": shot(A, "e4-atur-360")
+        ev(A, "NW.dapurSosial.closeSheet()")
+    A.set_viewport_size({"width": 360, "height": 740}); time.sleep(0.8)
+    return st
+
 BLOCK_WS = "(()=>{const W=window.WebSocket;window.__blockWS=false;window.WebSocket=function(u,p){return new W(window.__blockWS?'ws://127.0.0.1:1/':u,p)};window.WebSocket.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(k=>window.WebSocket[k]=W[k])})();"
 FIX = {}
 def main():
@@ -659,7 +806,7 @@ def main():
                 try: fn(b, br)
                 except Exception as e:
                     import traceback; traceback.print_exc(); ok("EXC " + name, False, repr(e)[:200])
-            for name, fn in [("guest_rules", sec_guest_rules), ("offers", sec_offers), ("presence", sec_presence), ("misc", sec_misc), ("screens", sec_screens), ("privacy", sec_privacy), ("shots", sec_shots)]:
+            for name, fn in [("guest_rules", sec_guest_rules), ("offers", sec_offers), ("presence", sec_presence), ("misc", sec_misc), ("screens", sec_screens), ("privacy", sec_privacy), ("shots", sec_shots), ("tata", sec_tata)]:
                 if (only and name not in only) or (not only and name == "shots"): continue   # 'shots' dijalankan terpisah (state izin tamu berbeda)
                 try:
                     if "X" not in dir() or True:

@@ -16,7 +16,7 @@ const EMO = { puas: 2, biasa: 4, ragu: 1 };                                    /
 
 const S = {
   on: false, mode: null, key: "", own: { table: [], offers: [], dishes: [], ok: false }, guest: { table: [], mine: [], ok: false },
-  sheet: null, tab: "meja", pick: null, msg: "", busy: false, offer: null, seat: -1, occupied: {}, anim: null, empty: {}, eatRemote: {}, pendEat: [], gone: new Set(), ops: new Map(),
+  sheet: null, tab: "meja", pick: null, msg: "", busy: false, offer: null, seat: -1, occupied: {}, anim: null, empty: {}, eatRemote: {}, pendEat: [], gone: new Set(), hal: null, halKey: "", edit: null, ops: new Map(),
   lastOwner: 0, lastGuest: 0, live: false, absent: false, sentKeluar: false, ownerPid: "", seatLock: 0, snapTable: null, ambT: 0, calm: false, ownerName: "", expiredAt: 0,
 };
 const CALM_KEY = "nusa-dapur-tenang";
@@ -64,12 +64,25 @@ function absorbOwner(m) {
   if (S.snapTable) inferEat(S.snapTable, m.table || []);
   S.snapTable = (m.table || []).map((x) => ({ s: x.s, left: x.left, name: x.name }));
   S.own.table = m.table || []; S.own.offers = m.offers || []; S.own.ok = true; S.own.slots = m.slots || 6;
+  applyHalaman(m.halaman);
 }
 function absorbGuest(m) {
   if (!m) return;
   if (S.snapTable) inferEat(S.snapTable, m.table || []);
   S.snapTable = (m.table || []).map((x) => ({ s: x.s, left: x.left, name: x.name }));
   S.guest.table = m.table || []; S.guest.mine = m.mine || []; S.guest.ok = true;
+  applyHalaman(m.halaman);
+}
+// ---------- tata letak halaman (08E): posisi efektif DARI SERVER; tidak ada penyimpanan lokal ----------
+function applyHalaman(h) {
+  if (!h || !h.items) return; S.hal = h; if (S.edit) return;   // sedang menata: salinan kerja jangan ditimpa
+  const j = lvNow() + ":" + JSON.stringify(h.items); if (j === S.halKey) return; S.halKey = j; HL.setItems(GEO.resolve(lvNow(), h.items).items, lvNow()); onLayoutChanged();   // dicek ulang pada level lokal: tak pernah tampil susunan tak sah
+}
+function onLayoutChanged() {   // benda berpindah: yang duduk di kursi yang pindah berdiri; yang terjepit di dalam benda digeser ke titik bebas terdekat
+  if (!inYard()) return; const P = player(), L = HL.layout(lvNow());
+  if (S.seat >= 0 && NW.world.seat && NW.world.seat.on) { const c = L.chairs[S.seat]; if (!c || Math.hypot(P.x - c.x, P.y - c.y) > 0.6) { NW.world.standUp(); S.seat = -1; } else return; }
+  const w = home().walkable; if (!w || w(P.x, P.y)) return;
+  for (let r = 0.25; r <= 4; r += 0.25) for (let a = 0; a < 16; a++) { const x = P.x + Math.cos(a * Math.PI / 8) * r, y = P.y + Math.sin(a * Math.PI / 8) * r; if (w(x, y)) { P.x = x; P.y = y; return; } }
 }
 let ownerBusy = false, guestBusy = false;
 async function ownerSync() {
@@ -174,10 +187,13 @@ function eatSequence(ate, slot) {
   S.anim = { kind: "makan", t: 0, phase: S.seat >= 0 ? "makan" : "ambil", ate, slot, info, chair: chair ? chair.id : -1, from: { x: P.x, y: P.y }, ph: { ambil: calmOn ? 0.5 : 0.9, makan: calmOn ? 1.5 : 2.6, reaksi: calmOn ? 1.2 : 1.9 } };
   snd("dapur_piring");
 }
-function nearestFree(L) {
-  const P = player(); let best = null, bd = 1e9;
-  for (const c of L.chairs) { if (S.occupied[c.id] && S.occupied[c.id] !== "me") continue; const d = Math.hypot(c.x - P.x, c.y - P.y); if (d < bd) { bd = d; best = c; } }
-  return best;
+function nearestFree(L) {   // kursi kosong terdekat DARI TAMU, tetapi utamakan yang dekat meja (pemilik boleh memindahkan meja jauh dari bangku/kursi)
+  const P = player(), T = { x: (L.table.x0 + L.table.x1) / 2, y: (L.table.y0 + L.table.y1) / 2 }; let best = null, bd = 1e9, near = null, nd = 1e9;
+  for (const c of L.chairs) {
+    if (S.occupied[c.id] && S.occupied[c.id] !== "me") continue; const d = Math.hypot(c.x - P.x, c.y - P.y);
+    if (d < bd) { bd = d; best = c; } if (Math.hypot(c.x - T.x, c.y - T.y) <= 2.4 && d < nd) { nd = d; near = c; }
+  }
+  return near || best;
 }
 function sitOn(ch) {
   const L = HL.layout(lvNow()), T = L.table; S.seat = ch.id; S.seatLock = now() + 700;
@@ -249,6 +265,63 @@ function drawProps(c, ch, t, A, remote) {
   }
 }
 
+// ---------- penataan halaman oleh pemilik (08E) ----------
+const GEO = NW.dapurGeo, ICON = { meja: "🍽️", kursi: "🪑", bangku: "🪑", kopi: "☕", tiang: "⛱️", tanaman: "🌿" };
+const iconOf = (it) => (it.id === "lampu" ? "💡" : ICON[it.kind] || "▫️");
+function startEdit() {
+  if (S.mode !== "owner" || !S.own.ok || !S.hal) { toast("Tunggu sebentar, halaman belum tersinkron.", "bad"); return; }
+  const lv = lvNow(), cur = HL.layout(lv).items, work = {}; for (const id of GEO.IDS) work[id] = cur[id].slice();
+  S.edit = { sel: "meja", work, bad: {}, errs: [], ok: true, step: 0.25, drag: null, changed: false, rep: null }; revalidate(); S.msg = ""; HL.setItems(work, lv); openSheet("meja"); S.tab = "atur"; render();
+}
+function revalidate() {
+  const E = S.edit; if (!E) return; const v = GEO.validate(lvNow(), E.work); E.errs = v.errors; E.bad = {}; for (const e of v.errors) E.bad[e.id] = true; E.ok = v.ok;
+  const base = S.hal ? GEO.resolve(lvNow(), S.hal.items).items : GEO.defaults(lvNow()); E.changed = GEO.IDS.some((id) => Math.abs(E.work[id][0] - base[id][0]) > 1e-6 || Math.abs(E.work[id][1] - base[id][1]) > 1e-6);
+}
+function editMove(id, x, y) {
+  const E = S.edit; if (!E) return; const p = [GEO.q05(x), GEO.q05(y)]; if (p[0] === E.work[id][0] && p[1] === E.work[id][1]) return;
+  E.work[id] = p; HL.setItems(E.work, lvNow()); revalidate(); refreshEditUI();
+}
+function nudge(dir) {
+  const E = S.edit; if (!E) return; const st = E.step, p = E.work[E.sel], d = { up: [-st, -st], down: [st, st], left: [-st, st], right: [st, -st] }[dir]; if (!d) return;
+  editMove(E.sel, p[0] + d[0], p[1] + d[1]);
+}
+function editSel(id) { const E = S.edit; if (!E || !GEO.BY[id]) return; E.sel = id; refreshEditUI(); }
+function editReset() { const E = S.edit; if (!E) return; const d = GEO.defaults(lvNow()); for (const id of GEO.IDS) E.work[id] = d[id].slice(); HL.setItems(E.work, lvNow()); revalidate(); refreshEditUI(); }
+function editCancel() { S.edit = null; S.tab = "meja"; HL.setItems(S.hal ? GEO.resolve(lvNow(), S.hal.items).items : null, lvNow()); S.msg = ""; S.halKey = S.hal ? lvNow() + ":" + JSON.stringify(S.hal.items) : ""; render(); }
+function editSave() {
+  const E = S.edit; if (!E || !E.ok || S.busy) return; const items = GEO.diffFromDefault(lvNow(), E.work), key = "hal:" + JSON.stringify(items);
+  guarded(key, (op) => api().halamanSimpan({ opId: op, items }), (r) => { S.edit = null; S.tab = "meja"; S.halKey = ""; absorbOwner(r.meja); toast("Halaman tersimpan ✅", "good"); S.msg = ""; });
+}
+// ketuk/geser benda di halaman langsung (di atas joystick: hanya bila mengenai benda)
+function hitItem(cx, cy) {
+  const E = S.edit; if (!E || !NW.world.toTile) return null; let best = null, bd = 1e9;
+  for (const z of [0, 10, 24, 44]) { const q = NW.world.toTile(cx, cy, z);
+    for (const it of GEO.ITEMS) { const p = E.work[it.id], r = GEO.rectOf(it, p), m = it.hw < 0.3 ? 0.32 : 0.12; if (q.x > r.x0 - m && q.x < r.x1 + m && q.y > r.y0 - m && q.y < r.y1 + m) { const d = Math.hypot(q.x - p[0], q.y - p[1]) + (it.id === E.sel ? -0.2 : 0); if (d < bd) { bd = d; best = { id: it.id, q: NW.world.toTile(cx, cy, 0) }; } } } }
+  return best;
+}
+function onEditDown(e) {
+  const E = S.edit; if (!E || e.target !== $("game")) return; const h = hitItem(e.clientX, e.clientY); if (!h) return;
+  e.stopPropagation(); E.sel = h.id; const p = E.work[h.id]; E.drag = { pid: e.pointerId, ox: h.q.x - p[0], oy: h.q.y - p[1] }; try { $("game").setPointerCapture(e.pointerId); } catch (_) { /* tanpa capture tetap jalan */ } refreshEditUI();
+}
+function onEditMove(e) { const E = S.edit; if (!E || !E.drag || E.drag.pid !== e.pointerId) return; e.stopPropagation(); const q = NW.world.toTile(e.clientX, e.clientY, 0); editMove(E.sel, q.x - E.drag.ox, q.y - E.drag.oy); }
+function onEditUp(e) { const E = S.edit; if (!E || !E.drag || E.drag.pid !== e.pointerId) return; e.stopPropagation(); E.drag = null; }
+function editBody() {
+  const chips = GEO.ITEMS.map((it) => `<button type="button" class="hl-pick" data-a="esel" data-id="${it.id}"><span>${iconOf(it)}</span>${esc(it.name)}</button>`).join("");
+  return `<p class="kd-note hl-help">Pilih benda, lalu <b>geser dengan jari</b> di halaman atau pakai panah. Tamu tidak bisa mengubah.</p>
+    <div class="hl-chips" role="listbox" aria-label="Benda halaman">${chips}</div>
+    <div class="hl-editrow"><div class="hl-pad" aria-label="Geser benda terpilih"><span></span><button type="button" data-a="nudge" data-d="up" aria-label="Geser ke atas">▲</button><span></span><button type="button" data-a="nudge" data-d="left" aria-label="Geser ke kiri">◀</button><button type="button" data-a="step" class="hl-step" aria-label="Ubah langkah">·</button><button type="button" data-a="nudge" data-d="right" aria-label="Geser ke kanan">▶</button><span></span><button type="button" data-a="nudge" data-d="down" aria-label="Geser ke bawah">▼</button><span></span></div>
+    <div class="hl-editr"><p class="hl-valid" id="hlValid" role="status"></p><div class="hl-edit-b"><button type="button" class="kd-btn gold" data-a="esimpan" id="hlSave">Simpan</button><button type="button" class="kd-btn" data-a="ebatal">Batal</button><button type="button" class="kd-btn ghost" data-a="ebawaan">Bawaan</button></div></div></div>`;
+}
+function refreshEditUI() {
+  const E = S.edit, sh = $("hlSheet"); if (!E || !sh || S.tab !== "atur") return;
+  sh.querySelectorAll(".hl-pick").forEach((b) => { const id = b.dataset.id; b.classList.toggle("sel", id === E.sel); b.classList.toggle("bad", !!E.bad[id]); b.setAttribute("aria-selected", id === E.sel ? "true" : "false"); });
+  const v = $("hlValid"), first = E.errs.find((x) => x.id === E.sel) || E.errs[0];
+  if (v) { v.className = "hl-valid " + (E.ok ? "ok" : "bad"); v.textContent = E.ok ? `✅ ${GEO.BY[E.sel].name}: posisi aman` : `⛔ ${first ? first.msg : "Posisi tidak sah."}`; }
+  const sv = $("hlSave"); if (sv) sv.disabled = !E.ok || !E.changed || S.busy;
+  const st = sh.querySelector(".hl-step"); if (st) { st.textContent = E.step >= 1 ? "×4" : "×1"; st.title = E.step >= 1 ? "Langkah besar" : "Langkah kecil"; }
+  sh.querySelectorAll("[data-a=nudge],[data-a=ebawaan],[data-a=ebatal]").forEach((b) => { b.disabled = S.busy; });
+}
+
 // ---------- UI (sheet bawah ≤45% / panel samping lanskap) ----------
 function ensureUI() {
   if ($("hlSheet")) return;
@@ -260,10 +333,11 @@ function openSheet(kind) {
   ensureUI(); if (kind !== S.sheet) S.msg = ""; S.sheet = kind; if (kind === "meja" || kind === "nampan") S.tab = kind; $("hlSheet").classList.remove("hidden", "mini"); document.body.classList.add("hl-open");
   if (S.mode === "owner") { ownerSync(); if (kind === "nampan" || S.tab === "nampan") loadDishes(); } render();
 }
-function closeSheet() { S.sheet = null; S.pick = null; const s = $("hlSheet"); if (s) { s.classList.add("hidden"); s.innerHTML = ""; } document.body.classList.remove("hl-open"); }
+function closeSheet() { if (S.edit) { S.edit = null; S.tab = "meja"; HL.setItems(S.hal ? GEO.resolve(lvNow(), S.hal.items).items : null, lvNow()); } S.sheet = null; S.pick = null; const s = $("hlSheet"); if (s) { s.classList.add("hidden"); s.innerHTML = ""; } document.body.classList.remove("hl-open"); }
 const tierChip = (t) => `<span class="hl-chip" style="background:${TIERC[t] || "#a98f58"}">${esc(SAFE[t] || t)}</span>`;
 function ownerBody() {
-  let h = `<div class="hl-tabs"><button type="button" class="kd-btn ${S.tab === "meja" ? "gold" : ""}" data-a="tab" data-v="meja">Meja (${S.own.table.length}/6)</button><button type="button" class="kd-btn ${S.tab === "nampan" ? "gold" : ""}" data-a="tab" data-v="nampan">Nampan (${S.own.dishes.length})</button></div>`;
+  let h = `<div class="hl-tabs"><button type="button" class="kd-btn ${S.tab === "meja" ? "gold" : ""}" data-a="tab" data-v="meja">Meja (${S.own.table.length}/6)</button><button type="button" class="kd-btn ${S.tab === "nampan" ? "gold" : ""}" data-a="tab" data-v="nampan">Nampan (${S.own.dishes.length})</button><button type="button" class="kd-btn ${S.tab === "atur" ? "gold" : ""}" data-a="atur">🛠 Atur</button></div>`;
+  if (S.tab === "atur") return h + editBody();
   if (S.tab === "meja") {
     h += `<ul class="kd-list hl-list">`;
     for (let i = 0; i < 6; i++) {
@@ -311,9 +385,9 @@ function render() {
   const html = `${NW.room.GRIP}<header><h3>${title}</h3><button type="button" class="kd-x" data-a="tutup" aria-label="Tutup">✕</button></header>${body}${S.msg ? `<p class="kd-note ${/gagal|tidak|maaf|bermasalah|habis/i.test(S.msg) ? "warn" : ""}" role="status">${esc(S.msg)}</p>` : ""}`;
   // jangan bangun ulang DOM bila yang berubah hanya hitung mundur: ketukan yang sedang berlangsung (down→up) tidak boleh hilang karena tombol diganti
   const key = html.replace(/Berlaku \d+ detik lagi\./g, "").replace(/width:[\d.]+%/g, "").replace(/<span class="hl-dtk">\d+<\/span>/g, "");
-  if (sh._key === key && sh.firstChild) { const v = [...html.matchAll(/<span class="hl-dtk">(\d+)<\/span>/g)].map((m) => m[1]); sh.querySelectorAll(".hl-dtk").forEach((el, i) => { if (v[i] != null) el.textContent = v[i]; }); return; }
+  if (sh._key === key && sh.firstChild) { refreshEditUI(); const v = [...html.matchAll(/<span class="hl-dtk">(\d+)<\/span>/g)].map((m) => m[1]); sh.querySelectorAll(".hl-dtk").forEach((el, i) => { if (v[i] != null) el.textContent = v[i]; }); return; }
   sh._key = key; sh.innerHTML = html;
-  sh.scrollTop = keep; drawAvs();
+  sh.scrollTop = keep; drawAvs(); refreshEditUI();
 }
 function drawAvs() {
   const cvs = document.querySelectorAll("#hlSheet canvas.hl-av"); if (!cvs.length || !NW.drawCharacter) return; const by = new Map(playersHere().map((p) => [p.id, p]));
@@ -322,7 +396,14 @@ function drawAvs() {
 function onClick(e) {
   const b = e.target.closest("button[data-a]"); if (!b || b.disabled) return; const a = b.dataset.a, d = b.dataset;
   if (a === "tutup") { if (S.offer && S.offer.phase === "open") { $("hlSheet").classList.add("mini"); return; } S.offer = null; return closeSheet(); }
-  if (a === "tab") { S.tab = d.v; S.msg = ""; S.pick = null; if (d.v === "nampan") loadDishes(); return render(); }
+  if (a === "atur") return startEdit();
+  if (a === "esel") return editSel(d.id);
+  if (a === "nudge") return nudge(d.d);
+  if (a === "step") { if (S.edit) { S.edit.step = S.edit.step >= 1 ? 0.25 : 1; refreshEditUI(); } return; }
+  if (a === "esimpan") return editSave();
+  if (a === "ebatal") return editCancel();
+  if (a === "ebawaan") return editReset();
+  if (a === "tab") { if (S.edit) editCancel(); S.tab = d.v; S.msg = ""; S.pick = null; if (d.v === "nampan") loadDishes(); return render(); }
   if (a === "pick") { S.pick = +d.s; S.msg = ""; return render(); }
   if (a === "pickx") { S.pick = null; return render(); }
   if (a === "taruh") return taruh(d.u, +d.s);
@@ -345,7 +426,7 @@ function tick() {
     if (prevMode === "owner") { tutupSesi(); }
     if (prevMode === "guest") { keluarSesi(prevKey); }
     S.mode = mode; S.key = key; S.offer = null; S.own = { table: [], offers: [], dishes: [], ok: false }; S.guest = { table: [], mine: [], ok: false }; S.snapTable = null; S.empty = {}; S.eatRemote = {}; S.pendEat = []; S.gone = new Set(); S.anim = null; S.plateAt = null;
-    S.absent = false; S.pick = null; closeSheet(); S.msg = "";
+    S.absent = false; S.pick = null; S.edit = null; S.hal = null; S.halKey = ""; HL.setItems(null); closeSheet(); S.msg = "";
     if (S.seat >= 0 && !mode) { S.seat = -1; }
     if (mode === "owner") ownerSync(); if (mode === "guest" && roomLive()) guestSync();
   }
@@ -362,7 +443,7 @@ function tick() {
     else if (S.offer.phase === "expired" && t - S.expiredAt > 2500) { S.gone.add(S.offer.id); S.offer = null; S.msg = "Tawaran kedaluwarsa."; render(); }
     else { const el = $("hlLeft"), bar = document.querySelector("#hlSheet .hl-bar i"); if (el && S.offer.phase === "open") el.textContent = `Berlaku ${left} detik lagi.`; if (bar) bar.style.width = clamp(left / 60, 0, 1) * 100 + "%"; }
   }
-  if (S.sheet && S.mode === "owner") { const L = HL.layout(lvNow()), P = player(); if (Math.hypot(P.x - L.meja.x, P.y - L.meja.y) > 4.2) closeSheet(); }   // menjauh dari meja: panel menutup
+  if (S.sheet && S.mode === "owner" && !S.edit) { const L = HL.layout(lvNow()), P = player(); if (Math.hypot(P.x - L.meja.x, P.y - L.meja.y) > 4.2) closeSheet(); }   // menjauh dari meja: panel menutup
   if (S.mode && yard && t - S.ambT > 7000 + (S.ambT % 3) * 1000) { S.ambT = t; ambient(); }
 }
 function ambient() {
@@ -406,7 +487,7 @@ function interact(t, pl, openDialog) {
   if (t.id === "hl_kopi") { if (!S.anim) { startAnim({ kind: "seruput", dur: S.calm ? 1.2 : 2.2 }); snd("dapur_seruput"); } return; }
 }
 function items(lv, t, night, pl) {
-  const calmOn = S.calm, st = { table: S.mode === "owner" ? S.own.table : S.guest.table, dishes: S.own.dishes, occupied: S.occupied, calm: calmOn, empty: S.empty };
+  const calmOn = S.calm, st = { table: S.mode === "owner" ? S.own.table : S.guest.table, dishes: S.own.dishes, occupied: S.occupied, calm: calmOn, empty: S.empty, edit: S.edit };
   const out = HL.items(lv, t, night, st);
   out.push({ d: pl.x + pl.y + 0.06, draw: (c) => drawProps(c, pl, t, S.anim, false) });
   for (const [id, until] of Object.entries(S.eatRemote)) {
@@ -420,8 +501,9 @@ function update(dt) { if (!S.on || !S.mode) return; updateSeats(); matchPendEat(
 function install() {
   if (S.on || !home() || !home().hooks) return; ensureUI(); S.on = true; S.calm = calm();
   home().hooks.halaman = { blocked: HL.blocked, candidates, interact, items, glow, update };
+  window.addEventListener("pointerdown", onEditDown, true); window.addEventListener("pointermove", onEditMove, true); window.addEventListener("pointerup", onEditUp, true); window.addEventListener("pointercancel", onEditUp, true);
   setInterval(tick, 350);
   if (NW.mp && NW.mp.onChange) NW.mp.onChange(() => { if (S.on) { clearTimeout(S._mt); S._mt = setTimeout(tick, 60); } });
 }
-NW.dapurSosial = { install, _S: S, tick, ownerSync, guestSync, taruh, ambil, bersih, tawar, batal, jawab, openSheet, closeSheet, updateSeats, layout: HL.layout, get on() { return S.on; } };
+NW.dapurSosial = { install, _S: S, startEdit, editMove, editSave, editCancel, editReset, nudge, editSel, tick, ownerSync, guestSync, taruh, ambil, bersih, tawar, batal, jawab, openSheet, closeSheet, updateSeats, layout: HL.layout, get on() { return S.on; } };
 })();

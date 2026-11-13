@@ -29,6 +29,7 @@ const api = {
   mejaState: (body) => call("dapurMejaState", body || {}),                                // pemilik: {} → meja:{slots,table,offers}
   mejaTaruh: (body) => call("dapurMejaTaruh", body), mejaAmbil: (body) => call("dapurMejaAmbil", body), mejaBersih: (body) => call("dapurMejaBersih", body),   // {opId, dish|slot}
   mejaTawar: (body) => call("dapurMejaTawar", body), mejaBatal: (body) => call("dapurMejaBatal", body), mejaTutup: (body) => call("dapurMejaTutup", body),     // {opId, slot, to:pid} / {opId, offer} / {opId}
+  halamanSimpan: (body) => call("dapurHalamanSimpan", body),                           // 08E: pemilik; {opId, items:{id:[x,y]}} → server memvalidasi & menyimpan seluruh susunan
   mejaLihat: (body) => call("dapurMejaLihat", body),                                      // tamu: {owner:pid} → meja:{table,mine}
   tawaranJawab: (body) => call("dapurTawaranJawab", body), mejaKeluar: (body) => call("dapurMejaKeluar", body),                                           // tamu: {opId, owner, offer, accept} / {opId, owner}
 };

@@ -15,7 +15,7 @@ const ZERO = { rod: 0, bait: 0, cooler: 0, boat: 0 };
 const s = await setup({ NUSA_ECO_INIT_CAP: '1000000000' });
 const O = await s.owner('owner-sb');
 let T = Date.now() + 40000; s.setNow(T);
-let rev = 0;
+let rev = 0, kc = 0;
 const flip = async (body) => { const r = await s.http('POST', '/api/features', { token: O, body: { rev, confirm: true, ...body } }); if (r.status === 200) rev++; return r; };
 await flip({ dapurRumahku: true });
 await flip({ socialHome: true, mpUpdated: true });
@@ -42,6 +42,11 @@ const srv = http.createServer(async (req, res) => {
       const pid = pidOf(body.uid), far = T + 7200000, guests = {}; for (const [g, ms] of Object.entries(body.guests || {})) guests[pidOf(g)] = T + (ms | 0 || 7200000);
       s.mock.seed(`homepub/${pid}`, { v: 1, pid, uid: body.uid, privacy: body.privacy || 'private', allow: (body.allow || []).map((g) => ({ pid: pidOf(g), name: g })), bans: {}, blocks: [], guests, name: body.name || 'Rumah', lname: String(body.name || 'rumah').toLowerCase(), level: body.level || 2, snap: { name: body.name || 'Rumah', level: body.level || 2, furn: [], fish: [], deco: [], leg: [] }, updatedAt: T });
       void far; return send(res, 200, { pid });
+    }
+    if (u.pathname === '/__catch') {   // ikan uji milik `uid` lewat ecoCatch ASLI (n ekor), supaya masak ikan memakai ikan yang sah di server
+      await ensure(body.uid); const P = await s.player(body.uid), out = [];
+      for (let i = 0; i < (body.n | 0); i++) { T += 2000; s.setNow(T); const fu = `fish-${body.uid}-${++kc}`; const r = await s.fn('ecoCatch', P, { opId: 'bc-op-' + String(kc).padStart(8, '0'), id: 'nila', w: 0.5, uid: fu }); if (r.status === 200) out.push({ uid: fu, id: 'nila', w: 0.5 }); }
+      T += 25000; s.setNow(T); return send(res, 200, out);
     }
     if (u.pathname === '/__dishes') { s.mock.seed(`shop_dapur/${body.uid}`, { ...D.fresh(), dishes: body.list || [], ...(body.extra || {}) }); return send(res, 200, { ok: true }); }
     if (u.pathname === '/__read') return send(res, 200, s.mock.read(body.path) || null);
