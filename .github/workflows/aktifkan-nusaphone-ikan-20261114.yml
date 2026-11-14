@@ -1,0 +1,146 @@
+name: AKTIFKAN NusaPhone + 55 Ikan Lokasi
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/aktifkan-nusaphone-ikan-20261114.yml"
+
+concurrency:
+  group: nusa-island-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  aktifkan:
+    name: Aktifkan flag server dengan transaksi dan audit
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    steps:
+      - name: Hanya Owner
+        env:
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: '[ "$ACTOR" = "$OWNER" ]'
+
+      - name: Verifikasi kode produksi sudah live
+        run: |
+          set -e
+          curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_PHONE = true'
+          curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_IKAN_LOKASI = true'
+          curl -fsS --retry 5 https://nusa-api.hanifanwahhaja28.workers.dev/api/health >/dev/null
+
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/nusa-island-control-center
+          ref: bc769f087b4bd27eec2fbb39afd863f7705d1001
+          token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+          persist-credentials: false
+          path: backend
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Siapkan kredensial Firebase sementara
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          [ -n "$SERVICE_ACCOUNT" ] || { echo "::error::FIREBASE_SERVICE_ACCOUNT belum siap"; exit 1; }
+          umask 077
+          printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/nusa-sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/nusa-sa.json" >> "$GITHUB_ENV"
+
+      - name: Aktifkan NusaPhone, Ocean Spin, Klippy, dan ikan lokasi
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { makeFirestore, makeTokenProvider } from './backend/worker/firestore-rest.js';
+          import { createFeatures } from './backend/server/features.js';
+          import { newId, auditEntry } from './backend/server/audit.js';
+
+          const sa = JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8'));
+          if (sa.project_id !== 'nusa-island-d2023') throw new Error('Project Firebase tidak sesuai.');
+          const now = Date.now;
+          const token = makeTokenProvider({
+            clientEmail: sa.client_email,
+            privateKey: sa.private_key,
+            fetchImpl: fetch,
+            now,
+          });
+          const firestore = makeFirestore({
+            projectId: sa.project_id,
+            token,
+            fetchImpl: fetch,
+            clock: now,
+          });
+          const actor = { uid: 'owner-release-github-actions' };
+          const features = createFeatures({ firestore, c: { config: 'shop_config' }, clock: now, ttlMs: 0 });
+          const allFeatureKeys = [
+            'leaderboard', 'socialHome', 'pakDamar', 'kapalRombongan', 'kotaNusa',
+            'dapurRumahku', 'nusaPhone', 'oceanSpin', 'klippy', 'mpUpdated'
+          ];
+          const targetFeatureKeys = new Set(['nusaPhone', 'oceanSpin', 'klippy']);
+
+          const beforeFeatures = await features.state();
+          let afterFeatures = beforeFeatures;
+          if (!(beforeFeatures.nusaPhone && beforeFeatures.oceanSpin && beforeFeatures.klippy)) {
+            afterFeatures = await features.save(actor, {
+              rev: beforeFeatures.rev,
+              confirm: true,
+              nusaPhone: true,
+              oceanSpin: true,
+              klippy: true,
+            });
+            if (afterFeatures.rev !== beforeFeatures.rev + 1) throw new Error('Revisi fitur tidak naik tepat satu.');
+          }
+          for (const key of allFeatureKeys) {
+            if (targetFeatureKeys.has(key)) {
+              if (afterFeatures[key] !== true) throw new Error('Flag gagal ON: ' + key);
+            } else if (afterFeatures[key] !== beforeFeatures[key]) {
+              throw new Error('Flag lain berubah: ' + key);
+            }
+          }
+
+          const configRef = firestore.doc('shop_config/main');
+          const beforeSnap = await configRef.get();
+          const beforeCfg = beforeSnap.exists ? beforeSnap.data() : {};
+          if (beforeCfg.ikanLokasi !== true) {
+            const auditId = newId('aud');
+            await firestore.runTransaction(async (tx) => {
+              const snap = await tx.get(configRef);
+              const cfg = snap.exists ? { ...snap.data() } : {};
+              cfg.ikanLokasi = true;
+              tx.set(configRef, cfg);
+              tx.set(firestore.doc('admin_audit_logs/' + auditId), {
+                id: auditId,
+                ...auditEntry(actor, 'features.set', { type: 'shop_config', id: 'ikanLokasi' }, {
+                  summary: 'IkanLokasi=ON; Samudra Follower tidak diubah'
+                })
+              });
+            });
+          }
+
+          const finalSnap = await configRef.get();
+          if (!finalSnap.exists) throw new Error('shop_config/main tidak ditemukan.');
+          const finalCfg = finalSnap.data();
+          if (finalCfg.ikanLokasi !== true) throw new Error('ikanLokasi gagal ON.');
+          const finalFeatures = await features.state();
+          for (const key of ['nusaPhone', 'oceanSpin', 'klippy']) {
+            if (finalFeatures[key] !== true) throw new Error('Verifikasi akhir gagal: ' + key);
+          }
+          for (const [key, value] of Object.entries(beforeCfg)) {
+            if (key === 'features' || key === 'ikanLokasi') continue;
+            if (JSON.stringify(finalCfg[key]) !== JSON.stringify(value)) {
+              throw new Error('Konfigurasi lain berubah: ' + key);
+            }
+          }
+          console.log('OK: NusaPhone, Ocean Spin, Klippy, dan Ikan Lokasi ON.');
+          console.log('OK: flag lain, saldo, data pemain, QRIS, dan Samudra Follower tidak diubah.');
+          NODE
+
+      - name: Bersihkan kredensial sementara
+        if: always()
+        run: rm -f "$RUNNER_TEMP/nusa-sa.json"
