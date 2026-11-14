@@ -1,0 +1,117 @@
+name: AKTIFKAN Kota + Pak Damar + Kapal Rombongan
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/aktifkan-kota-lengkap-20261114.yml"
+
+concurrency:
+  group: nusa-island-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  aktifkan:
+    name: Aktifkan Kota lengkap dengan transaksi dan audit
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    steps:
+      - name: Hanya Owner
+        env:
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: '[ "$ACTOR" = "$OWNER" ]'
+
+      - name: Verifikasi klien dan server sudah live
+        run: |
+          set -e
+          LIVE=$(curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js)
+          printf '%s' "$LIVE" | grep -Fq 'window.NUSA_KEMUDI = true'
+          printf '%s' "$LIVE" | grep -Fq 'window.NUSA_KOTA = true'
+          printf '%s' "$LIVE" | grep -Fq 'window.NUSA_ROMBONGAN = true'
+          printf '%s' "$LIVE" | grep -Fq 'window.NUSA_DELIVERY = true'
+          curl -fsS --retry 5 https://nusa-api.hanifanwahhaja28.workers.dev/api/health >/dev/null
+
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/nusa-island-control-center
+          ref: bc769f087b4bd27eec2fbb39afd863f7705d1001
+          token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+          persist-credentials: false
+          path: backend
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Siapkan kredensial Firebase sementara
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          [ -n "$SERVICE_ACCOUNT" ] || { echo "::error::FIREBASE_SERVICE_ACCOUNT belum siap"; exit 1; }
+          umask 077
+          printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/nusa-sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/nusa-sa.json" >> "$GITHUB_ENV"
+
+      - name: Nyalakan flag API Kota lengkap
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { makeFirestore, makeTokenProvider } from './backend/worker/firestore-rest.js';
+          import { createFeatures } from './backend/server/features.js';
+
+          const sa = JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8'));
+          if (sa.project_id !== 'nusa-island-d2023') throw new Error('Project Firebase tidak sesuai.');
+          const now = Date.now;
+          const token = makeTokenProvider({
+            clientEmail: sa.client_email,
+            privateKey: sa.private_key,
+            fetchImpl: fetch,
+            now,
+          });
+          const firestore = makeFirestore({
+            projectId: sa.project_id,
+            token,
+            fetchImpl: fetch,
+            clock: now,
+          });
+          const features = createFeatures({ firestore, c: { config: 'shop_config' }, clock: now, ttlMs: 0 });
+          const before = await features.state();
+          const targets = new Set(['pakDamar', 'kapalRombongan', 'kotaNusa', 'mpUpdated']);
+          const keys = [
+            'leaderboard', 'socialHome', 'pakDamar', 'kapalRombongan', 'kotaNusa',
+            'dapurRumahku', 'nusaPhone', 'oceanSpin', 'klippy', 'mpUpdated'
+          ];
+
+          let after = before;
+          if (!(before.pakDamar && before.kapalRombongan && before.kotaNusa && before.mpUpdated)) {
+            after = await features.save(
+              { uid: 'owner-release-github-actions' },
+              {
+                rev: before.rev,
+                confirm: true,
+                pakDamar: true,
+                kapalRombongan: true,
+                kotaNusa: true,
+                mpUpdated: true,
+              }
+            );
+            if (after.rev !== before.rev + 1) throw new Error('Revisi fitur tidak naik tepat satu.');
+          }
+          for (const key of keys) {
+            if (targets.has(key)) {
+              if (after[key] !== true) throw new Error('Flag gagal ON: ' + key);
+            } else if (after[key] !== before[key]) {
+              throw new Error('Flag lain berubah: ' + key);
+            }
+          }
+          console.log('OK: Pak Damar, Kapal Rombongan, Kota Nusa, dan penanda multiplayer terbaru ON.');
+          console.log('OK: NusaPhone, Dapur, ikan, QRIS, saldo, data pemain, dan Samudra Follower tidak disentuh.');
+          NODE
+
+      - name: Bersihkan kredensial sementara
+        if: always()
+        run: rm -f "$RUNNER_TEMP/nusa-sa.json"
