@@ -1,0 +1,96 @@
+name: AKTIFKAN Ide 08 Dapur Rumahku
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/aktifkan-ide08-20261114.yml"
+
+concurrency:
+  group: nusa-island-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  aktifkan:
+    name: Set dapurRumahku ON dengan transaksi server
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    steps:
+      - name: Hanya Owner
+        env:
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: '[ "$ACTOR" = "$OWNER" ]'
+
+      - name: Verifikasi kode klien sudah live
+        run: |
+          set -e
+          curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_DAPUR = true'
+          curl -fsS --retry 5 https://nusa-api.hanifanwahhaja28.workers.dev/api/health >/dev/null
+
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/nusa-island-control-center
+          ref: 452bc7eb57bf34d2527d5afc10c667e400689cc0
+          token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+          persist-credentials: false
+          path: backend
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Siapkan kredensial Firebase sementara
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          [ -n "$SERVICE_ACCOUNT" ] || { echo "::error::FIREBASE_SERVICE_ACCOUNT belum siap"; exit 1; }
+          umask 077
+          printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/nusa-sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/nusa-sa.json" >> "$GITHUB_ENV"
+
+      - name: Nyalakan hanya dapurRumahku
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { makeFirestore, makeTokenProvider } from './backend/worker/firestore-rest.js';
+          import { createFeatures } from './backend/server/features.js';
+
+          const sa = JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8'));
+          if (sa.project_id !== 'nusa-island-d2023') throw new Error('Project Firebase tidak sesuai.');
+          const now = Date.now;
+          const token = makeTokenProvider({
+            clientEmail: sa.client_email,
+            privateKey: sa.private_key,
+            fetchImpl: fetch,
+            now,
+          });
+          const firestore = makeFirestore({
+            projectId: sa.project_id,
+            token,
+            fetchImpl: fetch,
+            clock: now,
+          });
+          const features = createFeatures({ firestore, c: { config: 'shop_config' }, clock: now, ttlMs: 0 });
+          const keys = ['leaderboard','socialHome','pakDamar','kapalRombongan','kotaNusa','mpUpdated'];
+          const before = await features.state();
+          if (before.dapurRumahku === true) {
+            console.log('OK: dapurRumahku sudah ON; tidak ada penulisan ulang.');
+            process.exit(0);
+          }
+          const after = await features.save(
+            { uid: 'owner-release-github-actions' },
+            { rev: before.rev, confirm: true, dapurRumahku: true }
+          );
+          if (after.dapurRumahku !== true) throw new Error('dapurRumahku gagal ON.');
+          if (after.rev !== before.rev + 1) throw new Error('Revisi fitur tidak naik tepat satu.');
+          for (const k of keys) if (after[k] !== before[k]) throw new Error('Flag lain berubah: ' + k);
+          console.log('OK: dapurRumahku=ON; semua flag lain tetap; audit transaksi tersimpan.');
+          NODE
+
+      - name: Bersihkan kredensial sementara
+        if: always()
+        run: rm -f "$RUNNER_TEMP/nusa-sa.json"
