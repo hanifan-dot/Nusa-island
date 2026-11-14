@@ -11,10 +11,16 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const SC = 2;                                                        // skala kanvas cangkang (cukup tajam untuk DPR 2)
 
 const defs = {};
-const st = { active: false, id: null, def: null, ret: null, onExit: null, block: 0, layer: null, layerKey: "", t: 0, entered: 0 };
+const st = { active: false, id: null, def: null, ret: null, onExit: null, block: 0, layer: null, layerKey: "", t: 0, entered: 0, exiting: false };
 
 function register(def) { defs[def.id] = def; return def; }
-function fadeThen(fn) { const f = $("fade"); f.classList.add("on"); setTimeout(() => { fn(); setTimeout(() => f.classList.remove("on"), 60); }, 320); }
+function fadeThen(fn) {
+  const f = $("fade"); if (f) f.classList.add("on");
+  setTimeout(() => {
+    try { fn(); }
+    finally { setTimeout(() => { if (f) f.classList.remove("on"); }, 60); }   // galat callback tidak boleh membuat layar hitam permanen
+  }, 320);
+}
 function banner(text) { const b = $("banner"); if (!b) return; b.textContent = text; b.classList.add("show"); clearTimeout(banner.t); banner.t = setTimeout(() => b.classList.remove("show"), 1800); }
 
 // ---------- cangkang statis di kanvas luring ----------
@@ -37,7 +43,7 @@ const invalidate = () => { st.layer = null; st.layerKey = ""; };
 
 // ---------- masuk / keluar ----------
 function enter(id, player, opts) {
-  const def = defs[id]; if (!def) return false; opts = opts || {};
+  const def = defs[id]; if (!def || !player || st.exiting) return false; opts = opts || {};
   fadeThen(() => {
     st.ret = opts.ret || { x: player.x, y: player.y, dir: player.dir }; st.onExit = opts.onExit || null;
     st.active = true; mark(true); st.id = id; st.def = def; st.t = 0; st.entered = Date.now(); invalidate();
@@ -48,14 +54,25 @@ function enter(id, player, opts) {
   return true;
 }
 function exit(player) {
+  if (!st.active || st.exiting) return false;
+  player = player || (NW.world && NW.world.player);                         // aman juga untuk pemanggil lama NW.room.exit()
+  if (!player) return false;
+  st.exiting = true;
   fadeThen(() => {
-    const def = st.def, ret = st.ret, cb = st.onExit; if (def && def.onExit) def.onExit(player);
-    st.active = false; mark(false); setInset(0, 0); st.id = null; st.def = null; st.block = 0; st.onExit = null; st.layer = null; st.layerKey = "";
-    if (cb) cb(player); else if (ret) { player.x = ret.x; player.y = ret.y; player.dir = ret.dir === undefined ? 2 : ret.dir; }
-    player.moving = false; NW.world.snapCamera();
+    const def = st.def, ret = st.ret, cb = st.onExit;
+    try { if (def && def.onExit) def.onExit(player); }
+    catch (e) { console.error("[Nusa] pembersihan ruangan gagal", e); }      // tetap pulangkan pemain; jangan mengunci Kedai
+    finally {
+      st.active = false; mark(false); setInset(0, 0); st.id = null; st.def = null; st.block = 0; st.onExit = null; st.layer = null; st.layerKey = ""; st.exiting = false;
+    }
+    try {
+      if (cb) cb(player); else if (ret) { player.x = ret.x; player.y = ret.y; player.dir = ret.dir === undefined ? 2 : ret.dir; }
+    } catch (e) { console.error("[Nusa] posisi keluar ruangan gagal", e); }
+    player.moving = false; NW.world.snapCamera(); if (NW.world.updateHint) NW.world.updateHint();
   });
+  return true;
 }
-function reset() { if (!st.active) return; try { if (st.def && st.def.onExit) st.def.onExit(NW.world.player); } catch (e) { /* tampilan saja */ } st.active = false; mark(false); setInset(0, 0); st.id = null; st.def = null; st.block = 0; st.onExit = null; st.layer = null; st.layerKey = ""; }
+function reset() { if (!st.active) return; try { if (st.def && st.def.onExit) st.def.onExit(NW.world.player); } catch (e) { /* tampilan saja */ } st.active = false; mark(false); setInset(0, 0); st.id = null; st.def = null; st.block = 0; st.onExit = null; st.layer = null; st.layerKey = ""; st.exiting = false; }
 
 // ---------- antarmuka adegan (dipakai world/world.js) ----------
 const walkable = (x, y) => !!st.def && Core.walk(st.def.layout, x, y) && !(st.def.blocked && st.def.blocked(x, y));
