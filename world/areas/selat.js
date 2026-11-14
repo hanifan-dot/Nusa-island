@@ -271,7 +271,7 @@ function talk(n, api) {
 }
 function fishInfo() {
   const R = (r) => RARITY[r].label;
-  return FISH.filter((f) => f.loc === "selat" && (!f.mistik || dex(f.id))).map((f) => `${dex(f.id) ? "✔" : "·"} ${f.name} — ${R(f.rarity)}, ${N().fmtW(f.wMin)}–${N().fmtW(f.wMax)}${f.night === true ? ", malam" : ""}. ${f.desc}`);
+  return FISH.filter((f) => f.loc === "selat" && (!f.mistik || dex(f.id)) && N().fishLive(f) && (!f.sup || dex(f.id))).map((f) => `${dex(f.id) ? "✔" : "·"} ${f.name} — ${R(f.rarity)}, ${N().fmtW(f.wMin)}–${N().fmtW(f.wMax)}${f.night === true ? ", malam" : ""}. ${f.desc}`);
 }
 function tips() {
   const L = [], F = (k) => NW.adv.isFound(k);

@@ -102,9 +102,9 @@ const OLD10 = { levels: ["Joran Bambu Kampung", "Joran Fiber Muara", "Joran Karb
       assert.ok(s.wMax <= 4900);
     }
   });
-  await t("peluang/Pity/harga TIDAK berubah: tabel dasar & pita, harga rarity, jumlah ikan server 48", () => {
+  await t("peluang/Pity/harga TIDAK berubah: tabel dasar & pita, harga rarity, jumlah ikan server 103 (48 lama + 55 Ide 07B)", () => {
     const o0 = SF2.odds(0); assert.deepStrictEqual([o0.common, o0.uncommon, o0.rare, o0.epic, o0.mythic], [5675, 2785, 825, 515, 200]); assert.equal(SF2.odds(99).mythic, 10000); assert.equal(SF2.PITY_MAX, 100);
-    assert.deepStrictEqual(SF2.PRICE, { common: [10, 25], uncommon: [25, 50], rare: [60, 100], epic: [100, 140], mythic: [200, 250] }); assert.equal(T.FISH.length, 48);
+    assert.deepStrictEqual(SF2.PRICE, { common: [10, 25], uncommon: [25, 50], rare: [60, 100], epic: [100, 140], mythic: [200, 250] }); assert.equal(T.FISH.length, 103);
     const ids = SF2.SPECIES.filter((s) => s.active).map((s) => s.id).sort(); assert.equal(ids.length, 38);   // 36 lama + 2 spesies aktif atas izin Owner
   });
   await t("Leviathan memakai desain baru (bentuk 'leviatan', palet biru tua + aksen cyan), bukan 'ular' lama; data kompatibel Cloud Save (bobot <= 4900)", () => {

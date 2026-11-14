@@ -51,6 +51,9 @@ class Bridge:
         if social is not None: b["social"] = social
         s.post("/__flags", b)
     def read(s, path): return json.loads(s.post("/__read", {"path": path})[1])
+    def cfg(s, **kw): s.post("/__cfg", {"set": kw})   # shop_config/main (Firestore tiruan)
+    def rng(s, mode): s.post("/__rng", {"mode": mode})   # 'nol' = undian server selalu kena; 'asli' = RNG aman
+    def sell_eco(s, uid): return s.read("shop_economy/%s" % uid)
     def pid(s, uid): return json.loads(s.post("/__pid", {"uid": uid})[1])["pid"]
     def dishes(s, uid, lst, extra=None): s.post("/__dishes", {"uid": uid, "list": lst, "extra": extra or {}})
     def homepub(s, uid, **kw): kw["uid"] = uid; s.post("/__homepub", kw)

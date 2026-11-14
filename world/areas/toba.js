@@ -256,7 +256,7 @@ function tips() { // Pak Raka menunjukkan tempat yang BELUM ditemukan (dan selal
 }
 function fishInfo() { // info ikan setempat dari data FISH lama (tidak ada spesies baru)
   const R = (r) => RARITY[r].label;
-  return FISH.filter((f) => f.loc === "toba").map((f) => `${dex(f.id) ? "✔" : "·"} ${f.name} — ${R(f.rarity)}, ${N().fmtW(f.wMin)}–${N().fmtW(f.wMax)}${f.night === true ? ", malam" : f.night === false ? ", siang" : ""}. ${f.desc}`);
+  return FISH.filter((f) => f.loc === "toba" && N().fishLive(f) && (!f.sup || dex(f.id))).map((f) => `${dex(f.id) ? "✔" : "·"} ${f.name} — ${R(f.rarity)}, ${N().fmtW(f.wMin)}–${N().fmtW(f.wMax)}${f.night === true ? ", malam" : f.night === false ? ", siang" : ""}. ${f.desc}`);
 }
 function mayaOptions(n, open) {
   return [

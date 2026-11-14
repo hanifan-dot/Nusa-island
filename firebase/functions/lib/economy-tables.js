@@ -1,5 +1,5 @@
 // SALINAN OTOMATIS dari economy/tables.js — jangan diedit di sini (node firebase/scripts/sync-economy.js).
-// OTOMATIS dari data.js + world/home-data.js (node economy/make-tables.js) — jangan diedit. sha:3066816c78ebba96
+// OTOMATIS dari data.js + world/home-data.js (node economy/make-tables.js) — jangan diedit. sha:37b6d91c760c2a1d
 "use strict";
 module.exports = {
  "FISH": [
@@ -482,6 +482,561 @@ module.exports = {
    "price": 15,
    "protected": true,
    "loc": "banda"
+  },
+  {
+   "id": "mr_bilis",
+   "rarity": "biasa",
+   "wMin": 0.02,
+   "wMax": 0.09,
+   "xMax": null,
+   "price": 85,
+   "protected": false,
+   "loc": "muara"
+  },
+  {
+   "id": "mr_betok",
+   "rarity": "biasa",
+   "wMin": 0.05,
+   "wMax": 0.28,
+   "xMax": null,
+   "price": 55,
+   "protected": false,
+   "loc": "muara"
+  },
+  {
+   "id": "mr_baung",
+   "rarity": "biasa",
+   "wMin": 0.3,
+   "wMax": 2.2,
+   "xMax": null,
+   "price": 26,
+   "protected": false,
+   "loc": "muara"
+  },
+  {
+   "id": "mr_belida",
+   "rarity": "langka",
+   "wMin": 1.5,
+   "wMax": 9,
+   "xMax": null,
+   "price": 24,
+   "protected": false,
+   "loc": "muara"
+  },
+  {
+   "id": "mr_selais",
+   "rarity": "langka",
+   "wMin": 0.5,
+   "wMax": 3.4,
+   "xMax": null,
+   "price": 63,
+   "protected": false,
+   "loc": "muara"
+  },
+  {
+   "id": "mr_tapah",
+   "rarity": "langka",
+   "wMin": 2,
+   "wMax": 11,
+   "xMax": null,
+   "price": 20,
+   "protected": false,
+   "loc": "muara"
+  },
+  {
+   "id": "mr_jelawat",
+   "rarity": "epik",
+   "wMin": 3,
+   "wMax": 16,
+   "xMax": null,
+   "price": 54,
+   "protected": false,
+   "loc": "muara"
+  },
+  {
+   "id": "mr_toman_bara",
+   "rarity": "epik",
+   "wMin": 4,
+   "wMax": 22,
+   "xMax": null,
+   "price": 39,
+   "protected": false,
+   "loc": "muara"
+  },
+  {
+   "id": "mr_patin_keramat",
+   "rarity": "legenda",
+   "wMin": 8,
+   "wMax": 38,
+   "xMax": null,
+   "price": 77,
+   "protected": false,
+   "loc": "muara"
+  },
+  {
+   "id": "mr_gabus_hantu",
+   "rarity": "legenda",
+   "wMin": 3,
+   "wMax": 14,
+   "xMax": null,
+   "price": 285,
+   "protected": false,
+   "loc": "muara"
+  },
+  {
+   "id": "mr_belida_bulan",
+   "rarity": "legenda",
+   "wMin": 14,
+   "wMax": 48,
+   "xMax": null,
+   "price": 57,
+   "protected": false,
+   "loc": "muara",
+   "sup": true
+  },
+  {
+   "id": "tb_bilih",
+   "rarity": "biasa",
+   "wMin": 0.02,
+   "wMax": 0.08,
+   "xMax": null,
+   "price": 120,
+   "protected": false,
+   "loc": "toba"
+  },
+  {
+   "id": "tb_tawes",
+   "rarity": "biasa",
+   "wMin": 0.3,
+   "wMax": 1.9,
+   "xMax": null,
+   "price": 24,
+   "protected": false,
+   "loc": "toba"
+  },
+  {
+   "id": "tb_gurame",
+   "rarity": "biasa",
+   "wMin": 0.5,
+   "wMax": 3.2,
+   "xMax": null,
+   "price": 22,
+   "protected": false,
+   "loc": "toba"
+  },
+  {
+   "id": "tb_sidat",
+   "rarity": "langka",
+   "wMin": 0.8,
+   "wMax": 5.5,
+   "xMax": null,
+   "price": 45,
+   "protected": false,
+   "loc": "toba"
+  },
+  {
+   "id": "tb_kelabau",
+   "rarity": "langka",
+   "wMin": 1.2,
+   "wMax": 7,
+   "xMax": null,
+   "price": 35,
+   "protected": false,
+   "loc": "toba"
+  },
+  {
+   "id": "tb_hampala",
+   "rarity": "langka",
+   "wMin": 1.5,
+   "wMax": 8,
+   "xMax": null,
+   "price": 31,
+   "protected": false,
+   "loc": "toba"
+  },
+  {
+   "id": "tb_jambal",
+   "rarity": "epik",
+   "wMin": 4,
+   "wMax": 20,
+   "xMax": null,
+   "price": 52,
+   "protected": false,
+   "loc": "toba"
+  },
+  {
+   "id": "tb_baung_pusuk",
+   "rarity": "epik",
+   "wMin": 5,
+   "wMax": 26,
+   "xMax": null,
+   "price": 40,
+   "protected": false,
+   "loc": "toba"
+  },
+  {
+   "id": "tb_gurami_naga",
+   "rarity": "legenda",
+   "wMin": 9,
+   "wMax": 36,
+   "xMax": null,
+   "price": 136,
+   "protected": false,
+   "loc": "toba"
+  },
+  {
+   "id": "tb_belut_kawah",
+   "rarity": "legenda",
+   "wMin": 4,
+   "wMax": 18,
+   "xMax": null,
+   "price": 324,
+   "protected": false,
+   "loc": "toba"
+  },
+  {
+   "id": "tb_ihan_kencana",
+   "rarity": "legenda",
+   "wMin": 12,
+   "wMax": 44,
+   "xMax": null,
+   "price": 77,
+   "protected": false,
+   "loc": "toba",
+   "sup": true
+  },
+  {
+   "id": "st_teri",
+   "rarity": "biasa",
+   "wMin": 0.01,
+   "wMax": 0.05,
+   "xMax": null,
+   "price": 160,
+   "protected": false,
+   "loc": "selat"
+  },
+  {
+   "id": "st_bandeng",
+   "rarity": "biasa",
+   "wMin": 0.5,
+   "wMax": 3.4,
+   "xMax": null,
+   "price": 22,
+   "protected": false,
+   "loc": "selat"
+  },
+  {
+   "id": "st_lemuru",
+   "rarity": "biasa",
+   "wMin": 0.05,
+   "wMax": 0.22,
+   "xMax": null,
+   "price": 70,
+   "protected": false,
+   "loc": "selat"
+  },
+  {
+   "id": "st_layur",
+   "rarity": "langka",
+   "wMin": 0.6,
+   "wMax": 3.8,
+   "xMax": null,
+   "price": 97,
+   "protected": false,
+   "loc": "selat"
+  },
+  {
+   "id": "st_bubara",
+   "rarity": "langka",
+   "wMin": 1,
+   "wMax": 6.5,
+   "xMax": null,
+   "price": 57,
+   "protected": false,
+   "loc": "selat"
+  },
+  {
+   "id": "st_gerong",
+   "rarity": "langka",
+   "wMin": 1.5,
+   "wMax": 9,
+   "xMax": null,
+   "price": 41,
+   "protected": false,
+   "loc": "selat"
+  },
+  {
+   "id": "st_tenggiri_papan",
+   "rarity": "epik",
+   "wMin": 5,
+   "wMax": 32,
+   "xMax": null,
+   "price": 43,
+   "protected": false,
+   "loc": "selat"
+  },
+  {
+   "id": "st_hiu_lanjam",
+   "rarity": "epik",
+   "wMin": 15,
+   "wMax": 80,
+   "xMax": null,
+   "price": 17,
+   "protected": false,
+   "loc": "selat"
+  },
+  {
+   "id": "st_pari_anyer",
+   "rarity": "legenda",
+   "wMin": 25,
+   "wMax": 110,
+   "xMax": null,
+   "price": 55,
+   "protected": false,
+   "loc": "selat"
+  },
+  {
+   "id": "st_pelangi_kawah",
+   "rarity": "legenda",
+   "wMin": 6,
+   "wMax": 26,
+   "xMax": null,
+   "price": 236,
+   "protected": false,
+   "loc": "selat"
+  },
+  {
+   "id": "st_layur_api",
+   "rarity": "legenda",
+   "wMin": 18,
+   "wMax": 62,
+   "xMax": null,
+   "price": 62,
+   "protected": false,
+   "loc": "selat",
+   "sup": true
+  },
+  {
+   "id": "ra_kepe",
+   "rarity": "biasa",
+   "wMin": 0.05,
+   "wMax": 0.22,
+   "xMax": null,
+   "price": 100,
+   "protected": false,
+   "loc": "ampat"
+  },
+  {
+   "id": "ra_sersan",
+   "rarity": "biasa",
+   "wMin": 0.05,
+   "wMax": 0.25,
+   "xMax": null,
+   "price": 90,
+   "protected": false,
+   "loc": "ampat"
+  },
+  {
+   "id": "ra_betok_laut",
+   "rarity": "biasa",
+   "wMin": 0.08,
+   "wMax": 0.45,
+   "xMax": null,
+   "price": 55,
+   "protected": false,
+   "loc": "ampat"
+  },
+  {
+   "id": "ra_kakap_karang",
+   "rarity": "langka",
+   "wMin": 1,
+   "wMax": 6,
+   "xMax": null,
+   "price": 97,
+   "protected": false,
+   "loc": "ampat"
+  },
+  {
+   "id": "ra_kerapu_bebek",
+   "rarity": "langka",
+   "wMin": 1.5,
+   "wMax": 9,
+   "xMax": null,
+   "price": 65,
+   "protected": false,
+   "loc": "ampat"
+  },
+  {
+   "id": "ra_bibir_manis",
+   "rarity": "langka",
+   "wMin": 2,
+   "wMax": 12,
+   "xMax": null,
+   "price": 49,
+   "protected": false,
+   "loc": "ampat"
+  },
+  {
+   "id": "ra_wobbe",
+   "rarity": "epik",
+   "wMin": 12,
+   "wMax": 60,
+   "xMax": null,
+   "price": 46,
+   "protected": false,
+   "loc": "ampat"
+  },
+  {
+   "id": "ra_pari_bendera",
+   "rarity": "epik",
+   "wMin": 10,
+   "wMax": 55,
+   "xMax": null,
+   "price": 50,
+   "protected": false,
+   "loc": "ampat"
+  },
+  {
+   "id": "ra_hiu_jalan",
+   "rarity": "legenda",
+   "wMin": 8,
+   "wMax": 36,
+   "xMax": null,
+   "price": 162,
+   "protected": false,
+   "loc": "ampat"
+  },
+  {
+   "id": "ra_pari_wayag",
+   "rarity": "legenda",
+   "wMin": 22,
+   "wMax": 90,
+   "xMax": null,
+   "price": 68,
+   "protected": false,
+   "loc": "ampat"
+  },
+  {
+   "id": "ra_cenderawasih",
+   "rarity": "legenda",
+   "wMin": 16,
+   "wMax": 58,
+   "xMax": null,
+   "price": 71,
+   "protected": false,
+   "loc": "ampat",
+   "sup": true
+  },
+  {
+   "id": "bd_tongkol",
+   "rarity": "biasa",
+   "wMin": 0.6,
+   "wMax": 4.5,
+   "xMax": null,
+   "price": 30,
+   "protected": false,
+   "loc": "banda"
+  },
+  {
+   "id": "bd_malalugis",
+   "rarity": "biasa",
+   "wMin": 0.2,
+   "wMax": 1.2,
+   "xMax": null,
+   "price": 55,
+   "protected": false,
+   "loc": "banda"
+  },
+  {
+   "id": "bd_layang_banda",
+   "rarity": "biasa",
+   "wMin": 0.15,
+   "wMax": 0.6,
+   "xMax": null,
+   "price": 70,
+   "protected": false,
+   "loc": "banda"
+  },
+  {
+   "id": "bd_lemadang",
+   "rarity": "langka",
+   "wMin": 4,
+   "wMax": 22,
+   "xMax": null,
+   "price": 84,
+   "protected": false,
+   "loc": "banda"
+  },
+  {
+   "id": "bd_tenggiri_samudra",
+   "rarity": "langka",
+   "wMin": 6,
+   "wMax": 36,
+   "xMax": null,
+   "price": 51,
+   "protected": false,
+   "loc": "banda"
+  },
+  {
+   "id": "bd_kuwe_selatan",
+   "rarity": "langka",
+   "wMin": 5,
+   "wMax": 30,
+   "xMax": null,
+   "price": 61,
+   "protected": false,
+   "loc": "banda"
+  },
+  {
+   "id": "bd_hiu_martil",
+   "rarity": "epik",
+   "wMin": 40,
+   "wMax": 220,
+   "xMax": null,
+   "price": 29,
+   "protected": false,
+   "loc": "banda"
+  },
+  {
+   "id": "bd_tuna_matabesar",
+   "rarity": "epik",
+   "wMin": 25,
+   "wMax": 160,
+   "xMax": null,
+   "price": 31,
+   "protected": false,
+   "loc": "banda"
+  },
+  {
+   "id": "bd_mola",
+   "rarity": "legenda",
+   "wMin": 60,
+   "wMax": 320,
+   "xMax": null,
+   "price": 24,
+   "protected": false,
+   "loc": "banda"
+  },
+  {
+   "id": "bd_dayung",
+   "rarity": "legenda",
+   "wMin": 30,
+   "wMax": 140,
+   "xMax": null,
+   "price": 53,
+   "protected": false,
+   "loc": "banda"
+  },
+  {
+   "id": "bd_raja_laut",
+   "rarity": "legenda",
+   "wMin": 45,
+   "wMax": 190,
+   "xMax": null,
+   "price": 35,
+   "protected": false,
+   "loc": "banda",
+   "sup": true
   }
  ],
  "UP": {

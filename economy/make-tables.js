@@ -8,7 +8,7 @@ function build(root) {
   const HD = require(path.join(root, "world/home-data.js"));
   const { FISH, UPGRADES } = ctx.__T;
   const T = {
-    FISH: FISH.map((f) => ({ id: f.id, rarity: f.rarity, wMin: f.wMin, wMax: f.wMax, xMax: f.xMax || null, price: f.price, protected: !!f.protected, loc: f.loc })),
+    FISH: FISH.map((f) => ({ id: f.id, rarity: f.rarity, wMin: f.wMin, wMax: f.wMax, xMax: f.xMax || null, price: f.price, protected: !!f.protected, loc: f.loc, ...(f.sup ? { sup: true } : {}) })),
     UP: Object.fromEntries(Object.entries(UPGRADES).map(([k, u]) => [k, { cost: u.cost.slice(), max: u.cost.length - 1 }])),
     HOME: HD.LEVELS.map((l) => (l ? { price: l.price, stars: l.stars } : null)),
     CAT: Object.fromEntries(HD.CATALOG.map((c) => [c.id, { price: c.price, stars: c.stars || 0 }])),

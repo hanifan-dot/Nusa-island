@@ -25,6 +25,7 @@ await flip({ socialHome: true, mpUpdated: true });
 await flip({ pakDamar: true, kapalRombongan: true, kotaNusa: true });
 await flip({ nusaPhone: true });
 await flip({ oceanSpin: true });
+let RNG = 'asli'; { const c = globalThis.crypto, orig = c.getRandomValues.bind(c); c.getRandomValues = (arr) => (RNG === 'nol' && arr instanceof Uint32Array ? arr.fill(0) : orig(arr)); }   // Ide 07B: pengendali RNG server (hanya proses uji)
 const seen = new Set();
 async function ensure(uid) {
   if (seen.has(uid)) return; seen.add(uid);
@@ -58,6 +59,8 @@ const srv = http.createServer(async (req, res) => {
     if (u.pathname === '/__phone') { await ensure(body.uid); const pth = `shop_phone/${body.uid}`; s.mock.seed(pth, { ...(s.mock.read(pth) || {}), ...(body.set || {}) }); return send(res, 200, { ok: true }); }   // reset kepemilikan model uji (Firestore tiruan)
     if (u.pathname === '/__eco') { await ensure(body.uid); const pth = `shop_economy/${body.uid}`; s.mock.seed(pth, { ...(s.mock.read(pth) || {}), ...(body.set || {}) }); if (body.ent) s.mock.seed(`shop_entitlements/${body.uid}`, body.ent); return send(res, 200, { ok: true }); }   // data ekonomi uji (Firestore tiruan)
     if (u.pathname === '/__klippy') { s.mock.seed('shop_klippy/feed', { v: 1, posts: body.posts || [] }); for (const [k, v] of Object.entries(body.stats || {})) s.mock.seed(`shop_klippy/s-${k}`, v); return send(res, 200, { ok: true }); }   // konten Klippy uji (Firestore tiruan)
+    if (u.pathname === '/__cfg') { const c = s.mock.read('shop_config/main') || {}; s.mock.seed('shop_config/main', { ...c, ...(body.set || {}) }); return send(res, 200, { ok: true }); }   // Ide 07B: shop_config/main.ikanLokasi (HANYA di Firestore tiruan uji)
+    if (u.pathname === '/__rng') { RNG = body.mode === 'nol' ? 'nol' : 'asli'; return send(res, 200, { mode: RNG }); }   // Ide 07B: 'nol' = RNG server selalu 0 (undian SUPER RARE pasti kena) — hanya proses uji ini
     if (u.pathname === '/__read') return send(res, 200, s.mock.read(body.path) || null);
     if (u.pathname === '/__pid') return send(res, 200, { pid: pidOf(body.uid) });
     if (u.pathname === '/__writes') return send(res, 200, { n: [...s.mock.ver.values()].reduce((n, v) => n + v, 0) });

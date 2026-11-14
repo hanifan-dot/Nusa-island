@@ -6,7 +6,7 @@ function build(root) {
   vm.runInContext(fs.readFileSync(path.join(root, "data.js"), "utf8") + "\n;globalThis.__T={FISH,RARITY};", ctx);
   const { FISH, RARITY } = ctx.__T, pool = {};
   for (const f of FISH) {
-    if (f.rarity === "sampah" || f.protected || f.mistik) continue;               // sampah, ikan dilindungi, ikan mistis: tidak pernah ikut
+    if (f.rarity === "sampah" || f.protected || f.mistik || f.sup) continue;               // sampah, ikan dilindungi, ikan mistis: tidak pernah ikut
     const k = f.loc + (f.seaOnly ? "#s" : ""), P = (pool[k] = pool[k] || { src: [], to: [], tiers: [] });
     if (!P.tiers.includes(f.rarity)) P.tiers.push(f.rarity);
     if (f.rarity === "biasa") P.src.push(f.id);

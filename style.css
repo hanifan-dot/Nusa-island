@@ -725,3 +725,16 @@ body.sailing.mode-world .hint { top: calc(env(safe-area-inset-top, 0px) + 98px);
 @keyframes mglow { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: .15; } }
 @keyframes mrise { 0% { transform: translateY(24px) scale(.86); opacity: 0; filter: brightness(2); } 45% { transform: translateY(-6px) scale(1.06); opacity: 1; } 100% { transform: none; filter: none; } }
 @keyframes mspark { 0% { opacity: 0; transform: translate(0, 0); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx, 0), -150px); } }
+
+/* ---- Ide 07B: notifikasi tangkapan SUPER RARE (satu elemen, ringan; menghormati "kurangi gerak") ---- */
+.sx-banner { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 64px); transform: translateX(-50%); z-index: 9000; display: flex; gap: 10px; align-items: center; max-width: min(92vw, 420px);
+  padding: 8px 14px 8px 8px; border-radius: 16px; color: #fff8dc; background: linear-gradient(135deg, rgba(40, 28, 6, .94), rgba(92, 62, 8, .94)); border: 2px solid var(--sx, #ffd24a);
+  box-shadow: 0 0 18px 2px var(--sx, #ffd24a), 0 6px 22px rgba(0, 0, 0, .5); animation: sxIn .5s cubic-bezier(.2, 1.2, .3, 1) both; pointer-events: none; }
+.sx-banner.out { opacity: 0; transition: opacity .45s; }
+.sx-banner img { width: 84px; height: 46px; object-fit: contain; flex: 0 0 auto; }
+.sx-banner .sx-t { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.sx-banner small { font-size: 10px; letter-spacing: .06em; color: var(--sx, #ffd24a); font-weight: 800; }
+.sx-banner b { font-size: 16px; }
+.sx-banner span { font-size: 12px; opacity: .9; }
+@keyframes sxIn { from { transform: translateX(-50%) translateY(-24px) scale(.92); opacity: 0; } to { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .sx-banner { animation: none; } }

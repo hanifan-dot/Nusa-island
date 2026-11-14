@@ -55,7 +55,7 @@ function start(uid) {
 }
 function stop(reason) {
   if (!H.uid) return false;
-  const f = N().FISH_BY_ID[H.id], msg = { manual: "Ikan dimasukkan kembali ke coolbox", gone: "Ikan yang kamu pamerkan sudah tidak kamu miliki", fishing: null, travel: "Ikan disimpan dulu di coolbox selama berlayar" }[reason];
+  const f = N().FISH_BY_ID[H.id], msg = { manual: "Ikan dimasukkan kembali ke coolbox", gone: "Ikan yang kamu pamerkan sudah tidak kamu miliki", fishing: null, travel: "Ikan disimpan dulu di coolbox selama berlayar", home: "Ikan disimpan dulu di coolbox saat masuk rumah" }[reason];
   H.uid = null; H.id = null; H.tag = null;
   syncButton();
   if (msg) N().toast(msg + (reason === "manual" && f ? ` · ${f.name}` : ""), reason === "gone" ? "bad" : "");
@@ -186,6 +186,14 @@ function drawFx(c, hd, G, y0, hy, t) {
     }
     c.globalAlpha = 1;
   }
+  if (hd.f && hd.f.sup) {   // SUPER RARE: empat percikan emas berputar pelan (ringan; tampil sama untuk pemain lain)
+    c.fillStyle = hd.f.aura || "#ffe27a";
+    for (let i = 0; i < 4; i++) {
+      const a = t * 1.1 + (i * Math.PI) / 2, r = G.Lw * 0.7 + 5, sx = G.cx + Math.cos(a) * r, sy = G.cy + Math.sin(a) * r * 0.55, s = 1.6 + 1.2 * Math.abs(Math.sin(t * 3 + i * 1.7));
+      c.globalAlpha = 0.5 + 0.45 * Math.sin(t * 4 + i); c.beginPath(); c.moveTo(sx, sy - s * 2); c.lineTo(sx + s * 0.6, sy - s * 0.6); c.lineTo(sx + s * 2, sy); c.lineTo(sx + s * 0.6, sy + s * 0.6); c.lineTo(sx, sy + s * 2); c.lineTo(sx - s * 0.6, sy + s * 0.6); c.lineTo(sx - s * 2, sy); c.lineTo(sx - s * 0.6, sy - s * 0.6); c.closePath(); c.fill();
+    }
+    c.globalAlpha = 1;
+  }
   if (p.id === "legenda" || p.id === "spesial" || p.id === "menang") {
     const n = p.id === "spesial" ? 5 : 3; c.fillStyle = p.id === "legenda" ? "#ffe27a" : "#fff6c9";
     for (let i = 0; i < n; i++) {
@@ -210,10 +218,11 @@ function liftFor(w) {
 
 // ---------- Label ikan (nama + berat) di bawah kaki karakter ----------
 const tagCache = new Map();
-function tagCanvas(f, w) {
-  const key = f.id + "|" + w, hit = tagCache.get(key); if (hit) return hit;
-  const R = (typeof RARITY !== "undefined" && RARITY[f.rarity]) || { color: "#fff", label: "" };
-  const txt1 = `${f.name}`, txt2 = `${N().fmtW(w)}`;
+function tagCanvas(f, w, vr) {
+  const key = f.id + "|" + w + "|" + (vr || ""), hit = tagCache.get(key); if (hit) return hit;
+  const R = (typeof tierOf === "function" ? tierOf(f) : (typeof RARITY !== "undefined" && RARITY[f.rarity])) || { color: "#fff", label: "" };
+  const vi = vr && vr !== "normal" && NW.variants && NW.variants.info ? NW.variants.info(vr) : null;   // Ide 07B: pemain lain melihat NAMA, BERAT, KELANGKAAN, dan VARIAN yang benar
+  const txt1 = `${f.name}`, txt2 = `${N().fmtW(w)} · ${f.sup ? "SUPER RARE" : f.mistik ? "Mistis" : R.label}${vi ? " · " + vi.name : ""}`;
   const m = document.createElement("canvas").getContext("2d");
   m.font = "800 11px system-ui, sans-serif"; const w1 = m.measureText(txt1).width; m.font = "700 10px system-ui, sans-serif"; const w2 = m.measureText(txt2).width;
   const RES = 2, W = Math.ceil(Math.max(w1, w2) + 22), Hh = 27;
@@ -223,7 +232,7 @@ function tagCanvas(f, w) {
   g.strokeStyle = R.color; g.lineWidth = 1.4; g.beginPath(); if (g.roundRect) g.roundRect(0.7, 0.7, W - 1.4, Hh - 1.4, 7.5); else g.rect(0.7, 0.7, W - 1.4, Hh - 1.4); g.stroke();
   g.textAlign = "center"; g.textBaseline = "middle"; g.shadowColor = "rgba(0,0,0,.55)"; g.shadowBlur = 2;
   g.font = "800 11px system-ui, sans-serif"; g.fillStyle = "#fff"; g.fillText(txt1, W / 2, 8.5);
-  g.font = "700 10px system-ui, sans-serif"; g.fillStyle = "#ffe9a8"; g.fillText("⚖️ " + txt2, W / 2, 19.5);
+  g.font = "700 10px system-ui, sans-serif"; g.fillStyle = f.sup ? "#ffe27a" : "#ffe9a8"; g.fillText("⚖️ " + txt2, W / 2, 19.5);
   if (tagCache.size > 24) tagCache.delete(tagCache.keys().next().value);
   tagCache.set(key, cv); return cv;
 }
@@ -231,7 +240,7 @@ function tagCanvas(f, w) {
 function drawTag(c, b, scale) {
   if (!H.uid) return;
   const it = find(H.uid), f = it && fishOf(it); if (!f) return;
-  const cv = tagCanvas(f, it.w), s = scale || 1, k = ease((performance.now() / 1000 - H.t0) / 0.5);
+  const cv = tagCanvas(f, it.w, it.vr), s = scale || 1, k = ease((performance.now() / 1000 - H.t0) / 0.5);
   c.save(); c.globalAlpha = clamp(k, 0, 1);
   c.drawImage(cv, b.x - (cv._w * s) / 2, b.y + 8 * s, cv._w * s, cv._h * s);
   c.restore();
@@ -257,7 +266,7 @@ function remoteFrame(h) {
   return { uid: "r:" + h.i, f, w, vr: h.v && h.v !== "normal" ? h.v : undefined, p, L: fishLen(w), t0: performance.now() / 1000, crouch: p.crouch, remote: true };
 }
 function drawRemoteTag(c, b, scale, hd) {
-  const cv = tagCanvas(hd.f, hd.w), s = scale || 1, k = ease((performance.now() / 1000 - hd.t0) / 0.5);
+  const cv = tagCanvas(hd.f, hd.w, hd.vr), s = scale || 1, k = ease((performance.now() / 1000 - hd.t0) / 0.5);
   c.save(); c.globalAlpha = clamp(k, 0, 1); c.drawImage(cv, b.x - (cv._w * s) / 2, b.y + 8 * s, cv._w * s, cv._h * s); c.restore();
 }
 

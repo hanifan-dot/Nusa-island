@@ -17,6 +17,7 @@ const active = () => !!(st && st.init && live());
 const call = (name, d) => A().eco(name, d);
 const toast = (m, k) => { try { N().toast(m, k); } catch (e) {} };
 
+const supId = (id) => { const f = N().FISH_BY_ID && N().FISH_BY_ID[id]; return !!(f && f.sup); };   // ikan SUPER RARE TIDAK PERNAH dilaporkan klien (hanya server yang membuatnya)
 function apply(v) {
   if (!v || typeof v !== "object" || typeof v.balance !== "number") return;
   st = v; const S = N().S;
@@ -34,19 +35,22 @@ async function ensure() {
   try {
     let v = await call("ecoState", {});
     if (!v.init) {
-      const S = N().S, fish = (S.cooler || []).concat((S.home && S.home.placedFish) || []).filter((x) => x && x.uid && !(NW.sf && NW.sf.isSF(x.id)) && !(NW.sf2 && NW.sf2.isSf2(x.id))).map((x) => ({ uid: x.uid, id: x.id, w: x.w }));
+      const S = N().S, fish = (S.cooler || []).concat((S.home && S.home.placedFish) || []).filter((x) => x && x.uid && !(NW.sf && NW.sf.isSF(x.id)) && !(NW.sf2 && NW.sf2.isSf2(x.id)) && !supId(x.id)).map((x) => ({ uid: x.uid, id: x.id, w: x.w }));
       v = await call("ecoInit", { money: S.money, up: S.up, homeLv: S.home && S.home.level, cooler: fish });
     }
-    apply(v); lastState = Date.now(); ensureFail = 0; ensureAt = 0; await flush();
+    apply(v); lastState = Date.now(); ensureFail = 0; ensureAt = 0;
+    if (Array.isArray(v.sx) && v.sx.length && NW.fishx) NW.fishx.grant(v.sx);   // Ide 07B: pemulihan — ikan super di kotak server yang belum sampai ke coolbox (balasan hilang/refresh)
+    await flush();
     // ikan di coolbox yang belum tercatat server (mis. tangkapan saat offline) dilaporkan ulang — tetap kena batas laju server
     const have = new Set(st.box || []);
-    for (const it of N().S.cooler || []) if (it && it.uid && !(NW.sf && NW.sf.isSF(it.id)) && !(NW.sf2 && NW.sf2.isSf2(it.id)) && !have.has(it.uid) && !q.some((x) => x.uid === it.uid)) q.push({ id: it.id, w: it.w, uid: it.uid });
+    for (const it of N().S.cooler || []) if (it && it.uid && !(NW.sf && NW.sf.isSF(it.id)) && !(NW.sf2 && NW.sf2.isSf2(it.id)) && !supId(it.id) && !have.has(it.uid) && !q.some((x) => x.uid === it.uid)) q.push({ id: it.id, w: it.w, uid: it.uid });
     await flush();
   } catch (e) { lastErr = (e && e.message) || "gagal"; ensureFail++; ensureAt = Date.now() + bo(ensureFail, 2500); }
   finally { booting = false; }
   return active();
 }
 // Ikan Samudra Follower diundi dan dibuat OLEH SERVER di ecoCatch; klien hanya menampilkan hasil yang sudah dikonfirmasi.
+const sxGot = (r) => { try { if (r && Array.isArray(r.sxItem) && r.sxItem.length && NW.fishx) NW.fishx.grant(r.sxItem); } catch (e) {} };   // Ide 07B: SUPER RARE dibuat server
 const sfGot = (r) => { try { if (r && Array.isArray(r.sfItem) && r.sfItem.length && NW.sfPlay) NW.sfPlay.grant(r.sfItem); } catch (e) {} };
 async function flush() {
   if (busy || !live()) return; busy = true;
@@ -54,7 +58,7 @@ async function flush() {
     while (rq.length) { const r = rq[0]; try { apply(await call("ecoReward", r)); rq.shift(); } catch (e) { if (e && (e.code === "invalid-argument" || e.code === "failed-precondition")) rq.shift(); else throw e; } }
     while (q.length || inflight) {
       if (!inflight) { const items = q.slice(0, 10); inflight = { opId: rid(), items, tries: 0 }; }       // paket ≤10 tangkapan: hemat tulis Firestore; opId tetap saat diulang
-      try { const rr = await call("ecoCatch", { opId: inflight.opId, items: inflight.items.map((x) => ({ id: x.id, w: x.w, uid: x.uid })) }); apply(rr); if (rr && rr.swaps && rr.swaps.length && NW.aurora) NW.aurora.applySwaps(rr.swaps); sfGot(rr); q.splice(0, inflight.items.length); inflight = null; }
+      try { const rr = await call("ecoCatch", { opId: inflight.opId, items: inflight.items.map((x) => ({ id: x.id, w: x.w, uid: x.uid })) }); apply(rr); if (rr && rr.swaps && rr.swaps.length && NW.aurora) NW.aurora.applySwaps(rr.swaps); sfGot(rr); sxGot(rr); q.splice(0, inflight.items.length); inflight = null; }
       catch (e) {
         const code = e && e.code;
         if (code === "resource-exhausted" && ++inflight.tries < 6) { schedule(8000); break; }          // terlalu cepat/batas jam: coba lagi nanti (tidak dibuang langsung)
