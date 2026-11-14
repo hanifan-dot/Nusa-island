@@ -14,7 +14,7 @@ permissions:
   id-token: write
 
 env:
-  GAME_SHA: 51ab5c384de64d3ed0c811369d8696724a5ac812
+  GAME_SHA: a938ed507f1e551ec9141aecd1bc4a05d1100da0
   BACKEND_SHA: 452bc7eb57bf34d2527d5afc10c667e400689cc0
   GUARD_SHA: ff3ab0b574bb4cd8b40b5438826b0049c8737dbb
 
