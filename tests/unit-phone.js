@@ -8,9 +8,9 @@ const eq = (a, b, m) => ok(JSON.stringify(a) === JSON.stringify(b), `${m}: ${JSO
 eq(C.clock(6), "06:00", "jam 6"); eq(C.clock(13.5), "13:30", "13.5 → 13:30"); eq(C.clock(23.999), "23:59", "23.999 → 23:59 (tak pernah 60)"); eq(C.clock(24), "00:00", "24 → 00:00"); eq(C.clock(-1), "23:00", "negatif membungkus"); eq(C.clock(NaN), "00:00", "NaN aman"); eq(C.clock("x"), "00:00", "teks aman");
 eq(C.dateLine(new Date(2026, 10, 14)), "Sabtu, 14 November", "tanggal Indonesia"); eq(C.dateLine(null), "Kamis, 1 Januari", "tanggal rusak → nilai aman (tidak melempar)");
 // ---- aplikasi ----
-eq(C.APP_IDS, ["klippy", "nusachat", "playgame", "dompet", "peta", "pengaturan"], "enam aplikasi sesuai permintaan, urutan layar utama");
-ok(C.APPS.filter((a) => a.net).map((a) => a.id).join() === "klippy,nusachat,dompet", "aplikasi jaringan = Klippy, NusaChat, Dompet"); ok(C.appUsable("peta", false) && C.appUsable("pengaturan", false) && C.appUsable("playgame", false), "aplikasi lokal tetap bisa saat putus");
-ok(!C.appUsable("klippy", false) && !C.appUsable("nusachat", false) && !C.appUsable("dompet", false), "aplikasi jaringan TERKUNCI saat putus"); ok(C.appUsable("klippy", true), "terbuka saat tersambung"); ok(!C.appUsable("tidakada", true), "id tak dikenal tak bisa dipakai");
+eq(C.APP_IDS, ["klippy", "nusachat", "playgame", "nusaweb", "zentro", "dompet", "peta", "pengaturan"], "delapan aplikasi (enam inti + NusaWeb & Zentro), urutan layar utama");
+ok(C.APPS.filter((a) => a.net).map((a) => a.id).join() === "klippy,nusachat,nusaweb,zentro,dompet", "aplikasi jaringan = Klippy, NusaChat, NusaWeb, Zentro, Dompet"); ok(C.appUsable("peta", false) && C.appUsable("pengaturan", false) && C.appUsable("playgame", false), "aplikasi lokal tetap bisa saat putus");
+ok(!C.appUsable("klippy", false) && !C.appUsable("nusachat", false) && !C.appUsable("dompet", false) && !C.appUsable("nusaweb", false) && !C.appUsable("zentro", false), "aplikasi jaringan TERKUNCI saat putus"); ok(C.appUsable("klippy", true), "terbuka saat tersambung"); ok(!C.appUsable("tidakada", true), "id tak dikenal tak bisa dipakai");
 // ---- model & kepemilikan ----
 eq(C.MODEL_IDS, ["dasar", "s1", "s2", "s3", "s4", "s5", "crown17"], "ponsel dasar + TEPAT enam model toko (kontrak Owner)");
 eq(C.MODEL_IDS.filter((i) => i !== "dasar").length, 6, "enam model"); eq(C.MODEL_IDS.filter((i) => C.MODELS[i].kind === "koin").length, 2, "dua model dibeli koin bermain"); eq(C.MODEL_IDS.filter((i) => C.MODELS[i].kind === "premium").length, 4, "empat model premium");

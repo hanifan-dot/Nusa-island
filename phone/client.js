@@ -54,6 +54,8 @@ const ICONS = {
   klippy: '<path d="M10 14h28a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4H10a4 4 0 0 1-4-4V18a4 4 0 0 1 4-4z" fill="#fff" opacity=".95"/><path d="M21 20.5v7l6.5-3.5z" fill="CLR"/><circle cx="37" cy="12" r="3" fill="#fff"/><path d="M37 8.2v1.6M37 14.2v1.6M33.2 12h1.6M39.2 12h1.6" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/>',
   nusachat: '<path d="M8 12h21a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4H19l-6 5v-5H8a4 4 0 0 1-4-4v-8a4 4 0 0 1 4-4z" fill="#fff" opacity=".95"/><path d="M33 20h7a4 4 0 0 1 4 4v7a4 4 0 0 1-4 4h-2v4l-5-4h-7a4 4 0 0 1-4-4v-1" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="20" r="1.8" fill="CLR"/><circle cx="19" cy="20" r="1.8" fill="CLR"/><circle cx="26" cy="20" r="1.8" fill="CLR"/>',
   playgame: '<path d="M14 16h20c5 0 8 5 8 11s-3 8-6 8-4-3-6-3H18c-2 0-3 3-6 3s-6-2-6-8 3-11 8-11z" fill="#fff" opacity=".95"/><path d="M15 21v7M11.5 24.5h7" stroke="CLR" stroke-width="2.4" stroke-linecap="round"/><circle cx="30" cy="22" r="1.9" fill="CLR"/><circle cx="34" cy="26" r="1.9" fill="CLR"/>',
+  nusaweb: '<circle cx="24" cy="24" r="14" fill="#fff" opacity=".95"/><ellipse cx="24" cy="24" rx="6" ry="14" fill="none" stroke="CLR" stroke-width="1.8"/><path d="M10 24h28M12 17h24M12 31h24" stroke="CLR" stroke-width="1.8" stroke-linecap="round"/>',
+  zentro: '<circle cx="21" cy="21" r="10" fill="none" stroke="#fff" stroke-width="4.4"/><path d="M29 29l9 9" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M17 21h8M21 17v8" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".9"/>',
   dompet: '<path d="M8 15a4 4 0 0 1 4-4h24v6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M8 15a4 4 0 0 1 4-4v0h26a3 3 0 0 1 3 3v21a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4z" fill="#fff" opacity=".95"/><path d="M32 24h9v8h-9a4 4 0 0 1 0-8z" fill="CLR"/><circle cx="33" cy="28" r="1.6" fill="#fff"/>',
   peta: '<path d="M6 13l11-4 14 4 11-4v26l-11 4-14-4-11 4z" fill="#fff" opacity=".95"/><path d="M17 9v26M31 13v26" stroke="CLR" stroke-width="1.6" opacity=".55"/><path d="M24 15a5 5 0 0 1 5 5c0 4-5 9-5 9s-5-5-5-9a5 5 0 0 1 5-5z" fill="CLR"/><circle cx="24" cy="20" r="1.8" fill="#fff"/>',
   pengaturan: '<circle cx="24" cy="24" r="8.5" fill="none" stroke="#fff" stroke-width="5"/><g stroke="#fff" stroke-width="5" stroke-linecap="round"><path d="M24 6v5M24 37v5M6 24h5M37 24h5M11.3 11.3l3.5 3.5M33.2 33.2l3.5 3.5M11.3 36.7l3.5-3.5M33.2 14.8l3.5-3.5"/></g><circle cx="24" cy="24" r="3.4" fill="CLR"/>',
@@ -205,10 +207,10 @@ function paintApp() {
   if (impl) { const ctl = impl.mount(body, ctx(id)); st.appCtl = Object.assign({ id }, ctl || {}); return; }
   body.innerHTML = `<div class="nph-lockpane"><div class="nph-lock-ic" aria-hidden="true">🛠️</div><b>${esc(a.name)}</b><p>${st.loadFail[id] ? "Gagal memuat aplikasi. Tutup lalu buka lagi." : "Aplikasi ini sedang disiapkan."}</p></div>`;
 }
-function ctx(id) { return { call: netCall, linkOk, load: loadFiles, notify: noteAdd, deeper: () => go("deeper"), sub: () => st.nav.sub, esc, icon, rm, close: () => close(), now, N }; }
+function ctx(id) { return { call: netCall, linkOk, load: loadFiles, notify: noteAdd, deeper: () => go("deeper"), open: (app) => go("open", app), sub: () => st.nav.sub, esc, icon, rm, close: () => close(), now, N }; }
 // Modul aplikasi dimuat SAAT DIBUKA (tidak diunduh bila tidak dipakai); semua di bawah phone/ dan hanya bila NUSA_PHONE=true.
 const BASE = (() => { const e = document.querySelector('script[src*="phone/client.js"]'); return e ? e.src.replace(/client\.js.*$/, "") : "phone/"; })();
-const APP_SCRIPTS = { playgame: ["gamekit.js", "playgame.js"] };
+const APP_SCRIPTS = { playgame: ["gamekit.js", "playgame.js"], nusaweb: ["nusaweb.js"], zentro: ["nusaweb.js", "zentro.js"] };
 const loaded = {};
 function loadFile(f) { return loaded[f] || (loaded[f] = new Promise((ok, no) => { const e = document.createElement("script"); e.src = BASE + f; e.async = false; e.onload = ok; e.onerror = () => { delete loaded[f]; no(new Error("gagal memuat " + f)); }; document.head.appendChild(e); })); }
 const loadFiles = (fs) => fs.reduce((p, f) => p.then(() => loadFile(f)), Promise.resolve());

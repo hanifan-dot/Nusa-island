@@ -23,6 +23,8 @@ const APPS = [
   { id: "klippy", name: "Klippy", net: true, hue: "#ff7a59", hue2: "#ffb347" },
   { id: "nusachat", name: "NusaChat", net: true, hue: "#2fb39a", hue2: "#7fe0c4" },
   { id: "playgame", name: "PlayGame", net: false, hue: "#6a5acd", hue2: "#a79bff" },
+  { id: "nusaweb", name: "NusaWeb", net: true, hue: "#1f6fb2", hue2: "#6fb6ee" },
+  { id: "zentro", name: "Zentro", net: true, hue: "#d94f8a", hue2: "#ff9ac0" },
   { id: "dompet", name: "Dompet Nusa", net: true, hue: "#e0a93a", hue2: "#ffd873" },
   { id: "peta", name: "Peta", net: false, hue: "#3d9bd4", hue2: "#8bd0f0" },
   { id: "pengaturan", name: "Pengaturan", net: false, hue: "#7b8a96", hue2: "#b9c6cf" },

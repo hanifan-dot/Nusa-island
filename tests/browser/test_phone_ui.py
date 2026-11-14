@@ -124,7 +124,7 @@ def sec_basic(A, errs, vp):
     ok(pre + "keyboard: Enter pada pegangan membuka kunci (aksesibel)", screen(A) == "home")
     # layar utama
     names = ev(A, "[...document.querySelectorAll('#nphGrid .nph-ic-n')].map(e=>e.textContent)")
-    ok(pre + "home: enam ikon orisinal: Klippy, NusaChat, PlayGame, Dompet Nusa, Peta, Pengaturan", names == ["Klippy", "NusaChat", "PlayGame", "Dompet Nusa", "Peta", "Pengaturan"] and ev(A, "document.querySelectorAll('#nphGrid .nph-ic-i svg').length") == 6, names)
+    ok(pre + "home: delapan ikon orisinal", names == ["Klippy", "NusaChat", "PlayGame", "NusaWeb", "Zentro", "Dompet Nusa", "Peta", "Pengaturan"] and ev(A, "document.querySelectorAll('#nphGrid .nph-ic-i svg').length") == 8, names)
     mi = measure(A, ["#nphGrid .nph-ic"], ["#mpDock *", "#joy"])
     ok(pre + "home: ikon tidak saling menimpa tombol obrolan/joystick dan di dalam layar", not mi["hit"] and not mi["out"], mi)
     sizes = ev(A, "[...document.querySelectorAll('#nphGrid .nph-ic-i')].map(e=>Math.round(e.getBoundingClientRect().width))")
@@ -189,7 +189,7 @@ def sec_offline(b, br):
     ok("O1 tersambung: status 'Terhubung', tidak ada ikon terkunci", link_text(A) == "Terhubung" and ev(A, "document.querySelectorAll('#nphGrid .nph-ic.locked').length") == 0)
     ctx.set_offline(True); wait_for(A, "document.getElementById('nphLinkTx').textContent==='Koneksi terputus'", 4); settle(A, 0.3)
     ok("O2 koneksi putus: tertulis 'Koneksi terputus' di bilah status", link_text(A) == "Koneksi terputus" and ev(A, "document.getElementById('nphLink').classList.contains('off')"))
-    ok("O3 tiga aplikasi jaringan (Klippy, NusaChat, Dompet) terkunci; Peta, PlayGame, Pengaturan tetap bisa", ev(A, "[...document.querySelectorAll('#nphGrid .nph-ic.locked')].map(b=>b.dataset.app)") == ["klippy", "nusachat", "dompet"])
+    ok("O3 lima aplikasi jaringan (Klippy, NusaChat, NusaWeb, Zentro, Dompet) terkunci; Peta, PlayGame, Pengaturan tetap bisa", ev(A, "[...document.querySelectorAll('#nphGrid .nph-ic.locked')].map(b=>b.dataset.app)") == ["klippy", "nusachat", "nusaweb", "zentro", "dompet"])
     n0 = len(reqs)
     for app in ("klippy", "nusachat", "dompet"):
         ev(A, "(a)=>NW.phone.go('open',a)", app); settle(A, 0.25)
