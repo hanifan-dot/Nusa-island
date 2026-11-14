@@ -33,6 +33,12 @@ suite test_delivery "$K"; suite test_rombongan "$K"; suite test_kemudi_rombongan
 suite test_quest_owner
 suite test_house; suite test_rumahku_sosial; suite test_rumahku_flag_server
 suite test_pilih_dunia; suite test_podium
+# Presence server (#146) + multiplayer lama
+suite test_online_status; suite test_multiplayer
+# Ide 08 (Kedai Bu Indah, Dapur, masak, cuci, meja sosial, halaman 08A–08E): butuh NUSA_BACKEND=<cabang backend integrasi>; tanpa itu suite DILEWATI (exit 0, bukan lulus palsu)
+suite test_dapur; suite test_dapur_masak; suite test_dapur_sosial; suite test_ide08_e2e
+# Integrasi final lintas fitur (4 pemain, Worker asli) + tata letak 4 ukuran layar; juga butuh NUSA_BACKEND
+suite test_integrasi_final; suite test_integrasi_layout
 # Visual Kota Nusa (Ide 04): uji khusus + regresi Pak Damar / Kapal Rombongan dengan NUSA_KOTA=true (flag default tetap OFF)
 suite test_kota
 suite test_kota_mp   # Multiplayer Kota Nusa: 4 klien nyata + server dev (NUSA_KOTA=ya, NUSA_BOAT=ya); termasuk mode flag klien OFF dan flag server OFF

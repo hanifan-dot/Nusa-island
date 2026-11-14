@@ -93,7 +93,7 @@ def main():
             lp = ev(Dd, "[NW.world.player.x,NW.world.player.y]"); sv = peer(C, NAMES["D"])
             ok("P18 lari 14 petak/dtk selama 2 dtk: posisi lokal ≈ posisi di mata pemain lain (selisih < 1.6)", dist(lp, [sv["x"], sv["y"]]) < 1.6, (lp, sv["x"], sv["y"]))
             vmax = max([abs(ob[i + 10][1] - ob[i][1]) / ((ob[i + 10][0] - ob[i][0]) / 1000) for i in range(0, len(ob) - 10)] or [0])   # kecepatan terlihat pemain lain, jendela ±1 dtk
-            ok("P19 pemain lain TIDAK pernah melihat D bergerak > 9.5 petak/dtk (jendela 1 dtk), walau klien D berlari 14 petak/dtk", vmax <= 9.5, round(vmax, 2))
+            ok("P19 pemain lain TIDAK pernah melihat D bergerak melebihi anggaran server (SPEED 8 + BURST 5 = 13 petak/dtk; jendela 1 dtk), walau klien D berlari 14 petak/dtk", vmax <= 13.0, round(vmax, 2))
             D.shot(Dd, "kp-03-koreksi-posisi")
             # (c) jalan wajar tidak dikoreksi
             c2 = ev(Dd, "[NW.world.player.x,NW.world.player.y]"); tgt = [c2[0] + 3.0, c2[1]]

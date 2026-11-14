@@ -30,7 +30,7 @@ with sync_playwright() as p:
     assert page.locator("#mpN").inner_text() == "Single"
     assert "single" in page.locator("#mpCount").get_attribute("class")
 
-    page.evaluate("NW.mp.state={online:true,n:3,state:'online',why:'',prefs:{on:true,consent:true},players:[],log:[]};NW.mpUI.refresh()")
+    page.evaluate("NW.mp.state={online:true,n:3,serverCount:3,state:'online',why:'',prefs:{on:true,consent:true},players:[],log:[]};NW.mpUI.refresh()")
     assert page.locator("#mpN").inner_text() == "3"
     assert "on" in page.locator("#mpCount").get_attribute("class")
 
@@ -44,7 +44,7 @@ with sync_playwright() as p:
     assert page.evaluate("window.__inputReached") is False
 
     ctx.set_offline(False)
-    page.evaluate("dispatchEvent(new Event('online'));NW.mp.state={online:true,n:2,state:'online',why:'',prefs:{on:true,consent:true},players:[],log:[]};NW.mpUI.refresh()")
+    page.evaluate("dispatchEvent(new Event('online'));NW.mp.state={online:true,n:2,serverCount:2,state:'online',why:'',prefs:{on:true,consent:true},players:[],log:[]};NW.mpUI.refresh()")
     assert page.locator("#mpN").inner_text() == "2"
     assert page.locator("#netRequired").is_hidden()
     assert page.evaluate("NW.mpUI.isNetworkBlocked()") is False

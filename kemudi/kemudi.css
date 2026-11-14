@@ -19,3 +19,6 @@ body.kemudi-on #joy,body.kemudi-on #seaBar,body.kemudi-on #seaHud{display:none!i
 .km-off .km-wheel,.km-off .km-lever{opacity:.45;pointer-events:none}
 /* #146 melebarkan dock pemain (hitungan server): di layar sempit Kemudi turun di bawah dock supaya tidak menutup tombol obrolan */
 @media (max-width:480px) and (orientation:portrait){.km-top{top:calc(env(safe-area-inset-top,0px) + 88px)}body.kemudi-on .hint{top:calc(env(safe-area-inset-top,0px) + 146px)!important}}
+/* obrolan terbuka (panel melayang z-index 41, latar tembus pandang): sembunyikan status atas Kemudi agar tidak menimpa judul/tombol obrolan; di layar lanskap tombol aksi (kiri) ikut disembunyikan (menimpa kolom ketik) */
+body.mp-chat-open .km-top{visibility:hidden}
+@media (orientation:landscape) and (max-height:460px){body.mp-chat-open .km-btns{visibility:hidden}}
