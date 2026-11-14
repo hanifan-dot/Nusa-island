@@ -21,10 +21,10 @@ if (window.NUSA_SF_PREVIEW !== true) window.NUSA_SF_PREVIEW = false;   // (uji b
 
 // Pengiriman Segar Pak Damar (Fase A): MATI. Modul delivery/* tidak diunduh sama sekali bila false. Dinyalakan hanya oleh Owner setelah kontrak server Worker 01 siap.
 // UI Kemudi Kapal (setir + tuas): MATI. kemudi/* tidak diunduh bila false; UI lama tetap.
-if (window.NUSA_KEMUDI !== true) window.NUSA_KEMUDI = false;
-if (window.NUSA_KOTA !== true) window.NUSA_KOTA = false;   // Visual Kota Nusa (Ide 04): MATI. kota/* tidak diunduh bila false; area Selat identik dengan sebelumnya. Hanya visual lokal: tanpa ekonomi, tanpa server.
-if (window.NUSA_ROMBONGAN !== true) window.NUSA_ROMBONGAN = false;   // Kapal Rombongan (visual + klien): MATI. rombongan/* tidak diunduh bila false; kapal tunggal lama tidak berubah. Akses tetap dikunci server (kapalRombongan + NUSA_BOAT).
-if (window.NUSA_DELIVERY !== true) window.NUSA_DELIVERY = false;   // (uji boleh menyalakannya sebelum halaman dimuat)
+if (typeof window.NUSA_KEMUDI !== "boolean") window.NUSA_KEMUDI = true;
+if (typeof window.NUSA_KOTA !== "boolean") window.NUSA_KOTA = true;   // Visual Kota Nusa (Ide 04): MATI. kota/* tidak diunduh bila false; area Selat identik dengan sebelumnya. Hanya visual lokal: tanpa ekonomi, tanpa server.
+if (typeof window.NUSA_ROMBONGAN !== "boolean") window.NUSA_ROMBONGAN = true;   // Kapal Rombongan (visual + klien): MATI. rombongan/* tidak diunduh bila false; kapal tunggal lama tidak berubah. Akses tetap dikunci server (kapalRombongan + NUSA_BOAT).
+if (typeof window.NUSA_DELIVERY !== "boolean") window.NUSA_DELIVERY = true;   // (uji boleh menyalakannya sebelum halaman dimuat)
 if (typeof window.NUSA_IKAN_LOKASI !== "boolean") window.NUSA_IKAN_LOKASI = true;   // Ide 07B: 55 ikan lokasi baru (10 ikan reguler per lokasi masuk lemparan & Koleksi). MATI bawaan. SUPER RARE dikunci terpisah di server (shop/config.ikanLokasi).
 if (typeof window.NUSA_PHONE !== "boolean") window.NUSA_PHONE = true;   // NusaPhone (Ide 07): MATI. phone/* tidak diunduh bila false. HANYA saklar muat modul; akses = server (gameFlags.nusaPhone).
 if (typeof window.NUSA_DAPUR !== "boolean") window.NUSA_DAPUR = true;   // Ide 08 Dapur Rumahku + Kedai Bu Indah: AKTIF. Tetap dapat dimatikan eksplisit sebelum config dimuat; akses tetap dikunci server (gameFlags.dapurRumahku).
