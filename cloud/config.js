@@ -25,6 +25,6 @@ if (window.NUSA_KEMUDI !== true) window.NUSA_KEMUDI = false;
 if (window.NUSA_KOTA !== true) window.NUSA_KOTA = false;   // Visual Kota Nusa (Ide 04): MATI. kota/* tidak diunduh bila false; area Selat identik dengan sebelumnya. Hanya visual lokal: tanpa ekonomi, tanpa server.
 if (window.NUSA_ROMBONGAN !== true) window.NUSA_ROMBONGAN = false;   // Kapal Rombongan (visual + klien): MATI. rombongan/* tidak diunduh bila false; kapal tunggal lama tidak berubah. Akses tetap dikunci server (kapalRombongan + NUSA_BOAT).
 if (window.NUSA_DELIVERY !== true) window.NUSA_DELIVERY = false;   // (uji boleh menyalakannya sebelum halaman dimuat)
-if (window.NUSA_IKAN_LOKASI !== true) window.NUSA_IKAN_LOKASI = false;   // Ide 07B: 55 ikan lokasi baru (10 ikan reguler per lokasi masuk lemparan & Koleksi). MATI bawaan. SUPER RARE dikunci terpisah di server (shop/config.ikanLokasi).
-if (window.NUSA_PHONE !== true) window.NUSA_PHONE = false;   // NusaPhone (Ide 07): MATI. phone/* tidak diunduh bila false. HANYA saklar muat modul; akses = server (gameFlags.nusaPhone).
+if (typeof window.NUSA_IKAN_LOKASI !== "boolean") window.NUSA_IKAN_LOKASI = true;   // Ide 07B: 55 ikan lokasi baru (10 ikan reguler per lokasi masuk lemparan & Koleksi). MATI bawaan. SUPER RARE dikunci terpisah di server (shop/config.ikanLokasi).
+if (typeof window.NUSA_PHONE !== "boolean") window.NUSA_PHONE = true;   // NusaPhone (Ide 07): MATI. phone/* tidak diunduh bila false. HANYA saklar muat modul; akses = server (gameFlags.nusaPhone).
 if (typeof window.NUSA_DAPUR !== "boolean") window.NUSA_DAPUR = true;   // Ide 08 Dapur Rumahku + Kedai Bu Indah: AKTIF. Tetap dapat dimatikan eksplisit sebelum config dimuat; akses tetap dikunci server (gameFlags.dapurRumahku).
