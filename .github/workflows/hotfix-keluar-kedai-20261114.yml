@@ -1,0 +1,102 @@
+name: HOTFIX Keluar Kedai Bu Indah
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/hotfix-keluar-kedai-20261114.yml"
+
+concurrency:
+  group: nusa-island-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GAME_SHA: 14e374ee3fdf120b3033310ec8913c5b8da48d65
+
+jobs:
+  rilis:
+    name: Tes Kedai lalu deploy Hosting
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: production
+    steps:
+      - name: Hanya Owner
+        env:
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: '[ "$ACTOR" = "$OWNER" ]'
+
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/Nusa-island
+          ref: ${{ env.GAME_SHA }}
+          fetch-depth: 0
+          path: game
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verifikasi paket dan unit hotfix
+        run: |
+          set -e
+          test "$(git -C game rev-parse HEAD)" = "$GAME_SHA"
+          cd game
+          node --check dapur/room.js
+          node tests/unit-room-exit.js
+          node tests/unit-dapur.js
+          node firebase/scripts/cek-rilis.js
+
+      - name: Pasang Chromium pengujian
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.56.0
+          python -m playwright install --with-deps chromium
+
+      - name: Tes browser Kedai Bu Indah
+        run: cd game && python tests/browser/test_dapur.py
+
+      - name: Login Firebase OIDC
+        if: ${{ vars.GCP_WIF_PROVIDER != '' && vars.GCP_DEPLOY_SA != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+          create_credentials_file: true
+
+      - name: Login Firebase dengan secret cadangan
+        if: ${{ vars.GCP_WIF_PROVIDER == '' || vars.GCP_DEPLOY_SA == '' }}
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          [ -n "$SERVICE_ACCOUNT" ] || { echo "::error::Konfigurasi Firebase belum siap"; exit 1; }
+          umask 077
+          printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/nusa-sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/nusa-sa.json" >> "$GITHUB_ENV"
+
+      - name: Deploy Hosting saja
+        env:
+          NUSA_API_DEPLOYED: "ya"
+          NUSA_CONFIRM: "ya"
+          NUSA_CI: "1"
+          NUSA_TARGET: "game"
+          TARGET: "game"
+          NUSA_PROD_BRANCH: "hotfix/tes-recovery-4h-20261109"
+        run: cd game && bash firebase/scripts/rilis.sh --target game --ci
+
+      - name: Verifikasi live
+        run: |
+          set -e
+          curl -fsS --retry 8 https://nusa-island-d2023.web.app/dapur/room.js | grep -Fq 'pembersihan ruangan gagal'
+          curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_DAPUR = true'
+          echo "OK: hotfix keluar Kedai Bu Indah sudah live."
+
+      - name: Bersihkan kredensial sementara
+        if: always()
+        run: rm -f "$RUNNER_TEMP/nusa-sa.json"
