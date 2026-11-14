@@ -25,3 +25,4 @@ if (window.NUSA_KEMUDI !== true) window.NUSA_KEMUDI = false;
 if (window.NUSA_KOTA !== true) window.NUSA_KOTA = false;   // Visual Kota Nusa (Ide 04): MATI. kota/* tidak diunduh bila false; area Selat identik dengan sebelumnya. Hanya visual lokal: tanpa ekonomi, tanpa server.
 if (window.NUSA_ROMBONGAN !== true) window.NUSA_ROMBONGAN = false;   // Kapal Rombongan (visual + klien): MATI. rombongan/* tidak diunduh bila false; kapal tunggal lama tidak berubah. Akses tetap dikunci server (kapalRombongan + NUSA_BOAT).
 if (window.NUSA_DELIVERY !== true) window.NUSA_DELIVERY = false;   // (uji boleh menyalakannya sebelum halaman dimuat)
+if (window.NUSA_DAPUR !== true) window.NUSA_DAPUR = false;   // Ide 08 Dapur Rumahku + Kedai Bu Indah (klien): MATI. dapur/* tidak diunduh bila false. HANYA saklar muat modul; akses = server (gameFlags.dapurRumahku).

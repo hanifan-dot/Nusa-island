@@ -1546,6 +1546,7 @@ if (NW.recovery) NW.recovery.hook();        // 🔄 Pulihkan Data (ubin di menu 
 if (NW.worldMode) NW.worldMode.hook();       // Bermain di Dunia (ubin di menu ☰: pilih Multiplayer / Singleplayer)
 if (NW.rombongan) NW.rombongan.hook();   // Kapal Rombongan (hanya ada bila flag menyala)
 if (NW.delivery) NW.delivery.hook();   // Pengiriman Segar (hanya ada bila flag menyala)
+if (NW.dapur) NW.dapur.hook();   // Ide 08: Kedai Bu Indah + Dapur Rumahku (hanya ada bila NUSA_DAPUR menyala; akses = server dapurRumahku)
 if (NW.podium) NW.podium.hook();          // Podium Juara fisik di Muara (data hanya dari server)
 if (NW.sultan) NW.sultan.hook();          // Mercusuar Emas / Sultan Samudra: objek fisik terpisah, muncul HANYA bila server aktif
 if (NW.username) NW.username.hook();        // Nama Pemain Permanen (modal pendaftaran setelah login)

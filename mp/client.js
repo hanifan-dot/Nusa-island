@@ -44,7 +44,7 @@ async function getToken() {
 // Kunjungi Rumah Teman: bila sedang di Rumahku (sendiri atau rumah teman) target = ruang RUMAH (id publik dari NW.house, bukan input pemain mentah); selain itu Muara.
 const wantHouse = () => { try { return (NW.house && NW.house.roomWanted && NW.house.roomWanted()) || null; } catch (e) { return null; } };
 const gz = (x, y) => (R.house ? 0 : NW.groundZ ? NW.groundZ(x, y) : 0);
-const homeScene = () => (NW.home && NW.home.active ? NW.home.scene : null);
+const homeScene = () => (NW.home && NW.home.active && !(NW.room && NW.room.active) ? NW.home.scene : null);   // interior Ide 08 (Kedai/Dapur): bukan ruang rumah bersama → tidak disiarkan
 function local() {
   const w = NW.world && NW.world.player, mode = N().mode(), a = NW.areas && NW.areas.cur;
   if (R.house) {
@@ -55,7 +55,7 @@ function local() {
   const fishing = mode === "fish" && N().fishFrom() === "dock";
   const aboard = R.boatOn && !!R.mine;   // Kapal Rombongan: pemain di kursi kapal server TETAP tampak (kapal & kursi disinkronkan server; bukan lagi vis:false)
   const kc = kotaOn() && R.kota, ar = aboard ? R.area : kc && a && a.id === "selat" ? "selat" : "muara";   // Kota Nusa: area "selat" ikut dilayani HANYA bila klien+server sama-sama mendukung
-  const inMuara = aboard || (!!a && (a.id === P.AREA || (kc && a.id === "selat")) && !(NW.home && NW.home.active) && !(NW.boat && NW.boat.on));
+  const inMuara = aboard || (!!a && (a.id === P.AREA || (kc && a.id === "selat")) && !(NW.home && NW.home.active) && !(NW.room && NW.room.active) && !(NW.boat && NW.boat.on));
   const vis = !!w && inMuara && (aboard || mode === "world" || fishing) && N().isStarted();
   if (!w) return { vis: false };
   return { vis, ar, x: w.x, y: w.y, d: w.dir | 0, f: (w.moving && !fishing ? P.F.MOVING : 0) | (w.sit ? P.F.SIT : 0) | (fishing ? P.F.FISH : 0) };

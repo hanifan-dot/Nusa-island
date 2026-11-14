@@ -20,7 +20,7 @@ async function gate() {
 const mpOn = () => !!(NW.mp && NW.mp.view && NW.mp.view().online);
 const live = () => st.srv && !!NW.mp && NW.mp.boatOn();                      // kedua saklar ON + tersambung
 const kotaLive = () => !!(NW.mp && NW.mp.kotaLive && NW.mp.kotaLive());           // Multiplayer Kota Nusa: klien+server mendukung (kotaNusa + welcome ko===1)
-const inMuara = () => !!(NW.areas && NW.areas.cur && (NW.areas.cur.id === GAREA || (kotaLive() && NW.areas.cur.id === "selat" && NW.mp.area() === "selat")) && !(NW.home && NW.home.active));   // area tempat kapal server terlihat
+const inMuara = () => !!(NW.areas && NW.areas.cur && (NW.areas.cur.id === GAREA || (kotaLive() && NW.areas.cur.id === "selat" && NW.mp.area() === "selat")) && !(NW.home && NW.home.active) && !(NW.room && NW.room.active));   // area tempat kapal server terlihat
 const LAND = { x: 13.1, y: 20.45 };                    // titik turun di dermaga Pelabuhan Kota (sama dengan KOTA.LAND di server)
 const dockMode = () => { const m = mineInfo(); return !!m && !!m.boat.kota; };   // kapal ini berlabuh di kota sebagai pemain terlihat (bukan jalur "pergi" lama)
 const mineInfo = () => (live() ? NW.mp.boatMine() : null);

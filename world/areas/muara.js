@@ -93,6 +93,7 @@ function interact(t, api) {
   if (t.id === "boat" || t.id === "rute") return N().openPanel("map"); // Bumbu 2.4: papan 🧭 Rute Kapal = perjalanan cepat lama (kapal sendiri lewat ⛵ Naik Kapal)
   if (t.id === "board") return N().openPanel("missions");
   if (t.id === "podium") return NW.podium && NW.podium.open();   // Podium Juara (leaderboard fisik)
+  if (t.id === "kedaiindah") return NW.kedaiIndah && NW.kedaiIndah.open(api.player);   // Kedai Bu Indah (Ide 08; hanya ada bila NUSA_DAPUR menyala dan server dapurRumahku aktif)
   if (t.id === "delivery") return NW.delivery && NW.delivery.open();   // Pengiriman Segar (hanya ada bila flag NUSA_DELIVERY menyala)
   if (t.id === "sultan") return NW.sultan && NW.sultan.open();   // Mercusuar Emas / Sultan Samudra (muncul hanya bila server aktif)
   if (t.id === "home") return NW.home.enter(api.player);
