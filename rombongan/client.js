@@ -41,6 +41,13 @@ function boatShown(b) {
   let at = st.emptyAt.get(b.id); if (!at) { at = now(); st.emptyAt.set(b.id, at); }
   return now() - at < EMPTY_HIDE_SEC;
 }
+// Kompatibilitas kapal dari room lama: bila masih berada tepat di atas kapal pribadi,
+// geser visualnya ke jalur rombongan. Otoritas/posisi server tidak diubah.
+function displayPose(b) {
+  const q = NW.boat && NW.boat.B;
+  if (areaId() === "muara" && q && !q.on && q.area === "muara" && Math.hypot(b.x - q.x, b.y - q.y) < 2.6) return { x: b.x - 1.8, y: b.y + 3.2 };
+  return { x: b.x, y: b.y };
+}
 const lastPose = (pid) => st.last.get(pid) || null;
 const present = (pid) => { const m = mineInfo(); if (m && m.boat.seats.indexOf(pid) >= 0 && pid === NW.mp._R.me) return true; return !!(NW.mp.player && NW.mp.player(pid)); };
 const SPECS = () => (NW.boat && NW.boat.SPEC) || [];
@@ -193,10 +200,10 @@ function layer(t, view, inView) {
   for (const b of boatsList()) {
     if (!boatShown(b)) continue;
     const away = !!b.away; if (away && !(mi && mi.id === b.id)) continue;
-    const v = visOf(b, lastT), pose = { x: b.x, y: b.y, a: v.a, d: b.d }, pt = NW.P(b.x, b.y);
+    const v = visOf(b, lastT), dp = displayPose(b), pose = { x: dp.x, y: dp.y, a: v.a, d: b.d }, pt = NW.P(dp.x, dp.y);
     if (inView && !inView(view, pt.x, pt.y, 140)) continue;
     const sty = C.styleFor(b.id);
-    out.push({ d: b.x + b.y + 0.35, fn: (ctx) => {
+    out.push({ d: pose.x + pose.y + 0.35, fn: (ctx) => {
       ctx.save(); if (away) ctx.globalAlpha = 0.5;
       NW.boat.drawVessel(ctx, pose, t, { spec: st.spec, style: sty, remote: true, v: b.v, crew: crewDrawer(ctx, t, b, v, pose), anchored: !!b.anchor });
       ctx.restore();
@@ -246,6 +253,8 @@ function candidates(player) {
     if (muara && Math.hypot(player.x - DOCK_POINT.x, player.y - DOCK_POINT.y) < 5) out.push({ id: "rb:fail", x: DOCK_POINT.x, y: DOCK_POINT.y, r: 3, icon: "⛵", label: "Kapal Rombongan", rb: { k: "fail" }, bz: 40 });
     return out;
   }
+  // Kapal pribadi di titik yang sama selalu menang agar label "Naik Kapal" tidak bertumpuk.
+  if (NW.boat && NW.boat.boardable && NW.boat.boardable(player)) return out;
   const bl = boatsList().filter((b) => !b.away && (!boatEmpty(b) || b.id === st.lastBoat));
   for (const b of bl) for (const s of [1, 2]) {   // kapal kota tanpa kapten: server menjadikan yang pertama naik sebagai kapten (permintaan tetap kursi 1/2)
     if (!C.seatFree(b, s) || !C.boardable(b)) continue;
