@@ -8,7 +8,7 @@ Kontrak: [CONTRACT-NUSAPHONE.md](CONTRACT-NUSAPHONE.md). Urutan: UI HP → PlayG
 | 3. NusaWeb + Zentro + NusaOcean | Selesai di cabang (`test_phone_web.py` 45 lulus: alamat/Kembali/Beranda/tab ≤3/markah, alamat non-.nusa & HTML ditolak tanpa permintaan jaringan, Zentro hanya indeks lokal, NusaOcean = Ocean Spin yang sama) |
 | 4. Klippy, NusaChat, Dompet Nusa | Selesai di cabang (backend `klippy.test.js` 7 lulus; klien `test_phone_social.py` klippy 16 · chat 16 · dompet 5 · regresi 1; `test_house` 83/0, unit-mp 193/0) |
 | 5. Toko 6 model + toko fisik Kota | Selesai di cabang (`test_phone_store.py`: flag 3 · toko 13 · beli 14 · pulih 9 · premium 9 · layout 9, semua lulus; regresi Kota 38/58/22, `test_phone_ui`, `unit-phone` 80, `unit-kota` 22 lulus) |
-| 6. Integrasi Payment Center/QRIS | Belum |
+| 6. Integrasi Payment Center/QRIS (adaptor baca-saja) | Selesai di cabang: backend `nusaphone-payment` 7 lulus (suite 418 tes / 415 lulus / 0 gagal); klien `test_phone_store.py` premium 10/10. Model premium **belum bisa dibeli** (katalog lama tanpa `phone_*`; butuh persetujuan Owner). Lihat [AUDIT-PEMBAYARAN-NUSAPHONE.md](AUDIT-PEMBAYARAN-NUSAPHONE.md) |
 
 ## Menunggu keputusan Owner
 - **Nama lima model** (sementara: `Model Sementara 1–5`; hanya Nusa Crown 17 bernama) dan pemetaan **empat lini** (usulan: A = s1,s2 [koin]; B = s3; C = s4,s5; D = Nusa Crown 17).
@@ -43,3 +43,7 @@ Kontrak: [CONTRACT-NUSAPHONE.md](CONTRACT-NUSAPHONE.md). Urutan: UI HP → PlayG
 - **Pakai & sinkron**: `phoneUse` (idempoten) lalu `NW.phone.sync` memperbarui daftar milik + casing ponsel. Sebelumnya `st.owned` klien tidak pernah disinkronkan dari server; kini `phoneState` diambil saat gerbang ON dan saat ponsel dibuka (maks 1×/20 dtk), sehingga model beli di perangkat lain ikut tampil.
 - **Coba tampilan**: pratinjau klien saja (tanpa permintaan jaringan / perubahan data).
 - Uji bukan bukti produksi: server = Worker asli + Firestore tiruan; antarmuka "pembayaran tersedia" diuji dengan mengubah jawaban `phoneState` di lapisan jaringan uji (keputusan nyata tetap di server dan ditolak 409 untuk premium).
+
+## Keputusan desain Tahap 6 (Payment Center/QRIS)
+- Ponsel **tidak punya jalur bayar**. Adaptor `server/phone-payment.js` (baca-saja, gagal-tertutup) hanya menjawab "Payment Center nyata aktif untuk pemain ini?" dan "model mana yang dijual di katalog lama (`phone_<id>`)?". `phoneBuy` premium selalu 409. Kepemilikan premium hanya dari `ent.owned['phone_*']` yang ditulis jalur Payment Center lama. Bukti, matriks tes, dan batas: [AUDIT-PEMBAYARAN-NUSAPHONE.md](AUDIT-PEMBAYARAN-NUSAPHONE.md).
+- **Menunggu keputusan Owner**: menambah 4 produk `phone_s3/s4/s5/crown17` ke katalog Payment Center lama (mengubah Payment Center — tidak dikerjakan), uji pilot 1 akun Owner, kebijakan pembelian oleh anak.

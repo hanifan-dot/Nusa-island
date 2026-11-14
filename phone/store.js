@@ -132,7 +132,7 @@ function card() {
   else {
     const tryB = '<button type="button" class="nps-btn alt" data-a="try">Coba tampilan</button>';
     if (own) act = tryB + (using ? '<button type="button" class="nps-btn" disabled>Sedang dipakai</button>' : `<button type="button" class="nps-btn go" data-a="use" ${st.busy ? "disabled" : ""}>Pakai</button>`);
-    else if (premium) { act = tryB + (pay ? '<button type="button" class="nps-btn go" data-a="paycenter">Beli di Payment Center</button>' : '<button type="button" class="nps-btn" disabled>Pembayaran belum tersedia</button>'); note = pay ? "Model premium dibeli lewat Payment Center resmi; kepemilikan baru tercatat setelah pembayaran diverifikasi server. Dengan uang asli: minta izin orang tua/wali." : "Pembayaran uang asli belum aktif. Tidak ada pembelian yang dapat dilakukan sekarang."; }
+    else if (premium) { const sale = !!(m && m.buyable); act = tryB + (sale ? '<button type="button" class="nps-btn go" data-a="paycenter">Beli di Payment Center</button>' : `<button type="button" class="nps-btn" disabled>${esc((m && m.reason) || "Pembayaran belum tersedia")}</button>`); note = sale ? "Model premium dibeli lewat Payment Center resmi; kepemilikan baru tercatat setelah pembayaran diverifikasi server. Dengan uang asli: minta izin orang tua/wali." : pay ? "Payment Center aktif, tetapi model ini belum dijual di sana. Tidak ada pembelian yang dapat dilakukan sekarang." : "Pembayaran uang asli belum aktif. Tidak ada pembelian yang dapat dilakukan sekarang."; }
     else if (st.confirm) act = `<div class="nps-conf" role="alertdialog" aria-label="Konfirmasi pembelian"><p>Beli <b>${esc(d.name)}</b> seharga <b>🪙 ${fmt(m.coins)}</b> koin bermain? Saldo sekarang 🪙 ${fmt(s.bal)}.</p><button type="button" class="nps-btn go" data-a="buy-yes" ${st.busy ? "disabled" : ""}>Ya, beli</button><button type="button" class="nps-btn" data-a="buy-no">Batal</button></div>`;
     else act = tryB + `<button type="button" class="nps-btn go" data-a="buy" ${st.busy || !m || !m.buyable || s.bal < m.coins ? "disabled" : ""}>Beli 🪙 ${m ? fmt(m.coins) : "–"}</button>`, note = m && s.bal < m.coins ? "Koin bermain belum cukup. Koin didapat dari bermain; koin top-up tidak dipakai di sini." : "";
   }
@@ -157,7 +157,7 @@ function onClick(e) {
   else if (a === "retry") { const r = st.msg && st.msg.retry; if (r) send(r.opId, r.model, true); }
   else if (a === "use") useModel(st.sel);
   else if (a === "reload") refresh(false);
-  else if (a === "topup" || a === "paycenter") { if (!(st.s && st.s.pay && st.s.pay.available === true)) return; close(); try { NW.shopUI && NW.shopUI.open("topup"); } catch (er) { /* abaikan */ } }
+  else if (a === "topup" || a === "paycenter") { if (!(st.s && (a === "paycenter" ? (sel() && sel().buyable) : (st.s.pay && st.s.pay.available === true)))) return; close(); try { NW.shopUI && NW.shopUI.open("topup"); } catch (er) { /* abaikan */ } }
 }
 function onCanvas(e) {
   if (!root) return; const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) * CW / r.width, y = (e.clientY - r.top) * CH / r.height;

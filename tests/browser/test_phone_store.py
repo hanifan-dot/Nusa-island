@@ -192,7 +192,18 @@ def sec_premium(b, br):
     U.shot(A, "st-412x915-payment-center")
     ev(A, "NW.shopUI.close()"); time.sleep(0.8); go_door(A); opened = enter(A); card_ready(A); A.click("#nphStore .nps-topup", timeout=8000) if opened else None; time.sleep(0.8)
     ok("R6 'Isi Koin' hanya membuka Payment Center lama (toko tertutup, saldo tidak berubah)", not store_open(A) and ev(A, "!!(NW.shopUI&&NW.shopUI.isOpen())") and eco(br, uid)["bal"] == 3000)
-    ctx.close()
+    # Payment Center aktif, tetapi katalog lama belum menjual model premium: 'Isi Koin' aktif, model premium tetap nonaktif dengan alasan dari server
+    A.unroute("**/fn/phoneState")
+    def h2(route):
+        r = route.fetch(); j = r.json(); res = j.get("result", j); st = res.get("state") or res
+        if isinstance(st, dict) and "pay" in st:
+            st["pay"] = {"available": True}
+            for m in st["models"]:
+                if m["kind"] == "premium" and not m["owned"]: m["buyable"] = False; m["reason"] = "Belum dijual di Payment Center"
+        route.fulfill(response=r, json=j)
+    A.route("**/fn/phoneState", h2); ev(A, "NW.shopUI.close()"); time.sleep(0.8); go_door(A); enter(A); card_ready(A); chip(A, "s5"); time.sleep(0.2)
+    ok("R7 Payment Center aktif tapi model belum dijual: 'Isi Koin' aktif; tombol premium nonaktif bertuliskan 'Belum dijual di Payment Center'", not ev(A, "document.querySelector('#nphStore .nps-topup').disabled") and ev(A, "document.querySelector('#nphStore .nps-act .nps-btn:last-child').disabled") and "Belum dijual di Payment Center" in ev(A, "document.querySelector('#nphStore .nps-act').textContent") and not ev(A, "!!document.querySelector('#nphStore [data-a=paycenter]')"))
+    A.unroute("**/fn/phoneState"); ctx.close()
 
 def sec_layout(b, br):
     seat(br, "x", 0)
