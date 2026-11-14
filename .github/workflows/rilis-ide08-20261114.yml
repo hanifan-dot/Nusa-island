@@ -1,4 +1,4 @@
-name: RILIS Ide 08 Dapur Rumahku
+name: RILIS NusaPhone + 55 Ikan Lokasi
 on:
   push:
     branches: [main]
@@ -14,8 +14,8 @@ permissions:
   id-token: write
 
 env:
-  GAME_SHA: 273449d9726e46614d91f155fcc584e844af78aa
-  BACKEND_SHA: 452bc7eb57bf34d2527d5afc10c667e400689cc0
+  GAME_SHA: 372eb5a29c95c2b6bf0a276350efb41250e5757a
+  BACKEND_SHA: bc769f087b4bd27eec2fbb39afd863f7705d1001
   GUARD_SHA: ff3ab0b574bb4cd8b40b5438826b0049c8737dbb
 
 jobs:
@@ -68,8 +68,11 @@ jobs:
           cmp game/house/core.js backend/server/vendor/house-core.cjs
           cmp game/economy/sf-core.js backend/server/vendor/sf-core.cjs
           cmp game/economy/aurora-core.js backend/server/vendor/aurora-core.cjs
+          cmp game/economy/ikanloc-core.js backend/server/vendor/ikanloc-core.cjs
           grep -Fq 'window.NUSA_DAPUR = true' game/cloud/config.js
-          (cd game && node firebase/scripts/cek-rilis.js && node tests/unit-mp.js && node tests/unit-cf-auth.js)
+          grep -Fq 'window.NUSA_PHONE = true' game/cloud/config.js
+          grep -Fq 'window.NUSA_IKAN_LOKASI = true' game/cloud/config.js
+          (cd game && node firebase/scripts/cek-rilis.js && node tests/unit-mp.js && node tests/unit-cf-auth.js && node tests/unit-phone.js && node tests/unit-ikanloc.js && node tests/unit-room-exit.js)
 
       - name: Tes backend dan scan rahasia
         run: |
@@ -160,7 +163,9 @@ jobs:
           curl -fsS --retry 3 --max-time 20 "$NUSA_API_BASE/api/public-config" -o "$RUNNER_TEMP/rg/pc_after.json"
           node guard/scripts/release-guard.mjs shop "$RUNNER_TEMP/rg/pc_before.json" "$RUNNER_TEMP/rg/pc_after.json"
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_DAPUR = true'
-          echo "OK: Ide 08 terdeploy; QRIS/toko dan fitur ON lama tetap dijaga."
+          curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_PHONE = true'
+          curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_IKAN_LOKASI = true'
+          echo "OK: NusaPhone + 55 ikan terdeploy; Dapur, QRIS/toko, dan fitur ON lama tetap dijaga."
 
       - name: Bersihkan kredensial sementara
         if: always()
