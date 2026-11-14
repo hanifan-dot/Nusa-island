@@ -175,7 +175,12 @@ def main():
         ok("C22 koin kurang untuk alat → ditolak aman, tidak terbuka", not srv.pemanggang and srv.commits == n0 and "tidak cukup" in sheet_text(C).lower(), sheet_text(C)[-100:])
         click(C, "#kdSheet [data-a=close]")
         # ----- keluar -----
-        at_station(C, "exit"); interact(C); wait_for(C, "!NW.room.active", 4); time.sleep(0.6)
+        at_station(C, "exit")
+        # Jalur kompatibilitas yang pernah dipakai integrasi: tanpa argumen pemain, lalu klik ganda saat fade.
+        # Keluar harus idempoten, tidak membeku di layar hitam, dan tetap memulangkan pemain.
+        ok("C23a keluar tanpa argumen diterima; panggilan kedua saat transisi diabaikan", ev(C, "(()=>{const a=NW.room.exit(),b=NW.room.exit();return a===true&&b===false})()"))
+        wait_for(C, "!NW.room.active", 4); time.sleep(0.6)
+        ok("C23b transisi keluar selalu selesai (fade tidak tersangkut)", ev(C, "!document.getElementById('fade').classList.contains('on')"))
         ok("C23 keluar → kembali ke Muara di depan pintu kedai (posisi sebelum masuk), kamera & HUD normal", not in_room(C) and ev(C, "(()=>{const p=NW.world.player,t=NW.MUARA_MAP.points.find(q=>q.id==='kedaiindah');return Math.hypot(p.x-t.x,p.y-t.y)<0.5&&NW.areas.cur.id==='muara'})()"))
         ok("C24 tanpa error halaman (alur Kedai)", not eC, eC)
         # ----- kasir kosong → dialog Bu Indah, bukan sheet -----
