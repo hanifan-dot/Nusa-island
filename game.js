@@ -1295,6 +1295,7 @@ $("landBtn").addEventListener("click", () => {
   SFX.click();
   // Bumbu 2.4: memancing dari kapal → kembali ke kapal di tempat yang sama
   if (fishFrom === "sea" && NW.boat && NW.boat.on) return goWorld("sea", NW.boat.area);
+  if (fishFrom === "sea" && NW.rombongan && NW.rombongan.seated()) return goWorld("rombongan", NW.areas.cur.id);   // kembali ke kursi
   // area yang bisa dijelajahi (Muara, Toba) → kembali ke darat; lokasi mancing saja → peta
   if (NW.areas.forLoc(S.loc)) goWorld(fishFrom === "dock" ? "dock" : "boat"); else openPanel("map");
 });
@@ -1431,6 +1432,7 @@ function mapHTML() {
 function canSail(i) { return !!LOCATIONS[i] && upLvl("boat") + 1 >= LOCATIONS[i].boat; } // syarat level kapal (data lama, tidak diubah)
 function travel(i) {
   closePanel();
+  if (NW.rombongan && NW.rombongan.seated()) { toast("⛵ Turun dari Kapal Rombongan dulu untuk berpindah tempat.", "bad"); return false; }
   if (!canSail(i)) { toast(`🔒 Butuh ${UPGRADES.boat.levels[LOCATIONS[i].boat - 1]} untuk ke ${LOCATIONS[i].name}`, "bad"); return false; }
   if (LOCATIONS[i].id === "samudra" && !(NW.sf2 && NW.sf2.gate())) return false;   // syarat 100 tangkapan sah (dicek server juga saat memancing)
   const area = NW.areas.forLoc(i);
@@ -1468,7 +1470,7 @@ function enterFishing(from) {
   if (NW.story) NW.story.mark("fish");
   if (from === "dock") S.loc = NW.areas.cur.locIndex; // mancing dari titik mancing area aktif (Muara / Toba)
   // Bumbu 2.4: dari kapal berjangkar — lokasi = area laut sekarang, kelompok ikan = spot laut di posisi kapal
-  if (from === "sea") { S.loc = NW.areas.cur.locIndex; G.sea = NW.sea && NW.boat ? NW.sea.fishingAt(NW.areas.cur.id, NW.boat.B.x, NW.boat.B.y) : null; } else G.sea = null;
+  if (from === "sea") { const bp = (NW.rombongan && NW.rombongan.fishPos && NW.rombongan.fishPos()) || (NW.boat && NW.boat.B); S.loc = NW.areas.cur.locIndex; G.sea = NW.sea && bp ? NW.sea.fishingAt(NW.areas.cur.id, bp.x, bp.y) : null; } else G.sea = null;   // kapal rombongan: posisi laut = kapal server
   G.spotId = from === "dock" && NW.secret && NW.world && NW.secret.isSecret(NW.world.fishSpot && NW.world.fishSpot()) ? NW.world.fishSpot() : null; // Bumbu 2.2: spot rahasia aktif
   resetFishing(); buildScenery(); applyMode(); refreshHUD(); updateHint(); save();
 }
@@ -1542,6 +1544,9 @@ if (NW.cloud) NW.cloud.hook();             // Tahap 3: tombol Profil & akun
 if (NW.house) NW.house.hook();                 // Kunjungi Rumah Teman (tombol di Rumahku + panel cari); sebelum mp supaya ruang rumah sudah dikenali
 if (NW.recovery) NW.recovery.hook();        // 🔄 Pulihkan Data (ubin di menu ☰, dekat Profil & Akun)
 if (NW.worldMode) NW.worldMode.hook();       // Bermain di Dunia (ubin di menu ☰: pilih Multiplayer / Singleplayer)
+if (NW.rombongan) NW.rombongan.hook();   // Kapal Rombongan (hanya ada bila flag menyala)
+if (NW.delivery) NW.delivery.hook();   // Pengiriman Segar (hanya ada bila flag menyala)
+if (NW.dapur) NW.dapur.hook();   // Ide 08: Kedai Bu Indah + Dapur Rumahku (hanya ada bila NUSA_DAPUR menyala; akses = server dapurRumahku)
 if (NW.podium) NW.podium.hook();          // Podium Juara fisik di Muara (data hanya dari server)
 if (NW.sultan) NW.sultan.hook();          // Mercusuar Emas / Sultan Samudra: objek fisik terpisah, muncul HANYA bila server aktif
 if (NW.username) NW.username.hook();        // Nama Pemain Permanen (modal pendaftaran setelah login)

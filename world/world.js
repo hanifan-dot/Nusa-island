@@ -17,7 +17,9 @@ const N = () => window.Nusa; // API dari game.js
 const L = () => NW.life;      // misi & pertemanan
 const A = () => NW.areas.cur; // area aktif
 const H = () => A().hooks || {};
-const inHome = () => NW.home && NW.home.active;
+// Adegan dalam ruangan: Rumahku (NW.home) atau interior Ide 08 (NW.room: Kedai Bu Indah, Dapur Rumahku; ada hanya bila NUSA_DAPUR menyala). NW.room diutamakan.
+const scene = () => (NW.room && NW.room.active ? NW.room : NW.home && NW.home.active ? NW.home : null);
+const inHome = () => !!scene();
 const gz = (x, y) => NW.groundZ(x, y); // tinggi pijakan (dermaga, bukit)
 
 // ---------- Pemain ----------
@@ -57,7 +59,7 @@ function resize(w, h, dpr) {
 }
 let zs = 0; // zoom halus (Bumbu 2.4: sedikit menjauh saat berlayar supaya laut terasa luas)
 function camTarget(snap) {
-  if (inHome()) { const ct = NW.home.camTarget(player, W, H2, ZW); Z = ct.z; return ct; }
+  if (inHome()) { const ct = scene().camTarget(player, W, H2, ZW); Z = ct.z; return ct; }
   if (cine) { const p = NW.P(cine.x, cine.y, cine.z || 0); Z = lerp(ZW, ZW * (cine.zoom || 1), cine.k); return { x: lerp(cine.fx, p.x, cine.k), y: lerp(cine.fy, p.y, cine.k) }; }
   const sail = NW.boat && NW.boat.on, zt = sail ? ZW * 0.84 : ZW;
   zs = snap || !zs ? zt : lerp(zs, zt, 0.06); Z = zs;
@@ -72,7 +74,7 @@ const keys = new Set();
 let moved = false;
 const joyEl = $("joy"), knobEl = $("joyKnob");
 function joyHome() { const r = joyEl.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
-function blocked() { return dialog.open || busy || !!cine || N().isPanelOpen() || !N().isStarted() || $("fade").classList.contains("on") || (NW.home && NW.home.isEditing()) || (NW.adv && NW.adv.isBusy()) || (NW.mp && NW.mp.typing) || (NW.styleShop && NW.styleShop.isOpen()); }
+function blocked() { return dialog.open || busy || !!cine || N().isPanelOpen() || !N().isStarted() || $("fade").classList.contains("on") || (NW.home && NW.home.isEditing()) || (NW.room && NW.room.active && NW.room.blocking()) || (NW.adv && NW.adv.isBusy()) || (NW.mp && NW.mp.typing) || (NW.styleShop && NW.styleShop.isOpen()); }
 
 function onDown(e) {
   if (N().mode() !== "world") return;
@@ -196,18 +198,21 @@ let target = null, busy = false, busyT = 0, fishSpotId = null;
 function areaCandidates() {
   const a = A(), list = a.map.points.filter((p) => !(p.id === "boat" && a.sea && NW.boat)).concat(H().points ? H().points() : []); // Bumbu 2.4: kapal pemain = "Naik Kapal" (NW.boat)
   if (NW.boat) list.push(...NW.boat.landCandidates(player));
+  if (NW.rombongan) list.push(...NW.rombongan.candidates(player));
+  if (NW.port) list.push(...NW.port.candidates(player));   // Pelabuhan Kota: ambil kotak / mobil Pak Damar (hanya bila server pakDamar ON)   // Kapal Rombongan: Buat Kapal / Duduk (hanya bila server menyalakan)
   for (const n of a.npcs) if (!n.hidden && n.cur && (!H().npcTalkable || H().npcTalkable(n))) list.push({ id: "npc:" + n.id, x: n.x, y: n.y, r: 1.15, icon: "💬", label: "Bicara", npc: n });
   return list;
 }
 const sailing = () => !!(NW.boat && NW.boat.on);
-const candidates = () => (inHome() ? NW.home.candidates() : sailing() ? NW.boat.seaCandidates() : seat.on ? [{ id: "seat:stand", x: player.x, y: player.y, r: 9, icon: "🧍", label: "Berdiri", stand: true }] : areaCandidates());
-const walkable = (x, y) => (inHome() ? NW.home.walkable(x, y) : NW.walkable(x, y));
+const rbSeated = () => !!(NW.rombongan && NW.rombongan.seated());   // Kapal Rombongan (server): duduk di kursi = tidak berjalan, tidak ada titik interaksi darat
+const candidates = () => (inHome() ? scene().candidates() : rbSeated() ? [] : sailing() ? NW.boat.seaCandidates() : seat.on ? [{ id: "seat:stand", x: player.x, y: player.y, r: 9, icon: "🧍", label: "Berdiri", stand: true }] : areaCandidates());
+const walkable = (x, y) => (inHome() ? scene().walkable(x, y) : NW.walkable(x, y));
 function findTarget() {
   let best = null, bestS = 1e9;
   for (const p of candidates()) {
     const d = Math.hypot(player.x - p.x, player.y - p.y);
     if (d > p.r) continue;
-    const s = d / p.r - (p.npc ? 0.45 : 0); /* NPC didahulukan */ if (s < bestS) { bestS = s; best = p; }
+    const s = d / p.r - (p.npc ? 0.45 : 0) - (p.pri || 0); /* NPC didahulukan */ if (s < bestS) { bestS = s; best = p; }
   }
   return best;
 }
@@ -223,8 +228,10 @@ const api = { fishSpot: () => fishSpotId, openDialog, closeDialog, player, faceT
 function interact() {
   if (blocked() || !target) return;
   const t = target;
-  if (inHome()) return NW.home.interact(t, player, openDialog);
+  if (inHome()) return scene().interact(t, player, openDialog);
   if (t.stand) return standUp();
+  if (t.rb && NW.rombongan) return NW.rombongan.interact(t);
+  if (t.pk && NW.port) return NW.port.interact(t);
   if (t.boat && NW.boat) return NW.boat.interact(t);
   if (t.npc) return t.npc.talk(t.npc, api);
   if (t.id === "spot" || t.fish) { // titik mancing (semua area): memakai lokasi mancing LOCATIONS milik area
@@ -274,6 +281,7 @@ function switchArea(id) {
 function onEnter(at, areaId) {
   busy = false; fadeStarted = false; player.rod = 0; closeDialog(); standUp(true); cine = null;
   if (NW.home) NW.home.reset();
+  if (NW.room) NW.room.reset();
   const switched = areaId ? switchArea(areaId) : false;
   const a = A(), S = N().S, sp = a.spawns || {};
   const place = (p) => { player.x = p.x; player.y = p.y; if (p.dir !== undefined) player.dir = p.dir; };
@@ -286,6 +294,7 @@ function onEnter(at, areaId) {
     else if (switched) NW.boat.restore(a);
   }
   if (onBoat) { player.sit = false; NW.boat.syncPlayer(); }
+  else if (at === "rombongan" && rbSeated()) { player.sit = false; NW.rombongan.syncPlayer(); } // kembali dari memancing: tetap di kursi kapal rombongan
   else {
     player.sit = false;
     if (at === "dock") { const s = a.map.fishSpots.find((f) => f.id === fishSpotId) || a.map.fishSpots[0]; place(s ? s.ret : sp.start || a.map.START); }
@@ -419,10 +428,13 @@ function update(dt) {
   if (cine) { cine.t += dt; cine.k = clamp(Math.min(cine.t / 1.1, (cine.dur - cine.t) / 1.1), 0, 1); const e = cine.k; cine.k = e * e * (3 - 2 * e); if (cine.t >= cine.dur) { const done = cine.done; cine = null; if (done) done(); } }
   const v = blocked() ? { x: 0, y: 0, m: 0 } : inputVec();
   if (NW.boat) NW.boat.update(dt, v); // Bumbu 2.4: joystick mengemudikan kapal saat di atas kapal
+  if (NW.port) NW.port.update(dt);
+  if (NW.rombongan) NW.rombongan.update(dt, v); // Kapal Rombongan: pemain mengikuti kursinya; kapten: joystick → niat kemudi (server yang memutuskan)
+  const rbFrozen = rbSeated() || !!(NW.port && NW.port.busy());   // duduk di kapal rombongan / sedang mengangkat-memuat kotak: tidak berjalan
   if (sailing()) { /* posisi pemain mengikuti tempat duduk di buritan */ }
   else if (v.m > 0.05 && seat.on) standUp(); // geser joystick = berdiri dari bangku
-  if (!sailing() && v.m > 0.05) {
-    const SPEED = inHome() ? (NW.home.scene === "room" ? 115 : 140) : 180;
+  if (!sailing() && !rbFrozen && v.m > 0.05) {
+    const SPEED = (inHome() ? (NW.room && NW.room.active ? NW.room.speed() : NW.home.scene === "room" ? 115 : 140) : 180) * (NW.port ? NW.port.speedK() : 1);   // membawa kotak = lebih lambat
     const VK = inHome() ? 1 : 1.1; // imbangan kecil untuk proyeksi isometrik 2:1 (1.3 terlalu kencang saat ke bawah)
     const d = screenToWorld(v.x * SPEED * dt, v.y * SPEED * VK * dt);
     const nx = player.x + d.x, ny = player.y + d.y;
@@ -431,12 +443,12 @@ function update(dt) {
     else if (walkable(player.x, ny)) player.y = ny;
     player.dir = dirOf(v.x, v.y); player.moving = true; player.walk += dt * 11 * (0.5 + v.m * 0.6);
     if (!moved) { moved = true; NW.story.mark("walk"); updateHint(); }
-  } else if (!sailing()) player.moving = false;
+  } else if (!sailing() && !rbFrozen) player.moving = false;
   if (seat.on) { seat.t += dt; if (seat.tick) seat.tick(seat.t, dt); }
   player.z = inHome() ? 0 : undefined;
 
   for (const n of A().npcs) updateNPC(n, dt); // hanya NPC area aktif
-  if (inHome()) NW.home.update(dt);
+  if (inHome()) scene().update(dt);
   else if (NW.adv) NW.adv.tick(A().id, player, dt); // penemuan tempat
   target = blocked() ? null : findTarget();
   updateActBtn();
@@ -450,9 +462,10 @@ function update(dt) {
 function updateHint() {
   if (inHome()) return;
   const h = H().hint ? H().hint() : "";
+  if (rbSeated()) return N().setHint("⛵ Kapal Rombongan · obrolan, emoji, peta tetap bisa dipakai");
   if (sailing()) { // Bumbu 2.4: petunjuk berlayar (cerita area tetap didahulukan bila ada)
     const story = h && h.startsWith("📖") ? h : "";
-    return N().setHint(story || (NW.boat.anchor ? "⚓ Berjangkar · 🎣 Memancing menyala · ⛵ Angkat jangkar untuk berlayar" : "⛵ Joystick atas = maju · kiri/kanan = belok · ⚓ Jangkar untuk berhenti"));
+    return N().setHint(story || (NW.boat.anchor ? "⚓ Berjangkar · 🎣 Memancing menyala · ⛵ Angkat jangkar untuk berlayar" : (NW.kemudi ? "⛵ Setir = belok · tuas = maju/mundur · ⚓ Jangkar untuk berhenti" : "⛵ Joystick atas = maju · kiri/kanan = belok · ⚓ Jangkar untuk berhenti")));
   }
   N().setHint(h);
 }
@@ -512,7 +525,8 @@ function draw(ctx, t) {
   player.rodSpec = NW.look.rodSpec(); // joran aktif (dari S.up.rod) → tampil di punggung
   const onBoat = sailing();
   if (NW.boat) for (const it of NW.boat.layer(t, (dz) => drawSeated(ctx, t, dz))) list.push({ d: it.d, fn: it.draw }); // kapal (pemain duduk di dalamnya)
-  if (!onBoat) list.push({ d: pDepth, ch: player });
+  if (NW.rombongan) for (const it of NW.rombongan.layer(t, view, inView)) list.push(it); // kapal rombongan + 3 awak di kursi (keadaan server)
+  if (!onBoat && !(NW.rombongan && NW.rombongan.hidesSelf())) list.push({ d: pDepth, ch: player });
   if (NW.mp && !inHome()) for (const it of NW.mp.layer(view, inView)) list.push(it); // pemain lain (nyata) di Muara Kampung
   list.sort((x, y) => x.d - y.d);
   const night = dk / 0.85, claim = L() ? L().claimable() > 0 : false;
@@ -520,6 +534,7 @@ function draw(ctx, t) {
     if (it.fn) it.fn(ctx);
     else if (it.ch) {
       NW.drawCharacter(ctx, it.ch, t);
+      if (it.ch === player && NW.port) NW.port.drawCarry(ctx, player, t);   // kotak dibawa dua tangan
       if (it.ch === player) { // label nama + gelar: ikut urutan kedalaman, jadi tertutup bangunan di depannya
         const pb = NW.P(player.x, player.y, gz(player.x, player.y) - (player.sit ? 6 : 0));
         NW.look.drawPlayerLabel(ctx, pb, 1.0 / Z, NW.hold ? NW.hold.labelLift() : 0);
@@ -539,7 +554,7 @@ function draw(ctx, t) {
       ctx.globalAlpha = 1;
     }
   }
-  if (hiddenBehind && !onBoat) { ctx.globalAlpha = 0.5; NW.drawCharacter(ctx, player, t); ctx.globalAlpha = 1; }
+  if (hiddenBehind && !onBoat && !(NW.rombongan && NW.rombongan.hidesSelf())) { ctx.globalAlpha = 0.5; NW.drawCharacter(ctx, player, t); ctx.globalAlpha = 1; }
   if (hk.drawOver) hk.drawOver(ctx, t, dk, view, inView);
   if (NW.mp && !inHome() && !onBoat) NW.mp.drawBubbles(ctx, 1.0 / Z); // bubble chat & emoji
   if (NW.weather) NW.weather.drawRoofs(ctx, t, view, m, player.x, player.y); // tetes dari atap
@@ -626,10 +641,11 @@ function drawTargetBubble(ctx, t) {
   ctx.fillText(target.icon, tp.x, tp.y - bob + 1);
 }
 function drawHome(ctx, t) {
-  NW.home.drawScene(ctx, t, N().darkness(), player, { W, H: H2, DPR, worldXf: () => worldXf(ctx) });
-  if (NW.weather && NW.home.scene === "plot") { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); NW.weather.drawScreen(ctx, W, H2, t, N().darkness() / 0.85, A().id, "plot"); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); }
-  if (!NW.home.isEditing()) { worldXf(ctx); drawTargetBubble(ctx, t); }
-  if (NW.mp && NW.mp.inHouse && NW.mp.inHouse() && !NW.home.isEditing()) { worldXf(ctx); NW.look.drawPlayerLabel(ctx, NW.P(player.x, player.y, 0), 1.0 / Z, 0); NW.mp.drawBubbles(ctx, 1.0 / Z); }   // ruang rumah: label & bubble chat
+  const sc = scene();
+  sc.drawScene(ctx, t, N().darkness(), player, { W, H: H2, DPR, worldXf: () => worldXf(ctx) });
+  if (NW.weather && sc === NW.home && NW.home.scene === "plot") { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); NW.weather.drawScreen(ctx, W, H2, t, N().darkness() / 0.85, A().id, "plot"); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); }
+  if (!sc.isEditing()) { worldXf(ctx); drawTargetBubble(ctx, t); }
+  if (NW.mp && NW.mp.inHouse && NW.mp.inHouse() && !sc.isEditing() && sc === NW.home) { worldXf(ctx); NW.look.drawPlayerLabel(ctx, NW.P(player.x, player.y, 0), 1.0 / Z, 0); NW.mp.drawBubbles(ctx, 1.0 / Z); }   // ruang rumah: label & bubble chat
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
 // layar → tile (dipakai Mode Tata Ruang)

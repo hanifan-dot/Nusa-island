@@ -1,0 +1,130 @@
+/* NUSA ISLAND — Ide 08B · Kedai Bu Indah & Dapur Rumahku (UI). Hanya dimuat bila NUSA_DAPUR=true. Sheet kecil di bawah: dunia (rak, kasir) tetap terlihat. */
+.kd-chip{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 58px);transform:translateX(-50%);z-index:30;pointer-events:none}
+.kd-chip.hidden,.kd-sheet.hidden{display:none}
+.kd-chip button{pointer-events:auto;display:flex;align-items:center;gap:6px;min-height:36px;padding:4px 12px;border-radius:18px;border:2px solid #173f50;background:rgba(255,249,236,.96);color:#173f50;font:700 13px system-ui,sans-serif;box-shadow:0 2px 0 rgba(23,63,80,.35)}
+.kd-chip i{width:1px;height:14px;background:rgba(23,63,80,.3)}
+.kd-sheet{position:fixed;left:50%;bottom:0;transform:translateX(-50%);z-index:40;width:min(100%,520px);max-height:45vh;max-height:45dvh;overflow:auto;overscroll-behavior:contain;box-sizing:border-box;padding:0 14px calc(env(safe-area-inset-bottom,0px) + 12px);background:#fff6e4;color:#173f50;border:2px solid #173f50;border-bottom:0;border-radius:18px 18px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.35);font:14px/1.35 system-ui,sans-serif;animation:kdUp .18s ease-out}
+@keyframes kdUp{from{transform:translate(-50%,24px);opacity:.4}to{transform:translate(-50%,0);opacity:1}}
+.kd-sheet header{display:flex;align-items:center;justify-content:space-between;margin:-8px 0 4px}
+.kd-sheet h3{margin:0;font-size:16px}
+.kd-x{min-width:40px;min-height:40px;border:0;border-radius:20px;background:rgba(23,63,80,.1);color:#173f50;font-size:16px}
+.kd-list{list-style:none;margin:0;padding:0}
+.kd-row,.kd-tool{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 0;border-bottom:1px dashed rgba(23,63,80,.2)}
+.kd-ic{width:34px;height:34px;display:grid;place-items:center;font-size:22px;border-radius:10px;background:rgba(232,181,58,.28)}
+.kd-nm{flex:1;min-width:0;display:flex;flex-direction:column}
+.kd-nm b{font-size:14px}.kd-nm small{font-size:11.5px;opacity:.75}
+.kd-sub{font-weight:700;font-size:13px;white-space:nowrap}
+.kd-step{display:flex;align-items:center;gap:2px}
+.kd-step button{width:40px;height:40px;border-radius:12px;border:2px solid #173f50;background:#fff;color:#173f50;font:800 20px system-ui;line-height:1;padding:0}
+.kd-step button:disabled{opacity:.35}
+.kd-step output{min-width:26px;text-align:center;font-weight:800;font-size:15px}
+.kd-sheet footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;font-weight:700}
+.kd-btn{min-height:44px;padding:0 16px;border-radius:14px;border:2px solid #173f50;background:#fff;color:#173f50;font:800 14px system-ui}
+.kd-btn.gold{background:#f0c53a;box-shadow:0 2px 0 #b8901a}.kd-btn.ghost{background:transparent}.kd-btn:disabled{opacity:.45}
+.kd-note{margin:6px 0 0;font-size:12.5px;opacity:.85}.kd-note.warn{color:#a31f1a;opacity:1;font-weight:700}
+.kd-total,.kd-bal{display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;font-size:14px}.kd-total b{font-size:18px}.kd-bal.bad b{color:#a31f1a}
+.kd-done{font-size:20px;color:#2f8f7a;padding-right:8px}
+/* struk belanja: kertas dengan tepi bergerigi, muncul dari bawah */
+.kd-receipt{position:relative;margin:6px auto 0;max-width:330px;padding:10px 14px 16px;background:#fffdf4;border:1px solid rgba(23,63,80,.25);font:12.5px/1.4 ui-monospace,Menlo,monospace;color:#2a2a2a;animation:kdPrint .45s ease-out;
+  -webkit-mask:linear-gradient(#000,#000) top/100% calc(100% - 6px) no-repeat,conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) bottom/12px 6px repeat-x;mask:linear-gradient(#000,#000) top/100% calc(100% - 6px) no-repeat,conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) bottom/12px 6px repeat-x}
+@keyframes kdPrint{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+.kd-rh{text-align:center;border-bottom:1px dashed #888;padding-bottom:6px;margin-bottom:6px}.kd-rh b{display:block;font-size:14px;letter-spacing:.06em}.kd-rh small{opacity:.7}
+.kd-receipt ul{list-style:none;margin:0;padding:0}.kd-receipt li{display:flex;justify-content:space-between;gap:8px}.kd-receipt li small{opacity:.65}
+.kd-rt,.kd-rs{display:flex;justify-content:space-between;border-top:1px dashed #888;margin-top:6px;padding-top:6px}.kd-rt b{font-size:15px}.kd-rs{border-top:0;margin-top:2px;padding-top:0;opacity:.8}
+.kd-receipt p{margin:8px 0 0;text-align:center}
+/* pegangan geser: tarik = ubah tinggi, ketuk = ringkas/besarkan */
+.kd-grip{display:block;width:100%;height:26px;margin:0;padding:0;border:0;background:transparent;touch-action:none;cursor:grab;position:sticky;top:0;z-index:2}
+.kd-grip i{display:block;width:44px;height:5px;margin:10px auto 0;border-radius:3px;background:rgba(23,63,80,.35)}
+.kd-sheet.mini{max-height:96px;overflow:hidden}.kd-sheet.mini footer,.kd-sheet.mini .kd-list,.kd-sheet.mini .kd-note,.kd-sheet.mini .kd-total,.kd-sheet.mini .kd-bal,.kd-sheet.mini .kd-receipt,.kd-sheet.mini .kd-tool{display:none}
+.kd-sheet footer{position:sticky;bottom:calc(env(safe-area-inset-bottom,0px) * -1 - 12px);background:#fff6e4;padding:8px 0 4px;z-index:1}
+.kd-chip{top:calc(env(safe-area-inset-top,0px) + 58px)}
+/* lanskap rendah (mis. 740×360): panel di sisi kanan, ruangan tetap terlihat di kiri */
+@media (orientation:landscape) and (max-height:520px){
+  .kd-sheet{left:auto;right:0;top:0;bottom:0;transform:none;width:min(46vw,360px);max-height:none;border:2px solid #173f50;border-right:0;border-radius:18px 0 0 18px;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 8px);animation:kdSide .18s ease-out}
+  .kd-sheet.mini{max-height:none;overflow:auto}.kd-sheet.mini footer,.kd-sheet.mini .kd-list,.kd-sheet.mini .kd-note,.kd-sheet.mini .kd-total,.kd-sheet.mini .kd-bal,.kd-sheet.mini .kd-receipt,.kd-sheet.mini .kd-tool{display:revert}
+  .kd-grip{display:none}.kd-sheet header{margin:10px 0 4px}.kd-chip{left:calc(50% - 90px);top:calc(env(safe-area-inset-top,0px) + 8px)}
+}
+@keyframes kdSide{from{transform:translateX(24px);opacity:.4}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.kd-sheet,.kd-receipt{animation:none}}
+
+/* di dalam Kedai/Dapur: tombol milik Rumahku tidak relevan */
+body.room-active #layoutBtn, body.room-active #visitBtn { display: none !important; }
+
+/* ===== 08C · memasak, hasil masakan, cuci peralatan (panel #mkSheet memakai gaya .kd-sheet) ===== */
+.mk-hr{display:flex;align-items:center;gap:6px}
+.mk-calm{min-height:36px;padding:0 10px;border-radius:18px;border:2px solid #173f50;background:#fff;color:#173f50;font:700 12px system-ui}
+.mk-calm[aria-pressed=true]{background:#d9f0dc}
+.mk-tabs{display:flex;gap:6px;margin:2px 0 6px}
+.mk-tab{flex:1;min-height:42px;border-radius:12px;border:2px solid #173f50;background:#fff;color:#173f50;font:800 13px system-ui}
+.mk-tab[aria-selected=true]{background:#f0c53a;box-shadow:0 2px 0 #b8901a}
+.mk-seg{display:flex;gap:6px;margin-bottom:6px}.mk-seg button{flex:1;min-height:38px;border-radius:12px;border:2px solid #173f50;background:#fff;color:#173f50;font:700 13px system-ui}.mk-seg button[aria-pressed=true]{background:#cfe7f3}
+.mk-recs{display:block}.mk-rec{border-bottom:1px dashed rgba(23,63,80,.2)}.mk-recb{width:100%;display:flex;align-items:center;gap:10px;min-height:52px;padding:4px 2px;border:0;background:transparent;color:inherit;text-align:left;font:inherit}
+.mk-rec.sel{background:rgba(240,197,58,.18);border-radius:12px}
+.mk-need{display:inline-block;margin:2px 4px 0 0;padding:1px 6px;border-radius:9px;background:rgba(23,63,80,.08);font-size:12px;font-weight:700}.mk-need.miss{background:#f9d7d3;color:#a31f1a}
+.mk-st{font-size:13px;opacity:.8;letter-spacing:1px}
+.mk-fishbox{margin:6px 0}.mk-fish{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.mk-chip{min-height:38px;padding:0 10px;border-radius:19px;border:2px solid #173f50;background:#fff;color:#173f50;font:700 12.5px system-ui}.mk-chip[aria-pressed=true]{background:#cfe7f3;box-shadow:inset 0 0 0 2px #2f8f7a}
+.mk-sum{font-size:13px;opacity:.85}
+.mk-status{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 0 6px}.mk-live{font-weight:800;font-size:13px;color:#2f6f5a}
+.mk-rail{display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:6px;margin:4px 0}
+.mk-act{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-height:58px;border-radius:14px;border:2px solid #173f50;background:#fff;color:#173f50;font:700 12px system-ui;padding:2px}
+.mk-act>span{font-size:22px;line-height:1}.mk-act.next{background:#fff3c4;box-shadow:0 0 0 3px #f0c53a}.mk-act.done{background:#e1f3e4}.mk-act:disabled{opacity:.5}
+.mk-heat{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0}
+.mk-flame{min-height:54px;border-radius:14px;border:2px solid #173f50;background:#fff;color:#173f50;font:700 13px system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center}.mk-flame[aria-pressed=true]{background:#ffd9a8;box-shadow:inset 0 0 0 2px #d9622e}
+.mk-row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0}.mk-big{width:100%;min-height:52px;margin:6px 0;font-size:15px}
+.mk-link{border:0;background:none;color:#1d6b94;text-decoration:underline;font:inherit;padding:0 2px;min-height:32px}
+/* bidang gerakan (ketuk / putar / gosok / tahan) */
+.mk-pad{display:flex;align-items:center;gap:12px;min-height:84px;margin:6px 0;padding:8px 12px;border-radius:18px;border:3px dashed #2f8f7a;background:#effaf1;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
+.mk-pad:focus-visible{outline:3px solid #f0c53a}
+.mk-art{width:62px;height:62px;display:grid;place-items:center;font-size:38px;border-radius:50%;background:#fff;border:2px solid #173f50;flex:none}
+.mk-pad.hit .mk-art{animation:mkHit .16s ease-out}@keyframes mkHit{0%{transform:scale(1)}40%{transform:scale(1.18) rotate(-6deg)}100%{transform:scale(1)}}
+.mk-pad.calm.hit .mk-art{animation:none}
+.mk-pt{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}.mk-pt small{opacity:.8;font-size:12px}
+.mk-bar{height:12px;border-radius:6px;background:rgba(23,63,80,.15);overflow:hidden}.mk-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#2f8f7a,#8ad1a0);border-radius:6px;transition:width .08s linear}
+/* hasil masakan */
+.mk-res{display:flex;align-items:center;gap:14px;margin:6px 0;padding:10px;border-radius:16px;background:#fff;border:2px solid rgba(23,63,80,.25)}.mk-res p{margin:2px 0 0;font-size:13px}.mk-new{color:#b0711a;font-weight:800}
+.mk-dish{width:74px;height:74px;flex:none;border-radius:50%;background:#fbfbf6;border:3px solid #3a73b8;display:grid;place-items:center;position:relative}.mk-dish i{width:48px;height:34px;border-radius:50% 50% 46% 46%;background:var(--dish,#c9a45c);box-shadow:inset -6px -5px 0 rgba(0,0,0,.14)}
+.tier-gosong .mk-dish::after{content:"";position:absolute;top:-8px;left:30px;width:14px;height:14px;border-radius:50%;background:rgba(60,56,52,.5);animation:mkSmoke 1.8s ease-in infinite}
+@keyframes mkSmoke{from{transform:translateY(0) scale(.6);opacity:.8}to{transform:translateY(-22px) scale(1.5);opacity:0}}
+.tier-enak{border-color:#d9a21a}
+/* langkah cuci */
+.mk-wstep{display:flex;justify-content:space-between;margin:4px 0}.mk-wstep span{flex:1;text-align:center;font-size:22px;opacity:.45;display:flex;flex-direction:column;align-items:center}.mk-wstep small{font-size:11px;font-weight:700}
+.mk-wstep .now{opacity:1;transform:scale(1.12)}.mk-wstep .ok{opacity:.9}.mk-wstep .ok::after{content:"✔";font-size:11px;color:#2f8f7a}
+@media (prefers-reduced-motion:reduce){.mk-pad.hit .mk-art,.tier-gosong .mk-dish::after{animation:none}.mk-bar i{transition:none}}
+@media (orientation:landscape) and (max-height:520px){.mk-pad{min-height:64px;padding:6px 10px;margin:4px 0}.mk-art{width:46px;height:46px;font-size:28px}}
+
+/* ---- workstation jarak dekat (bench.js): kanvas di atas panel; HUD & toast tetap di atasnya ---- */
+.mk-bench{position:fixed;z-index:4;display:block;touch-action:none;-webkit-user-select:none;user-select:none;cursor:pointer;background:#f3e4c4}
+.mk-bench.hidden{display:none}
+body.mk-bench-on .joy,body.mk-bench-on .act-btn{display:none!important}
+
+/* ===== Ide 08D · Halaman Sosial Rumahku: meja makan, nampan, tawaran. Sheet ≤45% tinggi layar (HP) / panel samping (lanskap); joystick, chat, keluar tetap terjangkau. ===== */
+.hl-sheet .hl-tabs{display:flex;gap:8px;margin:4px 0 6px}.hl-sheet .hl-tabs .kd-btn{flex:1;min-height:40px;padding:0 8px;font-size:13px}
+.hl-chip{display:inline-block;padding:1px 7px;border-radius:9px;color:#fff;font-size:11px;font-weight:800;vertical-align:1px}.hl-chip.bad{background:#a31f1a}
+.hl-s{min-height:40px;padding:0 10px;font-size:13px}.hl-slots{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.hl-n{min-width:40px;min-height:40px;padding:0;font-size:15px}
+.hl-av{width:36px;height:46px;flex:none}
+.hl-offer-t{display:flex;gap:10px;align-items:center;margin:2px 0 8px}.hl-offer-t b{font-size:14px}
+.hl-bar{height:8px;border-radius:5px;background:rgba(23,63,80,.15);overflow:hidden}.hl-bar i{display:block;height:100%;background:#2fb39a;transition:width .3s linear}
+.hl-offer-b{display:flex;gap:10px;margin-top:8px}.hl-offer-b .kd-btn{flex:1}
+.hl-sheet.mini .hl-tabs,.hl-sheet.mini .hl-offer-t,.hl-sheet.mini .hl-bar,.hl-sheet.mini .hl-offer-b{display:none}
+body.hl-open .visit-back{z-index:45}
+@media (orientation:landscape) and (max-height:520px){
+  body.hl-open .visit-back{right:calc(min(46vw,360px) + 8px)}
+  .hl-sheet.mini .hl-tabs,.hl-sheet.mini .hl-offer-t,.hl-sheet.mini .hl-bar,.hl-sheet.mini .hl-offer-b{display:revert}
+  .hl-sheet .hl-s{min-height:36px}
+}
+/* 08E — penataan halaman (pemilik) */
+.hl-help{margin:2px 0 6px}
+.hl-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.hl-pick{flex:none;min-height:38px;padding:0 10px;border-radius:19px;border:2px solid rgba(23,63,80,.25);background:#fff9ec;color:#173f50;font-size:12.5px;font-weight:800;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.hl-pick.sel{border-color:#1fa88f;background:#d9f5ee}.hl-pick.bad{border-color:#d64545;background:#fde3e1}.hl-pick.sel.bad{background:#fbd0cd}
+.hl-editrow{display:flex;gap:10px;align-items:stretch}
+.hl-pad{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,40px);gap:3px;flex:none}
+.hl-pad button{min-width:44px;min-height:40px;padding:0;border-radius:11px;border:2px solid rgba(23,63,80,.3);background:#e8b53a;color:#173f50;font-size:15px;font-weight:900;touch-action:manipulation}
+.hl-pad button:active{transform:translateY(1px);filter:brightness(.95)}.hl-pad .hl-step{background:#fff9ec;font-size:12px}
+.hl-pad button:disabled{opacity:.5}
+.hl-editr{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.hl-valid{margin:0;font-size:12px;font-weight:800;line-height:1.25;min-height:30px}.hl-valid.ok{color:#0f6b5a}.hl-valid.bad{color:#a82424}
+.hl-edit-b{display:flex;gap:6px;flex-wrap:wrap}.hl-edit-b .kd-btn{flex:1;min-width:64px;min-height:40px;padding:0 8px;font-size:13px}
+@media (max-height:420px) and (orientation:landscape){.hl-help{display:none}}
+@media (prefers-reduced-motion:reduce){.hl-bar i{transition:none}}

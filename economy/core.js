@@ -40,6 +40,7 @@
     const initCap = Number.isFinite(opts.initCap) ? opts.initCap : 20000;     // batas koin lama yang diakui SEKALI saat migrasi; 0 saat rilis
     const QK = opts.quest || null;                                            // QuestCore (economy/quest-core.js): Quest Owner, opsional (tanpa ini ecoQuest* menolak)
     const SK = opts.streak || null;                                           // StreakCore (streak/core.js), opsional
+    const DM = opts.damar || null;                                            // DamarCore (economy/damar-core.js): Pengiriman Segar Pak Damar, opsional (tanpa ini ecoDamar* menolak); Worker mengunci dengan flag pakDamar
     const PC = opts.pond || null;                                             // PondCore (economy/pond-core.js): Kolam Ikan Rumahku, opsional (tanpa ini ecoPond* menolak)
     const AU = opts.aurora || null;                                           // AuroraCore (economy/aurora-core.js): bonus peluang Gamepass Pancing Aurora, opsional (tanpa ini tidak ada bonus)
     const FC = opts.fashion || null;                                          // FashionCore (economy/fashion-core.js): katalog & harga avatar, opsional
@@ -107,6 +108,19 @@
 
     // ---- Kolam Ikan (pond-core.js): data kolam dipegang server di dokumen ekonomi (eco.pond) ----
     const pondKnows = (eco, u) => !!(eco.pond && ((eco.pond.fish || []).some((f) => f.u === u) || (eco.pond.hist || []).some((f) => f.u === u)));
+    const needDM = () => { if (!DM) throw E("unimplemented", "Pengiriman Pak Damar belum diaktifkan di server."); return DM; };
+    // Satu pintu semua aksi Pak Damar: hari dari jam SERVER, idempoten (opId), ikan hanya berpindah kotak server → kotak pendingin → terkirim (tepat sekali), hadiah tepat sekali.
+    const damarRun = (auth, p, mutate, fn) => { needDM(); const uid = uidOf(auth); p = p || {}; const opId = mutate ? needOp(p) : null;
+      return db.tx(async (t) => {
+        const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco); const now = clock();
+        if (opId) { const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, { damar: DM.viewOf(DM.roll(eco.damar, now).d, now) }, view(eco, ent)); }
+        const r = DM.roll(eco.damar, now), d = r.d, dirty = r.d !== eco.damar || r.back.length > 0; eco.damar = d; for (const f of r.back) eco.box.push({ u: f.u, id: f.id, w: f.w });
+        let res = { ok: true };
+        if (fn) { try { res = Object.assign({ ok: true }, fn(eco, d, now, p)); } catch (x) { if (x instanceof EcoError) throw x; throw E("failed-precondition", String(x && x.message || "Aksi tidak valid.")); } }
+        if (opId) { remember(eco, opId, res); await t.set(ECO(uid), eco); } else if (dirty) await t.set(ECO(uid), eco);
+        return Object.assign({}, res, { damar: DM.viewOf(d, now) }, view(eco, ent));
+      }); };
+    const dmBox = (p) => { const i = Number(p.box); if (!Number.isInteger(i) || i < 0 || i >= 2) throw E("invalid-argument", "Kotak pendingin tidak valid."); return i; };
     const needPC = () => { if (!PC) throw E("unimplemented", "Kolam ikan belum diaktifkan di server."); return PC; };
     const pondOf = (eco) => { if (!eco.pond || !eco.pond.lv) eco.pond = PC.fresh(); return eco.pond; };
     const metaOk = (m) => ({ vr: typeof m.vr === "string" && /^[a-z0-9_]{1,24}$/.test(m.vr) ? m.vr : null, t: Number.isFinite(m.t) && m.t >= 0 && m.t < 1e15 ? Math.floor(m.t) : 0 });
@@ -304,6 +318,15 @@
       // ---- Kolam Ikan Rumahku. Waktu = jam SERVER; klien tidak pernah mengirim kenyang/waktu/harga/berat. Semua ikan masuk/keluar kolam atomik
       //      dengan kotak ikan server (satu transaksi), sehingga ikan tidak bisa ada di dua tempat atau dijual saat berada di kolam. ----
       // pondTx: pagar bersama (login, ekonomi aktif, opId idempoten, kematian diproses idempoten pada tiap operasi). fn mengembalikan {extra, rec, ent}.
+      async ecoDamarState(auth, p) { return damarRun(auth, p, false, null); },
+      async ecoDamarLoad(auth, p) { p = p || {}; const us = uidList(p.uids, 3), i = dmBox(p);
+        return damarRun(auth, p, true, (eco, d, now) => { const pick = [];
+          for (const u of us) { const b = eco.box.find((x) => x.u === u); if (!b) throw E("failed-precondition", "Ikan tidak ada di inventaris server."); if (!DM.fishOk(FISH[b.id])) throw E("failed-precondition", "Ikan ini tidak bisa dikirim."); pick.push(b); }
+          DM.load(d, i, pick, now); eco.box = eco.box.filter((x) => !us.includes(x.u)); return { loaded: us.length }; }); },
+      async ecoDamarUnload(auth, p) { p = p || {}; const i = dmBox(p); return damarRun(auth, p, true, (eco, d) => { const back = DM.unload(d, i); for (const f of back) eco.box.push({ u: f.u, id: f.id, w: f.w }); return { returned: back.length }; }); },
+      async ecoDamarSail(auth, p) { p = p || {}; const i = dmBox(p); return damarRun(auth, p, true, (eco, d, now) => { DM.sail(d, i, now); return { sailing: i }; }); },
+      async ecoDamarAbort(auth, p) { p = p || {}; const i = dmBox(p); return damarRun(auth, p, true, (eco, d) => { DM.abort(d, i); return { aborted: i }; }); },
+      async ecoDamarDeliver(auth, p) { p = p || {}; const i = dmBox(p); return damarRun(auth, p, true, (eco, d, now) => { const r = DM.deliver(d, i, now); if (r.reward > 0) credit(eco, r.reward); return r; }); },
       async ecoPondState(auth, p) {
         needPC(); const uid = uidOf(auth); p = p || {};
         return db.tx(async (t) => {

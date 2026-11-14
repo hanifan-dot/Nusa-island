@@ -1,0 +1,24 @@
+body.kemudi-on .hint{top:calc(env(safe-area-inset-top,0px) + 120px)!important}
+body.kemudi-on #joy,body.kemudi-on #seaBar,body.kemudi-on #seaHud{display:none!important}
+#kmRoot.hidden{display:none}
+.km-top{position:fixed;z-index:7;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 56px);display:flex;flex-wrap:wrap;justify-content:center;gap:2px 8px;max-width:calc(100vw - 16px);padding:4px 10px;border-radius:14px;background:rgba(255,249,236,.94);color:#173f50;font:700 11px system-ui,sans-serif;line-height:1.25;box-shadow:0 3px 10px rgba(10,35,45,.25);pointer-events:none}
+.km-top b{color:#2f7a8c}
+.km-btns{position:fixed;z-index:7;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 150px);display:flex;gap:6px}
+.km-btns button{width:50px;height:50px;border-radius:14px;border:3px solid #fff6e0;background:rgba(23,63,80,.92);color:#fff6e0;font-size:20px;line-height:1;display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:manipulation}
+.km-btns small{font:700 8.5px system-ui;margin-top:1px}.km-btns button.on{background:#e0b84c;color:#3b2a05}.km-btns button.dim{opacity:.5}
+.km-wheel{position:fixed;z-index:7;left:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);width:116px;height:116px;touch-action:none;border-radius:50%;filter:drop-shadow(0 4px 8px rgba(10,35,45,.4))}
+.km-wheel svg{width:100%;height:100%}
+.km-lever{position:fixed;z-index:7;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 176px);display:flex;flex-direction:column;gap:4px;padding:5px;border-radius:14px;background:rgba(23,63,80,.88)}
+.km-lever button{width:74px;height:44px;border-radius:10px;border:2px solid #fff6e0;background:#2b5d73;color:#fff6e0;font:800 12px system-ui;touch-action:manipulation}
+.km-lever button.on{background:#e0b84c;color:#3b2a05}
+@media (orientation:landscape) and (max-height:420px){.km-wheel{width:92px;height:92px;bottom:calc(env(safe-area-inset-bottom,0px) + 10px)}.km-btns{bottom:calc(env(safe-area-inset-bottom,0px) + 110px)}.km-btns button{width:44px;height:44px}.km-lever{right:132px;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);flex-direction:row-reverse}.km-lever button{width:72px;height:40px}.km-top{top:calc(env(safe-area-inset-top,0px) + 50px);font-size:10.5px}}
+
+/* host Kapal Rombongan: tombol tersembunyi per keadaan; kontrol dimatikan saat berlayar antar area/berlabuh/terputus; gigi mundur tak ada di protokol */
+.km-btns button.hidden{display:none}
+.km-lever button:disabled{opacity:.4;cursor:not-allowed}
+.km-off .km-wheel,.km-off .km-lever{opacity:.45;pointer-events:none}
+/* #146 melebarkan dock pemain (hitungan server): di layar sempit Kemudi turun di bawah dock supaya tidak menutup tombol obrolan */
+@media (max-width:480px) and (orientation:portrait){.km-top{top:calc(env(safe-area-inset-top,0px) + 88px)}body.kemudi-on .hint{top:calc(env(safe-area-inset-top,0px) + 146px)!important}}
+/* obrolan terbuka (panel melayang z-index 41, latar tembus pandang): sembunyikan status atas Kemudi agar tidak menimpa judul/tombol obrolan; di layar lanskap tombol aksi (kiri) ikut disembunyikan (menimpa kolom ketik) */
+body.mp-chat-open .km-top{visibility:hidden}
+@media (orientation:landscape) and (max-height:460px){body.mp-chat-open .km-btns{visibility:hidden}}

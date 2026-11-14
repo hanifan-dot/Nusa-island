@@ -18,7 +18,9 @@ let prefs = loadPrefs();
 const savePrefs = () => { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) {} };
 
 const R = { house: null, fails: 0, kickedAt: {}, roomNo: 0, vcount: 0, want: null, resume: null, pending: null, manualLeave: false, err: null, rooms: null, roomsAt: 0, roomsBusy: false, hbSent: 0, helloAt: 0, holdSent: undefined, ws: null, state: "off", why: "", me: null, room: "", n: 0, cap: P.ROOM_CAP, players: new Map(), log: [], self: { bubble: null, emote: null }, typing: false,
-  tx: 0, rx: 0, lastProf: 0, profKey: "", gotWelcomeEver: false, listeners: [], retry: 0, nextTry: 0, lastSend: 0, lastHb: 0, sent: null, hiddenAt: 0, vis: false, endpoint: undefined, helloSent: false, gotWelcome: false };
+  boatOn: false, boats: new Map(), mine: null, bListeners: [], tx: 0, rx: 0, lastProf: 0, profKey: "", gotWelcomeEver: false, listeners: [], retry: 0, nextTry: 0, lastSend: 0, lastHb: 0, sent: null, hiddenAt: 0, vis: false, endpoint: undefined, helloSent: false, gotWelcome: false };
+R.kota = false; R.area = "muara"; R.arAt = 0; R.koSent = false;   // Multiplayer Kota Nusa (bawaan MATI): R.kota = welcome server ko===1 (tetap diingat antar sambung ulang), R.area = area yang DIKONFIRMASI server
+const kotaOn = () => !!(NW.mpKota && NW.mpKota.enabled && NW.mpKota.enabled());
 const emit = () => R.listeners.forEach((f) => { try { f(); } catch (e) {} });
 const setState = (s, why) => { if (R.state !== s || (why !== undefined && why !== R.why)) { R.state = s; if (why !== undefined) R.why = why; emit(); } };
 const now = () => performance.now();
@@ -42,7 +44,7 @@ async function getToken() {
 // Kunjungi Rumah Teman: bila sedang di Rumahku (sendiri atau rumah teman) target = ruang RUMAH (id publik dari NW.house, bukan input pemain mentah); selain itu Muara.
 const wantHouse = () => { try { return (NW.house && NW.house.roomWanted && NW.house.roomWanted()) || null; } catch (e) { return null; } };
 const gz = (x, y) => (R.house ? 0 : NW.groundZ ? NW.groundZ(x, y) : 0);
-const homeScene = () => (NW.home && NW.home.active ? NW.home.scene : null);
+const homeScene = () => (NW.home && NW.home.active && !(NW.room && NW.room.active) ? NW.home.scene : null);   // interior Ide 08 (Kedai/Dapur): bukan ruang rumah bersama → tidak disiarkan
 function local() {
   const w = NW.world && NW.world.player, mode = N().mode(), a = NW.areas && NW.areas.cur;
   if (R.house) {
@@ -51,10 +53,12 @@ function local() {
     return { vis, x: w.x, y: w.y, d: w.dir | 0, f: (w.moving ? P.F.MOVING : 0) | (w.sit ? P.F.SIT : 0) | (sc === "room" ? P.F.IN : 0) };
   }
   const fishing = mode === "fish" && N().fishFrom() === "dock";
-  const inMuara = !!a && a.id === P.AREA && !(NW.home && NW.home.active) && !(NW.boat && NW.boat.on);
-  const vis = !!w && inMuara && (mode === "world" || fishing) && N().isStarted();
+  const aboard = R.boatOn && !!R.mine;   // Kapal Rombongan: pemain di kursi kapal server TETAP tampak (kapal & kursi disinkronkan server; bukan lagi vis:false)
+  const kc = kotaOn() && R.kota, ar = aboard ? R.area : kc && a && a.id === "selat" ? "selat" : "muara";   // Kota Nusa: area "selat" ikut dilayani HANYA bila klien+server sama-sama mendukung
+  const inMuara = aboard || (!!a && (a.id === P.AREA || (kc && a.id === "selat")) && !(NW.home && NW.home.active) && !(NW.room && NW.room.active) && !(NW.boat && NW.boat.on));
+  const vis = !!w && inMuara && (aboard || mode === "world" || fishing) && N().isStarted();
   if (!w) return { vis: false };
-  return { vis, x: w.x, y: w.y, d: w.dir | 0, f: (w.moving && !fishing ? P.F.MOVING : 0) | (w.sit ? P.F.SIT : 0) | (fishing ? P.F.FISH : 0) };
+  return { vis, ar, x: w.x, y: w.y, d: w.dir | 0, f: (w.moving && !fishing ? P.F.MOVING : 0) | (w.sit ? P.F.SIT : 0) | (fishing ? P.F.FISH : 0) };
 }
 function profile() {
   let name = "Pemancing", rank = 0; try { name = NW.look.playerName(); rank = NW.look.rank ? NW.look.rank() : 0; } catch (e) {}
@@ -113,10 +117,10 @@ function helloNow() {
   const L = local(); if (!L.vis) return;               // masuk hanya bila sedang di Muara (terlihat)
   const p = profile();
   R.helloAt = now();
-  if (send({ t: "hello", n: p.n, r: p.r, rd: p.rd, x: P.qz(L.x), y: P.qz(L.y), d: L.d, f: L.f })) { R.helloSent = true; R.sent = { x: L.x, y: L.y, d: L.d, f: L.f }; R.vis = true; R.holdSent = undefined; if (prefs.low) send({ t: "o", lo: 1 }); }
+  if (send(Object.assign({ t: "hello", n: p.n, r: p.r, rd: p.rd, x: P.qz(L.x), y: P.qz(L.y), d: L.d, f: L.f }, kotaOn() ? { ko: 1, ar: L.ar || "muara" } : {}))) { R.koSent = kotaOn(); R.helloSent = true; R.sent = { x: L.x, y: L.y, d: L.d, f: L.f }; R.vis = true; R.holdSent = undefined; if (prefs.low) send({ t: "o", lo: 1 }); }
 }
 function backoff() { R.retry = Math.min(R.retry + 1, 6); R.nextTry = now() + Math.min(30000, 1000 * Math.pow(2, R.retry)) * (0.7 + Math.random() * 0.6); }
-function reset() { R.players.clear(); R.me = null; R.vis = false; R.helloSent = false; R.gotWelcome = false; R.n = 0; R.vcount = 0; R.holdSent = undefined; }
+function reset() { R.koSent = false; R.area = "muara"; R.boats.clear(); R.mine = null; R.boatOn = false; R.players.clear(); R.me = null; R.vis = false; R.helloSent = false; R.gotWelcome = false; R.n = 0; R.vcount = 0; R.holdSent = undefined; }
 function onClose(ws, e) {
   if (R.ws !== ws) return;
   R.ws = null; reset();
@@ -176,17 +180,43 @@ function upsert(row) {
   return p;
 }
 function addLog(name, text, mine) { R.log.push({ name, text, t: Date.now(), mine: !!mine }); if (R.log.length > 80) R.log.shift(); }
+// ---------- Kapal Rombongan (protokol; gambar kapal/kursi = tugas visual Worker 02, memakai NW.mp.boats()/boatMine()) ----------
+// Baris server: [id, x, y, arah, kecepatan×10, bendera(1 jangkar|2 pergi), kursi0, kursi1, kursi2] — kursi = id publik pemain (0 = kosong). Posisi di-smooth klien dari target server.
+function setBoat(r) {
+  if (!Array.isArray(r) || typeof r[0] !== "string") return;
+  const o = R.boats.get(r[0]) || { id: r[0], x: r[1] / P.Q, y: r[2] / P.Q, vx: 0, vy: 0 };
+  o.tx = r[1] / P.Q; o.ty = r[2] / P.Q; o.d = r[3] | 0; o.v = (r[4] | 0) / 10; o.anchor = !!(r[5] & 1); o.away = !!(r[5] & 2); o.kota = !!(r[5] & 4); o.seats = [r[6] || 0, r[7] || 0, r[8] || 0]; o.at = now();
+  R.boats.set(o.id, o);
+  const me = R.me && o.seats.indexOf(R.me); if (R.me && me >= 0) R.mine = { id: o.id, s: me }; else if (R.mine && R.mine.id === o.id) R.mine = null;
+}
+function boatEvent(m) {
+  if (m.ev === "board" && m.p === R.me) R.mine = { id: m.b, s: m.s };
+  else if (m.ev === "leave" && m.p === R.me) R.mine = null;
+  else if (m.ev === "cap" && m.p === R.me && R.mine) R.mine.s = 0;
+  boatEmit(m.ev, { b: m.b, p: m.p, s: m.s, ar: m.ar, ko: m.ko === 1 });
+}
+const boatEmit = (type, d) => R.bListeners.forEach((f) => { try { f(Object.assign({ type }, d || {})); } catch (e) {} });
+const boatSend = (o) => (R.boatOn && R.state === "online" ? send(Object.assign({ t: "bt" }, o)) : false);
 function onMsg(m, ws) {
   switch (m.t) {
-    case "w":
-      R.me = m.me; R.room = m.room; R.n = m.n; R.vcount = m.v; R.cap = m.cap; R.players.clear();
+    case "w": {
+      R.corr = null; const firstW = !R.gotWelcome;   // welcome ulang karena pindah area (Kota) di soket yang sama: angka server JANGAN dikosongkan
+      R.kota = m.ko === 1 && kotaOn(); R.area = R.kota && m.ar === "selat" ? "selat" : "muara"; R.me = m.me; R.room = m.room; R.n = m.n; R.vcount = m.v; R.cap = m.cap; R.players.clear();
       for (const row of m.ps) upsert(row).ch.moving = false;
       if (m.ou && typeof m.ou === "object") for (const id of Object.keys(m.ou)) { const q = R.players.get(id); if (q) setOutfit(q, m.ou[id]); }
+      R.boatOn = m.bo === 1; R.boats.clear(); R.mine = null; if (R.boatOn) { for (const r of m.bs || []) setBoat(r); if (Array.isArray(m.mb)) R.mine = { id: m.mb[0], s: m.mb[1] }; boatEmit("sync"); }
       R.gotWelcome = true; R.gotWelcomeEver = true; R.fails = 0; R.holdSent = undefined;
+      if (R.kota && !R.mine && Number.isFinite(m.px) && Number.isFinite(m.py)) { const lw = NW.world && NW.world.player, sx = m.px / P.Q, sy = m.py / P.Q; if (lw && Math.hypot(sx - lw.x, sy - lw.y) > P.KOTA.CORR_MIN) R.corr = { x: sx, y: sy, ar: R.area, at: now() }; }   // posisi menurut server berbeda dari lokal (dijepit/dipindah): susulkan karakter
       if (m.k !== "house") { R.roomNo = m.rn || parseInt(String(m.room).split("-")[1], 10) || 0; R.resume = R.roomNo; R.pending = null; }   // ruang rumah TIDAK mengganti server Muara yang diingat
       clockSample(m.st, R.helloAt); setTimeout(() => { if (R.ws === ws) { R.hbSent = now(); send({ t: "h" }); } }, 600); setTimeout(() => { if (R.ws === ws) { R.hbSent = now(); send({ t: "h" }); } }, 2500);   // beberapa sampel awal → jam akurat
-      R.roomsAt = 0; R.rooms = null; setState("online", ""); fetchRooms(true); break;
+      if (firstW) { R.roomsAt = 0; R.rooms = null; } setState("online", ""); fetchRooms(true); break; }
+    case "pc": if (R.kota && kotaOn() && !R.mine && Number.isFinite(m.x) && Number.isFinite(m.y) && (m.ar === R.area || m.ar === undefined)) R.corr = { x: m.x / P.Q, y: m.y / P.Q, ar: R.area, at: now() }; break;   // koreksi posisi dari server (gerak ditahan batas kecepatan): update() menyusulkan karakter lokal dengan halus
+    case "an": R.arAt = now(); R.lastAn = String(m.r || ""); break;                 // penolakan pindah area (jeda/tersembunyi/…): klien mencoba lagi dengan jeda; tidak ada efek lain
     case "k": clockSample(m.st, R.hbSent); R.hbSent = 0; break;
+    case "bs": if (R.boatOn && Array.isArray(m.u)) { for (const r of m.u) setBoat(r); boatEmit("state"); } break;
+    case "bd": if (R.boatOn) { R.boats.delete(m.id); if (R.mine && R.mine.id === m.id) R.mine = null; boatEmit("gone", { b: m.id }); } break;
+    case "bv": if (R.boatOn) { boatEvent(m); } break;
+    case "bn": boatEmit("note", { r: String(m.r || "") }); break;
     case "cnt": R.n = m.n; R.vcount = m.v; emit(); break;
     case "n": addLog("Sistem", m.r, false); emit(); break;
     case "j": { if (m.p[0] === R.me) break; const p = upsert(m.p); p.ch.x = p.tx; p.ch.y = p.ty; emit(); break; }
@@ -209,7 +239,7 @@ function onMsg(m, ws) {
 function switchTarget(to) {
   const ws = R.ws; R.ws = null; if (ws) { try { ws.close(1000, "pindah") } catch (e) {} }
   const keep = R.resume; reset(); R.resume = keep;                                    // server Muara yang diingat tetap dipakai saat kembali dari rumah
-  R.gotWelcomeEver = false; R.sent = null; R.profKey = ""; R.lastProf = 0;
+  R.gotWelcomeEver = false; R.corr = null; R.sent = null; R.profKey = ""; R.lastProf = 0;
   R.house = to; R.fails = 0; R.retry = 0; R.nextTry = 0; R.room = "";
   if (!["replaced", "blocked"].includes(R.state)) { R.state = "off"; R.why = ""; }
   emit();
@@ -232,7 +262,9 @@ function netTick() {
   }
   if (!R.gotWelcome) { if (!R.helloSent && L.vis) helloNow(); return; }
   if (!L.vis) { if (R.vis) { send({ t: "v", on: 0 }); R.vis = false; R.sent = null; R.holdSent = undefined; } if (t - R.lastSend > 15000) send({ t: "h" }); return; }
-  if (!R.vis) { R.helloAt = t; send({ t: "hello", ...(() => { const p = profile(); return { n: p.n, r: p.r, rd: p.rd }; })(), x: P.qz(L.x), y: P.qz(L.y), d: L.d, f: L.f }); R.vis = true; R.outSent = ""; R.sent = { x: L.x, y: L.y, d: L.d, f: L.f }; R.holdSent = undefined; return; }
+  if (!R.vis) { R.helloAt = t; send(Object.assign({ t: "hello", ...(() => { const p = profile(); return { n: p.n, r: p.r, rd: p.rd }; })(), x: P.qz(L.x), y: P.qz(L.y), d: L.d, f: L.f }, kotaOn() ? { ko: 1, ar: L.ar || "muara" } : {})); R.vis = true; R.koSent = kotaOn(); R.outSent = ""; R.sent = { x: L.x, y: L.y, d: L.d, f: L.f }; R.holdSent = undefined; return; }
+  if (kotaOn() && !R.koSent) { R.koSent = true; R.helloAt = t; const pf = profile(); send({ t: "hello", n: pf.n, r: pf.r, rd: pf.rd, x: P.qz(L.x), y: P.qz(L.y), d: L.d, f: L.f, ko: 1, ar: L.ar || "muara" }); R.sent = { x: L.x, y: L.y, d: L.d, f: L.f }; return; }   // gerbang kotaNusa baru terbaca setelah hello pertama: umumkan dukungan kota SEKALI
+  if (R.kota && !R.mine && L.ar !== R.area) { if (t - R.arAt > 3000) { R.arAt = t; send({ t: "ar", a: L.ar, x: P.qz(L.x), y: P.qz(L.y), d: L.d }); } return; }   // pindah area tanpa kapal: server memvalidasi (jeda, titik masuk, batas peta); sampai dikonfirmasi tidak ada posisi dikirim
   const S0 = R.sent || { x: -99, y: -99, d: -1, f: -1 }, interval = prefs.low ? 500 : 250;
   const dist = Math.hypot(L.x - S0.x, L.y - S0.y), changed = dist > 0.04 || L.d !== S0.d || L.f !== S0.f;
   if (changed && t - R.lastSend >= interval) {
@@ -250,7 +282,22 @@ function netTick() {
 }
 
 // ---------- tampilan (dipanggil world.js) ----------
+function applyCorr(dt) {
+  const c = R.corr; if (!c) return;
+  const w = NW.world && NW.world.player;
+  if (!w || R.mine || !R.kota || now() - c.at > 4000 || c.ar !== R.area || !(NW.areas.cur && NW.areas.cur.id === (R.area === "selat" ? "selat" : "muara"))) { R.corr = null; return; }
+  const dx = c.x - w.x, dy = c.y - w.y, dist = Math.hypot(dx, dy);
+  if (dist < 0.05) { R.corr = null; return; }
+  const walk = (x, y) => { try { return NW.walkable ? NW.walkable(x, y) : true; } catch (e) { return true; } };
+  if (dist > 10) { if (walk(c.x, c.y)) { w.x = c.x; w.y = c.y; } R.corr = null; return; }      // selisih besar (mis. lompatan ditolak): ikuti posisi server langsung
+  const step = Math.min(dist, Math.max(dist * (1 - Math.exp(-dt * 4)), 2.2 * dt), 12 * dt), nx = w.x + dx / dist * step, ny = w.y + dy / dist * step;
+  const sx = w.x, sy = w.y;
+  if (walk(nx, ny)) { w.x = nx; w.y = ny; } else if (walk(nx, w.y)) w.x = nx; else if (walk(w.x, ny)) w.y = ny;
+  if (Math.hypot(w.x - sx, w.y - sy) < step * 0.5) { if (walk(c.x, c.y)) { w.x = c.x; w.y = c.y; } R.corr = null; }   // terhalang rintangan (mis. lompatan menembus tembok): langsung ke posisi terakhir yang diterima server (titik yang pernah dilalui sah)
+}
 function update(dt) {
+  applyCorr(dt);
+  if (R.boats.size) { const kb = 1 - Math.exp(-dt * 7); for (const o of R.boats.values()) { const dx = o.tx - o.x, dy = o.ty - o.y; if (Math.hypot(dx, dy) > 6) { o.x = o.tx; o.y = o.ty; } else { o.x += dx * kb; o.y += dy * kb; } } }   // kapal dihaluskan menuju target server (Worker 02 menggambar dari boats())
   if (!R.players.size) return;
   const k = 1 - Math.exp(-dt * 9);
   for (const p of R.players.values()) {
@@ -261,10 +308,11 @@ function update(dt) {
   }
 }
 function layer(view, inView) {
-  const out = []; if (!R.players.size || !R.vis || !(NW.areas.cur && NW.areas.cur.id === P.AREA)) return out;
+  const out = []; if (!R.players.size || !R.vis || !(NW.areas.cur && NW.areas.cur.id === (R.kota ? R.area : P.AREA))) return out;
   const me = NW.world.player, low = prefs.low, maxN = low ? 8 : 12;
   let arr = [...R.players.values()]; if (arr.length > maxN) arr.sort((a, b) => Math.hypot(a.ch.x - me.x, a.ch.y - me.y) - Math.hypot(b.ch.x - me.x, b.ch.y - me.y)), arr = arr.slice(0, maxN);
   for (const p of arr) {
+    if (R.seatedSkip && R.seatedSkip(p.id)) continue;   // Kapal Rombongan: awak di kursi digambar modul kapal, bukan di titik server
     const pt = NW.P(p.ch.x, p.ch.y); if (!inView(view, pt.x, pt.y)) continue;
     out.push({ d: p.ch.x + p.ch.y, ch: p.ch, remote: p });
     if (p.f & P.F.FISH) out.push({ d: p.ch.x + p.ch.y + 0.2, fn: (c) => drawBobber(c, p) });
@@ -422,6 +470,8 @@ function hook() {
   if (NW.cloud && NW.cloud.onChange) NW.cloud.onChange(() => { if (!user() && R.ws) disconnect("logout"); emit(); });
 }
 
-NW.mp = { sendOutfit: (c) => { R.outWant = typeof c === "string" ? c : ""; }, eject, clearKick, homeLayer, inHouse: () => !!R.house && R.vis && R.state === "online", hook, update, layer, drawTag, drawBubbles, view, sendChat, sendEmote, setPref, joinRoom, joinRandom, joinAuto, leaveServer, fetchRooms, sharedHour, onChange: (f) => R.listeners.push(f), eligible, EMOTES: P.EMOTES, ERR,
+NW.mp = { area: () => R.area, kotaLive: () => R.kota && R.state === "online", player: (id) => R.players.get(id) || null, setSeatedSkip: (f) => { R.seatedSkip = typeof f === "function" ? f : null; }, boatOn: () => R.boatOn, boats: () => [...R.boats.values()], boatMine: () => (R.mine && R.boats.get(R.mine.id) ? { id: R.mine.id, seat: R.mine.s, captain: R.mine.s === 0, boat: R.boats.get(R.mine.id) } : null), onBoat: (f) => R.bListeners.push(f),
+  boatNew: () => boatSend({ a: "new" }), boatJoin: (b, s) => boatSend({ a: "join", b, s }), boatLeave: () => boatSend({ a: "leave" }), boatSteer: (d, th) => boatSend({ a: "steer", d, th }), boatAnchor: (on) => boatSend({ a: "anchor", on: !!on }), boatGo: (ar) => boatSend({ a: "go", ar }),
+  _corr: () => (R.corr ? { x: R.corr.x, y: R.corr.y, ar: R.corr.ar } : null), sendOutfit: (c) => { R.outWant = typeof c === "string" ? c : ""; }, eject, clearKick, homeLayer, inHouse: () => !!R.house && R.vis && R.state === "online", hook, update, layer, drawTag, drawBubbles, view, sendChat, sendEmote, setPref, joinRoom, joinRandom, joinAuto, leaveServer, fetchRooms, sharedHour, onChange: (f) => R.listeners.push(f), eligible, EMOTES: P.EMOTES, ERR,
   get typing() { return R.typing; }, set typing(v) { R.typing = !!v; }, hasChatPref: () => prefs.chat, _R: R, _prefs: () => prefs, _net: netTick, _clock: CK, _serverNow: serverNow };
 })();

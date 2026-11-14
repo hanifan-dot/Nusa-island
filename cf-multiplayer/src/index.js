@@ -133,6 +133,8 @@ export class MuaraRoom extends DurableObject {
         close: (c, code, reason) => { const ws = this.sockets.get(c); if (ws) { try { ws.close(code, String(reason || "").slice(0, 100)); } catch (e) {} } this.sockets.delete(c); },
       },
     });
+    this.boatSig = "";
+    if (this.room.boat) ctx.blockConcurrencyWhile(async () => { try { this.room.restoreBoats(await ctx.storage.get("boats")); this.boatSig = this.boatStructSig(); } catch (e) {} });   // kapal pulih dari penyimpanan DO (BUKAN D1/Firestore)
     // bangun ulang dari lampiran socket setelah hibernasi (WebSocket Hibernation API)
     for (const ws of ctx.getWebSockets()) {
       const a = ws.deserializeAttachment();
@@ -158,8 +160,11 @@ export class MuaraRoom extends DurableObject {
     await this.schedule(Proto.TIMEOUT_MS / 3);
     return new Response(null, { status: 101, webSocket: client, headers: { "Sec-WebSocket-Protocol": Proto.SUBPROTOCOL } });
   }
-  roomOpts() { return {}; }                       // Muara: bawaan Room
+  roomOpts() { return { boat: this.env.NUSA_BOAT === "ya", kota: this.env.NUSA_KOTA === "ya" }; }   // Muara: Kapal Rombongan HANYA bila env NUSA_BOAT=ya; Kota Nusa multiplayer (area selat) HANYA bila env NUSA_KOTA=ya (keduanya bawaan MATI; flag gameFlags kapalRombongan / kotaNusa di nusa-api harus ikut ON)
   onEject() {}
+  // Simpan kapal ke penyimpanan DO HANYA saat struktur berubah (kapal baru/bubar, kursi, area) — tidak pernah per frame/tick posisi.
+  boatStructSig() { return JSON.stringify([...this.room.boats.values()].map((b) => [b.id, b.seats, b.away ? 1 : 0, b.area, b.hold || {}])); }
+  persistBoats() { if (!this.room.boat) return; const sg = this.boatStructSig(); if (sg === this.boatSig) return; this.boatSig = sg; this.ctx.waitUntil(this.ctx.storage.put("boats", this.room.boatsSnapshot()).catch(() => {})); }
   async admit() { return null; }
   joinExtra(request) { const u = request.headers.get("x-nusa-uid"); return u ? { hid: HouseCore.pidOf(u) } : undefined; }   // ID publik pemain (satu arah) untuk daftar online & undangan rumah
   k() { return parseInt(String(this.roomName).split("-")[1], 10) || 1; }
@@ -171,15 +176,15 @@ export class MuaraRoom extends DurableObject {
   async webSocketMessage(ws, msg) {
     const c = this.connOf(ws); if (c == null) return;
     if (!this.sockets.has(c)) this.sockets.set(c, ws);
-    this.room.message(c, typeof msg === "string" ? msg : "");
+    this.room.message(c, typeof msg === "string" ? msg : ""); this.persistBoats();
     if (this.room.players.has(c)) this.save(ws, c);
     if (this.room.hasDirty()) await this.schedule(Proto.TICK_MS);
   }
-  async webSocketClose(ws) { const c = this.connOf(ws); if (c != null) { this.room.leave(c); this.sockets.delete(c); this.memberSync(); } try { ws.close(); } catch (e) {} }
+  async webSocketClose(ws) { const c = this.connOf(ws); if (c != null) { this.room.leave(c); this.sockets.delete(c); this.memberSync(); this.persistBoats(); } try { ws.close(); } catch (e) {} }
   async webSocketError(ws) { return this.webSocketClose(ws); }
   async alarm() {
     this.room.sweep(); this.memberSync(this.room.house);
-    const more = this.room.tick();
+    const more = this.room.tick(); this.persistBoats();
     for (const [c, ws] of this.sockets) if (this.room.players.has(c)) this.save(ws, c);
     if (more || this.room.hasDirty()) await this.schedule(Proto.TICK_MS);
     else if (this.room.size() > 0) await this.schedule(Proto.TIMEOUT_MS / 3);   // sapu timeout tiap ±15 dtk selama ada pemain

@@ -25,7 +25,7 @@ function frame(op, payload) {
 }
 function getRoom(k) {
   const name = "muara-" + k; if (rooms.has(name)) return rooms.get(name);
-  const room = new Room({ id: name, cap: CAP, io: {
+  const room = new Room({ id: name, cap: CAP, boat: process.env.NUSA_BOAT === "ya", kota: process.env.NUSA_KOTA === "ya", io: {
     now: () => Date.now(),
     send: (c, o) => { const s = conns.get(c); if (s && !s.dead) { const t = JSON.stringify(o); stats.msgsOut++; stats.bytesOut += t.length; s.write(frame(1, t)); } },
     close: (c, code, reason) => { const s = conns.get(c); if (s) { s.write(frame(8, Buffer.concat([Buffer.from([code >> 8, code & 255]), Buffer.from(String(reason || "").slice(0, 100))]))); s.end(); } },
@@ -44,12 +44,14 @@ function getHouseRoom(name) {
 }
 const sig = new Map();
 function memberSync(room, force) {   // sama dengan Durable Object: laporan daftar lengkap anggota ke lobby; sesi ganda lintas instance ditutup
-  if (room.house) return;   // ruang rumah tidak memakai lobi Muara
+  if (room.house) {   // sama dengan HouseRoom produksi: rumah melaporkan penghuninya (beserta server Muara induknya) ke lobi; angka server menghitung mereka
+    const members = [...room.players.values()].filter((p) => p.sr).map((p) => ({ uid: p.uid, room: p.sr })).sort((a, b) => a.uid.localeCompare(b.uid)), sg = JSON.stringify(members);
+    if (force || sig.get(room.id) !== sg) { sig.set(room.id, sg); lobby.houseSync(room.id, members); }
+    return;
+  }
   const u = room.uids().sort(), key = u.join("|"), k = room.number(); if (!force && sig.get(k) === key) return; sig.set(k, key);
   for (const d of lobby.sync(k, u)) { const r = rooms.get("muara-" + d.room); const c = r && r.byUid.get(d.uid); if (c != null) { r.kick(c, 4002, "Akunmu masuk dari perangkat lain."); memberSync(r); } }
 }
-setInterval(() => { for (const r of rooms.values()) { r.sweep(); r.tick(); memberSync(r); } }, P.TICK_MS);
-
 setInterval(() => { for (const r of rooms.values()) { r.sweep(); r.tick(); memberSync(r); } }, P.TICK_MS);
 
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, content-type", "access-control-allow-methods": "GET, POST, OPTIONS" };
@@ -63,7 +65,7 @@ const server = http.createServer((req, res) => {
       const m = /^Bearer dev\.([\w-]+)$/.exec(req.headers.authorization || ""); const auth = m ? { uid: m[1], token: { email_verified: true, firebase: { sign_in_provider: "google.com" } } } : null;
       const fnName = fm[1], ok = ["writeSave", "loadSave", "homeSearch", "homeVisit", "homeAccess", "homeSettings", "homeSetPrivacy", "homeAllow", "homeKick", "homeVisitRequest", "homeInbox", "homeVisitRespond", "homePrefs", "gameFlags"];
       if (!ok.includes(fnName)) return send(404, { error: { status: "not-found", message: "Fungsi tidak dikenal." } });
-      if (fnName === "gameFlags") return send(200, { result: { socialHome: process.env.DEV_FLAG_SOCIAL === "1", leaderboard: false } });
+      if (fnName === "gameFlags") return send(200, { result: { socialHome: process.env.DEV_FLAG_SOCIAL === "1", leaderboard: false, kotaNusa: process.env.DEV_FLAG_KOTA === "1", kapalRombongan: process.env.DEV_FLAG_ROMBONGAN === "1" } });
       try { const out = await api[fnName](auth, (JSON.parse(body || "{}").data) || {}); send(200, { result: JSON.parse(JSON.stringify(out)) }); }
       catch (e) { send(HTTP_OF[e.code] || 500, { error: { status: e.code || "internal", message: e.message } }); }
     });
@@ -100,12 +102,19 @@ server.on("upgrade", (req, sock) => {
   if (!room) return fail(503, "full");
   attach(req, sock, key, uid, room, conn, { hid: HouseCore.pidOf(uid) });
 });
+// Ide 08D (HANYA uji): bila NUSA_HOUSE_API diisi, izin masuk ruang rumah ditanyakan ke Worker backend ASLI (jembatan uji) supaya izin tamu satu sumber dengan fungsi sosial dapur.
+async function remoteAccess(uid, pid) {
+  const r = await fetch(process.env.NUSA_HOUSE_API + "/fn/homeAccess", { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer dev." + uid }, body: JSON.stringify({ data: { pid } }) });
+  const j = await r.json().catch(() => ({})); if (r.status !== 200) { const e = new Error("ditolak"); e.code = r.status === 404 ? "not-found" : "permission-denied"; throw e; }
+  return j.result;
+}
 async function houseUpgrade(req, sock, key, uid, pid) {
-  let a; try { a = await houseSrv.homeAccess({ uid }, { pid: pid.toUpperCase() }); } catch (e) { sock.write(`HTTP/1.1 ${e.code === "not-found" ? 404 : 403} Denied\r\n\r\n`); return sock.destroy(); }
+  let a; try { a = process.env.NUSA_HOUSE_API ? await remoteAccess(uid, pid.toUpperCase()) : await houseSrv.homeAccess({ uid }, { pid: pid.toUpperCase() }); } catch (e) { sock.write(`HTTP/1.1 ${e.code === "not-found" ? 404 : 403} Denied\r\n\r\n`); return sock.destroy(); }
   if ((houseBans.get(a.room + ":" + a.me) || 0) > Date.now() && a.role === "visitor") { sock.write("HTTP/1.1 403 Denied\r\n\r\n"); return sock.destroy(); }
   const room = getHouseRoom(a.room);
   if (room.size() >= room.cap && !room.byUid.has(uid)) { sock.write("HTTP/1.1 503 Full\r\n\r\n"); return sock.destroy(); }
-  attach(req, sock, key, uid, room, nextConn++, { role: a.role, hid: a.me });
+  const parent = lobby.parent(uid) || P.roomId(new URL(req.url, "http://x").searchParams.get("sr"));   // sama dengan houseDoor produksi
+  attach(req, sock, key, uid, room, nextConn++, { role: a.role, hid: a.me, parentRoom: parent });
 }
 function attach(req, sock, key, uid, room, conn, extra) {
   const accept = crypto.createHash("sha1").update(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest("base64");
