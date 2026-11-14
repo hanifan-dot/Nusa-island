@@ -62,6 +62,9 @@ NODE
   fi
 }
 cf_read_settings "$TMP/before.json" "Sebelum deploy"
+EXPECTED_D1_ID=$(awk -F'"' '/^[[:space:]]*database_id[[:space:]]*=/{print $2; exit}' "$NUSA_BACKEND_DIR/worker/wrangler.toml")
+[[ "$EXPECTED_D1_ID" =~ ^[0-9a-f-]{36}$ ]] || die "ID D1 kandidat tidak valid."
+export EXPECTED_D1_ID
 node --input-type=commonjs - "$TMP/before.json" "$TMP/expected.json" <<'NODE'
 const fs = require('node:fs');
 const data = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
@@ -75,10 +78,13 @@ if (byName.FIREBASE_PROJECT_ID.text !== 'nusa-island-d2023') throw Error('Fireba
 for (const name of ['GOOGLE_CLIENT_EMAIL', 'GOOGLE_PRIVATE_KEY']) {
   if (byName[name]?.type !== 'secret_text') throw Error('Secret produksi tidak tersedia: ' + name);
 }
-if (byName.NUSA_DB?.type !== 'd1' || !byName.NUSA_DB.id) throw Error('Binding D1 produksi NUSA_DB tidak tersedia');
+const expectedD1 = process.env.EXPECTED_D1_ID;
+if (byName.NUSA_DB && (byName.NUSA_DB.type !== 'd1' || byName.NUSA_DB.id !== expectedD1)) throw Error('Binding D1 produksi NUSA_DB berbeda dari kandidat terpin');
+if (!byName.NUSA_DB) console.warn('PERINGATAN: binding NUSA_DB sedang hilang; deploy ini hanya boleh memulihkannya ke ID terpin.');
 const allowed = new Set(['plain_text', 'secret_text', 'assets', 'd1']);
 for (const b of bindings) if (!allowed.has(b.type)) throw Error('Binding memerlukan penanganan khusus: ' + b.type);
 const snapshot = bindings.filter(b => ['plain_text', 'secret_text', 'd1'].includes(b.type)).map(b => ({name:b.name,type:b.type,text:b.type==='plain_text'?b.text:null,id:b.type==='d1'?b.id:null}));
+if (!snapshot.some(b => b.name === 'NUSA_DB')) snapshot.push({name:'NUSA_DB',type:'d1',text:null,id:expectedD1});
 fs.writeFileSync(process.argv[3], JSON.stringify(snapshot), {mode:0o600});
 console.log('OK: konfigurasi pembayaran, Firebase, dan secret produksi terdeteksi.');
 NODE
@@ -86,7 +92,7 @@ NODE
 # Pakai konfigurasi sementara yang bersumber dari file resmi, tetapi seluruh [vars] dihilangkan.
 awk '
   /^\[vars\][[:space:]]*$/ {skip=1; next}
-  /^\[[^]]+\][[:space:]]*$/ {skip=0}
+  /^\[\[?[[:alnum:]_.-]+\]\]?[[:space:]]*$/ {skip=0}
   !skip {print}
 ' "$NUSA_BACKEND_DIR/worker/wrangler.toml" > "$CONFIG"
 grep -Fxq 'name = "nusa-api"' "$CONFIG" || die "Target konfigurasi sementara salah."
