@@ -64,7 +64,8 @@ function camTarget(snap) {
   const sail = NW.boat && NW.boat.on, zt = sail ? ZW * 0.84 : ZW;
   zs = snap || !zs ? zt : lerp(zs, zt, 0.06); Z = zs;
   if (sail) return NW.boat.camTarget(ZW); // kamera mengikuti kapal (sedikit ke depan haluan saat melaju)
-  const p = NW.P(player.x, player.y, gz(player.x, player.y)); return { x: p.x, y: p.y - 22 - (NW.hold ? NW.hold.camLift() : 0) };
+  const p = NW.P(player.x, player.y, gz(player.x, player.y)), sh = NW.phone && NW.phone.camShift ? NW.phone.camShift() : null;   // NusaPhone terbuka: karakter digeser ke area layar yang tidak tertutup ponsel (animasi memegang ponsel tetap terlihat)
+  return { x: p.x - (sh ? sh.dx / Z : 0), y: p.y - 22 - (NW.hold ? NW.hold.camLift() : 0) - (sh ? sh.dy / Z : 0) };
 }
 function snapCamera() { const t = camTarget(true); cam.x = t.x; cam.y = t.y; }
 
@@ -74,7 +75,7 @@ const keys = new Set();
 let moved = false;
 const joyEl = $("joy"), knobEl = $("joyKnob");
 function joyHome() { const r = joyEl.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
-function blocked() { return dialog.open || busy || !!cine || N().isPanelOpen() || !N().isStarted() || $("fade").classList.contains("on") || (NW.home && NW.home.isEditing()) || (NW.room && NW.room.active && NW.room.blocking()) || (NW.adv && NW.adv.isBusy()) || (NW.mp && NW.mp.typing) || (NW.styleShop && NW.styleShop.isOpen()); }
+function blocked() { return dialog.open || busy || !!cine || N().isPanelOpen() || !N().isStarted() || $("fade").classList.contains("on") || (NW.home && NW.home.isEditing()) || (NW.room && NW.room.active && NW.room.blocking()) || (NW.adv && NW.adv.isBusy()) || (NW.mp && NW.mp.typing) || (NW.styleShop && NW.styleShop.isOpen()) || (NW.phone && NW.phone.isOpen && NW.phone.isOpen()); }
 
 function onDown(e) {
   if (N().mode() !== "world") return;

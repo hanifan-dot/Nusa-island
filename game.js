@@ -36,6 +36,8 @@ function seeded(seed) {
 function hashStr(str) { let h = 2166136261; for (const c of str) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 
 const FISH_BY_ID = Object.fromEntries(FISH.map((f) => [f.id, f]));
+// Ide 07B: ikan lokasi baru (x) baru ikut kumpulan lemparan & Koleksi bila flag klien NUSA_IKAN_LOKASI=true (bawaan MATI); ikan SUPER RARE (sup) tidak pernah tampil sampai tertangkap
+const fishLive = (f) => !(f && f.x) || window.NUSA_IKAN_LOKASI === true;
 
 // ---------- Simpanan ----------
 // Tahap 3: kunci lama TIDAK berubah. Hanya Mode Uji Owner (sandbox terpisah, diverifikasi server) memakai kunci sendiri.
@@ -296,19 +298,14 @@ function luckNow() { // pengali hoki dari umpan & lemparan (dipakai pemilihan ik
 }
 function chooseFish() {
   const L = LOCATIONS[S.loc], night = isNight();
-  const pool = FISH.filter((f) => !f.seaOnly && (f.loc === L.id || f.loc === "*") && (f.night === undefined || f.night === night)); // seaOnly (Bumbu 2.4.1): hanya dari spot laut
+  const pool = FISH.filter((f) => !f.seaOnly && !f.sup && fishLive(f) && (f.loc === L.id || f.loc === "*") && (f.night === undefined || f.night === night)); // seaOnly (Bumbu 2.4.1): hanya dari spot laut
   const luck = luckNow();
   const mult = { sampah: 1 / luck, biasa: 1, langka: Math.pow(luck, 0.75), epik: Math.pow(luck, 1.05), legenda: Math.pow(luck, 1.35) };
   // Bumbu 2.4: memancing dari kapal memakai kelompok ikan spot laut (pengali hoki SAMA; bobot ikan tidak diubah)
   const mystFish = fishFrom === "sea" && G.sea && G.sea.mystic && G.myst && G.myst.fish ? FISH_BY_ID[G.myst.fish] : null; // Bumbu 2.4.1: ikan mistis yang sudah dilempar saat umpan mendarat
   const seaFish = mystFish || (fishFrom === "sea" && G.sea && NW.sea ? NW.sea.pickFish(G.sea, mult, night) : null);
   if (seaFish) { const r = NW.FM.rollWeight(seaFish); return { fish: seaFish, w: r.w, wr: r.wr, extreme: r.extreme }; }
-  const avail = RARITY_ORDER.filter((r) => pool.some((f) => f.rarity === r));
-  let total = 0;
-  const ws = avail.map((r) => { const w = RARITY[r].weight * mult[r]; total += w; return w; });
-  let roll = Math.random() * total, rar = avail[0];
-  for (let i = 0; i < avail.length; i++) { roll -= ws[i]; if (roll <= 0) { rar = avail[i]; break; } }
-  const fish = pick(pool.filter((f) => f.rarity === rar));
+  const fish = window.NusaIkanLoc.pickFish(pool, RARITY, mult, Math.random);   // economy/ikanloc-core.js: kelompok rarity berbobot lalu ikan (Mitos berbobot pw 0,3); sama persis dengan yang diuji simulasi
   const { w, wr, extreme } = NW.FM.rollWeight(fish); // Bumbu 1.2: spesies tertentu punya ekor ukuran ekstrem yang sangat langka
   return { fish, w, wr, extreme };
 }
@@ -1051,6 +1048,7 @@ function drawFish(c, f, x, y, L, vr) {
   if (f.mistik && NW.mystic) { NW.mystic.drawFish(c, f, x, y, L); return; } // Bumbu 2.4.1: ikan mistis punya gambar sendiri (transparan berpendar / pari bersirip bercahaya)
   const [sl, sh] = f.shape;
   const bl = L * 0.74, bh = bl * (sh / sl) * 1.15;
+  if (f.sup && f.aura) { const ag = c.createRadialGradient(x, y, L * 0.05, x, y, L * 0.62); ag.addColorStop(0, rgba(f.aura, 0.55)); ag.addColorStop(0.55, rgba(f.aura, 0.18)); ag.addColorStop(1, rgba(f.aura, 0)); c.fillStyle = ag; c.fillRect(x - L * 0.64, y - L * 0.62, L * 1.28, L * 1.24); }   // SUPER RARE: lingkaran cahaya halus (satu gradien, ringan)
   const hx = x + bl / 2 + L * 0.08, tx = hx - bl;
   const VV = vr && vr !== "normal" && NW.variants ? NW.variants.look(f, vr) : null; // Bumbu 2.2: varian kosmetik
   const col = VV ? VV.col : f.color, dark = shade(f.color, -0.3), finCol = VV ? VV.fin : f.finColor || shade(col, -0.15);
@@ -1188,9 +1186,9 @@ function refreshClock() {
 let lastCatch = null;
 function showCatchCard(fish, w, info) {
   lastCatch = { fish, w, info };
-  const R = RARITY[fish.rarity], card = $("catchCard");
+  const R = tierOf(fish), card = $("catchCard");
   card.style.setProperty("--rc", fish.mistik ? "#3fc7b6" : R.color); card.style.setProperty("--glow", fish.mistik ? "rgba(95,230,210,.7)" : R.glow);
-  $("catchRarity").textContent = fish.mistik ? "✨ Mistis" : R.label;
+  $("catchRarity").textContent = fish.mistik ? "✨ Mistis" : fish.sup ? "💎 SUPER RARE" : R.label;
   $("catchName").textContent = fish.name;
   $("catchWeight").textContent = fmtW(w);
   $("catchDesc").textContent = fish.desc;
@@ -1394,7 +1392,7 @@ function variantRow(f) {
 function dexHTML() {
   const tabs = [...LOCATIONS.filter((l) => l.id !== "samudra" || (NW.sf2 && NW.sf2.tabOn())).map((l) => ({ id: l.id, name: l.id === "samudra" ? "🌴 Pulau Legenda" : l.short })), { id: "*", name: "Lain-lain" }, ...(NW.sf && NW.sf.on() ? [{ id: "sf", name: "🌊 Samudra Follower" }] : [])];
   if (!dexTab) dexTab = LOCATIONS[S.loc].id;
-  const totalAll = FISH.length, gotAll = FISH.filter((f) => S.dex[f.id]).length;
+  const totalAll = FISH.filter(fishLive).length, gotAll = FISH.filter((f) => fishLive(f) && S.dex[f.id]).length;
   const vc = NW.variants ? NW.variants.counts(S) : null;
   let h = `<div class="muted">Total koleksi ${gotAll}/${totalAll} · Tangkapan ${S.stats.caught} · Legenda ${S.stats.legends}</div>
     ${vc ? `<div class="muted">✨ Varian ditemukan: Sisik Perak ${vc.silver} · Corak Senja ${vc.sunset} · Mutiara Nusantara ${vc.pearl} spesies</div>` : ""}
@@ -1403,15 +1401,15 @@ function dexHTML() {
     ${dexTab === "sf" && NW.sf ? NW.sf.gridHTML() : `<div class="dex-grid">`}`;
   if (dexTab === "sf") return h;
   if (dexTab === "samudra" && NW.sf2) return h.replace(/<div class="dex-grid">$/, "") + NW.sf2.bookHTML();
-  for (const f of FISH.filter((f) => f.loc === dexTab)) {
-    const rec = S.dex[f.id], R = RARITY[f.rarity];
+  for (const f of FISH.filter((f) => f.loc === dexTab && fishLive(f))) {
+    const rec = S.dex[f.id], R = tierOf(f);
     const timeTag = f.night === true ? "🌙 malam" : f.night === false ? "☀️ siang" : "";
     const veil = f.mistik && !rec; // ikan mistis: wujud & kelangkaan disembunyikan sampai tertangkap
     h += `<div class="dex-cell ${rec ? "" : "unknown"}" style="border-top-color:${veil ? "#5a6b72" : R.color}">
       ${f.emoji ? `<div class="emo">${f.emoji}</div>` : veil ? `<div class="emo">❔</div>` : `<img src="${fishImg(f.id)}" alt="">`}
       <div class="nm">${rec ? f.name : "???"}</div>
       <div class="sub">${veil ? "???" : R.label + (f.mistik ? " · ✨ Mistis" : "")}${timeTag ? " · " + timeTag : ""}</div>
-      <div class="sub">${rec ? `×${rec.n} · rekor ${fmtW(rec.best)}` : "Belum tertangkap"}</div>${rec ? variantRow(f) : ""}</div>`;
+      <div class="sub">${rec ? `×${rec.n} · rekor ${fmtW(rec.best)}` : "Belum tertangkap"}</div>${f.sup ? `<div class="sub" data-sup-odds="${f.id}">${NW.fishx ? NW.fishx.oddsText(f) : ""}</div>` : ""}${rec ? variantRow(f) : ""}</div>`;
   }
   return h + `</div>`;
 }
@@ -1421,7 +1419,7 @@ function mapHTML() {
   LOCATIONS.forEach((L, i) => {
     if (L.id === "samudra") { if (NW.sf2) h += NW.sf2.cardHTML(i); return; }   // Samudra Follower V2: kartu sendiri (gerbang 100 ikan dari server)
     const locked = upLvl("boat") + 1 < L.boat, here = i === S.loc;
-    const got = FISH.filter((f) => f.loc === L.id && S.dex[f.id]).length, tot = FISH.filter((f) => f.loc === L.id).length;
+    const got = FISH.filter((f) => f.loc === L.id && fishLive(f) && S.dex[f.id]).length, tot = FISH.filter((f) => f.loc === L.id && fishLive(f)).length;
     h += `<div class="map-item ${here ? "here" : ""} ${locked ? "locked" : ""}">
       <div class="sw" style="background:linear-gradient(180deg,${L.sky[0]} 0 45%,${L.water[0]} 46%,${L.water[1]})"></div>
       <div class="grow"><b>${L.name}</b><div class="muted">${L.desc}</div><div class="muted">Koleksi ${got}/${tot}${NW.areas.forLoc(i) ? ` · 🚶 Bisa dijelajahi: ${NW.areas.forLoc(i).name}` : ""}</div></div>
@@ -1481,7 +1479,7 @@ function goWorld(at, areaId) {
   NW.world.onEnter(at, area.id); refreshHUD(); updateHint(); save();
 }
 function marketTip() {
-  const hot = FISH.filter((f) => f.loc === "muara").map((f) => ({ f, m: priceMult(f.id) })).sort((a, b) => b.m - a.m)[0];
+  const hot = FISH.filter((f) => f.loc === "muara" && !f.sup && fishLive(f)).map((f) => ({ f, m: priceMult(f.id) })).sort((a, b) => b.m - a.m)[0];
   return hot && hot.m > 1.1 ? `Hari ini ${hot.f.name} lagi mahal, naik ${Math.round((hot.m - 1) * 100)}%!` : "Harga hari ini biasa saja. Besok bisa beda, lho.";
 }
 
@@ -1522,7 +1520,7 @@ window.Nusa = {
   fish: { G, loc: () => LOCATIONS[S.loc].id, locIdx: () => S.loc, enterAt: (i) => { if (LOCATIONS[i]) { closePanel(); S.loc = i; S.hour = (S.hour + 1.5) % 24; enterFishing("boat"); } }, hint: updateHint, reelBack: startReelBack, splash: splashAt, ripple: addRipple, navLock: setNavLocked, geom: () => ({ W, H, HZ, U, projX, projY, projS }) },
   seaSpot: () => (fishFrom === "sea" && G.sea ? G.sea.id : null), fishFrom: () => fishFrom,
   tone, on, emit, registerPanel, renderPanel: () => currentPanel && renderPanel(), currentPanel: () => currentPanel, closePanel,
-  sleepUntilMorning, refreshHUD, drawFish, fishImg, priceOf, priceMult, fmt, fmtW, FISH_BY_ID, coolerCap, upLvl, trendHTML,
+  sleepUntilMorning, refreshHUD, drawFish, fishImg, priceOf, priceMult, fmt, fmtW, FISH_BY_ID, fishLive, coolerCap, upLvl, trendHTML,
 };
 
 load();

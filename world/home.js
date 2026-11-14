@@ -164,7 +164,7 @@ function goRoom(player) {
   NW.world.snapCamera(); syncUI(); banner(state.visit ? `🏠 Rumah ${state.visit.name} · ${HD.LEVELS[lvl()].name}` : `🏠 ${HD.LEVELS[lvl()].name}`);
   N().setHint(!state.visit && H().stored.length ? `${H().stored.length} perabot ada di gudang. Buka 🛠️ Tata Ruang untuk memasangnya.` : "");
 }
-function enter(player) { fadeThen(() => goPlot(player, "gate")); }
+function enter(player) { if (NW.hold) NW.hold.stop("home"); fadeThen(() => goPlot(player, "gate")); }   // Ide 07B: masuk Rumahku → Pamer Ikan berhenti (status pamer tidak ikut masuk rumah)
 function exitToIsland(player) {
   fadeThen(() => { state.active = false; state.scene = null; state.visit = null; radio(false); setEditing(false); syncUI(); player.x = NW.HOME_GATE.x; player.y = NW.HOME_GATE.y + 0.7; player.dir = 2; NW.world.snapCamera(); NW.world.updateHint(); });
 }
@@ -230,6 +230,7 @@ function visitInteract(t, player, openDialog) {
   if (t.id === "h_cat") { cat.hearts = 1.5; cat.wait = 3; cat.sleep = 0; N().tone(880, 0.12, "triangle", 0.06, 660); N().tone(740, 0.18, "triangle", 0.05, 520, 0.12); return N().toast("Si Belang mendengkur senang 🐈"); }
 }
 function enterVisit(info, player) {
+  if (NW.hold) NW.hold.stop("home");   // Ide 07B: berkunjung ke Rumahku orang lain → Pamer Ikan berhenti
   // info = jawaban homeVisit dari server: { owner:{name,level,sid,pid}, home:<salinan publik> }
   const leg = new Set(info.home.leg || []);
   const v = { name: info.owner.name, pid: info.owner.pid, sid: info.owner.sid, home: visitHome(info.home), leg, ret: { scene: state.scene } };

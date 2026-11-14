@@ -13,7 +13,7 @@ const cat = (id, w, uid, ref) => ({ opId: op(), id, w, uid: uid || rid8(), ref }
 const bonus = async (e, id, w, uid) => { now += 2000; const u = rid8(); await e.ecoCatch(U, { opId: op(), id: "nila", w: 0.5, uid: u }); now += 100; return cat(id, w, uid, u); };   // ikan biasa dulu → ref
 (async () => {
   await t("Functions lib sf-core sama dengan sumber", () => assert.ok(fs.readFileSync(path.join(__dirname, "../firebase/functions/lib/sf-core.js"), "utf8").endsWith(fs.readFileSync(path.join(__dirname, "../economy/sf-core.js"), "utf8"))));
-  await t("tabel FISH server tidak memuat ikan SF (ikan lama tidak berubah)", () => assert.ok(!T.FISH.some((f) => SF.isSF(f.id)) && T.FISH.length === 48));
+  await t("tabel FISH server tidak memuat ikan SF (ikan lama tidak berubah)", () => assert.ok(!T.FISH.some((f) => SF.isSF(f.id)) && T.FISH.length === 103));   // 48 ikan lama + 55 ikan baru Ide 07B
   await t("tanpa config: semua SF terkunci (off)", () => SF.IDS.forEach((id) => assert.equal(SF.resolve(null, id).why, "off")));
   await t("tanpa persetujuan Owner: terkunci walau on=true", () => SF.IDS.forEach((id) => assert.equal(SF.resolve({ sf: { on: true, fish: {} } }, id).why, "no-approval")));
   await t("harga/peluang di luar pagar ditolak", () => { const c = cfgOn(); c.sf.fish.sf_tempe.price = 1e9; c.sf.fish.sf_cupang_slayer.chance = 0.5; c.sf.fish.sf_arapaima.dayCap = 99; c.sf.fish.sf_prabowo.price = 0.01;

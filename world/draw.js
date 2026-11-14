@@ -653,6 +653,7 @@ function drawCharacter(c, ch, t) {
   if (AV && st.costume) { // kostum hewan/eksklusif menggantikan seluruh badan; joran tetap tergambar agar memancing terlihat normal
     AV.drawCostume(c, ch, t, y0, fx, fy, back, side, moving, ph, avLv);
     if (ch.rod > 0) { const k = ch.rod; c.strokeStyle = ch.rodSpec ? ch.rodSpec.blank : "#c9a46a"; c.lineWidth = 2; c.beginPath(); c.moveTo(fx * 7, y0 - 14); c.lineTo(fx * (7 + 26 * k), y0 - 14 - 34 * k); c.stroke(); c.strokeStyle = "rgba(255,255,255,.7)"; c.lineWidth = 0.8; c.beginPath(); c.moveTo(fx * (7 + 26 * k), y0 - 14 - 34 * k); c.lineTo(fx * (9 + 30 * k), y0 - 4); c.stroke(); }
+    if ((ch.phoneOn || ch._ph > 0) && NW.phone && NW.phone.drawHeld) NW.phone.drawHeld(c, ch, st, fx, fy, y0, t, back, side);   // NusaPhone (Ide 07): lengan + ponsel di tangan, digambar paling depan (hanya bila modul dimuat)
     c.restore(); return;
   }
   if (AV && st.acc && !back) AV.drawWings(c, st, y0, fx, back, moving, t, avLv, false);
@@ -781,6 +782,7 @@ function drawCharacter(c, ch, t) {
   if (st.towel && !back) { c.fillStyle = st.towel; c.fillRect(-7.5, y0 - 23, 15, 3.2); }
   if (bk && back) NW.look.drawBackRod(c, bk, fx, y0, bkSway, true); // membelakangi kamera: joran di depan badan
   if (hd) { if (hd.p.up) NW.hold.drawFishBody(c, hd, HG); NW.hold.drawFx(c, hd, HG, y0, hy, t); } // ikan di atas kepala selalu paling depan
+  if ((ch.phoneOn || ch._ph > 0) && NW.phone && NW.phone.drawHeld) NW.phone.drawHeld(c, ch, st, fx, fy, y0, t, back, side);   // NusaPhone (Ide 07): lengan + ponsel di tangan, digambar paling depan (hanya bila modul dimuat)
   c.restore();
 }
 

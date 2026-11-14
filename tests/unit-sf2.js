@@ -120,6 +120,6 @@ const R = (r1, r2, r3) => { let i = 0; return () => { const j = i++ % 8; return 
   await t("frekuensi nyata (acak server sungguhan, 30k tangkapan Pity 0..98): Epic/Mythic ≈ 5,0–5,8% dan total 100%", async () => {
     let cnt = { common: 0, uncommon: 0, rare: 0, epic: 0, mythic: 0 }, N = 30000; for (let i = 0; i < N; i++) { const p = i % 99; cnt[SF2.rollRarity(p, Math.random())]++; } const exp = Array.from({ length: N }, (_, i) => SF2.odds(i % 99)).reduce((a, o) => a + o.mythic, 0) / (N * 10000);
     assert.ok(Math.abs(cnt.mythic / N - exp) < 0.006, "mythic " + cnt.mythic / N + " vs " + exp); assert.equal(Object.values(cnt).reduce((a, b) => a + b, 0), N); assert.ok(cnt.common / N > 0.52 && cnt.common / N < 0.57); });
-  await t("ikan biasa/SF lama tidak berubah: FISH server 48 spesies, tanpa id sf2_", () => assert.ok(T.FISH.length === 48 && !T.FISH.some((f) => f.id.startsWith("sf2_"))));
+  await t("ikan biasa/SF lama tidak berubah: FISH server 48 lama + 55 baru Ide 07B = 103 spesies, tanpa id sf2_", () => assert.ok(T.FISH.length === 103 && !T.FISH.some((f) => f.id.startsWith("sf2_"))));
   console.log(`unit-sf2: ${pass} lulus, ${fail} gagal`); process.exit(fail ? 1 : 0);
 })();

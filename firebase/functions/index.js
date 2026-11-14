@@ -104,7 +104,7 @@ for (const n of ["createOrder", "cancelOrder", "claimPaid", "listOrders", "getEn
 // =====================================================================================================
 const ecoCore = require("./lib/economy-core");
 ecoApi = ecoCore.makeEconomyServer(shopDb, {
-  tables: require("./lib/economy-tables"), fishmath: require("./lib/fishmath"), streak: require("./lib/streak-core"), quest: require("./lib/quest-core"), event: require("./lib/event-core"), pond: require("./lib/pond-core"), fashion: require("./lib/fashion-core"), sf: require("./lib/sf-core"), sf2: require("./lib/sf2-core"), aurora: require("./lib/aurora-core"),
+  tables: require("./lib/economy-tables"), fishmath: require("./lib/fishmath"), streak: require("./lib/streak-core"), quest: require("./lib/quest-core"), event: require("./lib/event-core"), pond: require("./lib/pond-core"), fashion: require("./lib/fashion-core"), sf: require("./lib/sf-core"), sf2: require("./lib/sf2-core"), aurora: require("./lib/aurora-core"), ikanloc: require("./lib/ikanloc-core"),
   initCap: process.env.NUSA_ECO_INIT_CAP !== undefined ? Number(process.env.NUSA_ECO_INIT_CAP) : 20000,   // saat rilis resmi: NUSA_ECO_INIT_CAP=0
 });
 const ecoWrap = (name) => onCall({ enforceAppCheck: false }, async (req) => {

@@ -25,7 +25,7 @@ function frame(op, payload) {
 }
 function getRoom(k) {
   const name = "muara-" + k; if (rooms.has(name)) return rooms.get(name);
-  const room = new Room({ id: name, cap: CAP, boat: process.env.NUSA_BOAT === "ya", kota: process.env.NUSA_KOTA === "ya", io: {
+  const room = new Room({ id: name, cap: CAP, boat: process.env.NUSA_BOAT === "ya", kota: process.env.NUSA_KOTA === "ya", phone: process.env.NUSA_PHONE === "ya", io: {
     now: () => Date.now(),
     send: (c, o) => { const s = conns.get(c); if (s && !s.dead) { const t = JSON.stringify(o); stats.msgsOut++; stats.bytesOut += t.length; s.write(frame(1, t)); } },
     close: (c, code, reason) => { const s = conns.get(c); if (s) { s.write(frame(8, Buffer.concat([Buffer.from([code >> 8, code & 255]), Buffer.from(String(reason || "").slice(0, 100))]))); s.end(); } },
@@ -34,7 +34,7 @@ function getRoom(k) {
 }
 function getHouseRoom(name) {
   if (rooms.has(name)) return rooms.get(name);
-  const room = new Room({ id: name, kind: "house", cap: +(process.env.HOUSE_CAP || P.HOUSE.CAP), io: {
+  const room = new Room({ id: name, kind: "house", cap: +(process.env.HOUSE_CAP || P.HOUSE.CAP), phone: process.env.NUSA_PHONE === "ya", io: {
     now: () => Date.now(),
     send: (c, o) => { const s = conns.get(c); if (s && !s.dead) { const t = JSON.stringify(o); stats.msgsOut++; stats.bytesOut += t.length; s.write(frame(1, t)); } },
     close: (c, code, reason) => { const s = conns.get(c); if (s) { s.write(frame(8, Buffer.concat([Buffer.from([code >> 8, code & 255]), Buffer.from(String(reason || "").slice(0, 100))]))); s.end(); } },

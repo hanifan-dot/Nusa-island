@@ -45,12 +45,13 @@ async function getToken() {
 const wantHouse = () => { try { return (NW.house && NW.house.roomWanted && NW.house.roomWanted()) || null; } catch (e) { return null; } };
 const gz = (x, y) => (R.house ? 0 : NW.groundZ ? NW.groundZ(x, y) : 0);
 const homeScene = () => (NW.home && NW.home.active && !(NW.room && NW.room.active) ? NW.home.scene : null);   // interior Ide 08 (Kedai/Dapur): bukan ruang rumah bersama → tidak disiarkan
+const phoneBit = () => (NW.phone && NW.phone.broadcast && NW.phone.broadcast() ? P.F.PHONE : 0);   // NusaPhone (Ide 07): hanya bila modul dimuat + server mengizinkan; murni tampilan
 function local() {
   const w = NW.world && NW.world.player, mode = N().mode(), a = NW.areas && NW.areas.cur;
   if (R.house) {
     if (!w) return { vis: false };
     const sc = homeScene(), vis = !!sc && N().isStarted();
-    return { vis, x: w.x, y: w.y, d: w.dir | 0, f: (w.moving ? P.F.MOVING : 0) | (w.sit ? P.F.SIT : 0) | (sc === "room" ? P.F.IN : 0) };
+    return { vis, x: w.x, y: w.y, d: w.dir | 0, f: (w.moving ? P.F.MOVING : 0) | (w.sit ? P.F.SIT : 0) | (sc === "room" ? P.F.IN : 0) | phoneBit() };
   }
   const fishing = mode === "fish" && N().fishFrom() === "dock";
   const aboard = R.boatOn && !!R.mine;   // Kapal Rombongan: pemain di kursi kapal server TETAP tampak (kapal & kursi disinkronkan server; bukan lagi vis:false)
@@ -58,7 +59,7 @@ function local() {
   const inMuara = aboard || (!!a && (a.id === P.AREA || (kc && a.id === "selat")) && !(NW.home && NW.home.active) && !(NW.room && NW.room.active) && !(NW.boat && NW.boat.on));
   const vis = !!w && inMuara && (aboard || mode === "world" || fishing) && N().isStarted();
   if (!w) return { vis: false };
-  return { vis, ar, x: w.x, y: w.y, d: w.dir | 0, f: (w.moving && !fishing ? P.F.MOVING : 0) | (w.sit ? P.F.SIT : 0) | (fishing ? P.F.FISH : 0) };
+  return { vis, ar, x: w.x, y: w.y, d: w.dir | 0, f: (w.moving && !fishing ? P.F.MOVING : 0) | (w.sit ? P.F.SIT : 0) | (fishing ? P.F.FISH : 0) | (aboard ? 0 : phoneBit()) };
 }
 function profile() {
   let name = "Pemancing", rank = 0; try { name = NW.look.playerName(); rank = NW.look.rank ? NW.look.rank() : 0; } catch (e) {}
@@ -125,7 +126,7 @@ function onClose(ws, e) {
   if (R.ws !== ws) return;
   R.ws = null; reset();
   const code = e && e.code, why = R.err && R.err.e;
-  if (code === 4010 && R.house) { R.kickedAt[R.house] = now() + P.HOUSE.KICK_MS; const h = R.house; setState("kicked", "Pemilik rumah mengeluarkanmu."); if (NW.house && NW.house.onKicked) NW.house.onKicked(h); return; }
+  if (code === 4010 && R.house) { R.kickedAt[R.house] = now() + P.HOUSE.KICK_MS; const h = R.house; R.log = R.log.filter((l) => l.sc !== "h:" + h); setState("kicked", "Pemilik rumah mengeluarkanmu."); if (NW.house && NW.house.onKicked) NW.house.onKicked(h); return; }
   if (R.house && !R.gotWelcomeEver && ++R.fails >= 2 && NW.house && NW.house.onRoomFail) NW.house.onRoomFail(R.house);    // tak bisa masuk ruang: minta server memastikan izin (privat/dikeluarkan)
   if (R.house && code >= 4006 && code <= 4009) { R.nextTry = now() + 20000; return setState("off", "ditolak"); }       // ruang rumah menolak (penuh/laju): jangan menyentuh pilihan server Muara
   if (code === 4002) return setState("replaced", "Akunmu masuk dari perangkat lain.");
@@ -179,7 +180,10 @@ function upsert(row) {
   setHold(p, hold);
   return p;
 }
-function addLog(name, text, mine) { R.log.push({ name, text, t: Date.now(), mine: !!mine }); if (R.log.length > 80) R.log.shift(); }
+// Kunci percakapan saat pesan diterima: Rumahku (ruang rumah) atau area dunia. NusaChat (ponsel) hanya menampilkan percakapan yang sedang aktif → tidak ada kebocoran antar-ruang.
+const scopeKey = () => (R.house ? "h:" + R.house : "a:" + R.area);
+function addLog(name, text, mine, pid) { R.log.push({ name, text, t: Date.now(), mine: !!mine, sc: scopeKey(), id: typeof pid === "string" ? pid : "" }); if (R.log.length > 80) R.log.shift(); }
+const chatLog = (sc) => R.log.filter((l) => l.sc === sc).slice(-30).map((l) => ({ name: l.name, text: l.text, t: l.t, mine: l.mine, id: l.id }));
 // ---------- Kapal Rombongan (protokol; gambar kapal/kursi = tugas visual Worker 02, memakai NW.mp.boats()/boatMine()) ----------
 // Baris server: [id, x, y, arah, kecepatan×10, bendera(1 jangkar|2 pergi), kursi0, kursi1, kursi2] — kursi = id publik pemain (0 = kosong). Posisi di-smooth klien dari target server.
 function setBoat(r) {
@@ -227,7 +231,7 @@ function onMsg(m, ws) {
     case "c": {
       const mine = m.id === R.me, p = mine ? null : R.players.get(m.id), name = mine ? profile().n : p ? p.name : "?";
       const until = now() + Math.min(9000, 4500 + m.m.length * 60);
-      if (prefs.chat) { if (mine) R.self.bubble = { text: m.m, until }; else if (p) p.bubble = { text: m.m, until }; addLog(name, m.m, mine); }
+      if (prefs.chat) { if (mine) R.self.bubble = { text: m.m, until }; else if (p) p.bubble = { text: m.m, until }; addLog(name, m.m, mine, m.id); }
       emit(); break;
     }
     case "e": { const e = { i: m.i, from: now(), until: now() + 2600 }; if (m.id === R.me) R.self.emote = e; else { const p = R.players.get(m.id); if (p) p.emote = e; } break; }
@@ -314,7 +318,7 @@ function layer(view, inView) {
   for (const p of arr) {
     if (R.seatedSkip && R.seatedSkip(p.id)) continue;   // Kapal Rombongan: awak di kursi digambar modul kapal, bukan di titik server
     const pt = NW.P(p.ch.x, p.ch.y); if (!inView(view, pt.x, pt.y)) continue;
-    out.push({ d: p.ch.x + p.ch.y, ch: p.ch, remote: p });
+    p.ch.phoneOn = !!(p.f & P.F.PHONE); out.push({ d: p.ch.x + p.ch.y, ch: p.ch, remote: p });
     if (p.f & P.F.FISH) out.push({ d: p.ch.x + p.ch.y + 0.2, fn: (c) => drawBobber(c, p) });
   }
   return out;
@@ -323,7 +327,7 @@ function layer(view, inView) {
 function homeLayer(scene) {
   const out = []; if (!R.house || !R.players.size || !R.vis) return out;
   const inside = scene === "room";
-  for (const p of R.players.values()) if (!!(p.f & P.F.IN) === inside) out.push({ d: p.ch.x + p.ch.y, ch: p.ch, remote: p });
+  for (const p of R.players.values()) if (!!(p.f & P.F.IN) === inside) { p.ch.phoneOn = !!(p.f & P.F.PHONE); out.push({ d: p.ch.x + p.ch.y, ch: p.ch, remote: p }); }
   return out;
 }
 const DIRV = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
@@ -470,7 +474,7 @@ function hook() {
   if (NW.cloud && NW.cloud.onChange) NW.cloud.onChange(() => { if (!user() && R.ws) disconnect("logout"); emit(); });
 }
 
-NW.mp = { area: () => R.area, kotaLive: () => R.kota && R.state === "online", player: (id) => R.players.get(id) || null, setSeatedSkip: (f) => { R.seatedSkip = typeof f === "function" ? f : null; }, boatOn: () => R.boatOn, boats: () => [...R.boats.values()], boatMine: () => (R.mine && R.boats.get(R.mine.id) ? { id: R.mine.id, seat: R.mine.s, captain: R.mine.s === 0, boat: R.boats.get(R.mine.id) } : null), onBoat: (f) => R.bListeners.push(f),
+NW.mp = { area: () => R.area, scope: scopeKey, chatLog,  kotaLive: () => R.kota && R.state === "online", player: (id) => R.players.get(id) || null, setSeatedSkip: (f) => { R.seatedSkip = typeof f === "function" ? f : null; }, boatOn: () => R.boatOn, boats: () => [...R.boats.values()], boatMine: () => (R.mine && R.boats.get(R.mine.id) ? { id: R.mine.id, seat: R.mine.s, captain: R.mine.s === 0, boat: R.boats.get(R.mine.id) } : null), onBoat: (f) => R.bListeners.push(f),
   boatNew: () => boatSend({ a: "new" }), boatJoin: (b, s) => boatSend({ a: "join", b, s }), boatLeave: () => boatSend({ a: "leave" }), boatSteer: (d, th) => boatSend({ a: "steer", d, th }), boatAnchor: (on) => boatSend({ a: "anchor", on: !!on }), boatGo: (ar) => boatSend({ a: "go", ar }),
   _corr: () => (R.corr ? { x: R.corr.x, y: R.corr.y, ar: R.corr.ar } : null), sendOutfit: (c) => { R.outWant = typeof c === "string" ? c : ""; }, eject, clearKick, homeLayer, inHouse: () => !!R.house && R.vis && R.state === "online", hook, update, layer, drawTag, drawBubbles, view, sendChat, sendEmote, setPref, joinRoom, joinRandom, joinAuto, leaveServer, fetchRooms, sharedHour, onChange: (f) => R.listeners.push(f), eligible, EMOTES: P.EMOTES, ERR,
   get typing() { return R.typing; }, set typing(v) { R.typing = !!v; }, hasChatPref: () => prefs.chat, _R: R, _prefs: () => prefs, _net: netTick, _clock: CK, _serverNow: serverNow };

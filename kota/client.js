@@ -232,10 +232,11 @@ function drawOverK(c, t, dk, view_, inView) {
 
 // ---------- 6) interaksi: sapa warga & lihat papan toko (hanya dialog; tanpa ekonomi/quest) ----------
 let PTS = [];
+const phoneLive = () => { try { return !!(window.NW && NW.phone && NW.phone.srvOn && NW.phone.srvOn() && NW.phone.openStore); } catch (e) { return false; } };
 function updatePoints(pl) {
   PTS.length = 0; if (!S.inCity) return;
   for (const n of NPCS) if (n.on && n.alpha > 0.7 && Math.hypot(n.x - pl.x, n.y - pl.y) < 1.7 && n.def.lines) PTS.push({ id: "kota:" + n.def.id, x: n.x, y: n.y, r: 1.5, icon: "💬", label: "Sapa", kota: "npc", n });
-  for (const b of LAY.buildings) if (b.id === "nusaphone" || b.id === "balai_kota" || b.id === "kantor_nusa" || b.id === "hotel") PTS.push({ id: "kota:" + b.id, x: b.door.x, y: b.door.y + 0.4, r: 1.3, icon: "🏙️", label: "Lihat", kota: "bld", b });
+  for (const b of LAY.buildings) if (b.id === "nusaphone" || b.id === "balai_kota" || b.id === "kantor_nusa" || b.id === "hotel") PTS.push({ id: "kota:" + b.id, x: b.door.x, y: b.door.y + 0.4, r: 1.3, icon: b.id === "nusaphone" && phoneLive() ? "📱" : "🏙️", label: b.id === "nusaphone" && phoneLive() ? "Masuk toko" : "Lihat", kota: "bld", b });
   PTS.push({ id: "kota:arah", x: 38.3, y: 21.0, r: 1.6, icon: "🧭", label: "Peta Kota", kota: "arah" });
 }
 const AVATAR = { door: "🧑‍💼", shop: "🛍️", stall: "🧺", cart: "🍧", sit: "🧓", chat: "🗣️", run: "🏃", bike: "🚲", haul: "📦", fix: "🔧", driver: "🚚", cross: "🚶", patrol: "🔦" };
@@ -248,7 +249,11 @@ const BTEXT = {
 function interact(t, api, old) {
   if (!t.kota) return old && old(t, api);
   if (t.kota === "npc") { const n = t.n, d = n.def; n.said = (n.said + 1) % d.lines.length; api.openDialog({ name: d.name, avatar: AVATAR[d.job] || "🙂", lines: [d.lines[n.said]] }); return; }
-  if (t.kota === "bld") { const b = BTEXT[t.b.id]; return api.openDialog({ name: b[0], avatar: b[1], lines: b[2] }); }
+  if (t.kota === "bld") {
+    // Toko NusaPhone (Ide 07): bila server menyalakan NusaPhone, pemain bisa MASUK toko; bila MATI papan "SEGERA HADIR" dan dialog lama tetap seperti semula.
+    if (t.b.id === "nusaphone" && phoneLive()) { NW.phone.openStore().then((ok) => { if (!ok) api.openDialog({ name: "Toko NusaPhone", avatar: "📱", lines: ["Pintu toko sedang dikunci. Coba lagi sebentar ya."] }); }); return; }
+    const b = BTEXT[t.b.id]; return api.openDialog({ name: b[0], avatar: b[1], lines: b[2] });
+  }
   if (t.kota === "arah") return api.openDialog({ name: "Peta Kota Nusa", avatar: "🧭", lines: ["Gerbang barat → kembali ke Pelabuhan Kota.", "Utara: kantor & apartemen · Tengah: pasar, ruko, Balai Kota · Selatan: taman kota & permukiman · Timur: perumahan."] });
 }
 

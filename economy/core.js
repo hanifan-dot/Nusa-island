@@ -46,6 +46,7 @@
     const FC = opts.fashion || null;                                          // FashionCore (economy/fashion-core.js): katalog & harga avatar, opsional
     const SFX = opts.sf || null;                                              // SFCore (economy/sf-core.js): Samudra Follower, opsional & TERKUNCI sampai Owner menyetujui nilai di shop/config.sf
     const SF2 = opts.sf2 || null;                                             // SF2Core (economy/sf2-core.js): Samudra Follower V2 (pulau, Pity, katalog), opsional (tanpa ini ecoSf2* menolak)
+    const IK = opts.ikanloc || null;                                          // IkanLocCore (economy/ikanloc-core.js): SUPER RARE per lokasi (Ide 07B), opsional & TERKUNCI sampai Owner menyalakan shop/config.ikanLokasi
     const EV = opts.event || null;                                            // EventCore (event/core.js): Event 5 Monster Legenda, opsional
     const rng = opts.rng || (() => { try { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] / 4294967296; } catch (e) { return Math.random(); } });
     // KEAMANAN MIGRASI: secara BAWAAN ecoInit TIDAK memakai angka dari browser sama sekali. Saldo/level/ikan lama diambil dari SNAPSHOT yang dibekukan
@@ -59,7 +60,7 @@
       ops: [], earned: 0, spent: 0, lastCatchAt: 0, quest: null, streak: null, streakBait: 0, ev: {}, troph: {} });
     const topupOf = (ent) => (ent && ent.wallet && ent.wallet.NYATA) || 0;
     const view = (eco, ent) => ({ init: eco.init, own: eco.bal, topup: topupOf(ent), balance: eco.bal + topupOf(ent), up: eco.up, homeLv: eco.homeLv, cat: eco.cat,
-      box: eco.box.map((b) => b.u), claimed: Object.keys(eco.claimed), troph: eco.troph || {},
+      box: eco.box.map((b) => b.u), sx: eco.box.filter((b) => FISH[b.id] && FISH[b.id].sup).map((b) => ({ uid: b.u, id: b.id, w: b.w })), claimed: Object.keys(eco.claimed), troph: eco.troph || {},
       ...(QK ? { qo: QK.view(eco.quest) } : {}),
       ...(AU ? { aur: { own: AU.ownsAny(ent), live: AU.active(ent, eco), eq: AU.equipOn(eco), n: (eco.aur && eco.aur.n) || 0, up: (eco.aur && eco.aur.up) || 0 } } : {}) });
     const doneOp = (eco, id) => { const o = eco.ops.find((x) => x.id === id); return o ? o.r : null; };
@@ -183,11 +184,12 @@
         for (const it of items) {
           const f = it && FISH[it.id];   // ikan Samudra Follower TIDAK pernah diterima dari klien: hanya server yang dapat memberikannya (undian di ecoCatch)
           if (!f) throw E("invalid-argument", "Ikan tidak dikenal.");
+          if (f.sup) throw E("invalid-argument", "Ikan SUPER RARE hanya dibuat server.");   // Ide 07B: klien TIDAK PERNAH boleh melapor ikan super; hanya undian server di bawah
           const w = Number(it.w);
           if (!(w >= f.wMin * 0.5) || !(w <= maxKg(f))) throw E("invalid-argument", "Berat ikan tidak masuk akal.");
           if (!f.protected) { if (typeof it.uid !== "string" || !UID_RE.test(it.uid) || seenUid.has(it.uid)) throw E("invalid-argument", "UID ikan tidak valid."); seenUid.add(it.uid); }
         }
-        const sfCfg = SFX ? ((await db.get("shop/config")) || {}) : null;   // 1 baca config per paket (hanya bila modul SF terpasang)
+        const sfCfg = (SFX || IK) ? ((await db.get("shop/config")) || {}) : null;   // 1 baca config per paket (hanya bila modul SF terpasang)
         return db.tx(async (t) => {
           const eco = await getEco(t, uid), ent = await entOf(t, uid); needInit(eco);
           const prev = doneOp(eco, opId); if (prev) return Object.assign({ duplicate: true }, prev, view(eco, ent));
@@ -198,7 +200,8 @@
           if (eco.catches.length + n > LIM.catchPerHour) throw E("resource-exhausted", "Batas tangkapan per jam tercapai.");
           for (let i = 0; i < n; i++) eco.catches.push(now);
           eco.lastCatchAt = now;
-          let reward = 0; const skipped = [], swaps = [], fin = [], capSkipped = []; let sfItem = [];
+          let reward = 0; const skipped = [], swaps = [], fin = [], capSkipped = []; let sfItem = [], sxItem = [];
+          const rolledFish = [];   // {u,id} tangkapan sah akhir (setelah bonus Aurora) → satu undian SUPER RARE per ikan
           const rolled = [];   // ikan biasa sah yang masuk kotak → tiap satu mendapat TEPAT satu kesempatan bonus SF (diundi SERVER)
           const bonus = !!(AU && AU.active(ent, eco));                                           // bonus HANYA bila server melihat kepemilikan NYATA di entitlement (bukan klaim klien)
           for (const it of items) {
@@ -215,12 +218,16 @@
               if (to && FISH[to]) { const nf = FISH[to], r = FM.rollWeight(nf, rng); swaps.push({ u: it.uid, from: f.id, id: to, w: r.w }); eco.aur.up++; f = nf; w = r.w; fi = { id: to, w, uid: it.uid }; }
             }
             fin.push(fi);
-            eco.box.push({ u: it.uid, id: f.id, w: Math.round(w * 100) / 100 }); rolled.push(it.uid);
+            eco.box.push({ u: it.uid, id: f.id, w: Math.round(w * 100) / 100 }); rolled.push(it.uid); rolledFish.push({ u: it.uid, id: f.id });
+          }
+          if (IK && rolledFish.length && sfCfg && sfCfg.ikanLokasi === true) {   // SUPER RARE (Ide 07B): diundi & dibuat SERVER; TERKUNCI sampai Owner menyetujui peluang & menyalakan shop/config.ikanLokasi
+            sxItem = IK.roll(eco, rolledFish, FISH, rand, (sp) => FM.rollWeight(sp, rand), now, () => eco.box.length < LIM.boxMax);
+            for (const x of sxItem) eco.box.push({ u: x.uid, id: x.id, w: x.w });
           }
           if (SFX && rolled.length) sfItem = sfRoll(eco, rolled, sfCfg, now);   // peluang SF tidak dipengaruhi Aurora / Megalodon / ikan lama
           lbCount(eco, fin, typeof skipped === "undefined" ? null : skipped, now);   // Podium Juara: sekali per paket, di transaksi yang sama
-          await t.set(ECO(uid), remember(eco, opId, { reward, skipped, swaps, sfItem }) && eco);
-          return Object.assign({ ok: true, reward, skipped, swaps, sfItem }, capSkipped.length ? { capSkipped } : {}, view(eco, ent));
+          await t.set(ECO(uid), remember(eco, opId, { reward, skipped, swaps, sfItem, sxItem }) && eco);
+          return Object.assign({ ok: true, reward, skipped, swaps, sfItem, sxItem }, capSkipped.length ? { capSkipped } : {}, view(eco, ent));
         });
       },
       // Samudra Follower: daftar ikan yang AKTIF menurut persetujuan Owner (1 baca config). Terkunci/tidak ada config → {on:false, fish:[]}. Peluang = angka yang disetujui Owner (klien hanya melempar; server membatasi harian + ref).
