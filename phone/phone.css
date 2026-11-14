@@ -133,3 +133,51 @@ body.mp-chat-open .nph-toast { display: none !important; }
 
 /* ---- Dompet Nusa (Ide 07) ---- */
 .dw { display: flex; flex-direction: column; gap: .5em; } .dw-c b { font-size: 1.35em; font-variant-numeric: tabular-nums; margin: .1em 0; } .dw-st { border-radius: .8em; padding: .5em .7em; font-size: max(10px, .78em); font-weight: 800; } .dw-st.ok { background: #d9f3e2; color: #0b5a2b; } .dw-st.off { background: #ffe9c7; color: #6b3d00; }
+
+/* ===== Toko NusaPhone (Ide 07 tahap 5): interior toko 2.5D + etalase enam model ===== */
+body.nps-open { overflow: hidden; }
+.nps { position: fixed; inset: 0; z-index: 55; display: flex; flex-direction: column; background: #0e2531; color: #eaf6f3; font-family: system-ui, sans-serif; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); -webkit-tap-highlight-color: transparent; }
+.nps button { font-family: inherit; cursor: pointer; }
+.nps button:focus-visible { outline: 3px solid #ffd873; outline-offset: 2px; }
+.nps-top { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #173f50; border-bottom: 2px solid #2b6f97; flex: none; }
+.nps-ttl { flex: 1; min-width: 0; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nps-x, .nps-topup { min-height: 40px; padding: 0 12px; border-radius: 12px; border: 2px solid #fff9ec; background: #2b6f97; color: #fff; font-weight: 800; font-size: 13px; }
+.nps-topup { background: #e0a93a; color: #3a2a05; border-color: #fff3cf; }
+.nps-topup:disabled { opacity: .5; cursor: not-allowed; background: #6f7d86; color: #e6eef3; border-color: #aab7bf; }
+.nps-bal { font-weight: 800; font-size: 13px; padding: 7px 10px; border-radius: 999px; background: rgba(255, 249, 236, .12); border: 1px solid rgba(255, 249, 236, .3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.nps-main { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.nps-stage { position: relative; flex: none; width: 100%; max-width: 760px; margin: 0 auto; background: #0f2a38; }
+.nps-cvw { width: 100%; aspect-ratio: 550 / 360; max-height: 46vh; margin: 0 auto; display: flex; justify-content: center; }
+.nps-cv { height: 100%; max-width: 100%; aspect-ratio: 550 / 360; display: block; touch-action: manipulation; }
+.nps-say { margin: 4px 8px 6px; padding: 6px 10px; border-radius: 12px; background: rgba(255, 249, 236, .95); color: #173f50; font-size: 12px; font-weight: 700; line-height: 1.3; }
+.nps-say::before { content: "Mbak Sari: "; color: #2b6f97; }
+.nps-side { flex: 1 0 auto; width: 100%; max-width: 760px; margin: 0 auto; padding: 8px 10px 14px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; }
+.nps-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
+.nps-chip { min-width: 0; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 5px 8px; border-radius: 12px; border: 2px solid rgba(255, 249, 236, .25); background: rgba(255, 249, 236, .08); color: #eaf6f3; position: relative; }
+.nps-chip i { width: 14px; height: 20px; border-radius: 4px; border: 2px solid; display: block; }
+.nps-chip span { font-size: 11px; font-weight: 800; white-space: nowrap; }
+.nps-chip small { font-size: 10px; opacity: .85; font-variant-numeric: tabular-nums; }
+.nps-chip.on { border-color: #ffd873; background: rgba(255, 216, 115, .18); }
+.nps-card { border-radius: 14px; padding: 10px 12px; background: rgba(255, 249, 236, .08); border: 1px solid rgba(255, 249, 236, .22); }
+.nps-card h3 { margin: 0; font-size: 16px; }
+.nps-kind { font-size: 11.5px; opacity: .85; margin: 1px 0 6px; }
+.nps-spec { margin: 0 0 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+.nps-spec div { min-width: 0; } .nps-spec dt { font-size: 10.5px; opacity: .7; } .nps-spec dd { margin: 0; font-size: 13px; font-weight: 800; }
+.nps-spec small { font-weight: 600; opacity: .75; font-size: 10.5px; }
+.nps-wait { font-style: normal; font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 8px; background: #ffd873; color: #3a2a05; white-space: nowrap; }
+.nps-act { display: flex; flex-wrap: wrap; gap: 8px; }
+.nps-btn { min-height: 44px; padding: 0 14px; border-radius: 12px; border: 2px solid rgba(255, 249, 236, .5); background: rgba(255, 249, 236, .1); color: #fff; font-weight: 800; font-size: 13.5px; }
+.nps-btn.go { background: #2fb39a; border-color: #bff3e6; color: #05302a; }
+.nps-btn.alt { background: #2b6f97; border-color: #bfe3f7; }
+.nps-btn:disabled { opacity: .5; cursor: not-allowed; }
+.nps-conf { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } .nps-conf p { margin: 0; flex: 1 1 100%; font-size: 13px; }
+.nps-note, .nps-fine { margin: 8px 0 0; font-size: 11.5px; opacity: .85; line-height: 1.35; } .nps-fine { opacity: .65; font-size: 10.5px; }
+.nps-msg { margin-top: 8px; padding: 8px 10px; border-radius: 10px; font-size: 12.5px; font-weight: 700; line-height: 1.35; }
+.nps-msg.ok { background: rgba(47, 179, 154, .25); border: 1px solid #2fb39a; } .nps-msg.bad { background: rgba(226, 87, 76, .22); border: 1px solid #e2574c; } .nps-msg.info { background: rgba(127, 211, 255, .18); border: 1px solid #7fd3ff; }
+.nps-msg .nps-btn { min-height: 36px; margin-top: 6px; }
+@media (orientation: landscape) and (min-width: 560px) {
+  .nps-main { flex-direction: row; align-items: stretch; overflow: hidden; }
+  .nps-stage { flex: 1 1 58%; max-width: none; max-height: none; margin: 0; align-self: center; }
+  .nps-cvw { max-height: calc(100vh - 150px); }
+  .nps-side { flex: 0 0 min(40%, 420px); max-width: none; margin: 0; overflow-y: auto; max-height: 100%; }
+}

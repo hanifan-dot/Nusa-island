@@ -62,7 +62,8 @@ function drawWins(c, set, night, e) {
   if (lit.length) { c.fillStyle = LIT; c.beginPath(); for (const q of lit) { c.moveTo(q[0].x, q[0].y); for (let i = 1; i < 4; i++) c.lineTo(q[i].x, q[i].y); c.closePath(); } c.fill(); }
 }
 const litProb = (p, hour) => { const base = p.id === "hotel" || p.id === "apartemen" ? 0.78 : p.type === "kantor" ? 0.55 : 0.6; return hour >= 23 || hour < 4.5 ? base * 0.4 : base; };
-const isOpen = (p, hour) => !p.shop || p.closeAt === 0 ? p.closeAt === 0 && p.shop ? false : true : hour >= 6 && hour < p.closeAt;
+const phoneLive = () => { try { return !!(window.NW && NW.phone && NW.phone.srvOn && NW.phone.srvOn()); } catch (e) { return false; } };   // Ide 07: toko NusaPhone buka hanya bila server menyalakan NusaPhone
+const isOpen = (p, hour) => p.extra === "phone" ? phoneLive() : !p.shop || p.closeAt === 0 ? p.closeAt === 0 && p.shop ? false : true : hour >= 6 && hour < p.closeAt;
 // ---------- sel bangunan ----------
 function cell(c, b, t, night) {
   const p = b.parent, st = S(); if (p.type === "rumah") return houseCell(c, b, t, night);
@@ -116,7 +117,7 @@ function facade(c, b, p, t, night, st) {
       const stripe = p.extra === "phone" ? ["#2b6f97", "#e6eef6"] : p.accent ? [["#c9553b", "#2f7a8c", "#e0b84c", "#6a8f3a"][sid(p.id) % 4], "#f3e7c9"] : ["#c9553b", "#f3e7c9"];
       awning(c, dx - w - 0.1, dx + w + 0.1, y, 25, stripe[0], stripe[1], 0.55);
       if (p.sign) signS(c, dx, y, Math.min(h(b) - 16, 31), Math.min(2 * w + 0.4, 3.3), 9, p.sign, p.extra === "phone" ? "#173f50" : "#fff6d8", p.extra === "phone" ? "#7fd3ff" : "#7a3b25", p.sign.length > 12 ? 6 : 7.5);
-      if (p.extra === "phone") { signS(c, dx, y, 11, 1.7, 5.5, "SEGERA HADIR", "#d84a3a", "#fff", 5.2); }
+      if (p.extra === "phone") { if (open) { signS(c, dx, y, 11, 1.7, 5.5, "BUKA", "#2f9c5a", "#fff", 6); phoneWin(c, dx, y, w, Z, night); } else signS(c, dx, y, 11, 1.7, 5.5, "SEGERA HADIR", "#d84a3a", "#fff", 5.2); }
       else if (!open) signS(c, dx + w - 0.45, y, 3, 0.9, 4.5, "TUTUP", "#f3e7c9", "#a3453a", 4.5);
     } else if (p.type === "balai") {
       for (let k = 0; k < 4; k++) { const xx = b.x0 + (b.x1 - b.x0) * (0.12 + k * 0.25); if (xx > b.x0 && xx < b.x1) prism(c, xx - 0.14, b.y1 - 0.12, xx + 0.14, b.y1 + 0.16, 0, 34, ["#f4eee0", "#efe7d3", "#cfc5ad"]); }
@@ -131,6 +132,10 @@ function facade(c, b, p, t, night, st) {
   if (hasDoor && p.sign && (p.type === "kantor" || p.type === "balai")) signS(c, d.x, b.y1, (p.type === "balai" ? b.h - 14 : 29), p.type === "balai" ? 3.6 : 3.0, 9, p.sign, "#173f50", "#fff6d8", p.sign.length > 11 ? 6 : 7.5);
 }
 const h = (b) => b.h;
+function phoneWin(c, dx, y, w, Z, night) {   // etalase: beberapa ponsel kecil berwarna di kaca (hanya saat toko buka)
+  const cols = ["#ffd447", "#7ad3c1", "#e05a7a", "#5b4bb7"];
+  for (let i = 0; i < cols.length; i++) { const gx = dx - w + (i + 0.5) * (2 * w / cols.length) - 0.12; fillPoly(c, [P(gx, y, Z(8)), P(gx + 0.24, y, Z(8)), P(gx + 0.24, y, Z(15)), P(gx, y, Z(15))], cols[i], "rgba(23,63,80,.5)"); }
+}
 function awning(c, x0, x1, y, z, ca, cb, out) {
   const n = Math.max(2, Math.round((x1 - x0) / 0.42)), dx = (x1 - x0) / n;
   for (let i = 0; i < n; i++) { const a = x0 + i * dx, e = a + dx; fillPoly(c, [P(a, y, LIFT + z), P(e, y, LIFT + z), P(e, y + out, LIFT + z - 5), P(a, y + out, LIFT + z - 5)], i % 2 ? cb : ca); }

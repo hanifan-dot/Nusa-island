@@ -55,6 +55,7 @@ const srv = http.createServer(async (req, res) => {
       T += 25000; s.setNow(T); return send(res, 200, out);
     }
     if (u.pathname === '/__dishes') { s.mock.seed(`shop_dapur/${body.uid}`, { ...D.fresh(), dishes: body.list || [], ...(body.extra || {}) }); return send(res, 200, { ok: true }); }
+    if (u.pathname === '/__phone') { await ensure(body.uid); const pth = `shop_phone/${body.uid}`; s.mock.seed(pth, { ...(s.mock.read(pth) || {}), ...(body.set || {}) }); return send(res, 200, { ok: true }); }   // reset kepemilikan model uji (Firestore tiruan)
     if (u.pathname === '/__eco') { await ensure(body.uid); const pth = `shop_economy/${body.uid}`; s.mock.seed(pth, { ...(s.mock.read(pth) || {}), ...(body.set || {}) }); if (body.ent) s.mock.seed(`shop_entitlements/${body.uid}`, body.ent); return send(res, 200, { ok: true }); }   // data ekonomi uji (Firestore tiruan)
     if (u.pathname === '/__klippy') { s.mock.seed('shop_klippy/feed', { v: 1, posts: body.posts || [] }); for (const [k, v] of Object.entries(body.stats || {})) s.mock.seed(`shop_klippy/s-${k}`, v); return send(res, 200, { ok: true }); }   // konten Klippy uji (Firestore tiruan)
     if (u.pathname === '/__read') return send(res, 200, s.mock.read(body.path) || null);

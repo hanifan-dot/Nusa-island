@@ -37,7 +37,7 @@ async function probe() {   // satu panggilan ringan (gameFlags) hanya saat ponse
 // ---------- gerbang server ----------
 async function gate() {
   if (st.srv) return; st.gateTried++;
-  try { const r = await call("gameFlags", {}); if (r && r.nusaPhone === true) { st.srv = true; mount(); } else if (r && r.nusaPhone === false) st.gateTried = 99; }   // OFF eksplisit: berhenti menanyakan sampai muat ulang
+  try { const r = await call("gameFlags", {}); if (r && r.nusaPhone === true) { st.srv = true; mount(); pullState(); } else if (r && r.nusaPhone === false) st.gateTried = 99; }   // OFF eksplisit: berhenti menanyakan sampai muat ulang
   catch (e) { /* gagal-tertutup; dicoba lagi (tidak menempel) */ }
 }
 function hook() {
@@ -141,7 +141,7 @@ function open() {
   const r = $("nphRoot"); r.classList.remove("hidden"); r.setAttribute("aria-hidden", "false"); document.body.classList.add("nph-open");
   applyTheme(); layout(); render(); paintLink(); setPlayer(true);
   if (rm()) r.classList.add("on"); else requestAnimationFrame(() => requestAnimationFrame(() => r.classList.add("on")));
-  probe(); setTimeout(() => { try { $("nphGrab").focus({ preventScroll: true }); } catch (e) { /* abaikan */ } }, 60);
+  probe(); if (now() - (st.pulled || 0) > 20000) { st.pulled = now(); pullState(); } setTimeout(() => { try { $("nphGrab").focus({ preventScroll: true }); } catch (e) { /* abaikan */ } }, 60);
   return true;
 }
 function close(quiet) {
@@ -301,9 +301,25 @@ function drawHeld(c, ch, st0, fx, fy, y0, t, back, side) {
   if (!back && e > 0.8) { const gy = hy - 6, g = c.createRadialGradient(hx, gy, 0, hx, gy, 12); g.addColorStop(0, "rgba(120,235,215,.28)"); g.addColorStop(1, "rgba(120,235,215,0)"); c.save(); c.fillStyle = g; c.beginPath(); c.arc(hx, gy, 12, 0, 7); c.fill(); c.restore(); }   // cahaya layar halus
 }
 
+// ---------- model milik pemain (server = sumber kebenaran) ----------
+// Daftar kepemilikan & model terpakai datang dari server (phoneState/phoneBuy/phoneUse). `use` dari server menggantikan casing lokal HANYA saat server mengubahnya (pilihan casing lokal di Pengaturan tetap bebas di antara model yang dimiliki).
+function syncState(s) {
+  if (!s || !Array.isArray(s.owned)) return; st.owned = C.cleanOwned(s.owned); const u = C.cleanUse(s.use, st.owned);
+  if (st.srvUse !== u) { st.srvUse = u; if (st.pref.casing !== u) { st.pref = C.cleanPrefs(Object.assign({}, st.pref, { casing: u })); savePrefs(); } }
+  else if (st.pref.casing && !st.owned.includes(st.pref.casing)) { st.pref = C.cleanPrefs(Object.assign({}, st.pref, { casing: "dasar" })); savePrefs(); }
+  if (st.mounted) { applyTheme(); if (st.open) render(); }
+}
+async function pullState() { if (!st.srv || !linkOk()) return; try { const r = await netCall("phoneState", {}); syncState(r && r.state); } catch (e) { /* tampilan saja; dicoba lagi saat dibuka */ } }
+// Toko NusaPhone di Kota: modulnya baru diunduh saat pemain masuk toko DAN server menyalakan NusaPhone.
+async function openStore() {
+  if (!st.srv) return false;
+  try { await loadFiles(["store.js"]); } catch (e) { return false; }
+  return !!(NW.phoneStore && NW.phoneStore.open());
+}
+
 NW.phone = {
-  isOpen: () => st.open, camShift: () => (st.open && st.cam ? st.cam : null), open, close: () => close(), srvOn: () => st.srv, broadcast: () => st.srv && st.open, drawHeld, registerApp, notify: noteAdd,
-  link: linkOk, call: netCall, prefs: () => Object.assign({}, st.pref), owned: () => st.owned.slice(), go, _gate: gate,
+  isOpen: () => st.open, camShift: () => (st.open && st.cam ? st.cam : null), open, close: (q) => close(q), srvOn: () => st.srv, broadcast: () => st.srv && st.open, drawHeld, registerApp, notify: noteAdd,
+  link: linkOk, call: netCall, prefs: () => Object.assign({}, st.pref), owned: () => st.owned.slice(), go, _gate: gate, sync: syncState, openStore, relink: () => { if (st.failed) { st.failed = false; if (st.mounted) paintLink(); } },
 };
 hook();
 // pemakaian setelah masuk: bila sudah login saat modul dimuat, tanyakan segera
