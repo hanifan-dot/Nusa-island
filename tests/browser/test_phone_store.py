@@ -38,11 +38,11 @@ def sec_flag(b, br):
     br.flag(phone=False, ocean=True, klippy=True)
     ctx, A, errs = X.new_page(b, br, "demo-a", "Budi", vp=(412, 915), hour=12, extra_init=KOTA); time.sleep(1.5); go_door(A)
     ok("F0 server NusaPhone MATI: titik pintu tetap 'Lihat' dan dialog lama 'SEGERA HADIR' (toko tidak bisa dimasuki)", point(A) == "Lihat", point(A))
-    ev(A, "NW.world.interact()"); time.sleep(0.5)
+    ev(A, "NW.world.interact()"); wait_for(A, "document.body.innerText.includes('SEGERA')", 8)
     txt = ev(A, "document.body.innerText"); ok("F0b dialog lama muncul; tidak ada toko; modul store.js tidak diunduh", "SEGERA" in txt and "Toko NusaPhone" in txt and not store_open(A) and ev(A, "typeof NW.phoneStore")  == "undefined", ev(A, "typeof NW.phoneStore"))
     exterior_shot(A, "st-412x915-luar-segera-hadir"); ctx.close()
     ctx, A, errs = X.new_page(b, br, "demo-a", "Budi", vp=(412, 915), hour=12, phone=False, extra_init=KOTA); time.sleep(1.0); go_door(A)
-    ev(A, "NW.world.interact()"); time.sleep(0.5)
+    ev(A, "NW.world.interact()"); wait_for(A, "document.body.innerText.includes('SEGERA')", 8)
     ok("F1 flag klien NUSA_PHONE=false: perilaku Kota lama persis (Lihat + SEGERA HADIR, tidak ada NW.phone)", point(A) == "Lihat" and "SEGERA" in ev(A, "document.body.innerText") and ev(A, "typeof NW.phone") == "undefined", point(A)); ctx.close()
     br.flag(phone=True, ocean=True, klippy=True)
 
