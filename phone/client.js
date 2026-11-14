@@ -7,7 +7,7 @@ const NW = (window.NW = window.NW || {}), C = window.NusaPhoneCore; if (!C) retu
 const N = () => window.Nusa, $ = (id) => document.getElementById(id);
 const st = {
   srv: false, gateTried: 0, hooked: false, mounted: false, open: false, nav: C.NAV0, notes: [], failed: false, tick: 0, probeAt: 0, pref: C.cleanPrefs(null),
-  owned: ["dasar"], apps: {}, appCtl: null, drag: null, opened: 0, dir: 0, lastTheme: "", unlockedOnce: false, toastT: 0, sysReduced: false, cam: null,
+  owned: ["dasar"], apps: {}, loadFail: {}, appCtl: null, drag: null, opened: 0, dir: 0, lastTheme: "", unlockedOnce: false, toastT: 0, sysReduced: false, cam: null,
 };
 const call = (name, body) => (window.NusaApi && window.NusaApi.enabled() ? window.NusaApi.call(name, body || {}, true) : Promise.reject(Object.assign(new Error("offline"), { code: "unavailable" })));
 const NET_CODES = ["unavailable", "network", "timeout", "deadline-exceeded", "internal"];
@@ -201,10 +201,17 @@ function paintApp() {
   if (st.appCtl && st.appCtl.id === id) { try { st.appCtl.update && st.appCtl.update(); } catch (e) { /* abaikan */ } return; }
   closeApp(); body.innerHTML = "";
   const impl = st.apps[id] || BUILTIN[id];
+  if (!impl && APP_SCRIPTS[id] && !st.loadFail[id]) { body.innerHTML = `<div class="nph-lockpane"><div class="nph-lock-ic" aria-hidden="true">⏳</div><b>Memuat ${esc(a.name)}…</b></div>`; loadFiles(APP_SCRIPTS[id]).then(() => { if (st.open && st.nav.app === id) paintApp(); }, () => { st.loadFail[id] = true; if (st.open && st.nav.app === id) paintApp(); }); return; }
   if (impl) { const ctl = impl.mount(body, ctx(id)); st.appCtl = Object.assign({ id }, ctl || {}); return; }
-  body.innerHTML = `<div class="nph-lockpane"><div class="nph-lock-ic" aria-hidden="true">🛠️</div><b>${esc(a.name)}</b><p>Aplikasi ini sedang disiapkan.</p></div>`;
+  body.innerHTML = `<div class="nph-lockpane"><div class="nph-lock-ic" aria-hidden="true">🛠️</div><b>${esc(a.name)}</b><p>${st.loadFail[id] ? "Gagal memuat aplikasi. Tutup lalu buka lagi." : "Aplikasi ini sedang disiapkan."}</p></div>`;
 }
-function ctx(id) { return { call: netCall, linkOk, notify: noteAdd, deeper: () => go("deeper"), sub: () => st.nav.sub, esc, icon, rm, close: () => close(), now, N }; }
+function ctx(id) { return { call: netCall, linkOk, load: loadFiles, notify: noteAdd, deeper: () => go("deeper"), sub: () => st.nav.sub, esc, icon, rm, close: () => close(), now, N }; }
+// Modul aplikasi dimuat SAAT DIBUKA (tidak diunduh bila tidak dipakai); semua di bawah phone/ dan hanya bila NUSA_PHONE=true.
+const BASE = (() => { const e = document.querySelector('script[src*="phone/client.js"]'); return e ? e.src.replace(/client\.js.*$/, "") : "phone/"; })();
+const APP_SCRIPTS = { playgame: ["gamekit.js", "playgame.js"] };
+const loaded = {};
+function loadFile(f) { return loaded[f] || (loaded[f] = new Promise((ok, no) => { const e = document.createElement("script"); e.src = BASE + f; e.async = false; e.onload = ok; e.onerror = () => { delete loaded[f]; no(new Error("gagal memuat " + f)); }; document.head.appendChild(e); })); }
+const loadFiles = (fs) => fs.reduce((p, f) => p.then(() => loadFile(f)), Promise.resolve());
 function registerApp(id, impl) { if (C.APP_IDS.includes(id) && impl && typeof impl.mount === "function") st.apps[id] = impl; }
 
 // bawaan: Peta + Pengaturan (tanpa jaringan)
@@ -270,7 +277,7 @@ function tickSlow() {
 // ---------- animasi karakter memegang ponsel (diri sendiri & pemain lain; murni tampilan) ----------
 function drawHeld(c, ch, st0, fx, fy, y0, t, back, side) {
   const dt = ch._pt == null ? 0 : Math.max(0, Math.min(0.1, t - ch._pt)); ch._pt = t; if (ch._ph == null) ch._ph = 0;
-  const to = ch.phoneOn ? 1 : 0, sp = rm() ? 1e3 : 3.4; ch._ph = to > ch._ph ? Math.min(1, ch._ph + dt * sp) : Math.max(0, ch._ph - dt * sp);
+  if (ch.phoneOn) ch._pOn = t; const to = (ch.phoneOn || (ch._pOn != null && t - ch._pOn >= 0 && t - ch._pOn < 0.3)) ? 1 : 0, sp = rm() ? 1e3 : 3.4; ch._ph = to > ch._ph ? Math.min(1, ch._ph + dt * sp) : Math.max(0, ch._ph - dt * sp);
   const p = ch._ph; if (p <= 0) return; const e = p * p * (3 - 2 * p), self = ch === (NW.world && NW.world.player);
   const m = self ? C.modelOf(st.pref.casing && st.owned.includes(st.pref.casing) ? st.pref.casing : "dasar") : C.MODELS.dasar;
   const sx = side ? fx * -1.5 : 7.5, sy = y0 - 21.5;                             // bahu lengan depan

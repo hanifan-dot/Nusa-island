@@ -23,6 +23,7 @@ await flip({ dapurRumahku: true });
 await flip({ socialHome: true, mpUpdated: true });
 await flip({ pakDamar: true, kapalRombongan: true, kotaNusa: true });
 await flip({ nusaPhone: true });
+await flip({ oceanSpin: true });
 const seen = new Set();
 async function ensure(uid) {
   if (seen.has(uid)) return; seen.add(uid);
@@ -41,7 +42,7 @@ const srv = http.createServer(async (req, res) => {
       const uid = m[1]; await ensure(uid); const P = await s.player(uid); const r = await s.fn(u.pathname.slice(4), P, body.data || {}); return send(res, r.status, r.text);
     }
     if (u.pathname === '/__adv') { T += body.ms | 0; s.setNow(T); return send(res, 200, { t: T }); }
-    if (u.pathname === '/__flags') { const r = []; if (body.dapur !== undefined) r.push((await flip({ dapurRumahku: body.dapur === true })).status); if (body.social !== undefined) r.push((await flip({ socialHome: body.social === true, mpUpdated: true })).status); if (body.kota !== undefined) r.push((await flip({ kotaNusa: body.kota === true })).status); if (body.phone !== undefined) r.push((await flip({ nusaPhone: body.phone === true })).status); if (body.damar !== undefined) r.push((await flip({ pakDamar: body.damar === true })).status); if (body.kapal !== undefined) r.push((await flip({ kapalRombongan: body.kapal === true })).status); return send(res, 200, { status: r }); }
+    if (u.pathname === '/__flags') { const r = []; if (body.dapur !== undefined) r.push((await flip({ dapurRumahku: body.dapur === true })).status); if (body.social !== undefined) r.push((await flip({ socialHome: body.social === true, mpUpdated: true })).status); if (body.kota !== undefined) r.push((await flip({ kotaNusa: body.kota === true })).status); if (body.phone !== undefined) r.push((await flip({ nusaPhone: body.phone === true })).status); if (body.ocean !== undefined) r.push((await flip({ oceanSpin: body.ocean === true })).status); if (body.damar !== undefined) r.push((await flip({ pakDamar: body.damar === true })).status); if (body.kapal !== undefined) r.push((await flip({ kapalRombongan: body.kapal === true })).status); return send(res, 200, { status: r }); }
     if (u.pathname === '/__homepub') {   // rumah uji: pemilik `uid`, nama, level, privasi, tamu sementara {uid:ms}, bans, blocks
       const pid = pidOf(body.uid), far = T + 7200000, guests = {}; for (const [g, ms] of Object.entries(body.guests || {})) guests[pidOf(g)] = T + (ms | 0 || 7200000);
       s.mock.seed(`homepub/${pid}`, { v: 1, pid, uid: body.uid, privacy: body.privacy || 'private', allow: (body.allow || []).map((g) => ({ pid: pidOf(g), name: g })), bans: {}, blocks: [], guests, name: body.name || 'Rumah', lname: String(body.name || 'rumah').toLowerCase(), level: body.level || 2, snap: { name: body.name || 'Rumah', level: body.level || 2, furn: [], fish: [], deco: [], leg: [] }, updatedAt: T });
@@ -53,6 +54,7 @@ const srv = http.createServer(async (req, res) => {
       T += 25000; s.setNow(T); return send(res, 200, out);
     }
     if (u.pathname === '/__dishes') { s.mock.seed(`shop_dapur/${body.uid}`, { ...D.fresh(), dishes: body.list || [], ...(body.extra || {}) }); return send(res, 200, { ok: true }); }
+    if (u.pathname === '/__eco') { await ensure(body.uid); const pth = `shop_economy/${body.uid}`; s.mock.seed(pth, { ...(s.mock.read(pth) || {}), ...(body.set || {}) }); if (body.ent) s.mock.seed(`shop_entitlements/${body.uid}`, body.ent); return send(res, 200, { ok: true }); }   // data ekonomi uji (Firestore tiruan)
     if (u.pathname === '/__read') return send(res, 200, s.mock.read(body.path) || null);
     if (u.pathname === '/__pid') return send(res, 200, { pid: pidOf(body.uid) });
     if (u.pathname === '/__writes') return send(res, 200, { n: [...s.mock.ver.values()].reduce((n, v) => n + v, 0) });
