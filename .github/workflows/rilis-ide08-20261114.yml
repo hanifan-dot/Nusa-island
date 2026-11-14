@@ -1,4 +1,4 @@
-name: HOTFIX Kemudi HP + UI Mancing
+name: HOTFIX Bekas Kapal Hilang 5 Detik
 on:
   push:
     branches: [main]
@@ -14,7 +14,7 @@ permissions:
   id-token: write
 
 env:
-  GAME_SHA: 97cab90b2219f72a14b58888fb5b83a2eae1fe62
+  GAME_SHA: 587c86f120d7bc09c1be85cb01e186345631f692
   BACKEND_SHA: bc769f087b4bd27eec2fbb39afd863f7705d1001
   GUARD_SHA: ff3ab0b574bb4cd8b40b5438826b0049c8737dbb
 
@@ -79,7 +79,7 @@ jobs:
           grep -Fq 'NUSA_BOAT = "ya"' game/cf-multiplayer/wrangler.toml
           grep -Fq 'NUSA_KOTA = "ya"' game/cf-multiplayer/wrangler.toml
           grep -Fq 'NUSA_PHONE = "ya"' game/cf-multiplayer/wrangler.toml
-          (cd game && node firebase/scripts/cek-rilis.js && node tests/unit-mp.js && node tests/unit-cf-auth.js && node tests/unit-phone.js && node tests/unit-ikanloc.js && node tests/unit-kemudi.js && node tests/unit-kemudi-mobile-ui.js && node tests/unit-room-exit.js)
+          (cd game && node firebase/scripts/cek-rilis.js && node tests/unit-mp.js && node tests/unit-cf-auth.js && node tests/unit-phone.js && node tests/unit-ikanloc.js && node tests/unit-kemudi.js && node tests/unit-kemudi-mobile-ui.js && node tests/unit-rombongan-empty-boat.js && node tests/unit-room-exit.js)
 
       - name: Tes backend dan scan rahasia
         run: |
@@ -176,7 +176,7 @@ jobs:
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_KOTA = true'
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_ROMBONGAN = true'
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_DELIVERY = true'
-          echo "OK: hotfix Kemudi HP dan UI memancing terdeploy; Kota, Dapur, NusaPhone, ikan, QRIS/toko, dan fitur ON lama tetap dijaga."
+          echo "OK: bekas Kapal Rombongan kosong hilang setelah 5 detik; kemudi HP, Kota, Dapur, NusaPhone, ikan, QRIS/toko, dan fitur ON lama tetap dijaga."
 
       - name: Bersihkan kredensial sementara
         if: always()
