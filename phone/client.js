@@ -210,7 +210,7 @@ function paintApp() {
 function ctx(id) { return { call: netCall, linkOk, load: loadFiles, notify: noteAdd, deeper: () => go("deeper"), open: (app) => go("open", app), sub: () => st.nav.sub, esc, icon, rm, close: () => close(), now, N }; }
 // Modul aplikasi dimuat SAAT DIBUKA (tidak diunduh bila tidak dipakai); semua di bawah phone/ dan hanya bila NUSA_PHONE=true.
 const BASE = (() => { const e = document.querySelector('script[src*="phone/client.js"]'); return e ? e.src.replace(/client\.js.*$/, "") : "phone/"; })();
-const APP_SCRIPTS = { playgame: ["gamekit.js", "playgame.js"], nusaweb: ["nusaweb.js"], zentro: ["nusaweb.js", "zentro.js"] };
+const APP_SCRIPTS = { klippy: ["klippy.js"], nusachat: ["nusachat.js"], dompet: ["dompet.js"], playgame: ["gamekit.js", "playgame.js"], nusaweb: ["nusaweb.js"], zentro: ["nusaweb.js", "zentro.js"] };
 const loaded = {};
 function loadFile(f) { return loaded[f] || (loaded[f] = new Promise((ok, no) => { const e = document.createElement("script"); e.src = BASE + f; e.async = false; e.onload = ok; e.onerror = () => { delete loaded[f]; no(new Error("gagal memuat " + f)); }; document.head.appendChild(e); })); }
 const loadFiles = (fs) => fs.reduce((p, f) => p.then(() => loadFile(f)), Promise.resolve());
