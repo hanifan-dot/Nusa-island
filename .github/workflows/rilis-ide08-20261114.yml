@@ -1,4 +1,4 @@
-name: RILIS NusaPhone + 55 Ikan Lokasi
+name: RILIS Kota + NusaPhone + 55 Ikan
 on:
   push:
     branches: [main]
@@ -14,7 +14,7 @@ permissions:
   id-token: write
 
 env:
-  GAME_SHA: 372eb5a29c95c2b6bf0a276350efb41250e5757a
+  GAME_SHA: d8af7087e3c87c86a66832c7e85860e3f1154d83
   BACKEND_SHA: bc769f087b4bd27eec2fbb39afd863f7705d1001
   GUARD_SHA: ff3ab0b574bb4cd8b40b5438826b0049c8737dbb
 
@@ -72,6 +72,13 @@ jobs:
           grep -Fq 'window.NUSA_DAPUR = true' game/cloud/config.js
           grep -Fq 'window.NUSA_PHONE = true' game/cloud/config.js
           grep -Fq 'window.NUSA_IKAN_LOKASI = true' game/cloud/config.js
+          grep -Fq 'window.NUSA_KEMUDI = true' game/cloud/config.js
+          grep -Fq 'window.NUSA_KOTA = true' game/cloud/config.js
+          grep -Fq 'window.NUSA_ROMBONGAN = true' game/cloud/config.js
+          grep -Fq 'window.NUSA_DELIVERY = true' game/cloud/config.js
+          grep -Fq 'NUSA_BOAT = "ya"' game/cf-multiplayer/wrangler.toml
+          grep -Fq 'NUSA_KOTA = "ya"' game/cf-multiplayer/wrangler.toml
+          grep -Fq 'NUSA_PHONE = "ya"' game/cf-multiplayer/wrangler.toml
           (cd game && node firebase/scripts/cek-rilis.js && node tests/unit-mp.js && node tests/unit-cf-auth.js && node tests/unit-phone.js && node tests/unit-ikanloc.js && node tests/unit-room-exit.js)
 
       - name: Tes backend dan scan rahasia
@@ -165,7 +172,11 @@ jobs:
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_DAPUR = true'
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_PHONE = true'
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_IKAN_LOKASI = true'
-          echo "OK: NusaPhone + 55 ikan terdeploy; Dapur, QRIS/toko, dan fitur ON lama tetap dijaga."
+          curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_KEMUDI = true'
+          curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_KOTA = true'
+          curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_ROMBONGAN = true'
+          curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_DELIVERY = true'
+          echo "OK: Kota, Pak Damar, Kapal Rombongan, NusaPhone, dan 55 ikan terdeploy; Dapur, QRIS/toko, dan fitur ON lama tetap dijaga."
 
       - name: Bersihkan kredensial sementara
         if: always()
