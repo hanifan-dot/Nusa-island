@@ -10,7 +10,7 @@ Aturan tetap: tanpa merge/deploy/flag ON/migrasi produksi/backfill/ubah data pem
 | 4 | Pelabuhan Kota | B | kontrak lokasi, pasar/permintaan harian | Belum |
 | 5 | Eksplorasi Kepulauan | B | pulau/spot ditemukan per pemain, idempoten | Belum |
 | 6 | Latar Mancing per Lokasi | B | ID area/spot/cuaca/waktu + tabel ikan sah | Belum |
-| 3 | NusaPhone (+ sosial, PlayGame) | C | pembelian, kapasitas, sosial, moderasi | Belum |
+| 3 | NusaPhone (+ sosial, PlayGame, Ocean Spin, NusaWeb/Zentro) | C | pembelian, kapasitas, sosial, moderasi, ledger koin bermain | Draft PR berjalan (flag OFF) — **kontrak resmi: [nusaphone/CONTRACT-NUSAPHONE.md](nusaphone/CONTRACT-NUSAPHONE.md)** (lima game tetap, Ocean Spin 500 koin/spin & larangan koin top-up, enam model/empat lini). Tidak boleh diubah tanpa Owner |
 | 8 | Dapur Rumahku + Kedai Bu Indah | D | bahan, resep, tamu | Belum |
 | 9 | Intro Sinematik (`introSeen`) | E | per-akun lewat Cloud Save | Belum |
 

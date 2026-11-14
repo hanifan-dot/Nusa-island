@@ -23,7 +23,7 @@ class Room {
     // kind "house" = ruang rumah teman (Kunjungi Rumah Teman): peta kecil, peran pemilik/tamu ditetapkan SERVER (pintu masuk), bendera IN, pemilik bisa mengeluarkan tamu
     this.kind = opts.kind === "house" ? "house" : "world"; this.house = this.kind === "house";
     this.mapW = opts.mapW || (this.house ? P.HOUSE.MAP_W : P.MAP_W); this.mapH = opts.mapH || (this.house ? P.HOUSE.MAP_H : P.MAP_H);
-    this.fMask = this.house ? 31 : 15;
+    this.phone = opts.phone === true; this.fMask = this.house ? 31 : 15;   // NusaPhone (Ide 07): bendera tampilan PHONE (pemain memegang ponsel) HANYA bila env NUSA_PHONE=ya; murni visual, tanpa data/ekonomi
     this.kota = opts.kota === true && !this.house;      // Kota Nusa multiplayer (area "selat" di instance yang sama): bawaan MATI
     this.players = new Map();          // connId → pemain
     this.byUid = new Map();            // uid → connId (satu sesi per akun; uid TIDAK pernah dikirim ke klien)
@@ -83,7 +83,7 @@ class Room {
       }
       p.x = nx; p.y = ny;
     }
-    p.d = P.clampInt(m.d, 0, 7, 2); p.f = P.clampInt(m.f, 0, 7 | (this.house ? F.IN : 0), 0) & ~F.TP; p.lastMove = this.now();
+    p.d = P.clampInt(m.d, 0, 7, 2); p.f = this.cleanF(m.f, 7 | (this.house ? F.IN : 0)) & ~F.TP; p.lastMove = this.now();
     this.show(conn);
   }
   show(conn) {
@@ -204,6 +204,8 @@ class Room {
       default: return this.strike(conn, p);
     }
   }
+  // bendera tampilan: bit PHONE (NusaPhone) DIPISAH dulu → tak pernah memicu penjepitan bendera lain; hanya lolos bila env NUSA_PHONE=ya (bawaan MATI → dibuang diam-diam)
+  cleanF(raw, mask) { const ph = Number.isInteger(raw) && raw >= 0 && (raw & F.PHONE) ? F.PHONE : 0, rest = Number.isInteger(raw) && raw >= 0 ? raw & ~F.PHONE : raw; return P.clampInt(rest, 0, mask, 0) | (this.phone ? ph : 0); }
   // anggaran jarak pemain di kota: terisi KOTA.SPEED × detik (maks KOTA.BURST); `want` petak diminta → yang diberikan ≤ saldo
   spend(p, want, now) {
     const K = P.KOTA, dt = Math.max(0, Math.min(2, (now - (p.budAt || now)) / 1000)); p.budAt = now;
@@ -225,7 +227,7 @@ class Room {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return this.strike(conn, p);
     x /= P.Q; y /= P.Q; const rx = x, ry = y;                          // klaim klien apa adanya (sebelum dijepit batas peta / ditahan kecepatan): dasar koreksi posisi
     const [bw, bh] = this.mapOf(p); x = Math.max(0, Math.min(bw, x)); y = Math.max(0, Math.min(bh, y));      // batas peta per area (Kota Nusa 92×48)
-    const d = P.clampInt(m.d, 0, 7, p.d); let f = P.clampInt(m.f, 0, this.fMask, 0);
+    const d = P.clampInt(m.d, 0, 7, p.d); let f = this.cleanF(m.f, this.fMask);
     if (this.kota && p.area === "selat") {                           // Kota Nusa: anggaran jarak (rata-rata ≤ KOTA.SPEED petak/dtk, lonjakan ≤ KOTA.BURST), tidak bergantung pada laju pesan; tidak ada teleport
       const dist = Math.hypot(x - p.x, y - p.y), allow = this.spend(p, dist, now);
       if (allow < dist) { const k = allow / dist; x = p.x + (x - p.x) * k; y = p.y + (y - p.y) * k; }

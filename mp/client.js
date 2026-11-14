@@ -45,12 +45,13 @@ async function getToken() {
 const wantHouse = () => { try { return (NW.house && NW.house.roomWanted && NW.house.roomWanted()) || null; } catch (e) { return null; } };
 const gz = (x, y) => (R.house ? 0 : NW.groundZ ? NW.groundZ(x, y) : 0);
 const homeScene = () => (NW.home && NW.home.active && !(NW.room && NW.room.active) ? NW.home.scene : null);   // interior Ide 08 (Kedai/Dapur): bukan ruang rumah bersama → tidak disiarkan
+const phoneBit = () => (NW.phone && NW.phone.broadcast && NW.phone.broadcast() ? P.F.PHONE : 0);   // NusaPhone (Ide 07): hanya bila modul dimuat + server mengizinkan; murni tampilan
 function local() {
   const w = NW.world && NW.world.player, mode = N().mode(), a = NW.areas && NW.areas.cur;
   if (R.house) {
     if (!w) return { vis: false };
     const sc = homeScene(), vis = !!sc && N().isStarted();
-    return { vis, x: w.x, y: w.y, d: w.dir | 0, f: (w.moving ? P.F.MOVING : 0) | (w.sit ? P.F.SIT : 0) | (sc === "room" ? P.F.IN : 0) };
+    return { vis, x: w.x, y: w.y, d: w.dir | 0, f: (w.moving ? P.F.MOVING : 0) | (w.sit ? P.F.SIT : 0) | (sc === "room" ? P.F.IN : 0) | phoneBit() };
   }
   const fishing = mode === "fish" && N().fishFrom() === "dock";
   const aboard = R.boatOn && !!R.mine;   // Kapal Rombongan: pemain di kursi kapal server TETAP tampak (kapal & kursi disinkronkan server; bukan lagi vis:false)
@@ -58,7 +59,7 @@ function local() {
   const inMuara = aboard || (!!a && (a.id === P.AREA || (kc && a.id === "selat")) && !(NW.home && NW.home.active) && !(NW.room && NW.room.active) && !(NW.boat && NW.boat.on));
   const vis = !!w && inMuara && (aboard || mode === "world" || fishing) && N().isStarted();
   if (!w) return { vis: false };
-  return { vis, ar, x: w.x, y: w.y, d: w.dir | 0, f: (w.moving && !fishing ? P.F.MOVING : 0) | (w.sit ? P.F.SIT : 0) | (fishing ? P.F.FISH : 0) };
+  return { vis, ar, x: w.x, y: w.y, d: w.dir | 0, f: (w.moving && !fishing ? P.F.MOVING : 0) | (w.sit ? P.F.SIT : 0) | (fishing ? P.F.FISH : 0) | (aboard ? 0 : phoneBit()) };
 }
 function profile() {
   let name = "Pemancing", rank = 0; try { name = NW.look.playerName(); rank = NW.look.rank ? NW.look.rank() : 0; } catch (e) {}
@@ -314,7 +315,7 @@ function layer(view, inView) {
   for (const p of arr) {
     if (R.seatedSkip && R.seatedSkip(p.id)) continue;   // Kapal Rombongan: awak di kursi digambar modul kapal, bukan di titik server
     const pt = NW.P(p.ch.x, p.ch.y); if (!inView(view, pt.x, pt.y)) continue;
-    out.push({ d: p.ch.x + p.ch.y, ch: p.ch, remote: p });
+    p.ch.phoneOn = !!(p.f & P.F.PHONE); out.push({ d: p.ch.x + p.ch.y, ch: p.ch, remote: p });
     if (p.f & P.F.FISH) out.push({ d: p.ch.x + p.ch.y + 0.2, fn: (c) => drawBobber(c, p) });
   }
   return out;
@@ -323,7 +324,7 @@ function layer(view, inView) {
 function homeLayer(scene) {
   const out = []; if (!R.house || !R.players.size || !R.vis) return out;
   const inside = scene === "room";
-  for (const p of R.players.values()) if (!!(p.f & P.F.IN) === inside) out.push({ d: p.ch.x + p.ch.y, ch: p.ch, remote: p });
+  for (const p of R.players.values()) if (!!(p.f & P.F.IN) === inside) { p.ch.phoneOn = !!(p.f & P.F.PHONE); out.push({ d: p.ch.x + p.ch.y, ch: p.ch, remote: p }); }
   return out;
 }
 const DIRV = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];

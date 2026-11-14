@@ -160,7 +160,7 @@ export class MuaraRoom extends DurableObject {
     await this.schedule(Proto.TIMEOUT_MS / 3);
     return new Response(null, { status: 101, webSocket: client, headers: { "Sec-WebSocket-Protocol": Proto.SUBPROTOCOL } });
   }
-  roomOpts() { return { boat: this.env.NUSA_BOAT === "ya", kota: this.env.NUSA_KOTA === "ya" }; }   // Muara: Kapal Rombongan HANYA bila env NUSA_BOAT=ya; Kota Nusa multiplayer (area selat) HANYA bila env NUSA_KOTA=ya (keduanya bawaan MATI; flag gameFlags kapalRombongan / kotaNusa di nusa-api harus ikut ON)
+  roomOpts() { return { boat: this.env.NUSA_BOAT === "ya", kota: this.env.NUSA_KOTA === "ya", phone: this.env.NUSA_PHONE === "ya" }; }   // Muara: Kapal Rombongan HANYA bila env NUSA_BOAT=ya; Kota Nusa multiplayer (area selat) HANYA bila env NUSA_KOTA=ya (keduanya bawaan MATI; flag gameFlags kapalRombongan / kotaNusa di nusa-api harus ikut ON)
   onEject() {}
   // Simpan kapal ke penyimpanan DO HANYA saat struktur berubah (kapal baru/bubar, kursi, area) — tidak pernah per frame/tick posisi.
   boatStructSig() { return JSON.stringify([...this.room.boats.values()].map((b) => [b.id, b.seats, b.away ? 1 : 0, b.area, b.hold || {}])); }
@@ -202,7 +202,7 @@ export class HouseRoom extends MuaraRoom {
     this.bans = new Map();
     ctx.blockConcurrencyWhile(async () => { const b = await ctx.storage.get("bans"); if (b) this.bans = new Map(Object.entries(b)); });
   }
-  roomOpts() { return { kind: "house", cap: Proto.HOUSE.CAP }; }
+  roomOpts() { return { kind: "house", cap: Proto.HOUSE.CAP, phone: this.env.NUSA_PHONE === "ya" }; }
   memberSync(force) {
     const members = [...this.room.players.values()].filter((p) => p.sr).map((p) => ({ uid: p.uid, room: p.sr })).sort((a, b) => a.uid.localeCompare(b.uid));
     const sig = JSON.stringify(members);
