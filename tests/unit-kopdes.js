@@ -7,6 +7,16 @@ function mkdb() { const m = new Map(); const rd = (p) => (m.has(p) ? JSON.parse(
 let now = 1e12, n = 0; const op = () => "op" + (++n) + "xxxxxxxx", U = { uid: "u1" };
 const mk = (cfg) => { const db = mkdb(); if (cfg) db.m.set("shop/config", JSON.stringify(cfg)); return { db, e: EC.makeEconomyServer(db, { clock: () => now, tables: T, fishmath: FM, trustClientInit: true }) }; };
 (async () => {
+  await t("config feature flags dimuat sebelum peta Kopdes dibuat", () => {
+    const html = fs.readFileSync(path.join(__dirname, "../index.html"), "utf8");
+    const tag = '<script src="cloud/config.js"></script>';
+    const cfg = html.indexOf(tag);
+    const build = html.indexOf('<script src="kopdes/build.js"></script>');
+    const area = html.indexOf('<script src="sf2/area.js"></script>');
+    assert.ok(cfg >= 0 && build >= 0 && area >= 0, "script wajib harus ada");
+    assert.ok(cfg < build && build < area, "config → bangunan → peta harus berurutan");
+    assert.equal(html.split(tag).length - 1, 1, "config hanya boleh dimuat sekali");
+  });
   await t("tabel: Joran Kopdes 1.000 koin, 250 kg", () => { assert.deepStrictEqual(JSON.parse(JSON.stringify(T.KOP)), { price: 1000, capKg: 250 }); });
   await t("salinan Functions sama dengan sumber", () => { for (const [a, b] of [["economy/core.js", "economy-core.js"], ["economy/tables.js", "economy-tables.js"]]) assert.ok(fs.readFileSync(path.join(__dirname, "../firebase/functions/lib", b), "utf8").endsWith(fs.readFileSync(path.join(__dirname, "..", a), "utf8").slice(-400))); });
   for (const [nm, cfg] of [["tanpa config", null], ["kopdes:false", { kopdes: false }], ["kopdes string 'true'", { kopdes: "true" }]])
