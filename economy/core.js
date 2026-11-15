@@ -59,7 +59,7 @@
     const fresh = () => ({ v: 1, init: false, bal: 0, up: { rod: 0, bait: 0, cooler: 0, boat: 0 }, homeLv: 1, cat: {}, claimed: {}, box: [], catches: [], missions: { day: 0, total: 0, n: 0, ids: [] },
       ops: [], earned: 0, spent: 0, lastCatchAt: 0, quest: null, streak: null, streakBait: 0, ev: {}, troph: {} });
     const topupOf = (ent) => (ent && ent.wallet && ent.wallet.NYATA) || 0;
-    const view = (eco, ent) => ({ init: eco.init, own: eco.bal, topup: topupOf(ent), balance: eco.bal + topupOf(ent), up: eco.up, homeLv: eco.homeLv, cat: eco.cat,
+    const view = (eco, ent) => ({ init: eco.init, own: eco.bal, topup: topupOf(ent), balance: eco.bal + topupOf(ent), up: eco.up, homeLv: eco.homeLv, cat: eco.cat, kop: !!eco.kop,
       box: eco.box.map((b) => b.u), sx: eco.box.filter((b) => FISH[b.id] && FISH[b.id].sup).map((b) => ({ uid: b.u, id: b.id, w: b.w })), claimed: Object.keys(eco.claimed), troph: eco.troph || {},
       ...(QK ? { qo: QK.view(eco.quest) } : {}),
       ...(AU ? { aur: { own: AU.ownsAny(ent), live: AU.active(ent, eco), eq: AU.equipOn(eco), n: (eco.aur && eco.aur.n) || 0, up: (eco.aur && eco.aur.up) || 0 } } : {}) });
@@ -207,7 +207,7 @@
           for (const it of items) {
             let f = FISH[it.id], w = Number(it.w);
             if (f.protected) { const r = Math.round(f.price * PRICE_SCALE * FM.effectiveKg(w) * 1.2); reward += r; credit(eco, r); fin.push(it); continue; }
-            if (QK && w > QK.plausKg(eco.up.rod, eco.quest)) { skipped.push(it.uid); capSkipped.push(it.uid); fin.push(it); continue; }   // mustahil bagi joran terverifikasi (Quest Owner: batas 100 kg ditegakkan server); tangkapan sah tidak tersentuh
+            if (QK && w > Math.max(QK.plausKg(eco.up.rod, eco.quest), eco.kop && T.KOP ? T.KOP.capKg * QK.PLAUS : 0)) { skipped.push(it.uid); capSkipped.push(it.uid); fin.push(it); continue; }   // mustahil bagi joran terverifikasi (Quest Owner: batas 100 kg ditegakkan server); tangkapan sah tidak tersentuh
             if (pondKnows(eco, it.uid)) { skipped.push(it.uid); fin.push(it); continue; }            // ikan yang sedang/pernah di kolam (mis. simpanan lama dipulihkan) tidak boleh masuk kotak lagi
             if (eco.box.some((b) => b.u === it.uid)) throw E("already-exists", "UID ikan sudah ada.");
             if (eco.box.length >= LIM.boxMax) throw E("resource-exhausted", "Kotak ikan penuh.");
@@ -488,6 +488,12 @@
             if (next >= T.HOME.length) throw E("failed-precondition", "Rumah sudah level maksimum.");
             if (p.lv !== next) throw E("failed-precondition", "Level tujuan tidak sesuai (klik basi).");
             price = T.HOME[next].price; apply = () => { eco.homeLv = next; };
+          } else if (p.kind === "kop") {            // Joran Kopdes: SATU kali, harga dari tabel; TERKUNCI sampai Owner menyalakan shop/config.kopdes (bawaan MATI)
+            if (!T.KOP) throw E("failed-precondition", "Joran Kopdes belum tersedia.");
+            const cfg = (await t.get("shop/config")) || {};
+            if (cfg.kopdes !== true) throw E("failed-precondition", "Joran Kopdes belum dibuka.");
+            if (eco.kop) throw E("failed-precondition", "Joran Kopdes sudah dimiliki.");
+            price = T.KOP.price; apply = () => { eco.kop = true; };
           } else if (p.kind === "cat") {
             const c = typeof p.id === "string" && Object.prototype.hasOwnProperty.call(T.CAT, p.id) ? T.CAT[p.id] : null;
             if (!c) throw E("invalid-argument", "Barang tidak dikenal.");

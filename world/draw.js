@@ -707,6 +707,9 @@ function drawCharacter(c, ch, t) {
     for (let i = 0; i < 4; i++) { c.beginPath(); c.moveTo(-8 + i * 5, y0 - 15 + w); c.lineTo(-10 + i * 5, y0 - 4); c.stroke(); }
     for (let j = 0; j < 3; j++) { c.beginPath(); c.moveTo(-9, y0 - 13 + j * 3.5 + w * 0.5); c.lineTo(9, y0 - 13 + j * 3.5 - w * 0.5); c.stroke(); }
     c.fillStyle = "#e2574c"; c.beginPath(); c.arc(9, y0 - 6, 1.6, 0, 7); c.fill();
+  } else if (ch.prop === "crate") { // peti persediaan dipikul di depan badan (pegawai Kopdes)
+    c.fillStyle = "#c79a5c"; c.fillRect(-7, y0 - 17, 14, 10); c.strokeStyle = "#7a5530"; c.lineWidth = 0.9; c.strokeRect(-7, y0 - 17, 14, 10);
+    c.beginPath(); c.moveTo(-7, y0 - 12); c.lineTo(7, y0 - 12); c.stroke(); c.fillStyle = "#c4262e"; c.fillRect(-1.5, y0 - 17, 3, 10);
   } else if (ch.prop === "basket") {
     c.fillStyle = "#b8864a"; c.fillRect(fx * 6 - 6, y0 - 15, 12, 7); c.fillStyle = "#8c9a8a"; c.beginPath(); c.ellipse(fx * 6, y0 - 15, 5, 2, 0, 0, 7); c.fill();
   } else if (ch.prop === "binoc" && !moving) { // teropong (Nala)
@@ -758,6 +761,9 @@ function drawCharacter(c, ch, t) {
   } else if (st.hat === "cap") {
     c.fillStyle = st.hatCol; c.beginPath(); c.arc(0, hy - 3, 7.8, Math.PI, 0); c.fill();
     c.fillRect(back ? -fx * 2 - 4 : fx * 4 - 4, hy - 3.5, 8 + Math.abs(fx) * 3, 2.4);
+  } else if (st.hat === "baret") { // baret miring (pemimpin regu Kopdes)
+    c.fillStyle = st.hatCol; c.beginPath(); c.ellipse(fx * 1.5, hy - 5, 9.6, 4.4, -0.12, 0, 7); c.fill();
+    c.fillStyle = shade(st.hatCol, -0.25); c.fillRect(-7.4, hy - 3.4, 14.8, 1.5); c.fillStyle = "#f0c84a"; c.beginPath(); c.arc(fx * 4 - 0.5, hy - 5.4, 1.4, 0, 7); c.fill();
   } else if (st.hat === "fedora") { // topi lebar (Pak Raka, pemandu)
     c.fillStyle = st.hatCol; c.beginPath(); c.ellipse(0, hy - 5.5, 11.5, 3.6, 0, 0, 7); c.fill();
     c.beginPath(); c.moveTo(-6.5, hy - 5.5); c.lineTo(-5.5, hy - 12.5); c.quadraticCurveTo(0, hy - 14.5, 5.5, hy - 12.5); c.lineTo(6.5, hy - 5.5); c.closePath(); c.fill();

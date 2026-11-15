@@ -4,13 +4,14 @@
 const fs = require("fs"), path = require("path"), vm = require("vm"), crypto = require("crypto");
 function build(root) {
   const ctx = vm.createContext({ console });
-  vm.runInContext(fs.readFileSync(path.join(root, "data.js"), "utf8") + "\n;globalThis.__T={FISH,UPGRADES};", ctx);
+  vm.runInContext(fs.readFileSync(path.join(root, "data.js"), "utf8") + "\n;globalThis.__T={FISH,UPGRADES,KOPDES_ROD};", ctx);
   const HD = require(path.join(root, "world/home-data.js"));
-  const { FISH, UPGRADES } = ctx.__T;
+  const { FISH, UPGRADES, KOPDES_ROD } = ctx.__T;
   const T = {
     FISH: FISH.map((f) => ({ id: f.id, rarity: f.rarity, wMin: f.wMin, wMax: f.wMax, xMax: f.xMax || null, price: f.price, protected: !!f.protected, loc: f.loc, ...(f.sup ? { sup: true } : {}) })),
     UP: Object.fromEntries(Object.entries(UPGRADES).map(([k, u]) => [k, { cost: u.cost.slice(), max: u.cost.length - 1 }])),
     HOME: HD.LEVELS.map((l) => (l ? { price: l.price, stars: l.stars } : null)),
+    KOP: { price: KOPDES_ROD.price, capKg: KOPDES_ROD.capKg },
     CAT: Object.fromEntries(HD.CATALOG.map((c) => [c.id, { price: c.price, stars: c.stars || 0 }])),
   };
   return T;

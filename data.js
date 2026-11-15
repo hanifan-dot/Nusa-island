@@ -193,6 +193,10 @@ const FISH = [
 ];
 
 // Upgrade: level 1 gratis. cost[i] = harga naik ke level i+1
+// Joran Kopdes (dibeli di Kopdes, Pulau Para Legenda; USULAN angka dari Owner, menunggu persetujuan ekonomi): satu kali beli, milik selamanya, di luar tangga 20 joran.
+// capKg = batas rekomendasi ikan (toleransi 1,5× seperti joran lain); strength/reel = pengali tarik; server menegakkan batas bobot lewat kepemilikan (eco.kop).
+const KOPDES_ROD = { id: "joran_kopdes", name: "Joran Kopdes", price: 1000, capKg: 250, strength: 3.0, reel: 2.4,
+  desc: "Batang merah bermerek KOPDES dengan pita emas. Mengangkat ikan hingga 250 kg, dengan kilau merah saat dipakai. Satu kali beli, milik selamanya." };
 const UPGRADES = {
   rod: {
     name: "Joran", icon: "🎣",

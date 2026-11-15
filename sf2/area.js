@@ -80,6 +80,7 @@ signs.push({ x: 35.2, y: 28.9, title: "Pulau Para Legenda", text: "Selamat datan
   { x: 36.1, y: 21.4, title: "Jembatan Muara", text: "Sungai kecil ini mengalir dari danau ke laut. Barramundi suka bersembunyi di muaranya." });
 signs.forEach((s) => objects.push({ kind: "sign", x: s.x, y: s.y, title: s.title }));
 for (const [x, y] of [[30.4, 29.6], [33.6, 29.6], [22.8, 26.4], [26.1, 21.7], [42.4, 21.7], [29.1, 28.0], [35.6, 22.0]]) { if (isGround(x, y)) { lamps.push([x, y]); objects.push({ kind: "lamp", x, y }); } }
+const KOP = !!(NW.kopdes && NW.kopdes.install({ objects, solids }));   // Kopdes (flag NUSA_KOPDES, bawaan MATI): bangunan + tabrakan + titik beli joran
 for (const o of objects) {
   if (o.kind === "palm") solids.push({ x: o.x, y: o.y, r: 0.22 });
   else if (o.kind === "bush") solids.push({ x: o.x, y: o.y, r: 0.3 * o.s });
@@ -101,6 +102,7 @@ const points = [
   { id: "boat", x: 32.6, y: 35.0, r: 1.15, icon: "⛵", label: "Kapal", bz: 40 },
   { id: "papan", x: 29.6, y: 29.1, r: 1.25, icon: "📜", label: "Papan Legenda" },
 ];
+if (KOP) points.push(NW.kopdes.DOOR);
 signs.forEach((s, i) => points.push({ id: "ssign" + i, x: s.x + 0.45, y: s.y + 0.45, r: 0.85, icon: "📜", label: "Baca", sign: s }));
 const fishSpots = Object.entries(SPOTS).map(([id, s]) => ({ id, mx: s.x, my: s.y, mz: 4.5, face: s.face, ret: s.ret }));
 const NAV = { DOCKB: [33.4, 30.3], START: [START.x, START.y] };
@@ -161,7 +163,7 @@ const M = {
   MW, MH, tiles, tileAt, classify, islandD, lakeD, IS, LAKE, RIVER, BRIDGE, REEF, SPOTS, DOCK: PIER, SPOT: { x: SPOTS.dalam.x, y: SPOTS.dalam.y }, BOAT, START,
   buildings: [], objects, points, signs, NAV, NAV_EDGES: [], flowerBeds: [], lamps, solids, walkable, shoreEdges,
   docks: [PIER, { x0: BRIDGE.x0, x1: BRIDGE.x1, y0: BRIDGE.y0, y1: BRIDGE.y1, axis: "x" }], fishSpots,
-  lights: [{ x: BOAT.x, y: BOAT.y, z: 14, r: 40 }, { x: 29.6, y: 28.4, z: 26, r: 56, col: "#ffc46b", k: 1.0 }],
+  lights: [{ x: BOAT.x, y: BOAT.y, z: 14, r: 40 }, { x: 29.6, y: 28.4, z: 26, r: 56, col: "#ffc46b", k: 1.0 }, ...(KOP ? [NW.kopdes.LIGHT] : [])],
 };
 
 const area = NW.areas.register({
@@ -180,6 +182,7 @@ const area = NW.areas.register({
   hooks: {
     fullMsg: "Coolbox-mu penuh. Pulanglah ke Muara Kampung dengan kapal untuk menjual tangkapan.",
     interact: (t, api) => NW.sf2 && NW.sf2.interact(t, api),
+    layer: (t) => (NW.kopdesCrew ? NW.kopdesCrew.layer(t) : []),   // regu Kopdes (flag NUSA_KOPDES; kosong bila mati)
     hint: () => "",
   },
 });
