@@ -242,6 +242,7 @@ const mv = (r, c, x, y, d = 2, f = 1) => r.room.message(c, JSON.stringify({ t: "
 // Kapal Rombongan: pemain tidak boleh terjebak meski jangkar diangkat/kapal belum siap bersandar.
 {
   const r = mkRoom(4, { boat: true }), [sx, sy] = P.BOAT.SLOTS[0];
+  ok(r.room.join(1, "kapten-exit", {}).ok, "uji keluar darurat: pemain masuk room");
   hello(r, 1, "Kapten", sx, sy);
   r.room.message(1, JSON.stringify({ t: "bt", a: "new" }));
   const p = r.room.players.get(1), b = r.room.boats.get(p.boat.id);
