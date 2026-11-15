@@ -17,42 +17,19 @@ function build() {
   if (st.root) return;
   const r = document.createElement("div"); r.id = "kmRoot"; r.className = "hidden";
   r.innerHTML = `<div class="km-top" id="kmTop" aria-live="off"><b id="kmKnot">0 knot</b><span id="kmHead">Timur</span><span id="kmDest">Tujuan: —</span><span id="kmCargo">Muatan: —</span></div>
-  <div class="km-btns" role="group" aria-label="Aksi kapal"><button type="button" id="kmAnchor" aria-label="Jangkar">⚓<small>Jangkar</small></button><button type="button" id="kmMap" aria-label="Peta Laut">🗺️<small>Peta</small></button><button type="button" id="kmFish" aria-label="Memancing">🎣<small>Pancing</small></button><button type="button" id="kmHome" aria-label="Ke Dermaga">🛟<small>Dermaga</small></button></div>
-  <div class="km-wheel" id="kmWheel" role="slider" aria-label="Arah kapal" aria-valuemin="-120" aria-valuemax="120" aria-valuenow="0" tabindex="0"><button type="button" id="kmLeft" aria-label="Belok kiri"><b>◀</b><small>KIRI</small></button><button type="button" id="kmStraight" aria-label="Luruskan kapal"><b>●</b><small>LURUS</small></button><button type="button" id="kmRight" aria-label="Belok kanan"><b>▶</b><small>KANAN</small></button></div>
-  <div class="km-lever" id="kmLever" role="radiogroup" aria-label="Kecepatan kapal"><button type="button" data-g="MAJU" role="radio"><b>▲ MAJU</b><small>Jalan</small></button><button type="button" data-g="NETRAL" role="radio" aria-checked="true" class="on"><b>■ STOP</b><small>Berhenti</small></button><button type="button" data-g="MUNDUR" role="radio"><b>▼ MUNDUR</b><small>Pelan</small></button></div>`;
+  <div class="km-btns" role="group" aria-label="Aksi kapal"><button type="button" id="kmAnchor" aria-label="Jangkar">⚓<small>Jangkar</small></button><button type="button" id="kmMap" aria-label="Peta Laut">🗺️<small>Peta Laut</small></button><button type="button" id="kmFish" aria-label="Memancing">🎣<small>Pancing</small></button><button type="button" id="kmHome" aria-label="Ke Dermaga">🛟<small>Dermaga</small></button></div>
+  <div class="km-wheel" id="kmWheel" role="slider" aria-label="Setir kapal" aria-valuemin="-120" aria-valuemax="120" aria-valuenow="0" tabindex="0"><svg viewBox="-50 -50 100 100" aria-hidden="true"><g id="kmWheelG"><circle r="42" fill="#7a5230" stroke="#e0b84c" stroke-width="5"/><circle r="30" fill="none" stroke="#e0b84c" stroke-width="3"/><circle r="8" fill="#e0b84c"/><g stroke="#e0b84c" stroke-width="4" stroke-linecap="round"><path d="M0-30V-8M0 30V8M-30 0H-8M30 0H8M21-21 6-6M-21 21 6 6M21 21 6 6M-21-21-6-6"/></g><circle r="3.5" cy="-42" fill="#d14a3a"/></g></svg></div>
+  <div class="km-lever" id="kmLever" role="radiogroup" aria-label="Tuas gas"><button type="button" data-g="MAJU" role="radio">MAJU</button><button type="button" data-g="NETRAL" role="radio" aria-checked="true" class="on">NETRAL</button><button type="button" data-g="MUNDUR" role="radio">MUNDUR</button></div>`;
   document.body.appendChild(r); st.root = r;
   const stop = (e) => e.stopPropagation();
   r.addEventListener("pointerdown", stop); r.addEventListener("touchstart", stop, { passive: true });
   const W = $("kmWheel");
-  const steerHold = (id, deg) => {
-    const b = $(id);
-    const down = (e) => {
-      e.preventDefault(); e.stopPropagation();
-      if (!st.host || !st.host.ok() || st.host.view().steerOk === false) return;
-      try { b.setPointerCapture(e.pointerId); } catch (_) {}
-      st.drag = { id: e.pointerId, button: id };
-      st.deg = deg; paintWheel();
-    };
-    const up = (e) => {
-      if (!st.drag || st.drag.button !== id || (e.pointerId !== undefined && st.drag.id !== e.pointerId)) return;
-      st.drag = null; st.deg = 0; paintWheel();
-    };
-    b.addEventListener("pointerdown", down);
-    b.addEventListener("pointerup", up);
-    b.addEventListener("pointercancel", up);
-    b.addEventListener("lostpointercapture", () => { if (st.drag && st.drag.button === id) { st.drag = null; st.deg = 0; paintWheel(); } });
-  };
-  steerHold("kmLeft", -K.MAX_DEG);
-  steerHold("kmRight", K.MAX_DEG);
-  $("kmStraight").addEventListener("click", (e) => { e.stopPropagation(); st.drag = null; st.deg = 0; paintWheel(); });
-  W.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowLeft") st.deg = -K.MAX_DEG;
-    else if (e.key === "ArrowRight") st.deg = K.MAX_DEG;
-    else if (e.key === "ArrowDown" || e.key === " " || e.key === "Enter") st.deg = 0;
-    else return;
-    e.preventDefault(); paintWheel();
-  });
-  W.addEventListener("keyup", (e) => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { st.deg = 0; paintWheel(); } });
+  const ctr = () => { const b = W.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; };
+  W.addEventListener("pointerdown", (e) => { e.preventDefault(); try { W.setPointerCapture(e.pointerId); } catch (x) {} const c = ctr(); st.drag = { id: e.pointerId, cx: c.x, cy: c.y }; st.deg = K.wheelDeg(st.deg, c.x, c.y, e.clientX, e.clientY); paintWheel(); });
+  W.addEventListener("pointermove", (e) => { if (!st.drag || e.pointerId !== st.drag.id) return; st.deg = K.wheelDeg(st.deg, st.drag.cx, st.drag.cy, e.clientX, e.clientY); paintWheel(); });
+  const up = (e) => { if (st.drag && e.pointerId === st.drag.id) st.drag = null; };
+  W.addEventListener("pointerup", up); W.addEventListener("pointercancel", up); W.addEventListener("lostpointercapture", () => { st.drag = null; });
+  W.addEventListener("keydown", (e) => { if (e.key === "ArrowLeft") st.deg = Math.max(-K.MAX_DEG, st.deg - 20); else if (e.key === "ArrowRight") st.deg = Math.min(K.MAX_DEG, st.deg + 20); else return; e.preventDefault(); paintWheel(); });
   $("kmLever").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { if (b.disabled || !st.host || !st.host.ok() || st.host.view().steerOk === false) return; setGear(b.dataset.g); }));
   const act = (id, fn) => $(id).addEventListener("click", (e) => { e.stopPropagation(); if (!st.host || !st.host.ok()) return; fn(); });
   act("kmAnchor", () => { st.host.anchor(); setGear("NETRAL"); paintTop(true); });
@@ -61,7 +38,7 @@ function build() {
   act("kmHome", () => st.host.home());
 }
 function setGear(g) { st.gear = g; $("kmLever").querySelectorAll("button").forEach((b) => { const on = b.dataset.g === g; b.classList.toggle("on", on); b.setAttribute("aria-checked", String(on)); }); }
-function paintWheel() { const w = $("kmWheel"); if (w) w.setAttribute("aria-valuenow", String(Math.round(st.deg))); const l = $("kmLeft"), r = $("kmRight"), c = $("kmStraight"); if (l) l.classList.toggle("on", st.deg < -K.DEAD * K.MAX_DEG); if (r) r.classList.toggle("on", st.deg > K.DEAD * K.MAX_DEG); if (c) c.classList.toggle("on", Math.abs(st.deg) <= K.DEAD * K.MAX_DEG); }
+function paintWheel() { const g = $("kmWheelG"); if (g) g.setAttribute("transform", `rotate(${st.deg.toFixed(1)})`); const w = $("kmWheel"); if (w) w.setAttribute("aria-valuenow", String(Math.round(st.deg))); }
 function dest() {
   const cg = NW.delivery && NW.delivery.cargoView && NW.delivery.cargoView(); const loaded = cg && cg.boxes && cg.boxes.some((b) => b && b.n > 0);
   if (loaded && NW.delivery.dest) return NW.delivery.dest();
