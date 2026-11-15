@@ -1,4 +1,4 @@
-name: HOTFIX Bangunan Kopdes Hilang
+name: HOTFIX Pemain Tidak Bisa Turun Kapal
 on:
   push:
     branches: [main]
@@ -14,7 +14,7 @@ permissions:
   id-token: write
 
 env:
-  GAME_SHA: cce029cdd601a6be40230438419cbd281ba90c81
+  GAME_SHA: 75107470bf46f5f84b9959c2473dcbd5947f36a5
   BACKEND_SHA: 5a8c073dae7fd3592f50e97c6d9fd2be83a8fa50
   GUARD_SHA: ff3ab0b574bb4cd8b40b5438826b0049c8737dbb
 
@@ -179,7 +179,7 @@ jobs:
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_DELIVERY = true'
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_KOPDES = true'
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/kopdes/crew.js | grep -Fq 'kopdesCrew'
-          echo "OK: gedung dan pasukan Kopdes kini dimuat bersamaan; kemudi kapal bundar klasik, UI memancing, kapal dermaga, Kota, Dapur, NusaPhone, ikan, QRIS/toko, dan fitur ON lama tetap dijaga."
+          echo "OK: pemain selalu bisa turun kapal dengan aman; tombol Turun kapal pribadi dan Kapal Rombongan aktif, gedung Kopdes, kemudi klasik, UI memancing, Kota, Dapur, NusaPhone, ikan, QRIS/toko, dan fitur ON lama tetap dijaga."
 
       - name: Bersihkan kredensial sementara
         if: always()
