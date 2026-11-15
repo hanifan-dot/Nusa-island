@@ -151,8 +151,9 @@ const KM_HOST = {
 function toggleAnchor() { const m = mineInfo(); if (!m || !m.captain || m.boat.away || m.boat.kota || inPort()) return false; N().sfx("click"); return NW.mp.boatAnchor(!m.boat.anchor) !== false; }
 function leave() {
   const m = mineInfo(); if (!m) return false; N().sfx("click");
-  if (inPort()) { if (!m.captain || !mpOn()) return false; disembark(NW.port && NW.port.positions ? NW.port.positions.BOARD_SPOT : { x: 13.1, y: 20.45 }); return true; }
-  if (!stoppedBoat(m) || !mpOn()) { note("⚓ Jangkar harus turun dan kapal berhenti dulu untuk turun.", "bad"); return false; }
+  // Pintu keluar darurat: pemain tidak boleh terjebak karena kapten, jangkar, gerak, atau keadaan pelabuhan.
+  // Server selalu menaruh pemain di titik dermaga yang sah; koin, ikan, dan progres tidak disentuh.
+  if (!mpOn()) { note("Belum tersambung. Coba lagi.", "bad"); return false; }
   if (NW.mp.boatLeave() === false) { note("Belum tersambung. Coba lagi.", "bad"); return false; }
   return true;
 }
@@ -307,7 +308,7 @@ function hud() {
   $("rbAnchor").classList.toggle("hidden", m.seat !== 0 || !!b.kota); $("rbAnchor").classList.toggle("on", !!b.anchor);
   const stopped = b.anchor && b.v < 0.05 && !away;
   $("rbHome").classList.toggle("hidden", !((inPort() || b.kota) && m.seat === 0));
-  $("rbLeave").disabled = inPort() ? !(m.seat === 0 && mpOn()) : !stopped || !mpOn(); $("rbFish").disabled = !stopped || !mpOn() || N().coolerFull() || !!b.kota;
+  $("rbLeave").disabled = !mpOn(); $("rbLeave").title = mpOn() ? "Turun aman ke dermaga" : "Menunggu sambungan"; $("rbFish").disabled = !stopped || !mpOn() || N().coolerFull() || !!b.kota;
 }
 // ---------- peristiwa protokol ----------
 function onEv(e) {

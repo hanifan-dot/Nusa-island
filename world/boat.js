@@ -116,10 +116,10 @@ function board() {
   showUI(); NW.world.updateHint();
   return true;
 }
-function nearMoor() { // titik sandar terdekat yang cukup dekat & kapal cukup pelan
+function nearMoor(silent) { // titik sandar terdekat yang cukup dekat & kapal cukup pelan; silent untuk label UI tanpa toast berulang
   if (!B.on || B.busy) return null;
   const ar = A();
-  for (const m of moorsOf(ar)) if (Math.hypot(B.x - m.x, B.y - m.y) < m.r) { if (Math.abs(B.v) < 70) return m; toastOnce(`Pelankan kapal untuk bersandar di ${m.name} ⚓`, "", 4); }
+  for (const m of moorsOf(ar)) if (Math.hypot(B.x - m.x, B.y - m.y) < m.r) { if (Math.abs(B.v) < 70) return m; if (!silent) toastOnce(`Pelankan kapal untuk bersandar di ${m.name} ⚓`, "", 4); }
   return null;
 }
 function seaCandidates() {
