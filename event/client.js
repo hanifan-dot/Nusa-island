@@ -45,9 +45,10 @@ async function fetchMy(force) {
   if (!force && Date.now() - myFetch < 20000) return my;
   myFetching = true;
   try {
-    const r = await api().eco("ecoEventState", {}); myFetch = Date.now(); my = r.my || null; if (r.winner) my = Object.assign({}, my, { winner: r.winner });
+    const r = await api().eco("ecoEventState", {}); myFetch = Date.now(); my = r.my || null;
+    if (r.winner) { my = Object.assign({}, my, { winner: r.winner }); if (info) info.winner = r.winner; }
     applyEco(r.eco);
-    // juara event yang baru lewat: hadiah diklaim otomatis (server memeriksa; aman diulang)
+    // pemenang global pertama: hadiah diklaim otomatis segera (server memeriksa; aman diulang)
     if (r.my && r.my.win && !r.my.claimed && r.ev && claimChecked !== r.ev.id) { claimChecked = r.ev.id; claim(r.ev.id); }
     if (r.ev && r.phase === "ended") claimChecked = r.ev.id;
   } catch (e) { /* tamu / belum init */ }
@@ -73,7 +74,7 @@ function passAvailable(monId) {
 }
 function passGo() {
   const s = st; if (!s || s.phase !== "live") return false;
-  const m = EV.BY_ID[s.ev.monster]; if (!passAvailable(m.id) || (my && my.left <= 0)) return false;
+  const m = EV.BY_ID[s.ev.monster]; if (!passAvailable(m.id) || (my && my.winner)) return false;
   if (here(m.id)) return true;
   const S = N().S, prev = pass ? pass.prev : S.loc;
   pass = { evId: s.ev.id, loc: locIndex(m.loc), prev };
@@ -168,7 +169,7 @@ function why() {
   const s = st; if (!s || s.phase !== "live") return "Event sudah selesai.";
   if (!ecoOn()) return NW.shopApi && !NW.shopApi.isGuest() ? "Ekonomi server sedang menyambung… coba sebentar lagi." : "Masuk dengan akun Google dulu untuk menantang monster berhadiah.";
   if (!my) { fetchMy(true); return "Memuat kesempatanmu… coba lempar lagi."; }
-  if (my.left <= 0) return `Kesempatanmu di event ini sudah habis (${EV.MAX_ATTEMPTS}/${EV.MAX_ATTEMPTS}). Tunggu event minggu depan!`;
+  if (my.winner) return `Monster ini sudah ditaklukkan oleh ${my.winner.name}. Hanya satu pemenang global untuk seluruh server.`;
   if (my.act) return "Duel sebelumnya masih tercatat berjalan di server. Tunggu ±1 menit.";
   return "";
 }
@@ -193,8 +194,8 @@ function startDuel(m) {
     try {
       const r = await api().eco("ecoEventStart", { opId: rid(), eventId: m.ev.id }); applyEco(r.eco);
       const d = EV.makeDuel(r.duel.monster, r.duel.seed);
-      duel = { status: "play", monster: r.duel.monster, seed: r.duel.seed, eventId: r.duel.eventId, n: r.duel.n, left: r.duel.left, d, log: [], h: 0, lastTog: -10, acc: 0, tt: 0, z0: N().fish.G.bob.z, x0: N().fish.G.bob.x };
-      my = Object.assign({}, my || {}, { left: r.duel.left, att: r.duel.n, act: true });
+      duel = { status: "play", monster: r.duel.monster, seed: r.duel.seed, eventId: r.duel.eventId, n: r.duel.n, left: null, unlimited: true, d, log: [], h: 0, lastTog: -10, acc: 0, tt: 0, z0: N().fish.G.bob.z, x0: N().fish.G.bob.x };
+      my = Object.assign({}, my || {}, { left: null, unlimited: true, att: r.duel.n, act: true });
       N().fish.splash(G.bob.x, G.bob.z, 18); N().sfx("splash"); emit();
     } catch (e) { abort(err(e)); }
   })();
