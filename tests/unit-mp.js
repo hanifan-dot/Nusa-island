@@ -24,9 +24,9 @@ ok(Array.from(P.cleanChat("x".repeat(500))).length === 80, "chat maks 80");
 eq(P.cleanChat("a\u0000b‮c"), "a b c", "karakter kontrol dibuang");
 
 // ---------- helper room ----------
-function mkRoom(cap = 4) {
+function mkRoom(cap = 4, opts = {}) {
   const log = [], closed = []; let now = 1e6;
-  const room = new Room({ id: "muara-1", cap, io: { now: () => now, send: (c, o) => log.push([c, o]), close: (c, code, r) => closed.push([c, code, r]) } });
+  const room = new Room(Object.assign({ id: "muara-1", cap, io: { now: () => now, send: (c, o) => log.push([c, o]), close: (c, code, r) => closed.push([c, code, r]) } }, opts));
   return { room, log, closed, adv: (ms) => { now += ms; }, now: () => now, to: (c) => log.filter((l) => l[0] === c).map((l) => l[1]), clear: () => { log.length = 0; } };
 }
 const hello = (r, c, n, x = 19.5, y = 20.6, extra = {}) => r.room.message(c, JSON.stringify(Object.assign({ t: "hello", n, r: 2, rd: 3, x: P.qz(x), y: P.qz(y), d: 2, f: 0 }, extra)));
@@ -239,6 +239,19 @@ const mv = (r, c, x, y, d = 2, f = 1) => r.room.message(c, JSON.stringify({ t: "
 }
 
 // ---------- JWT (kunci RSA buatan sendiri; tanpa jaringan) ----------
+// Kapal Rombongan: pemain tidak boleh terjebak meski jangkar diangkat/kapal belum siap bersandar.
+{
+  const r = mkRoom(4, { boat: true }), [sx, sy] = P.BOAT.SLOTS[0];
+  hello(r, 1, "Kapten", sx, sy);
+  r.room.message(1, JSON.stringify({ t: "bt", a: "new" }));
+  const p = r.room.players.get(1), b = r.room.boats.get(p.boat.id);
+  r.room.message(1, JSON.stringify({ t: "bt", a: "anchor", on: false }));
+  ok(!b.anchor, "uji keluar darurat: jangkar kapal sedang terangkat");
+  r.room.message(1, JSON.stringify({ t: "bt", a: "leave" }));
+  ok(!p.boat, "keluar darurat selalu melepas kursi walau jangkar terangkat");
+  ok(Math.hypot(p.x - P.BOAT.LAND[0], p.y - P.BOAT.LAND[1]) < 0.01, "keluar darurat menaruh pemain aman di dermaga");
+}
+
 (async () => {
   const kp = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 }), jwk = kp.publicKey.export({ format: "jwk" }); jwk.kid = "k1"; jwk.alg = "RS256";
   const PROJ = "nusa-island-d2023", NOW = 1793502000000, S = Math.floor(NOW / 1000);
