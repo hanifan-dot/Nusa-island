@@ -178,6 +178,9 @@
   </div>
 </div>
 
+<!-- Konfigurasi publik + feature flags WAJIB dimuat sebelum peta dibuat.
+     Kopdes memasang bangunan saat sf2/area.js dievaluasi; pasukan membaca flag dinamis. -->
+<script src="cloud/config.js"></script>
 <script src="data.js"></script>
 <script src="fishmath.js"></script>
 <script src="world/areas.js"></script>
@@ -271,8 +274,7 @@
 <script src="audio/manager.js"></script>
 <script src="audio/triggers.js"></script>
 <script src="audio/panel.js"></script>
-<!-- Tahap 3: akun & Cloud Save. Non-aktif total bila cloud/config.js kosong (kecuali ?cloud=demo). -->
-<script src="cloud/config.js"></script>
+<!-- Tahap 3: akun & Cloud Save. Konfigurasi publik sudah dimuat sebelum modul peta. -->
 <script src="cloud/api.js"></script>
 <script src="cloud/core.js"></script>
 <script src="username/core.js"></script>
