@@ -111,7 +111,7 @@ function board() {
   syncPlayer(); persist(); N().save();
   N().sfx("boat_naik");
   const q = S().sea;
-  if (!q.tut) { q.tut = 1; N().toast(NW.kemudi ? "⛵ Tahan KIRI/KANAN untuk belok · MAJU untuk jalan · STOP untuk berhenti" : "⛵ Joystick ATAS = maju · BAWAH = mundur · KIRI/KANAN = belok", "good"); }
+  if (!q.tut) { q.tut = 1; N().toast(NW.kemudi ? "⛵ Putar setir untuk belok · tuas MAJU / NETRAL / MUNDUR" : "⛵ Joystick ATAS = maju · BAWAH = mundur · KIRI/KANAN = belok", "good"); }
   else N().toast(`⛵ Naik ${UPGRADES.boat.levels[lv()]}`, "good");
   showUI(); NW.world.updateHint();
   return true;
