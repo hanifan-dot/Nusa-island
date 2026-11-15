@@ -402,7 +402,8 @@ class Room {
       }
       case "leave": {
         if (!mine) return this.bn(conn, "none");
-        if (!this.boardable(mine)) return this.bn(conn, mine.away ? "away" : "moving");        // turun hanya saat jangkar turun & kapal berhenti
+        // Keluar darurat selalu diizinkan: vacate() menaruh pemain di dermaga sah.
+        // Penumpang tidak dapat disandera kapal bergerak/kapten macet; kapten yang turun memicu promosi + jangkar aman.
         this.vacate(p, true); return;
       }
       case "steer": {
