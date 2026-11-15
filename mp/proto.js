@@ -45,7 +45,7 @@ const _HW = 32, _HH = 16;   // setengah ukuran tile iso (world/boat.js: HW=TW/2,
 const _DIRV = Array.from({ length: 8 }, (_, i) => { const a = i * Math.PI / 4, dx = Math.cos(a), dy = Math.sin(a), x = (dx / _HW + dy / _HH) / 2, y = (dy / _HH - dx / _HW) / 2, k = Math.hypot(x, y); return [Math.round(x / k * 1e4) / 1e4, Math.round(y / k * 1e4) / 1e4]; });
 const BOAT = { CAP: 3, MAX_BOATS: 5, BOARD_R: 3.2, DIRV: _DIRV, SPD: [0, 1.6, 3.2], ACC: 2.2,   // tile/dtk; 3 kursi: 0 = kapten, 1–2 = penumpang
   LANE: { x0: 34, x1: 39.6, y0: 22.4, y1: 50.5 },
-  SLOTS: [[37.2, 23.4], [35.8, 24.6], [38.6, 25.2], [36.2, 27], [38.4, 28.6]], LAND: [35.5, 20.6],   // tambatan & titik turun (di dermaga)
+  SLOTS: [[35.4, 27], [38.2, 28.5], [35.4, 31], [38.2, 32.5], [36.8, 35]], LAND: [35.5, 20.6],   // tambatan & titik turun (di dermaga)
   GRACE_MS: 20000, MIN_AWAY_MS: 8000, AREA_RE: /^[a-z][a-z0-9_]{1,23}$/, AREAS: ["muara", "laut", "selat", "toba", "sf2"], HOME: "muara" };
 // ---- Kota Nusa (multiplayer area "selat"): bawaan MATI di server (opsi kota / env NUSA_KOTA=ya). Instance & room SAMA dengan Muara; yang membedakan = `area` per pemain. ----
 // Server hanya memegang: area pemain, batas peta, kecepatan, titik masuk, dermaga kapal rombongan. NPC & kendaraan kota 100% lokal (tidak pernah lewat jaringan).

@@ -1464,6 +1464,9 @@ function resetFishing() {
 }
 function enterFishing(from) {
   if (NW.hold) NW.hold.stop("fishing"); // joran di tangan: berhenti memamerkan ikan
+  // Hotfix HP: kemudi kapal harus langsung hilang sebelum kanvas memancing tampil.
+  // resume() kapal/rombongan akan menampilkannya kembali saat pemain pulang ke laut.
+  if (from === "sea" && NW.kemudi && NW.kemudi.on) NW.kemudi.hide(NW.kemudi.host);
   MODE = "fish"; fishFrom = from;
   if (NW.story) NW.story.mark("fish");
   if (from === "dock") S.loc = NW.areas.cur.locIndex; // mancing dari titik mancing area aktif (Muara / Toba)

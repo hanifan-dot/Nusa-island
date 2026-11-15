@@ -10,6 +10,7 @@ const LIFT = () => NW.LIFT || 6, GAREA = "muara";
 const st = {
   srv: false, gateTried: false, trk: C.tracker(), chs: new Map(), last: new Map(), root: null, key: "", away: null,
   wasSeated: false, ashore: false, port: null, awayAr: null, snap: null, hideUntil: 0, limbo: 0, steerKey: "", steerAt: 0, note: "", noteAt: 0, spec: 1, pend: 0, evBound: false, lastSig: "",
+  lastBoat: null, emptyAt: new Map(),
 };
 // ---------- gerbang server (sekali per sesi masuk; gagal/OFF → tersembunyi, TANPA fallback palsu) ----------
 const call = (name, body) => (window.NusaApi && window.NusaApi.enabled() ? window.NusaApi.call(name, body || {}, true) : Promise.reject(Object.assign(new Error("offline"), { code: "unavailable" })));
@@ -31,6 +32,22 @@ const inPort = () => areaId() === "selat" && !!mineInfo() && !!mineInfo().boat.a
 const shore = () => (areaId() === "selat" ? LAND : C.DISEMBARK);
 function portPose() { const u = Math.min(1, (now() - (st.port ? st.port.t0 : 0)) / 4.5), e = 1 - (1 - u) * (1 - u); return { x: BERTH.x - 7 * (1 - e), y: BERTH.y, d: 0, a: 0, v: (1 - e) * 1.6, docked: u >= 1 }; }
 const boatsList = () => (live() ? NW.mp.boats() : []);
+// Kapal kosong tetap ada di server agar awaknya tidak terdampar, tetapi bekas visualnya
+// hanya terlihat 5 detik. Kapal kosong milik rombongan lain tidak ikut menawarkan kursi.
+const EMPTY_HIDE_SEC = 5;
+const boatEmpty = (b) => !!b && Array.isArray(b.seats) && b.seats.every((pid) => !pid);
+function boatShown(b) {
+  if (!boatEmpty(b)) { st.emptyAt.delete(b.id); return true; }
+  let at = st.emptyAt.get(b.id); if (!at) { at = now(); st.emptyAt.set(b.id, at); }
+  return now() - at < EMPTY_HIDE_SEC;
+}
+// Kompatibilitas kapal dari room lama: bila masih berada tepat di atas kapal pribadi,
+// geser visualnya ke jalur rombongan. Otoritas/posisi server tidak diubah.
+function displayPose(b) {
+  const q = NW.boat && NW.boat.B;
+  if (areaId() === "muara" && q && !q.on && q.area === "muara" && Math.hypot(b.x - q.x, b.y - q.y) < 2.6) return { x: b.x - 1.8, y: b.y + 3.2 };
+  return { x: b.x, y: b.y };
+}
 const lastPose = (pid) => st.last.get(pid) || null;
 const present = (pid) => { const m = mineInfo(); if (m && m.boat.seats.indexOf(pid) >= 0 && pid === NW.mp._R.me) return true; return !!(NW.mp.player && NW.mp.player(pid)); };
 const SPECS = () => (NW.boat && NW.boat.SPEC) || [];
@@ -65,6 +82,7 @@ function update(dt, v) {
   lastT = dt; const P = NW.world.player, m = mineInfo();
   if (live()) { for (const b of boatsList()) visOf(b, dt); sync(); }
   if (m) {
+    st.lastBoat = m.id;
     st.wasSeated = true; st.limbo = 0; st.snap = { id: m.id, kota: !!m.boat.kota, seats: m.boat.seats.slice(), away: m.boat.away, anchor: m.boat.anchor, d: m.boat.d, x: m.boat.x, y: m.boat.y, v: 0 };
     const b = m.boat;
     if (!st.ashore) {
@@ -180,11 +198,12 @@ function layer(t, view, inView) {
   if (!live() || !inMuara()) return out;
   const mi = mineInfo();
   for (const b of boatsList()) {
+    if (!boatShown(b)) continue;
     const away = !!b.away; if (away && !(mi && mi.id === b.id)) continue;
-    const v = visOf(b, lastT), pose = { x: b.x, y: b.y, a: v.a, d: b.d }, pt = NW.P(b.x, b.y);
+    const v = visOf(b, lastT), dp = displayPose(b), pose = { x: dp.x, y: dp.y, a: v.a, d: b.d }, pt = NW.P(dp.x, dp.y);
     if (inView && !inView(view, pt.x, pt.y, 140)) continue;
     const sty = C.styleFor(b.id);
-    out.push({ d: b.x + b.y + 0.35, fn: (ctx) => {
+    out.push({ d: pose.x + pose.y + 0.35, fn: (ctx) => {
       ctx.save(); if (away) ctx.globalAlpha = 0.5;
       NW.boat.drawVessel(ctx, pose, t, { spec: st.spec, style: sty, remote: true, v: b.v, crew: crewDrawer(ctx, t, b, v, pose), anchored: !!b.anchor });
       ctx.restore();
@@ -234,7 +253,9 @@ function candidates(player) {
     if (muara && Math.hypot(player.x - DOCK_POINT.x, player.y - DOCK_POINT.y) < 5) out.push({ id: "rb:fail", x: DOCK_POINT.x, y: DOCK_POINT.y, r: 3, icon: "⛵", label: "Kapal Rombongan", rb: { k: "fail" }, bz: 40 });
     return out;
   }
-  const bl = boatsList().filter((b) => !b.away);
+  // Kapal pribadi di titik yang sama selalu menang agar label "Naik Kapal" tidak bertumpuk.
+  if (NW.boat && NW.boat.boardable && NW.boat.boardable(player)) return out;
+  const bl = boatsList().filter((b) => !b.away && (!boatEmpty(b) || b.id === st.lastBoat));
   for (const b of bl) for (const s of [1, 2]) {   // kapal kota tanpa kapten: server menjadikan yang pertama naik sebagai kapten (permintaan tetap kursi 1/2)
     if (!C.seatFree(b, s) || !C.boardable(b)) continue;
     const p = seatPoint(b, s); if (Math.hypot(player.x - p.x, player.y - p.y) > 6) continue;

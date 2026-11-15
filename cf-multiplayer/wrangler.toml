@@ -14,9 +14,9 @@ ALLOWED_ORIGINS = "https://nusa-island-d2023.web.app,https://nusa-island-d2023.f
 MP_ENABLED = "1"
 # "0" = matikan hanya ruang rumah teman (Muara tetap jalan)
 HOUSE_ENABLED = "1"
-NUSA_BOAT = "tidak"      # Kapal Rombongan: bawaan MATI. Owner menyalakan dengan "ya" (bersama flag kapalRombongan di nusa-api)
-NUSA_KOTA = "tidak"      # Kota Nusa multiplayer (pemain terlihat di area selat): bawaan MATI. Owner menyalakan dengan "ya" (bersama flag kotaNusa di nusa-api + NUSA_KOTA klien)
-NUSA_PHONE = "tidak"     # NusaPhone (Ide 07): bendera tampilan "memegang ponsel" antar-pemain. Bawaan MATI; "ya" hanya oleh Owner (bersama gameFlags.nusaPhone + NUSA_PHONE klien). Murni visual.
+NUSA_BOAT = "ya"      # Kapal Rombongan: bawaan MATI. Owner menyalakan dengan "ya" (bersama flag kapalRombongan di nusa-api)
+NUSA_KOTA = "ya"      # Kota Nusa multiplayer (pemain terlihat di area selat): bawaan MATI. Owner menyalakan dengan "ya" (bersama flag kotaNusa di nusa-api + NUSA_KOTA klien)
+NUSA_PHONE = "ya"     # NusaPhone (Ide 07): bendera tampilan "memegang ponsel" antar-pemain. Bawaan MATI; "ya" hanya oleh Owner (bersama gameFlags.nusaPhone + NUSA_PHONE klien). Murni visual.
 # MP_BLOCKED_UIDS (daftar uid diblokir, pisahkan koma) sengaja TIDAK ditulis di sini: isi lewat dashboard Cloudflare saat dibutuhkan
 # dan tidak tertimpa deploy berikutnya berkat keep_vars.
 
