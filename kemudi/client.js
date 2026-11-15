@@ -10,8 +10,8 @@ const st = { on: false, deg: 0, gear: "NETRAL", drag: null, root: null, raf: 0, 
 // Host rombongan hanya menyatakan NIAT lewat protokol server; tidak ada posisi/kecepatan/hadiah yang ditentukan di sini.
 const BOAT_HOST = {
   id: "boat", ok: () => !!(NW.boat && NW.boat.on),
-  view() { const B = NW.boat.B, cg = NW.delivery && NW.delivery.cargoView ? NW.delivery.cargoView() : null, d = dest(); return { knots: K.knots(B.v), head: K.heading(NW.boat.dir8(B.a)), dest: d, destKey: d && d.name + "|" + Math.round((d.m || 0) / 5), cargo: cg, anchor: B.anchor, canFish: NW.boat.canFish(), steerOk: true, reverse: true, home: { icon: "🛟", label: "Dermaga", aria: "Ke Dermaga", show: true }, go: { show: false } }; },
-  anchor: () => NW.boat.toggleAnchor(), fish: () => NW.boat.fish(), home: () => { N().sfx("click"); NW.boat.rescue(); }, go: () => {},
+  view() { const B = NW.boat.B, cg = NW.delivery && NW.delivery.cargoView ? NW.delivery.cargoView() : null, d = dest(), m = NW.boat.nearMoor(true); return { knots: K.knots(B.v), head: K.heading(NW.boat.dir8(B.a)), dest: d, destKey: d && d.name + "|" + Math.round((d.m || 0) / 5), cargo: cg, anchor: B.anchor, canFish: NW.boat.canFish(), steerOk: true, reverse: true, home: { icon: m ? "⚓" : "🛟", label: m ? "Turun" : "Dermaga", aria: m ? "Turun kapal" : "Ke Dermaga", show: true }, go: { show: false } }; },
+  anchor: () => NW.boat.toggleAnchor(), fish: () => NW.boat.fish(), home: () => { N().sfx("click"); const m = NW.boat.nearMoor(); if (m) NW.boat.startDock(m); else NW.boat.rescue(); }, go: () => {},
 };
 function build() {
   if (st.root) return;
