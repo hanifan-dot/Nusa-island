@@ -25,7 +25,9 @@ function art() {
   poly([[-4, 3], [W + 6, W / 2 + 3], [W + DX + 10, W / 2 + DY + 9], [DX - 2, DY + 6]], "rgba(20,35,28,.20)");
   poly([[0, 0], [W, W / 2], [W - 29, W / 2 + 14], [-29, 14]], "#cfc9bc", "rgba(90,80,66,.35)");
   // dinding ujung kanan (menghadap timur)
-  poly([R0, [R0[0] + DX, R0[1] + DY], [R0[0] + DX, R0[1] + DY - HH], [R0[0], R0[1] - HH]], "#a7a39b", "rgba(40,36,30,.5)");
+  const E0 = [-3, -HH - 5], E1 = [W + 3, W / 2 - HH - 5 + 1.5], B0 = [E0[0] + DX + 3, E0[1] + DY - 22], B1 = [E1[0] + DX + 3, E1[1] + DY - 22];
+  poly([R0, [R0[0] + DX, R0[1] + DY], [B1[0] - 6, B1[1] + 5], [E1[0] - 2, E1[1] + 5]], "#a7a39b", "rgba(40,36,30,.5)");   // dinding ujung penuh sampai bawah atap (tanpa celah segitiga)
+  g.fillStyle = "rgba(0,0,0,.10)"; g.beginPath(); g.moveTo(R0[0], R0[1]); g.lineTo(R0[0] + DX, R0[1] + DY); g.lineTo(B1[0] - 6, B1[1] + 5); g.lineTo(E1[0] - 2, E1[1] + 5); g.closePath(); g.fill();
   // fasad: digambar datar lalu dimiringkan 0,5 (sejajar sumbu isometrik)
   g.save(); g.transform(1, 0.5, 0, 1, 0, 0);
   g.fillStyle = "#bdb9b1"; g.fillRect(0, -HH, W, HH);                         // dinding dasar
@@ -50,14 +52,14 @@ function art() {
   g.fillStyle = "#3b6db0"; g.fillRect(163, -HH, 29, 7);
   g.restore();
   // atap seng bergelombang: dataran miring dari tepi depan ke punggung atap
-  const E0 = [-3, -HH - 5], E1 = [W + 3, W / 2 - HH - 5 + 1.5], B0 = [E0[0] + DX + 3, E0[1] + DY - 22], B1 = [E1[0] + DX + 3, E1[1] + DY - 22];
   poly([E0, E1, B1, B0], "#8e857d", "rgba(40,36,30,.5)");
   const n = 30; g.lineWidth = 0.8;
   for (let i = 1; i < n; i++) { const k = i / n, a = [E0[0] + (E1[0] - E0[0]) * k, E0[1] + (E1[1] - E0[1]) * k], b = [B0[0] + (B1[0] - B0[0]) * k, B0[1] + (B1[1] - B0[1]) * k];
-    g.strokeStyle = i % 2 ? "rgba(255,255,255,.20)" : "rgba(40,30,24,.26)"; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+    g.strokeStyle = i % 2 ? "rgba(255,255,255,.07)" : "rgba(40,30,24,.14)"; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
   poly([E0, E1, [E1[0], E1[1] + 6], [E0[0], E0[1] + 6]], "#3b6db0", "rgba(20,40,80,.6)");                       // tepi biru
   g.fillStyle = "rgba(255,255,255,.4)"; g.beginPath(); g.moveTo(E0[0], E0[1] + 1); g.lineTo(E1[0], E1[1] + 1); g.lineWidth = 1; g.strokeStyle = "rgba(255,255,255,.4)"; g.stroke();
   poly([E1, B1, [B1[0] + 1, B1[1] + 5], [E1[0] + 1, E1[1] + 6]], "#6e665f");                                    // tebal atap sisi kanan
+  g.strokeStyle = "rgba(60,52,46,.65)"; g.lineWidth = 1.6; g.beginPath(); g.moveTo(B0[0], B0[1]); g.lineTo(B1[0], B1[1]); g.stroke();   // bubungan
   cache = { cv, e0: E0, sx: SIGN_X };
   return cache;
 }

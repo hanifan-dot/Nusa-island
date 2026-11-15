@@ -1,5 +1,5 @@
 // SALINAN OTOMATIS dari economy/tables.js — jangan diedit di sini (node firebase/scripts/sync-economy.js).
-// OTOMATIS dari data.js + world/home-data.js (node economy/make-tables.js) — jangan diedit. sha:37b6d91c760c2a1d
+// OTOMATIS dari data.js + world/home-data.js (node economy/make-tables.js) — jangan diedit. sha:72c1339fc1ec743b
 "use strict";
 module.exports = {
  "FISH": [
@@ -1144,6 +1144,10 @@ module.exports = {
    "stars": 30
   }
  ],
+ "KOP": {
+  "price": 1000,
+  "capKg": 250
+ },
  "CAT": {
   "karpet": {
    "price": 300,

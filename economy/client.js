@@ -24,6 +24,7 @@ function apply(v) {
   S.money = Math.max(0, Math.floor(v.own));
   if (v.aur && v.aur.own && S.shop && typeof S.shop === "object") { S.shop.equip = S.shop.equip || {}; if (v.aur.eq) S.shop.equip.joran = "pancing_aurora"; else delete S.shop.equip.joran; try { localStorage.setItem("nusa-aur-seen", "1"); } catch (e) {} }   // penanda di perangkat (bukan S.shop: validator menolak kunci asing). Status Pakai/Lepaskan Aurora: SERVER yang berwenang                       // cermin saja; sumber kebenaran = server
   for (const k of Object.keys(v.up || {})) S.up[k] = v.up[k];
+  if (typeof v.kop === "boolean") { S.kop = v.kop; if (!v.kop) S.kopOn = false; }   // Joran Kopdes: kepemilikan dari SERVER
   try { N().refreshHUD(); } catch (e) {}
 }
 // Inisialisasi akun (migrasi sekali) lalu selaraskan. Aman dipanggil berulang.
@@ -110,6 +111,7 @@ function buy(reason, grant, failCb) {
   if (p[0] === "up") body = { kind: "up", k: p[1], lv: (S.up[p[1]] || 0) + 1 };
   else if (p[0] === "rumah") body = { kind: "home", lv: parseInt(p[1], 10) };
   else if (p[0] === "dekor") body = { kind: "cat", id: p[1] };
+  else if (p[0] === "kop") body = { kind: "kop" };
   else return false;
   (async () => {
     try { await flush(); const r = await call("ecoBuy", Object.assign({ opId: rid() }, body)); grant(); apply(r); }   // grant dulu (ia memeriksa level lama), lalu angka server ditimpakan

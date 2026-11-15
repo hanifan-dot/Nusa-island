@@ -400,7 +400,7 @@ function triggerBite() {
 function startFight() {
   const { fish, w, wr } = G.pending;
   const pe = NW.FM.fightPower(fish, w, wr);                     // ikan ≤ 20 kg: sama persis seperti dulu
-  const rodCap = Math.max(UPGRADES.rod.cap[upLvl("rod")] * (NW.streak ? NW.streak.rodMul().cap : 1), NW.quest ? NW.quest.capFloor() : 0), om = NW.FM.overloadMuls(w, rodCap);
+  const rodCap = Math.max(UPGRADES.rod.cap[upLvl("rod")] * (NW.streak ? NW.streak.rodMul().cap : 1), NW.quest ? NW.quest.capFloor() : 0, NW.kopdesRod ? NW.kopdesRod.capFloor() : 0), om = NW.FM.overloadMuls(w, rodCap);
   G.fight = { fish, w, pe, big: NW.FM.bigness(w), weak: om.weak, riseMul: om.rise, reelMul: om.reel, T: 0.25, P: 0.18, surge: 0, surgeT: rand(0.8, 2), slack: 0, over: 0, fx: G.bob.x, fxT: G.bob.x, z0: G.bob.z,
     challenge: !!G.pending.challenge, quest: G.pending.quest || null, perfect: !!G.perfect, reads: 0, tired: 0, readWin: 0, readDone: true, tiredT: 0, tiredHold: 0, tiredDone: true, warn: false };
   $("tensionBar").classList.toggle("ideal", skill("kendali"));
@@ -587,7 +587,7 @@ function update(dt) {
 
 function updateFight(dt) {
   const F = G.fight; if (!F) return;
-  const lv = upLvl("rod"), rm = NW.streak ? NW.streak.rodMul() : { str: 1, reel: 1 }, str = UPGRADES.rod.strength[lv] * rm.str, reel = UPGRADES.rod.reel[lv] * rm.reel * F.reelMul; // reelMul < 1 hanya bila ikan jauh melebihi kapasitas joran
+  const lv = upLvl("rod"), rm = NW.streak ? NW.streak.rodMul() : { str: 1, reel: 1 }, kr = NW.kopdesRod && NW.kopdesRod.mul(), str = Math.max(UPGRADES.rod.strength[lv] * rm.str, kr ? kr.str : 0), reel = Math.max(UPGRADES.rod.reel[lv] * rm.reel, kr ? kr.reel : 0) * F.reelMul; // reelMul < 1 hanya bila ikan jauh melebihi kapasitas joran
   const big = F.big; // 0 untuk ikan ≤ 20 kg → faktor ukuran di bawah sama dengan perilaku lama
   F.age = (F.age || 0) + dt;
   const pe = F.pe * NW.FM.fatigue(F.age); // ikan lelah seiring waktu: pertarungan raksasa tidak berlarut-larut

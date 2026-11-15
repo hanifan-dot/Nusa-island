@@ -94,6 +94,7 @@ const RODS = [
 function syncNames() { RODS.forEach((r, i) => { r.name = UPGRADES.rod.levels[i]; }); }
 syncNames();
 function rodSpec(level) {
+  if (level === undefined && NW.kopdesRod && NW.kopdesRod.spec) { const x = NW.kopdesRod.spec(); if (x) return x; } // Joran Kopdes (dibeli di Kopdes; kepemilikan dari server)
   if (level === undefined && NW.aurora && NW.aurora.rodSpec) { const x = NW.aurora.rodSpec(); if (x) return x; } // Pancing Aurora Samudra (Gamepass; kepemilikan dari server)
   if (level === undefined && NW.quest && NW.quest.rodSpec) { const x = NW.quest.rodSpec(); if (x) return x; } // Joran WhatsApp (hadiah Quest Owner)
   if (level === undefined && NW.streak && NW.streak.rodSpec) { const x = NW.streak.rodSpec(); if (x) return x; } // Joran Pelaut Eksklusif (hadiah Login Streak)
@@ -132,6 +133,16 @@ function accents(c, spec, at, nx, ny, g) {
     c.strokeStyle = `rgba(255,255,255,${(0.22 + 0.18 * sh).toFixed(2)})`; c.lineWidth = 0.7;
     c.beginPath(); c.moveTo(p0[0] + nx * 0.5, p0[1] + ny * 0.5); c.lineTo(p1[0] + nx * 0.5, p1[1] + ny * 0.5); c.stroke();
     const tp = at(1); c.fillStyle = a.col; c.beginPath(); c.arc(tp[0], tp[1], 1.1, 0, 7); c.fill();
+  } else if (a.kind === "kopdes") { // Joran Kopdes: pita emas, plat merek KOPDES sejajar batang, kilau & percik MERAH (ringan: 1 gradien + 3 titik)
+    [0.3, 0.46, 0.62, 0.78].forEach((k) => band(k, w, a.col, 1.2));
+    band(g + 0.02, w, a.col, 1.4);
+    const q0 = at(0), q1 = at(1), ang = Math.atan2(q1[1] - q0[1], q1[0] - q0[0]), pl = at(g + 0.2), tt = performance.now() / 1000;
+    c.save(); c.translate(pl[0], pl[1]); c.rotate(ang);
+    c.fillStyle = "#fff7e8"; c.fillRect(-5, -1.9, 10, 3.8); c.strokeStyle = "#8a1219"; c.lineWidth = 0.4; c.strokeRect(-5, -1.9, 10, 3.8);
+    c.fillStyle = "#b3171f"; c.font = "bold 2.7px system-ui,sans-serif"; c.textAlign = "center"; c.fillText("KOPDES", 0, 0.95); c.restore();
+    const tp = at(1), gl = c.createRadialGradient(tp[0], tp[1], 0, tp[0], tp[1], 7), pu = 0.7 + 0.3 * Math.sin(tt * 3.2);
+    gl.addColorStop(0, `rgba(255,70,60,${(0.6 * pu).toFixed(2)})`); gl.addColorStop(1, "rgba(255,70,60,0)"); c.fillStyle = gl; c.fillRect(tp[0] - 7, tp[1] - 7, 14, 14);
+    for (let i = 0; i < 3; i++) { const k = (tt * 0.55 + i / 3) % 1, p = at(0.3 + 0.7 * k), sd = Math.sin(tt * 4 + i * 2.1) * 2.2; c.fillStyle = `rgba(255,${60 + i * 40},${50},${(0.85 * (1 - k)).toFixed(2)})`; c.beginPath(); c.arc(p[0] + nx * sd, p[1] + ny * sd, 0.9 * (1 - k * 0.5), 0, 7); c.fill(); }
   } else if (a.kind === "pearls") { // manik karang berselang-seling
     [0.38, 0.48, 0.58, 0.68].forEach((k, i) => { const p = at(k); c.fillStyle = i % 2 ? a.col : "#ff9b7a"; c.beginPath(); c.arc(p[0], p[1], 1.0, 0, 7); c.fill(); });
     band(g + 0.02, w, a.col, 1.2);
@@ -187,6 +198,14 @@ function drawBackRod(c, spec, fx, y0, sway, inFront) {
 }
 // Pratinjau untuk katalog toko (kanvas kecil, di-cache per tingkat)
 const previewCache = {};
+function rodPreviewSpec(spec) {   // pratinjau joran khusus (mis. Joran Kopdes) yang tidak ada di tangga 20 joran
+  const key = "s:" + spec.name; if (previewCache[key]) return previewCache[key];
+  const cv = document.createElement("canvas"); cv.width = 72; cv.height = 108;
+  const c = cv.getContext("2d"); c.translate(36, 100); c.scale(2.2, 2.2);
+  c.fillStyle = "rgba(0,0,0,.12)"; c.beginPath(); c.ellipse(0, 4, 9, 2.2, 0, 0, 7); c.fill();
+  drawBackRod(c, spec, 0, 0, 0, true);
+  return (previewCache[key] = cv.toDataURL());
+}
 function rodPreview(level) {
   if (previewCache[level]) return previewCache[level];
   const cv = document.createElement("canvas"); cv.width = 72; cv.height = 108;
@@ -292,5 +311,5 @@ function hook() {
   N().on("catch", onCatch);
 }
 
-NW.look = { TITLES, RODS, rodPreview, drawHeldRod, syncNames, rankOf, titleName, count, rank, currentTitle, nextGoal, playerName, cleanName, rodSpec, drawBackRod, drawLabel, labelTop, drawPlayerLabel, panelSection, act, hook, defaults };
+NW.look = { TITLES, RODS, rodPreview, rodPreviewSpec, drawHeldRod, syncNames, rankOf, titleName, count, rank, currentTitle, nextGoal, playerName, cleanName, rodSpec, drawBackRod, drawLabel, labelTop, drawPlayerLabel, panelSection, act, hook, defaults };
 })();

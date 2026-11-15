@@ -182,6 +182,7 @@ const area = NW.areas.register({
   hooks: {
     fullMsg: "Coolbox-mu penuh. Pulanglah ke Muara Kampung dengan kapal untuk menjual tangkapan.",
     interact: (t, api) => NW.sf2 && NW.sf2.interact(t, api),
+    layer: (t) => (NW.kopdesCrew ? NW.kopdesCrew.layer(t) : []),   // regu Kopdes (flag NUSA_KOPDES; kosong bila mati)
     hint: () => "",
   },
 });

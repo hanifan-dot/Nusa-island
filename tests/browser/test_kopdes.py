@@ -53,9 +53,9 @@ def fish_here(pg, spot, rand_seq):
     done = wait_for(pg, "!document.getElementById('catchWrap').classList.contains('hidden')", 10)
     return ok_fish and bit and pend and done
 
-def new_k(ctx, flag, uid="u-kop", money=2000):
+def new_k(ctx, flag, uid="u-kop", money=2000, seed=None):
     ctx.add_init_script("window.NUSA_KOPDES=%s;" % ("true" if flag else "false"))
-    pg, errs = new(ctx, uid); set_lbc(pg, uid, 100); ev(pg, "async()=>{await NW.sf2.refresh(true)}")
+    pg, errs = new(ctx, uid, seed); set_lbc(pg, uid, 100); ev(pg, "async()=>{await NW.sf2.refresh(true)}")
     ev(pg, "(m)=>{Nusa.S.money=m}", money); ev(pg, "NW.eco.ensure()"); wait_for(pg, "NW.eco.active()")
     ev(pg, "Nusa.openPanel('map')"); wait_for(pg, "!!document.querySelector('.sf2-card [data-act=go]')", 10); ev(pg, "document.querySelector('.sf2-card [data-act=go]').click()")
     ok("setup: tiba di Pulau Para Legenda", island_url_ready(pg)); wait_for(pg, "!NW.adv.isBusy()&&!document.getElementById('fade').classList.contains('on')", 20); time.sleep(1.5)
@@ -108,6 +108,54 @@ with sync_playwright() as p:
         r = ev(pg, "async()=>{try{const lv=Nusa.upLvl('rod')+5;await window.__srv.ecoBuy({uid:'u-kop'},{opId:'opkop0000001xx',kind:'up',k:'rod',lv});return 'LOLOS'}catch(e){return e.message}}")
         ok("B8 server menolak lompat level joran lewat jalur Kopdes (klien tidak bisa curang)", "LOLOS" not in str(r), r)
         ok("B9 tanpa galat skrip", not [e for e in errs if "PAGEERR" in e], errs[:2]); ctx.close()
+        # ===== C. atap, Joran Kopdes, pasukan Kopdes (flag nyala; server kopdes:true) =====
+        ctx = b.new_context(viewport={"width": 390, "height": 844}, has_touch=True, device_scale_factor=2)
+        ctx.add_init_script(WRAP % (rd("economy/core.js"), "NusaEconomyCore")); ctx.add_init_script(WRAP % (rd("economy/tables.js"), "__T"))
+        pg, errs = new_k(ctx, True, "u-kop2", 5000, [["shop/config", json.dumps({"kopdes": True})]])
+        place(pg, 36.0, 30.6); ev(pg, "()=>NW.kopdesCrew.setClock(()=>120)"); time.sleep(1.0); shot(pg, "C-atap-barisan.png")
+        ok("C1 tanpa galat render saat atap + pasukan digambar", not [e for e in errs if "PAGEERR" in e], errs[:2])
+        pl = ev(pg, "()=>{const C=NW.kopdesCrew,a=C.at(120),w=NW.SF2_MAP.walkable;return {leadHide:a.lead.hide,n:a.staff.filter(q=>!q.hide).length,movers:a.staff.filter(q=>q.moving).length,layer:C.layer(120).length}}")
+        ok("C2 t=120: pemimpin sudah pergi, 5 pegawai berbaris di depan Kopdes", pl["leadHide"] is True and pl["n"] == 5 and pl["movers"] == 0 and pl["layer"] == 6, pl)   # 5 pegawai + tumpukan peti (kosong)
+        ev(pg, "()=>NW.kopdesCrew.setClock(()=>30)"); time.sleep(0.8); shot(pg, "C-angkut-barang.png")
+        ev(pg, "()=>NW.kopdesCrew.setClock(()=>5)"); place(pg, 35.0, 31.2); shot(pg, "C-pemimpin-memberi-perintah.png")
+        # semua titik lintasan harus bisa dijalani (tidak menembus bangunan/solid)
+        bad = ev(pg, "()=>{const C=NW.kopdesCrew,M=NW.SF2_MAP,out=[];for(let t=0;t<C.CYCLE;t+=1.5){const a=C.at(t);const all=[].concat(a.lead?[a.lead]:[],a.staff||[]);for(const q of all){if(q&&q.x!=null&&!q.hide&&!M.walkable(q.x,q.y))out.push([t,+q.x.toFixed(2),+q.y.toFixed(2)])}}return out.slice(0,6)}")
+        ok("C3 lintasan pemimpin & pegawai tidak menembus bangunan/benda padat (saat terlihat)", len(bad) == 0, bad)
+        # Joran Kopdes
+        ev(pg, "()=>{NW.sf2.interact({id:'kopdes'},NW.world.api)}"); time.sleep(0.6)
+        for _ in range(8):
+            if ev(pg, "()=>!!document.querySelector('#dlgOpts button')"): break
+            ev(pg, "()=>document.getElementById('dlg').click()"); time.sleep(0.9)
+        ev(pg, "()=>{[...document.querySelectorAll('#dlgOpts button')].find(b=>b.textContent.includes('Lihat joran')).click()}"); time.sleep(0.8)
+        ok("C4 panel memuat kartu Joran Kopdes (1.000 koin, 250 kg, merah)", ev(pg, "()=>{const c=document.querySelector('#panelBody .rod-card.kop');return !!c&&c.innerText.includes('Joran Kopdes')&&c.innerText.includes('250 kg')&&c.innerText.includes('1.000')&&!!c.querySelector('img')}"))
+        shot(pg, "C-panel-joran-kopdes.png")
+        b0 = ev(pg, "()=>NW.eco.balance()")
+        ev(pg, "()=>document.querySelector('#panelBody [data-act=kopbuy]').click()"); time.sleep(1.6)
+        b1 = ev(pg, "()=>NW.eco.balance()"); st = ev(pg, "()=>({own:Nusa.S.kop,on:Nusa.S.kopOn,srv:JSON.parse(window.__db.get('shop/economy/u-kop2')).kop,calls:window.__calls.filter(x=>x==='ecoBuy').length,cap:NW.kopdesRod.capFloor(),spec:!!NW.kopdesRod.spec()})")
+        ok("C5 beli Joran Kopdes: koin -1.000 (server), kepemilikan tercatat server, terpasang, batas 250 kg", b0 - b1 == 1000 and st["own"] and st["srv"] is True and st["on"] and st["cap"] == 250 and st["spec"], (b0, b1, st))
+        ok("C6 setelah dibeli tombol berubah jadi 'Lepas' (tak bisa dibeli lagi)", ev(pg, "()=>!document.querySelector('#panelBody [data-act=kopbuy]')&&!!document.querySelector('#panelBody [data-act=kopeq]')"))
+        shot(pg, "C-panel-dimiliki.png")
+        ev(pg, "()=>document.querySelector('#panelBody [data-act=kopeq]').click()"); time.sleep(0.5)
+        off = ev(pg, "()=>({on:NW.kopdesRod.on(),cap:NW.kopdesRod.capFloor(),spec:NW.kopdesRod.spec()})")
+        ev(pg, "()=>document.querySelector('#panelBody [data-act=kopeq]').click()"); time.sleep(0.5)
+        ok("C7 Lepas/Pakai: lepas → batas & tampilan kembali normal; pakai lagi → aktif", off["on"] is False and off["cap"] == 0 and off["spec"] is None and ev(pg, "()=>NW.kopdesRod.on()") is True, off)
+        r = ev(pg, "async()=>{try{await window.__srv.ecoBuy({uid:'u-kop2'},{opId:'opkop0000009xx',kind:'kop'});return 'LOLOS'}catch(e){return e.message}}")
+        ok("C8 beli kedua ditolak server", "LOLOS" not in str(r) and "dimiliki" in str(r), r)
+        ev(pg, "()=>Nusa.closePanel&&Nusa.closePanel()"); time.sleep(0.5)
+        ev(pg, "()=>{const p=NW.world.player;p.x=36.8;p.y=31.2;p.dir=2}"); ev(pg, "()=>NW.kopdesCrew.setClock(()=>120)"); time.sleep(1.0); shot(pg, "C-pemain-bawa-joran.png")
+        ok("C9 tanpa galat skrip (pembelian, panel, pasukan)", not [e for e in errs if "PAGEERR" in e], errs[:3]); ctx.close()
+        # server flag MATI (config tanpa kopdes) → beli ditolak, tidak ada koin keluar
+        ctx = b.new_context(viewport={"width": 390, "height": 844}, has_touch=True, device_scale_factor=2)
+        ctx.add_init_script(WRAP % (rd("economy/core.js"), "NusaEconomyCore")); ctx.add_init_script(WRAP % (rd("economy/tables.js"), "__T"))
+        pg, errs = new_k(ctx, True, "u-kop3", 5000)
+        ev(pg, "()=>{NW.sf2.interact({id:'kopdes'},NW.world.api)}"); time.sleep(0.6)
+        for _ in range(8):
+            if ev(pg, "()=>!!document.querySelector('#dlgOpts button')"): break
+            ev(pg, "()=>document.getElementById('dlg').click()"); time.sleep(0.9)
+        ev(pg, "()=>{[...document.querySelectorAll('#dlgOpts button')].find(b=>b.textContent.includes('Lihat joran')).click()}"); time.sleep(0.8)
+        b0 = ev(pg, "()=>NW.eco.balance()"); ev(pg, "()=>document.querySelector('#panelBody [data-act=kopbuy]').click()"); time.sleep(1.6)
+        ok("C10 server kopdes MATI: beli ditolak, koin utuh, tidak dimiliki", ev(pg, "()=>NW.eco.balance()") == b0 and not ev(pg, "()=>!!Nusa.S.kop"), b0)
+        ok("C11 tanpa galat skrip (server mati)", not [e for e in errs if "PAGEERR" in e], errs[:3]); ctx.close()
     finally: b.close()
 bad = [r for r in R if r.startswith("FAIL")]
 print("\nRINGKAS: %d PASS / %d FAIL" % (len(R) - len(bad), len(bad))); raise SystemExit(1 if bad else 0)
