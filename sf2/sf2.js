@@ -164,6 +164,7 @@ function openOdds() {
 function interact(t, api) {
   const open = api.openDialog;
   if (t.id === "boat") return open({ name: "Kapalmu", avatar: "⛵", lines: ["Kapalmu bersandar di dermaga utama Pulau Para Legenda.", "Pulang ke Muara Kampung?"], options: [{ label: "⛵ Pulang ke Muara Kampung", act: () => NW.adv.travelTo("muara") }, { label: "🗺️ Buka Peta", act: () => N().openPanel("map") }] });
+  if (t.id === "kopdes") return NW.kopdesUI ? NW.kopdesUI.talk(api) : false;
   if (t.id === "papan") return open({ name: "Papan Legenda Komunitas", avatar: "📜", lines: ["Papan Legenda memuat ikan & makhluk hasil ide para pengikut Nusa Island. Tulisan di sini bertambah setiap ada penemuan baru."], options: [{ label: "📖 Buka Buku Koleksi", act: () => { api.closeDialog(); N().setDexTab("samudra"); N().openPanel("dex"); } }, { label: "ⓘ Peluang & Pity", act: () => { api.closeDialog(); openOdds(); } }] });
   return false;
 }

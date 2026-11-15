@@ -1520,7 +1520,7 @@ window.Nusa = {
   fish: { G, loc: () => LOCATIONS[S.loc].id, locIdx: () => S.loc, enterAt: (i) => { if (LOCATIONS[i]) { closePanel(); S.loc = i; S.hour = (S.hour + 1.5) % 24; enterFishing("boat"); } }, hint: updateHint, reelBack: startReelBack, splash: splashAt, ripple: addRipple, navLock: setNavLocked, geom: () => ({ W, H, HZ, U, projX, projY, projS }) },
   seaSpot: () => (fishFrom === "sea" && G.sea ? G.sea.id : null), fishFrom: () => fishFrom,
   tone, on, emit, registerPanel, renderPanel: () => currentPanel && renderPanel(), currentPanel: () => currentPanel, closePanel,
-  sleepUntilMorning, refreshHUD, drawFish, fishImg, priceOf, priceMult, fmt, fmtW, FISH_BY_ID, fishLive, coolerCap, upLvl, trendHTML,
+  sleepUntilMorning, refreshHUD, drawFish, fishImg, priceOf, priceMult, fmt, fmtW, FISH_BY_ID, fishLive, rodShopHTML, coolerCap, upLvl, trendHTML,
 };
 
 load();
