@@ -1,0 +1,103 @@
+name: AKTIFKAN Joran Kopdes (server)
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/aktifkan-kopdes-20261115.yml"
+
+concurrency:
+  group: nusa-island-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  aktifkan:
+    name: Aktifkan shop_config.kopdes dengan transaksi dan audit
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    steps:
+      - name: Hanya Owner
+        env:
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: '[ "$ACTOR" = "$OWNER" ]'
+
+      - name: Verifikasi kode Kopdes sudah live
+        run: |
+          set -e
+          curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_KOPDES = true'
+          curl -fsS --retry 5 https://nusa-island-d2023.web.app/kopdes/crew.js | grep -Fq 'kopdesCrew'
+          curl -fsS --retry 5 https://nusa-api.hanifanwahhaja28.workers.dev/api/health >/dev/null
+
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/nusa-island-control-center
+          ref: 5a8c073dae7fd3592f50e97c6d9fd2be83a8fa50
+          token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+          persist-credentials: false
+          path: backend
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Siapkan kredensial Firebase sementara
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          [ -n "$SERVICE_ACCOUNT" ] || { echo "::error::FIREBASE_SERVICE_ACCOUNT belum siap"; exit 1; }
+          umask 077
+          printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/nusa-sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/nusa-sa.json" >> "$GITHUB_ENV"
+
+      - name: Aktifkan Joran Kopdes (shop_config.kopdes=true)
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { makeFirestore, makeTokenProvider } from './backend/worker/firestore-rest.js';
+          import { newId, auditEntry } from './backend/server/audit.js';
+
+          const sa = JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8'));
+          if (sa.project_id !== 'nusa-island-d2023') throw new Error('Project Firebase tidak sesuai.');
+          const now = Date.now;
+          const token = makeTokenProvider({ clientEmail: sa.client_email, privateKey: sa.private_key, fetchImpl: fetch, now });
+          const firestore = makeFirestore({ projectId: sa.project_id, token, fetchImpl: fetch, clock: now });
+          const actor = { uid: 'owner-release-github-actions' };
+
+          const configRef = firestore.doc('shop_config/main');
+          const beforeSnap = await configRef.get();
+          if (!beforeSnap.exists) throw new Error('shop_config/main tidak ditemukan.');
+          const beforeCfg = beforeSnap.data();
+          if (beforeCfg.kopdes !== true) {
+            const auditId = newId('aud');
+            await firestore.runTransaction(async (tx) => {
+              const snap = await tx.get(configRef);
+              const cfg = snap.exists ? { ...snap.data() } : {};
+              cfg.kopdes = true;
+              tx.set(configRef, cfg);
+              tx.set(firestore.doc('admin_audit_logs/' + auditId), {
+                id: auditId,
+                ...auditEntry(actor, 'features.set', { type: 'shop_config', id: 'kopdes' }, {
+                  summary: 'Kopdes=ON (Joran Kopdes 1.000 koin / 250 kg); konfigurasi lain tidak diubah'
+                })
+              });
+            });
+          }
+          const finalSnap = await configRef.get();
+          const finalCfg = finalSnap.data();
+          if (finalCfg.kopdes !== true) throw new Error('kopdes gagal ON.');
+          for (const k of Object.keys(beforeCfg)) {
+            if (k !== 'kopdes' && JSON.stringify(beforeCfg[k]) !== JSON.stringify(finalCfg[k])) {
+              // perubahan serentak dari sistem lain boleh; hanya pastikan kunci penting tidak hilang
+              if (!(k in finalCfg)) throw new Error('Kunci konfigurasi hilang: ' + k);
+            }
+          }
+          console.log('OK: shop_config.kopdes=ON. Transaksi mempertahankan konfigurasi terbaru; saldo, data pemain, QRIS, ikanLokasi, dan Samudra Follower tidak disentuh.');
+          NODE
+
+      - name: Bersihkan kredensial sementara
+        if: always()
+        run: rm -f "$RUNNER_TEMP/nusa-sa.json"
