@@ -1,4 +1,4 @@
-name: RILIS Kopdes Pulau Para Legenda
+name: HOTFIX Kembalikan Kemudi Kapal Klasik
 on:
   push:
     branches: [main]
@@ -14,7 +14,7 @@ permissions:
   id-token: write
 
 env:
-  GAME_SHA: 3eb11bad6b259adb0d3376c2cb0642eea8a7b5d8
+  GAME_SHA: 1370d96cfc7bc333531f087203bb8b5b3627cc2b
   BACKEND_SHA: 5a8c073dae7fd3592f50e97c6d9fd2be83a8fa50
   GUARD_SHA: ff3ab0b574bb4cd8b40b5438826b0049c8737dbb
 
@@ -179,7 +179,7 @@ jobs:
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_DELIVERY = true'
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_KOPDES = true'
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/kopdes/crew.js | grep -Fq 'kopdesCrew'
-          echo "OK: Kopdes Pulau Para Legenda (bangunan, pasukan, Joran Kopdes terkunci server) live; kapal dermaga, pembersihan 5 detik, kemudi HP, Kota, Dapur, NusaPhone, ikan, QRIS/toko, dan fitur ON lama tetap dijaga."
+          echo "OK: kemudi kapal bundar klasik dan tuas MAJU/NETRAL/MUNDUR live; UI tetap hilang saat memancing, kapal dermaga tidak menumpuk, Kopdes, Kota, Dapur, NusaPhone, ikan, QRIS/toko, dan fitur ON lama tetap dijaga."
 
       - name: Bersihkan kredensial sementara
         if: always()
