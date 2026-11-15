@@ -91,24 +91,23 @@ async function play(e, u, opts) {      // mulai → mainkan bot → tunggu waktu
     now = S1 - MIN; await assert.rejects(() => e.ecoEventStart(U, { opId: op(), eventId: "e20261101" }), /tidak berlangsung/);
     now = S1 + MIN; await assert.rejects(() => e.ecoEventStart(U, { opId: op(), eventId: "e20261108" }), /tidak berlangsung/);
     await assert.rejects(() => e.ecoEventStart({ uid: "tanpaakun" }, { opId: op(), eventId: "e20261101" }), /belum diaktifkan/);
-    const r = await e.ecoEventStart(U, { opId: op(), eventId: "e20261101", seed: 1, monster: "toman_purba" }); assert.equal(r.duel.monster, "toman_purba"); assert.notEqual(r.duel.seed, 1); assert.equal(r.duel.left, 2);
+    const r = await e.ecoEventStart(U, { opId: op(), eventId: "e20261101", seed: 1, monster: "toman_purba" }); assert.equal(r.duel.monster, "toman_purba"); assert.notEqual(r.duel.seed, 1); assert.equal(r.duel.left, null); assert.equal(r.duel.unlimited, true);
     now = S1 + 21 * MIN; await assert.rejects(() => e.ecoEventStart(U, { opId: op(), eventId: "e20261101" }), /tidak berlangsung/);   // sudah lewat 19.20
   });
-  await t("mulai duel: opId ulang (jaringan) tidak memakai kesempatan lagi; maksimal 3 kesempatan; mulai baru menghanguskan duel lama", async () => {
+  await t("mulai duel: opId ulang tidak dihitung lagi; percobaan tanpa batas sebelum ada pemenang", async () => {
     const { e } = mk(); await init(e, U); now = S1 + MIN; const id = op();
     const a = await e.ecoEventStart(U, { opId: id, eventId: "e20261101" }), a2 = await e.ecoEventStart(U, { opId: id, eventId: "e20261101" });
     assert.ok(a2.duplicate); assert.equal(a2.duel.seed, a.duel.seed); assert.equal((await e.ecoEventState(U)).my.att, 1);
-    const b = await e.ecoEventStart(U, { opId: op(), eventId: "e20261101" }); assert.notEqual(b.duel.seed, a.duel.seed);
-    const c = await e.ecoEventStart(U, { opId: op(), eventId: "e20261101" }); assert.equal(c.duel.left, 0);
-    await assert.rejects(() => e.ecoEventStart(U, { opId: op(), eventId: "e20261101" }), /habis/);
-    await assert.rejects(() => e.ecoEventFinish(U, { opId: op(), eventId: "e20261101", log: bot("toman_purba", c.duel.seed, 5).log }), /lebih cepat/);   // duel lama sudah hangus; yang aktif = ke-3 dan belum waktunya selesai
+    let last = a; for (let i = 0; i < 6; i++) last = await e.ecoEventStart(U, { opId: op(), eventId: "e20261101" });
+    assert.notEqual(last.duel.seed, a.duel.seed); assert.equal(last.duel.left, null); assert.equal((await e.ecoEventState(U)).my.att, 7);
+    await assert.rejects(() => e.ecoEventFinish(U, { opId: op(), eventId: "e20261101", log: bot("toman_purba", last.duel.seed, 5).log }), /lebih cepat/);
   });
   await t("selesai duel: menang → hadiah partisipasi + tangkapan SEKALI per event, uang masuk dompet utama, trofi tercatat", async () => {
     const { e } = mk(); await init(e, U); now = S1 + MIN; const b0 = (await e.ecoState(U)).balance, R = EV.rewardsOf("toman_purba");
     const { f } = await play(e, U, { name: "Budi<script>" }); assert.ok(f.caught && f.score >= 1000, JSON.stringify(f)); assert.equal(f.paid.part, R.part); assert.equal(f.paid.catch, R.catch);
     assert.equal(f.eco.balance, b0 + R.part + R.catch); assert.equal(f.eco.troph.toman_purba.caught, 1); assert.ok(f.eco.troph.toman_purba.best >= 1000);
-    const g = await play(e, U); assert.equal(g.f.paid.part, 0); assert.equal(g.f.paid.catch, 0); assert.equal(g.f.eco.balance, b0 + R.part + R.catch);   // duel ke-2: tidak ada hadiah ganda
-    const st = await e.ecoEventState(U); assert.equal(st.my.att, 2); assert.ok(st.my.best >= 1000); assert.equal(st.eco.balance, b0 + R.part + R.catch);
+    await assert.rejects(() => e.ecoEventStart(U, { opId: op(), eventId: "e20261101" }), /sudah ditaklukkan/);
+    const st = await e.ecoEventState(U); assert.equal(st.my.att, 1); assert.equal(st.my.unlimited, true); assert.ok(st.my.best >= 1000); assert.equal(st.eco.balance, b0 + R.part + R.catch); assert.equal(st.my.win, true);
     const doc = JSON.parse((e.__db || { m: new Map() }).m?.get?.("shop/event/e20261101") || "null");   // dokumen global ada (diperiksa lewat db pada tes juara)
   });
   await t("selesai duel: kalah tetap dapat hadiah partisipasi (sekali), tanpa hadiah tangkapan, tanpa juara", async () => {
@@ -129,8 +128,7 @@ async function play(e, u, opts) {      // mulai → mainkan bot → tunggu waktu
     await assert.rejects(() => e.ecoEventFinish(U, { opId: op(), eventId: "e20261101", log: b.log }), /lebih cepat/);          // dikirim seketika
     await assert.rejects(() => e.ecoEventFinish(U, { opId: op(), eventId: "e20261101", log: [5, 4] }), /tidak valid/);
     now += b.r.ms + 300; const ok = await e.ecoEventFinish(U, { opId: op(), eventId: "e20261101", log: b.log }); assert.ok(ok.caught);       // kemudian sah
-    const s2 = await e.ecoEventStart(U, { opId: op(), eventId: "e20261101" }); now += 100000;
-    const late = await e.ecoEventFinish(U, { opId: op(), eventId: "e20261101", log: b.log }).catch((x) => x); assert.ok((late.result === "hangus") || /ditutup/.test(late.message));
+    await assert.rejects(() => e.ecoEventStart(U, { opId: op(), eventId: "e20261101" }), /sudah ditaklukkan/);
   });
   await t("selesai duel: opId ganda (kirim ulang) tidak menggandakan koin; duel yang mulai 19.19 boleh selesai sampai masa tutup, setelahnya ditolak", async () => {
     const { e } = mk(); await init(e, U); now = S1 + 19 * MIN + 50000; const b0 = (await e.ecoState(U)).balance;
@@ -141,22 +139,21 @@ async function play(e, u, opts) {      // mulai → mainkan bot → tunggu waktu
     const s2 = await e.ecoEventStart(U, { opId: op(), eventId: "e20261101" }).catch((x) => x); assert.match(s2.message, /tidak berlangsung/);
     now = S1 + 21 * MIN + EV.GRACE; await assert.rejects(() => e.ecoEventFinish(U, { opId: op(), eventId: "e20261101", log: b.log }), /ditutup/);
   });
-  await t("JUARA TUNGGAL GLOBAL: skor tertinggi menang, seri → selesai paling awal, satu dokumen untuk semua room; hasil baru diumumkan setelah masa tutup", async () => {
+  await t("PEMENANG TUNGGAL GLOBAL: tangkapan sah pertama langsung mengunci seluruh server", async () => {
     const { e, db } = mk(); for (const u of [U, V, W]) await init(e, u); now = S1 + MIN;
-    // pilih seed tetap dengan membuat 3 pemain bermain; skor berbeda karena seed & kecepatan berbeda
-    const res = []; for (const [u, d] of [[U, 9], [V, 2], [W, 5]]) res.push((await play(e, u, { delay: d, name: u.uid })).f);
-    const doc = JSON.parse(db.m.get("shop/event/e20261101")); const best = res.map((r, i) => ({ r, uid: [U, V, W][i].uid })).filter((x) => x.r.caught).sort((a, b) => b.r.score - a.r.score)[0];
-    assert.equal(doc.top.uid, best.uid); assert.equal(doc.top.score, best.r.score);
-    assert.equal((await e.eventInfo()).winner, null);                                                      // belum final
-    now = S1 + 21 * MIN + EV.GRACE + 1; const inf = await e.eventInfo(); assert.equal(inf.phase, "ended"); assert.equal(inf.winner.score, best.r.score); assert.equal(inf.winner.uid, undefined);
-    const st = await e.ecoEventState({ uid: best.uid }); assert.equal(st.my.win, true);
-    assert.equal(EV.better({ score: 5, at: 1, uid: "b" }, { score: 5, at: 2, uid: "a" }), true); assert.equal(EV.better({ score: 5, at: 2, uid: "a" }, { score: 5, at: 2, uid: "b" }), true); assert.equal(EV.better({ score: 4, at: 1, uid: "a" }, { score: 5, at: 9, uid: "z" }), false);
+    const starts = []; for (const u of [U, V, W]) starts.push(await e.ecoEventStart(u, { opId: op(), eventId: "e20261101" }));
+    const bots = starts.map((x, i) => bot("toman_purba", x.duel.seed, [9, 2, 5][i])); now += Math.max(...bots.map((b) => b.r.ms)) + 600;
+    const res = []; for (let i = 0; i < 3; i++) res.push(await e.ecoEventFinish([U, V, W][i], { opId: op(), eventId: "e20261101", log: bots[i].log, name: [U, V, W][i].uid }));
+    const winners = res.filter((r) => r.caught); assert.equal(winners.length, 1); assert.ok(res.slice(1).every((r) => !r.caught && r.globalTaken));
+    const doc = JSON.parse(db.m.get("shop/event/e20261101")); assert.equal(doc.top.uid, U.uid);
+    const inf = await e.eventInfo(); assert.equal(inf.winner.name, U.uid); assert.equal(inf.winner.uid, undefined);
+    const st = await e.ecoEventState(U); assert.equal(st.my.win, true);
+    await assert.rejects(() => e.ecoEventStart(W, { opId: op(), eventId: "e20261101" }), /sudah ditaklukkan/);
   });
-  await t("hadiah juara: belum boleh sebelum masa tutup; hanya juara; sekali; non-juara tidak dapat apa-apa", async () => {
+  await t("hadiah juara: pemenang dapat klaim segera; hanya pemenang; sekali", async () => {
     const { e } = mk(); for (const u of [U, V]) await init(e, u); now = S1 + MIN;
-    const a = await play(e, U, { delay: 0 }), b = await play(e, V, { delay: 8 }); const win = a.f.score >= b.f.score ? U : V, lose = win === U ? V : U;
-    await assert.rejects(() => e.ecoEventClaim(win, { opId: op(), eventId: "e20261101" }), /belum diumumkan/);
-    now = S1 + 21 * MIN + EV.GRACE; const b0 = (await e.ecoState(win)).balance, L0 = (await e.ecoState(lose)).balance;
+    await play(e, U, { delay: 0 }); const win = U, lose = V;
+    const b0 = (await e.ecoState(win)).balance, L0 = (await e.ecoState(lose)).balance;
     const nl = await e.ecoEventClaim(lose, { opId: op(), eventId: "e20261101" }); assert.equal(nl.winner, false); assert.equal(nl.eco.balance, L0);
     const c = await e.ecoEventClaim(win, { opId: op(), eventId: "e20261101" }); assert.equal(c.amount, EV.rewardsOf("toman_purba").win); assert.equal(c.eco.balance, b0 + c.amount); assert.equal(c.eco.troph.toman_purba.champ, 1);
     const c2 = await e.ecoEventClaim(win, { opId: op(), eventId: "e20261101" }); assert.ok(c2.already); assert.equal(c2.eco.balance, c.eco.balance);
@@ -167,14 +164,13 @@ async function play(e, u, opts) {      // mulai → mainkan bot → tunggu waktu
     const { e, db } = mk(); await init(e, U); now = S1 + MIN; await play(e, U, { log: [] }); now = S1 + 25 * MIN;
     const inf = await e.eventInfo(); assert.equal(inf.winner, null); assert.equal((await e.ecoEventClaim(U, { opId: op(), eventId: "e20261101" })).winner, false); assert.equal(db.m.get("shop/event/e20261101"), undefined);
   });
-  await t("balapan: 8 pemain selesai paralel → tepat SATU juara konsisten (skor tertinggi), tiap pemain dibayar sekali", async () => {
+  await t("balapan: 8 pemain selesai paralel → tepat SATU pemilik ikan global", async () => {
     const { e, db } = mk(); const us = Array.from({ length: 8 }, (_, i) => ({ uid: "pl" + i + "abcd" })); for (const u of us) await init(e, u); now = S1 + MIN;
     const ss = []; for (const u of us) ss.push(await e.ecoEventStart(u, { opId: op(), eventId: "e20261101" }));
     const bs = ss.map((s, i) => bot("toman_purba", s.duel.seed, 2 + i)); now += Math.max(...bs.map((b) => b.r.ms)) + 600;
     const fs = await Promise.all(us.map((u, i) => e.ecoEventFinish(u, { opId: op(), eventId: "e20261101", log: bs[i].log })));
     const doc = JSON.parse(db.m.get("shop/event/e20261101")), caught = fs.map((f, i) => ({ f, uid: us[i].uid })).filter((x) => x.f.caught);
-    assert.ok(caught.length >= 6); const maxS = Math.max(...caught.map((x) => x.f.score)); assert.equal(doc.top.score, maxS);
-    assert.equal(caught.filter((x) => x.f.score === maxS && x.uid === doc.top.uid).length, 1);
+    assert.equal(caught.length, 1); assert.equal(caught[0].uid, doc.top.uid); assert.equal(fs.filter((f) => f.paid.catch > 0).length, 1); assert.equal(fs.filter((f) => f.globalTaken).length, fs.filter((f) => f.score >= 1000).length - 1);
     for (const f of fs) assert.ok(f.paid.part > 0);
   });
   await t("rotasi mingguan di server: pekan ke-2 = Jurung Mahkota dengan hadiah lebih besar; anchor digeser lewat konfigurasi Owner (pembukaan ikut bergeser)", async () => {
