@@ -44,6 +44,7 @@ jobs:
       NUSA_CI: "1"
       NUSA_CONFIRM: "ya"
       NUSA_TARGET: semua
+      NUSA_API_DEPLOYED: "ya"  # nusa-api produksi sudah terpasang; hotfix ini hanya game + multiplayer
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       GCP_WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
