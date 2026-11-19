@@ -23,7 +23,7 @@ if (window.NUSA_SF_PREVIEW !== true) window.NUSA_SF_PREVIEW = false;   // (uji b
 // UI Kemudi Kapal (setir + tuas): MATI. kemudi/* tidak diunduh bila false; UI lama tetap.
 if (typeof window.NUSA_KEMUDI !== "boolean") window.NUSA_KEMUDI = true;
 if (typeof window.NUSA_KOTA !== "boolean") window.NUSA_KOTA = true;   // Visual Kota Nusa (Ide 04): MATI. kota/* tidak diunduh bila false; area Selat identik dengan sebelumnya. Hanya visual lokal: tanpa ekonomi, tanpa server.
-if (typeof window.NUSA_ROMBONGAN !== "boolean") window.NUSA_ROMBONGAN = true;   // Kapal Rombongan (visual + klien): MATI. rombongan/* tidak diunduh bila false; kapal tunggal lama tidak berubah. Akses tetap dikunci server (kapalRombongan + NUSA_BOAT).
+if (typeof window.NUSA_ROMBONGAN !== "boolean") window.NUSA_ROMBONGAN = false;  // Hotfix 2026-11-19: Kapal Rombongan dimatikan agar pemain tidak masuk kursi server yang macet. Kapal pribadi lama tetap aktif.
 if (typeof window.NUSA_DELIVERY !== "boolean") window.NUSA_DELIVERY = true;   // (uji boleh menyalakannya sebelum halaman dimuat)
 if (typeof window.NUSA_IKAN_LOKASI !== "boolean") window.NUSA_IKAN_LOKASI = true;   // Ide 07B: 55 ikan lokasi baru (10 ikan reguler per lokasi masuk lemparan & Koleksi). MATI bawaan. SUPER RARE dikunci terpisah di server (shop/config.ikanLokasi).
 if (typeof window.NUSA_KOPDES !== "boolean") window.NUSA_KOPDES = true;   // Kopdes di Pulau Para Legenda (Samudra Follower): AKTIF (visual bangunan + pasukan + panel joran). Dapat dimatikan eksplisit sebelum config dimuat. Harga, saldo, dan Joran Kopdes tetap diputuskan server (ecoBuy; shop/config.kopdes).
