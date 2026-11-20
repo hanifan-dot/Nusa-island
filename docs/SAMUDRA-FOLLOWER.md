@@ -91,3 +91,24 @@ Untuk mengaktifkan (Owner), tulis ke `shop/config` (Worker: `shop_config/main`):
 3. Belum diuji di Firebase/Cloudflare nyata (sandbox tanpa jaringan) dan belum di Android.
 4. Undian sudah di server, tetapi server masih memercayai laporan 'ikan biasa mendarat' dari klien (dibatasi laju 1,5 dtk/400 per jam, uid unik, batas harian ≤4/hari). Bukan anti-cheat sempurna.
 5. Kecil: `cloud/core.js` dexCount menghitung id SF di ringkasan simpanan.
+
+---
+
+## Tambahan 20 Nov 2026 — 17 ikan dari komentar pengikut (Draft, belum deploy)
+
+Disetujui Owner ("Ya semua benar gaskan"). Total ikan SF = **21** (4 awal + 17). Semua bawaan **MATI**: tetap butuh `shop_config.sf` (on, approvedBy, approvedAt, harga & peluang per ikan) dari Owner di panel backend.
+
+| Rarity | Ikan (rata-rata jual ≈) | Peluang bonus / ikan biasa |
+|---|---|---|
+| Biasa | Ikan Lele 150, Ikan Emas 130, Ikan Kurame 200 (usulan @2gdkingpangeranwisata) | 0,8–1% |
+| Langka | Ikan Badut 270, Lele Berkumis, Ikan Kepala Lele, Ikan Robot | 0,35–0,6% |
+| Epik | Piranha Purba (@nanasmuda_____), Ikan Aligator, Hiu Ekor Gurita, Ikan Lampu Ekor Mekar, Marlin Biru | 0,1–0,15% |
+| Legenda | Arwana Hitam Merah ≈20.000 (@rinodefa), Ikan Galactic, The Bloop | 0,04–0,06% |
+| Mythical | Paus 0,00037% | 0,00037% |
+| Secret (baru) | Megalodon Secret ≈60.000 | 0,0008% |
+
+- **Tidak dikunci:** ikan SF masuk Coolbox tanpa `lock`, bisa **dipamerkan (pamer)** dan dijual (harga terkunci server tetap berlaku). Pajangan akuarium rumah (`home-data.js`) masih menolak ikan SF.
+- **El Gran Maja tidak digandakan:** sudah ada sebagai `sf2_el_gran_maja` (Pulau Para Legenda). Ikan Badut dan Marlin Biru senama dengan ikan biasa di game utama, tetapi id/gambar/rarity/ekonominya terpisah (`sf_badut`, `sf_marlin_biru`).
+- **Ekonomi (jujur):** 4 ikan awal ≈ +5%, 17 ikan baru ≈ +12%, total permanen ≈ +17% dari ekonomi ikan lama (≈ +24% bila event Prabowo hidup). Ini lebih tinggi dari perkiraan awal ±10%; Owner dapat menurunkan peluang per ikan di panel. Batas keras: peluang ≤1%, `totalDayMax` 10/hari.
+- **Gambar:** `sf/draw-more.js` (mesin badan lentur + 17 sprite); bukti `docs/samudra-follower/17-lembar-17-ikan-komentar.png`.
+- **Tes:** unit-sf, unit-sf-server, unit-sf2, unit-ikanloc, unit-economy, unit-owner-fish, browser test_sf (26) dan test_sf_play (24), semua dengan server TIRUAN (bukan produksi). Backend: 419 lulus; 1 gagal lama (salinan vendor vs repo game) tidak terkait.
