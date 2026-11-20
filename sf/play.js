@@ -8,7 +8,7 @@ const N = () => window.Nusa;
 let info = { on: false, fish: [] }, lastFetch = 0, busy = false, fetching = false;
 
 // Daftarkan 4 ikan ke tabel pencarian klien (FISH_BY_ID) — BUKAN ke daftar FISH (kolam ikan/peluang ikan lama tidak tersentuh).
-const RMAP = { mythical: "legenda", mythical_event: "legenda", legendary: "legenda", epic: "epik" };
+const RMAP = { common: "biasa", rare: "langka", epic: "epik", legendary: "legenda", mythical: "legenda", mythical_event: "legenda", secret: "legenda" };
 function register() {
   const F = N() && N().FISH_BY_ID; if (!F) return false;
   for (const f of C.FISH) if (!F[f.id]) F[f.id] = { id: f.id, name: f.name, rarity: RMAP[f.rarity], sfRarity: f.rarity, loc: "sf", price: 0, wMin: f.wMin, wMax: f.wMax, sf: true, credit: f.credit, desc: f.desc, emoji: null };
@@ -36,7 +36,7 @@ function grant(list) {
     if (!it || !C.isSF(it.id) || typeof it.uid !== "string" || seenSf.has(it.uid) || S.cooler.some((x) => x.uid === it.uid)) continue;
     if (!C.BY_ID[it.id] || !(it.w > 0) || !(it.sp > 0)) continue;
     seenSf.add(it.uid); register();
-    S.cooler.push({ uid: it.uid, id: it.id, w: it.w, t: Date.now(), sp: it.sp, lock: true });   // terkunci: tidak ikut "jual semua" tanpa sengaja
+    S.cooler.push({ uid: it.uid, id: it.id, w: it.w, t: Date.now(), sp: it.sp });   // TIDAK dikunci (permintaan Owner): bisa dipamerkan & dijual; pemain boleh mengunci sendiri di Inventaris
     const rec = S.dex[it.id] || { n: 0, best: 0 }; rec.n++; rec.best = Math.max(rec.best, it.w); S.dex[it.id] = rec;
     Nn.save(); Nn.refreshHUD();
     const price = Nn.priceOf({ id: it.id, w: it.w, sp: it.sp });

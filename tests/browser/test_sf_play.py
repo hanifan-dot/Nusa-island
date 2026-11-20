@@ -58,9 +58,9 @@ with sync_playwright() as p:
         ok("B2 tab Samudra Follower muncul untuk pemain (live)", ev(pg, "NW.sf.on() && NW.sf.live()"))
         before_cool = ev(pg, "Nusa.S.cooler.length"); bal0 = ev(pg, "NW.eco.balance()")
         ev(pg, FORCE); time.sleep(2); ev(pg, LAND, "nila"); ev(pg, "async()=>{await NW.eco.flush()}"); ev(pg, UNFORCE)
-        ok("B3 ikan biasa mendarat + BONUS Ikan Tempe dikonfirmasi SERVER lalu masuk coolbox (terkunci)", wait_for(pg, "Nusa.S.cooler.some(i=>i.id==='sf_tempe')", 15) , SF(pg))
+        ok("B3 ikan biasa mendarat + BONUS Ikan Tempe dikonfirmasi SERVER lalu masuk coolbox", wait_for(pg, "Nusa.S.cooler.some(i=>i.id==='sf_tempe')", 15) , SF(pg))
         it = ev(pg, "Nusa.S.cooler.find(i=>i.id==='sf_tempe')")
-        ok("B4 ikan SF: berat dalam rentang resmi, harga/kg server 7400, terkunci", it and 0.3 <= it["w"] <= 1.4 and it["sp"] == 7400 and it.get("lock") is True, it)
+        ok("B4 ikan SF: berat dalam rentang resmi, harga/kg server 7400, TIDAK terkunci (bisa dipamerkan)", it and 0.3 <= it["w"] <= 1.4 and it["sp"] == 7400 and not it.get("lock"), it)
         ok("B5 kotak server memuat ikan SF yang sama; koin TIDAK bertambah (tanpa hadiah gratis)", ev(pg, "(uid)=>NW.eco.state().box.includes(uid)", it["uid"]) and ev(pg, "NW.eco.balance()") == bal0, ev(pg, "NW.eco.balance()"))
         ok("B6 dex mencatat 1 Ikan Tempe; ikan lama utuh", ev(pg, "Nusa.S.dex.sf_tempe.n") == 1 and ev(pg, "Nusa.S.dex.nila.n") >= 1)
         ok("B7 kartu tangkapan khusus tampil dengan kredit @mlfs_05", wait_for(pg, "NW.sf.isOpen()", 8) and "@mlfs_05" in ev(pg, "document.getElementById('sfOv').innerText") and "MYTHICAL" in ev(pg, "document.getElementById('sfOv').innerText"))
@@ -86,7 +86,7 @@ with sync_playwright() as p:
         pg.screenshot(path=os.path.join(SHOTS, "14-koleksi-tertangkap.png")); ev(pg, "()=>Nusa.closePanel()")
         # blokir fitur yang belum didukung
         ev(pg, "()=>{Nusa.openPanel('inventory')}"); time.sleep(0.3)
-        ok("C6 ikan SF tidak boleh masuk akuarium/pond/pamer", ev(pg, "(()=>{const it=Nusa.S.cooler.find(i=>i.id==='sf_tempe');return NW.HD&&true})()") and ev(pg, "(()=>{const it=Nusa.S.cooler.find(i=>i.id==='sf_tempe');const e=NW.pond&&NW.pond.eligible?NW.pond.eligible():[];const row=e.find&&e.find(x=>x.uid===it.uid);return !row||!!row.why||row.ok===false})()"))
+        ok("C6 ikan SF boleh dipamerkan (tidak terkunci); pamer tidak diblokir toast", ev(pg, "(()=>{const it=Nusa.S.cooler.find(i=>i.id==='sf_tempe');return !!it&&!it.lock&&!!Nusa.FISH_BY_ID.sf_tempe&&NW.hold.isShowable(it)&&NW.hold.fishLen(it.w)>0})()") and "belum bisa dipamerkan" not in ev(pg, "document.body.innerText"))
         ev(pg, "()=>Nusa.closePanel()")
         # jual
         uid = it["uid"]; bal1 = ev(pg, "NW.eco.balance()")

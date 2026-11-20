@@ -1,4 +1,4 @@
-// NUSA ISLAND — gambar & animasi 4 ikan Samudra Follower (Canvas 2D, 2.5D: gradasi + sorot + bayangan; tanpa gambar eksternal, ringan untuk Android).
+// NUSA ISLAND — gambar & animasi ikan Samudra Follower (4 awal di sini; 18 ikan komentar di sf/draw-more.js) (Canvas 2D, 2.5D: gradasi + sorot + bayangan; tanpa gambar eksternal, ringan untuk Android).
 // Semua ikan menghadap KIRI (mengikuti gambar referensi Ikan Tempe). draw(c, id, cx, cy, L, t): L ≈ lebar sprite (px), t = detik (animasi berenang).
 (function () {
 "use strict";
@@ -170,7 +170,7 @@ function arapaima(c, t) {
 const FN = { sf_tempe: tempe, sf_cupang_slayer: cupang, sf_prabowo: prabowo, sf_arapaima: arapaima };
 const EXTENT = { sf_tempe: 150, sf_cupang_slayer: 230, sf_prabowo: 150, sf_arapaima: 215 };   // lebar logis (untuk menskalakan agar muat)
 function draw(c, id, cx, cy, L, t) {
-  const f = FN[id]; if (!f) return; const s = L / (EXTENT[id] || 160);
+  const f = FN[id]; if (!f) return; const s = L / (EXTENT[id] || (NW.sfDraw && NW.sfDraw.EXT && NW.sfDraw.EXT[id]) || 160);
   c.save(); c.translate(cx, cy); c.scale(s, s); c.lineJoin = "round"; f(c, t || 0); c.restore();
 }
 const sprites = {};

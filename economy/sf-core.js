@@ -1,6 +1,6 @@
 // =========================================================
 //  NUSA ISLAND — INTI SERVER SAMUDRA FOLLOWER (UMD, logika murni). Dipakai economy/core.js (ecoCatch/ecoSell).
-//  PRINSIP: 4 ikan ini TERKUNCI. Kode TIDAK membawa harga/peluang final. Nilai final hanya datang dari shop/config.sf yang ditulis Owner
+//  PRINSIP: 21 ikan ini TERKUNCI di server sampai Owner menyetujui (shop/config.sf). Kode TIDAK membawa harga/peluang final. Nilai final hanya datang dari shop/config.sf yang ditulis Owner
 //  (disetujui: approvedBy + approvedAt) dan harus lolos pagar kewajaran terhadap REKOMENDASI di bawah. Tanpa itu server menjawab
 //  "Ikan tidak dikenal" (sama seperti sebelum fitur ini → tidak membocorkan keberadaan ikan).
 //  Tidak menyentuh tabel FISH/peluang ikan lama maupun Event Megalodon.
@@ -17,9 +17,27 @@
     sf_cupang_slayer: { rarity: "epic",           wMin: 0.05, wMax: 0.4, event: false, rec: { price: 3800, chance: 0.003, dayCap: 2 } },
     sf_prabowo:       { rarity: "mythical_event", wMin: 3,    wMax: 14,  event: true,  rec: { price: 750,  chance: 0.003, dayCap: 2 } },
     sf_arapaima:      { rarity: "legendary",      wMin: 60,   wMax: 220, event: false, rec: { price: 30,   chance: 0.0012, dayCap: 1 } },
+    // 17 ikan dari komentar pengikut (disetujui Owner 20 Nov 2026). price dikalibrasi ke nilai jual rata-rata dengan rumus harga yang sama (fishmath.priceFor, skala 3).
+    sf_lele:             { rarity: "common", wMin: 0.3, wMax: 2.5, event: false, rec: { price: 68.95, chance: 0.01, dayCap: 3 } },
+    sf_emas:             { rarity: "common", wMin: 0.1, wMax: 1.2, event: false, rec: { price: 133.34, chance: 0.01, dayCap: 3 } },
+    sf_kurame:           { rarity: "common", wMin: 0.3, wMax: 3, event: false, rec: { price: 79.5, chance: 0.008, dayCap: 3 } },
+    sf_badut:            { rarity: "rare", wMin: 0.1, wMax: 0.5, event: false, rec: { price: 542.48, chance: 0.006, dayCap: 3 } },
+    sf_lele_berkumis:    { rarity: "rare", wMin: 0.5, wMax: 3, event: false, rec: { price: 185.54, chance: 0.005, dayCap: 3 } },
+    sf_kepala_lele:      { rarity: "rare", wMin: 0.5, wMax: 4, event: false, rec: { price: 224.98, chance: 0.004, dayCap: 3 } },
+    sf_robot:            { rarity: "rare", wMin: 0.3, wMax: 2, event: false, rec: { price: 376.2, chance: 0.0035, dayCap: 3 } },
+    sf_piranha_purba:    { rarity: "epic", wMin: 0.8, wMax: 5, event: false, rec: { price: 557.5, chance: 0.0015, dayCap: 3 } },
+    sf_aligator:         { rarity: "epic", wMin: 4, wMax: 25, event: false, rec: { price: 85.77, chance: 0.0015, dayCap: 3 } },
+    sf_hiu_gurita:       { rarity: "epic", wMin: 5, wMax: 30, event: false, rec: { price: 136.06, chance: 0.0011, dayCap: 3 } },
+    sf_lampu_mekar:      { rarity: "epic", wMin: 0.3, wMax: 2.5, event: false, rec: { price: 1425.28, chance: 0.001, dayCap: 3 } },
+    sf_marlin_biru:      { rarity: "epic", wMin: 30, wMax: 120, event: false, rec: { price: 32.11, chance: 0.001, dayCap: 3 } },
+    sf_arwana_hitam_merah:{ rarity: "legendary", wMin: 2, wMax: 6, event: false, rec: { price: 2767.3, chance: 0.0006, dayCap: 2 } },
+    sf_galactic:         { rarity: "legendary", wMin: 1, wMax: 8, event: false, rec: { price: 1537.87, chance: 0.0005, dayCap: 2 } },
+    sf_bloop:            { rarity: "legendary", wMin: 200, wMax: 900, event: false, rec: { price: 35.09, chance: 0.0004, dayCap: 2 } },
+    sf_paus_00037:       { rarity: "mythical", wMin: 120, wMax: 400, event: false, rec: { price: 176.66, chance: 3.7e-06, dayCap: 1 } },
+    sf_megalodon_secret: { rarity: "secret", wMin: 300, wMax: 900, event: false, rec: { price: 163.46, chance: 8e-06, dayCap: 1 } },
   };
   // Pagar keras (tidak bisa dilonggarkan lewat config): nilai Owner di luar ini ditolak sebagai salah ketik.
-  const HARD = { priceMin: 0.4, priceMax: 1.5, chanceMax: 0.01, dayCapMax: 3, totalDayMax: 4, perBatch: 1 };
+  const HARD = { priceMin: 0.4, priceMax: 1.5, chanceMax: 0.01, dayCapMax: 3, totalDayMax: 10, perBatch: 1 };
   const IDS = Object.keys(SPEC), isSF = (id) => typeof id === "string" && Object.prototype.hasOwnProperty.call(SPEC, id);
   const num = (v) => typeof v === "number" && Number.isFinite(v);
 

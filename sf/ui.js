@@ -61,7 +61,7 @@ function paintCard() {
   $("sfPrev").style.display = realInfo ? "none" : ""; $("sfNm").textContent = f.nm; $("sfDs").textContent = f.desc;
   $("sfCr").textContent = designLine(f) || credLine(f.credit);
   const kg = (w) => String(Math.round(w * 100) / 100).replace(".", ",") + " kg";
-  if (realInfo) { $("sfTg").textContent = `Berat ${kg(realInfo.w)} · nilai jual ≈ ${Math.round(realInfo.price).toLocaleString("id-ID")} koin · tersimpan di Coolbox (terkunci)`; $("sfX").textContent = "Simpan"; return; }
+  if (realInfo) { $("sfTg").textContent = `Berat ${kg(realInfo.w)} · nilai jual ≈ ${Math.round(realInfo.price).toLocaleString("id-ID")} koin · tersimpan di Coolbox`; $("sfX").textContent = "Simpan"; return; }
   $("sfX").textContent = "Tutup";
   $("sfTg").textContent = catchMode ? "Pratinjau kartu: tidak ada ikan/koin yang ditambahkan." : (f.event ? "Hanya muncul saat event aktif · belum bisa dipancing" : f.legacy ? "Belum bisa dipancing (menunggu persetujuan Owner)" : cellStat(f) + (f.active ? "" : " · peluang menunggu persetujuan Owner"));
   $("sfPrev").textContent = catchMode ? "↩ Kembali ke detail" : "✨ Lihat kartu tangkapan";
