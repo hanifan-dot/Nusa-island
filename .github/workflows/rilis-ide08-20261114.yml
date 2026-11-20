@@ -1,4 +1,4 @@
-name: HOTFIX Event Satu Pemenang Global
+name: RILIS Samudra Follower 17 ikan komentar (bawaan MATI)
 on:
   push:
     branches: [main]
@@ -14,8 +14,8 @@ permissions:
   id-token: write
 
 env:
-  GAME_SHA: 471287537b94a81523c195f181ec875b8a9ed30c
-  BACKEND_SHA: b9ad534b68bbd92361bf93a3cde471d90fa3f738
+  GAME_SHA: 54b5aff5afce660fe032c4d521e9b3cf578f746e
+  BACKEND_SHA: 4d9aa425b93e85b5c082b0c4970c6043aa549571
   GUARD_SHA: ff3ab0b574bb4cd8b40b5438826b0049c8737dbb
 
 jobs:
@@ -80,7 +80,7 @@ jobs:
           grep -Fq 'NUSA_BOAT = "ya"' game/cf-multiplayer/wrangler.toml
           grep -Fq 'NUSA_KOTA = "ya"' game/cf-multiplayer/wrangler.toml
           grep -Fq 'NUSA_PHONE = "ya"' game/cf-multiplayer/wrangler.toml
-          (cd game && node firebase/scripts/cek-rilis.js && node tests/unit-event.js && node tests/unit-mp.js && node tests/unit-cf-auth.js && node tests/unit-phone.js && node tests/unit-ikanloc.js && node tests/unit-kemudi.js && node tests/unit-kemudi-mobile-ui.js && node tests/unit-rombongan-empty-boat.js && node tests/unit-boat-dock-layout.js && node tests/unit-room-exit.js && node tests/unit-kopdes.js)
+          (cd game && node firebase/scripts/cek-rilis.js && node tests/unit-event.js && node tests/unit-mp.js && node tests/unit-cf-auth.js && node tests/unit-phone.js && node tests/unit-ikanloc.js && node tests/unit-sf.js && node tests/unit-sf-server.js && node tests/unit-sf2.js && node tests/unit-kemudi.js && node tests/unit-kemudi-mobile-ui.js && node tests/unit-rombongan-empty-boat.js && node tests/unit-boat-dock-layout.js && node tests/unit-room-exit.js && node tests/unit-kopdes.js)
 
       - name: Tes backend dan scan rahasia
         run: |
@@ -179,7 +179,8 @@ jobs:
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_DELIVERY = true'
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_KOPDES = true'
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/kopdes/crew.js | grep -Fq 'kopdesCrew'
-          echo "OK: event hanya punya satu pemenang global dan percobaan tanpa batas; fitur kapal, Kopdes, kemudi klasik, UI memancing, Kota, Dapur, NusaPhone, ikan, QRIS/toko, dan fitur ON lama tetap dijaga."
+          curl -fsS --retry 5 https://nusa-island-d2023.web.app/sf/draw-more.js | grep -Fq 'sf_megalodon_secret'
+          echo "OK: 17 ikan Samudra Follower terpasang (bawaan MATI, perlu persetujuan Owner); event satu pemenang global, fitur kapal, Kopdes, kemudi klasik, UI memancing, Kota, Dapur, NusaPhone, ikan, QRIS/toko, dan fitur ON lama tetap dijaga."
 
       - name: Bersihkan kredensial sementara
         if: always()
