@@ -19,6 +19,8 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
+      - name: Pasang pustaka Playwright (browser sudah ada di image)
+        run: python -m pip install --disable-pip-version-check playwright==1.55.0
       - name: Uji bangku teras di layar HP
         run: python tests/browser/test_bangku_teras.py
       - name: Tes logika multiplayer
