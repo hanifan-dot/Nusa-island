@@ -13,17 +13,12 @@ jobs:
   cek:
     name: Uji keluar dari bangku
     runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright/python:v1.55.0-noble
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
-      - name: Pasang Chromium uji
-        run: |
-          python -m pip install --disable-pip-version-check playwright==1.55.0
-          python -m playwright install --with-deps chromium
       - name: Uji bangku teras di layar HP
         run: python tests/browser/test_bangku_teras.py
       - name: Tes logika multiplayer
