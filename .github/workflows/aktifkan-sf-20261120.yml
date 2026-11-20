@@ -1,0 +1,90 @@
+name: AKTIFKAN Samudra Follower 20 ikan (server)
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/aktifkan-sf-20261120.yml"
+
+concurrency:
+  group: nusa-island-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  aktifkan:
+    name: Aktifkan shop_config.sf dengan transaksi dan audit
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    steps:
+      - name: Hanya Owner
+        env:
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: '[ "$ACTOR" = "$OWNER" ]'
+
+      - name: Verifikasi kode SF 17 ikan sudah live
+        run: |
+          set -e
+          curl -fsS --retry 5 https://nusa-island-d2023.web.app/sf/draw-more.js | grep -Fq 'sf_megalodon_secret'
+          curl -fsS --retry 5 https://nusa-api.hanifanwahhaja28.workers.dev/api/health >/dev/null
+
+      - uses: actions/checkout@v4
+        with:
+          repository: hanifan-dot/nusa-island-control-center
+          ref: 4d9aa425b93e85b5c082b0c4970c6043aa549571
+          token: ${{ secrets.NUSA_BACKEND_READ_TOKEN }}
+          persist-credentials: false
+          path: backend
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Siapkan kredensial Firebase sementara
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          [ -n "$SERVICE_ACCOUNT" ] || { echo "::error::FIREBASE_SERVICE_ACCOUNT belum siap"; exit 1; }
+          umask 077
+          printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/nusa-sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/nusa-sa.json" >> "$GITHUB_ENV"
+
+      - name: Aktifkan Samudra Follower (20 ikan non-event, harga & peluang rekomendasi)
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { createRequire } from 'node:module';
+          import { makeFirestore, makeTokenProvider } from './backend/worker/firestore-rest.js';
+          import { createSfAdmin } from './backend/server/sf-admin.js';
+          const require = createRequire(import.meta.url);
+          const sfCore = require('./backend/server/vendor/sf-core.cjs');
+
+          const sa = JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8'));
+          if (sa.project_id !== 'nusa-island-d2023') throw new Error('Project Firebase tidak sesuai.');
+          const now = Date.now;
+          const token = makeTokenProvider({ clientEmail: sa.client_email, privateKey: sa.private_key, fetchImpl: fetch, now });
+          const firestore = makeFirestore({ projectId: sa.project_id, token, fetchImpl: fetch, clock: now });
+          const admin = createSfAdmin({ firestore, c: { config: 'shop_config' }, clock: now });
+          const actor = { uid: 'owner-release-github-actions' };
+
+          const before = await admin.state();
+          const fish = {};
+          for (const id of sfCore.IDS) {
+            const s = sfCore.SPEC[id];
+            if (s.event) continue;                       // Ikan Prabowo: event tetap OFF
+            fish[id] = { enabled: true, price: s.rec.price, chance: s.rec.chance, dayCap: s.rec.dayCap };
+          }
+          const want = Object.keys(fish).length;
+          if (want !== 20) throw new Error('Jumlah ikan non-event tidak sesuai: ' + want);
+          const res = await admin.save(actor, { rev: before.rev, confirm: true, on: true, eventOn: false, fish });
+          const eff = res.fish.filter((f) => f.effective).length;
+          if (!res.on || res.eventOn || eff !== want) throw new Error('Aktivasi tidak sesuai: on=' + res.on + ' eventOn=' + res.eventOn + ' efektif=' + eff);
+          console.log('OK: shop_config.sf ON, ' + eff + ' ikan efektif (harga & peluang rekomendasi), event Prabowo OFF, rev ' + res.rev + '. Konfigurasi lain, saldo, dan data pemain tidak disentuh.');
+          NODE
+
+      - name: Bersihkan kredensial sementara
+        if: always()
+        run: rm -f "$RUNNER_TEMP/nusa-sa.json"
