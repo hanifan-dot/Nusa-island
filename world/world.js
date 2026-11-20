@@ -177,17 +177,32 @@ function faceToward(a, b) { const pa = NW.P(a.x, a.y), pb = NW.P(b.x, b.y); a.di
 
 // ---------- Duduk (Bumbu 2: bangku tepi danau, dll.) ----------
 // Pemain tetap bisa berdiri kapan saja: geser joystick atau tekan tombol interaksi.
-const seat = { on: false, t: 0, onStand: null };
+const seat = { on: false, t: 0, onStand: null, stand: null };
 function sitAt(p, opts = {}) {
   if (NW.hold) NW.hold.stop("manual");
   player.x = p.x; player.y = p.y; player.dir = p.dir ?? player.dir; player.sit = true; player.moving = false;
-  Object.assign(seat, { on: true, t: 0, onStand: opts.onStand || null, tick: opts.tick || null });
+  Object.assign(seat, { on: true, t: 0, onStand: opts.onStand || null, tick: opts.tick || null, stand: opts.stand || null });
   lastActKey = "?"; onUp();
 }
 function standUp(silent) {
   if (!seat.on) return;
+  const wanted = typeof seat.stand === "function" ? seat.stand(player) : seat.stand;
   seat.on = false; player.sit = false; lastActKey = "?";
+  // Kursi biasa boleh dilewati, tetapi bangku taman adalah benda padat. Saat pose duduk
+  // berakhir, jangan tinggalkan pemain di tengah benda karena semua langkah berikutnya
+  // akan ditolak collision. Utamakan titik keluar dari pemanggil, lalu cari petak bebas
+  // terdekat sebagai jaring pengaman untuk bangku yang dipindah lewat Tata Ruang.
+  if (wanted && Number.isFinite(wanted.x) && Number.isFinite(wanted.y) && walkable(wanted.x, wanted.y)) {
+    player.x = wanted.x; player.y = wanted.y;
+  } else if (!walkable(player.x, player.y)) {
+    const ox = player.x, oy = player.y;
+    outer: for (let r = 0.25; r <= 3; r += 0.25) for (let a = 0; a < 16; a++) {
+      const ang = Math.PI / 2 + a * Math.PI / 8, x = ox + Math.cos(ang) * r, y = oy + Math.sin(ang) * r;
+      if (walkable(x, y)) { player.x = x; player.y = y; break outer; }
+    }
+  }
   if (seat.onStand && !silent) seat.onStand(); seat.onStand = null;
+  seat.stand = null; seat.tick = null;
 }
 // Sorotan kamera singkat: kamera berpindah ke titik lalu kembali; pemain tidak bisa berjalan selama itu
 function look(o) { cine = { ...o, t: 0, k: 0, fx: cam.x, fy: cam.y, dur: o.dur || 4 }; onUp(); if (o.caption) caption(o.caption, cine.dur - 0.6); }

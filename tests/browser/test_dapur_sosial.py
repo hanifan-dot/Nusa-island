@@ -321,6 +321,16 @@ def sec_guest_rules(b, br, X):
     ok("4b tamu melihat kursi 0 terpakai: tidak ada opsi Duduk di kursi itu", ev(B, "!NW.home.candidates().some(c=>c.id==='hl_sit0')"), ev(B, "NW.home.candidates().map(c=>c.id)"))
     ev(B, "NW.home.hooks.halaman.interact({id:'hl_sit0'}, NW.world.player, ()=>{})"); time.sleep(0.5)
     ok("4c memaksa duduk di kursi terpakai ditolak (kursi tak bisa dihuni dua orang)", S(B)["seat"] != 0, S(B)["seat"])
+    # ---- bangku taman adalah benda padat: berdiri/joystick wajib mengeluarkan pemain ke petak bebas
+    ev(A, "NW.world.standUp&&NW.world.standUp()"); time.sleep(0.2)
+    goto_hl(A, "hl_sit6"); interact(A); time.sleep(0.5)
+    ok("4d pemilik duduk di bangku taman", S(A)["seat"] == 6 and ev(A, "NW.world.seat.on"))
+    ok("4e posisi pose duduk memang berada pada bangku padat", not ev(A, "NW.home.walkable(NW.world.player.x,NW.world.player.y)"))
+    p0 = ev(A, "({x:NW.world.player.x,y:NW.world.player.y})")
+    A.keyboard.down("ArrowDown"); time.sleep(0.55); A.keyboard.up("ArrowDown"); time.sleep(0.25)
+    p1 = ev(A, "({x:NW.world.player.x,y:NW.world.player.y})")
+    ok("4f joystick membatalkan duduk dan memindahkan pemain keluar dari bangku", not ev(A, "NW.world.seat.on") and S(A)["seat"] == -1 and ev(A, "NW.home.walkable(NW.world.player.x,NW.world.player.y)"), (p0, p1))
+    ok("4g setelah keluar dari bangku karakter langsung bisa bergerak", abs(p1["x"] - p0["x"]) + abs(p1["y"] - p0["y"]) > 0.25, (p0, p1))
     # ---- chat & emoji
     ev(B, "NW.mp.sendChat ? NW.mp.sendChat('Halo dari halaman!') : 0"); ev(B, "NW.mp.sendEmote && NW.mp.sendEmote(2)")
     ok("5a chat tamu → pemilik tetap bekerja", wait_for(A, "JSON.stringify(NW.mp.view().log||NW.mp.view().chat||[]).includes('Halo dari halaman')", 6) or wait_for(A, "document.body.innerText.includes('Halo dari halaman')", 4))
