@@ -8,10 +8,14 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 MODE="${1:-uji}"
 rm -rf firebase/public && mkdir -p firebase/public
-cp index.html style.css game.js data.js fishmath.js selamatkan-data.html ajukan-pemulihan.html firebase/public/
-cp -r audio cloud world shop economy streak event hud house recovery username worldmode pond avatar podium sultan delivery dapur kemudi rombongan phone fishx kopdes kota sf sf2 aurora bag style questowner firebase/public/
+cp index.html style.css game.js data.js fishmath.js selamatkan-data.html ajukan-pemulihan.html manifest.webmanifest sw.js firebase/public/
+cp -r audio cloud world shop economy streak event hud house recovery username worldmode pond avatar podium sultan delivery dapur kemudi rombongan phone fishx kopdes kota sf sf2 aurora bag style questowner pwa firebase/public/
 # Tahap 4 (Dunia Bersama): klien multiplayer. Alamat server (Worker TERPISAH "nusa-multiplayer") hanya ditulis bila NUSA_MP_WS diisi,
 # mis. NUSA_MP_WS=wss://nusa-multiplayer.<akun>.workers.dev ; tanpa itu game tetap normal dan Dunia Bersama tampil "belum aktif".
+# PWA: versi cache service worker = commit game (tiap rilis berbeda => pemain diberi modal pembaruan)
+BUILD_ID="$(git rev-parse --short=12 HEAD 2>/dev/null || true)"; [ -n "$BUILD_ID" ] || BUILD_ID="${GITHUB_SHA:0:12}"; [ -n "$BUILD_ID" ] || BUILD_ID="$(date +%Y%m%d%H%M%S)"
+sed -i "s/__NUSA_BUILD__/$BUILD_ID/" firebase/public/sw.js
+grep -q "__NUSA_BUILD__" firebase/public/sw.js && { echo "GAGAL: versi service worker tidak terpasang."; exit 1; }
 mkdir -p firebase/public/mp && cp mp/proto.js mp/client.js mp/ui.js mp/mp.css firebase/public/mp/
 if [ -n "${NUSA_MP_WS:-}" ]; then
   [[ "$NUSA_MP_WS" =~ ^wss://nusa-multiplayer\.[A-Za-z0-9.-]+$ ]] || { echo "GAGAL: NUSA_MP_WS harus wss://nusa-multiplayer.<akun>.workers.dev (Worker multiplayer terpisah, BUKAN nusa-api)"; exit 1; }

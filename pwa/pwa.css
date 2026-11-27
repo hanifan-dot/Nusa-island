@@ -1,0 +1,14 @@
+/* Nusa Island PWA: tombol instal, petunjuk pasang, modal pembaruan. */
+.pwa-pill { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); z-index: 9000;
+  display: flex; align-items: center; gap: 4px; background: #173f50; color: #fff; border: 2px solid #a9dbc0; border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.35); font: 700 13px/1 system-ui, sans-serif; touch-action: manipulation; user-select: none; }
+.pwa-pill button { all: unset; cursor: pointer; padding: 9px 12px; color: inherit; font: inherit; }
+.pwa-pill button.pwa-x { padding: 9px 11px 9px 4px; opacity: .75; }
+.pwa-modal { position: fixed; inset: 0; z-index: 9500; display: flex; align-items: center; justify-content: center; background: rgba(8,24,32,.62); touch-action: manipulation; }
+.pwa-card { box-sizing: border-box; width: min(360px, calc(100vw - 32px)); background: #fff; color: #173f50; border-radius: 16px; padding: 16px 16px 14px;
+  box-shadow: 0 10px 34px rgba(0,0,0,.45); font: 600 14px/1.45 system-ui, sans-serif; text-align: center; }
+.pwa-card h2 { margin: 0 0 6px; font-size: 16px; }
+.pwa-card p { margin: 0 0 12px; font-weight: 500; }
+.pwa-row { display: flex; gap: 8px; justify-content: center; }
+.pwa-row button { all: unset; cursor: pointer; flex: 1; padding: 10px 8px; border-radius: 10px; font: 700 14px/1.1 system-ui, sans-serif; background: #e4efe9; color: #173f50; }
+.pwa-row button.pwa-go { background: #2f8f6b; color: #fff; }
