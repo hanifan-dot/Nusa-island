@@ -25,10 +25,11 @@ jobs:
       - name: Tes logika multiplayer
         run: node tests/unit-mp.js
       - name: Build produksi + cek rilis
-        env:
-          NUSA_API_BASE: https://nusa-api.hanifanwahhaja28.workers.dev
-          NUSA_MP_WS: wss://nusa-multiplayer.hanifanwahhaja28.workers.dev
         run: |
+          # Alamat Worker dibaca dari situs live (sama seperti firebase/scripts/rilis.sh), tidak ditulis di repo.
+          API=$(curl -fsS -m 15 https://nusa-island-d2023.web.app/cloud/config.js | grep -oE 'apiBase: "https://nusa-api\.[A-Za-z0-9-]+\.workers\.dev"' | head -1 | sed -E 's/.*"(https:[^"]+)"/\1/' || true)
+          [[ "$API" =~ ^https://nusa-api\.([A-Za-z0-9-]+)\.workers\.dev$ ]] || { echo "::error::alamat nusa-api tidak ditemukan di situs live"; exit 1; }
+          export NUSA_API_BASE="$API" NUSA_MP_WS="wss://nusa-multiplayer.${BASH_REMATCH[1]}.workers.dev"
           bash firebase/scripts/build-hosting.sh produksi
           node firebase/scripts/cek-rilis.js --build firebase/public
   deploy:
