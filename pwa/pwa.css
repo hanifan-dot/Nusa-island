@@ -12,3 +12,8 @@
 .pwa-row { display: flex; gap: 8px; justify-content: center; }
 .pwa-row button { all: unset; cursor: pointer; flex: 1; padding: 10px 8px; border-radius: 10px; font: 700 14px/1.1 system-ui, sans-serif; background: #e4efe9; color: #173f50; }
 .pwa-row button.pwa-go { background: #2f8f6b; color: #fff; }
+
+/* animasi goyang tombol instal (dimatikan untuk pemain yang memilih gerak minimal) */
+@keyframes pwa-wiggle { 0%, 52%, 100% { transform: translateX(-50%) rotate(0); } 56% { transform: translateX(-50%) rotate(-7deg); } 62% { transform: translateX(-50%) rotate(7deg); } 68% { transform: translateX(-50%) rotate(-5deg); } 74% { transform: translateX(-50%) rotate(5deg); } 80% { transform: translateX(-50%) rotate(-2deg); } 86% { transform: translateX(-50%) rotate(0); } }
+.pwa-pill.pwa-wiggle { animation: pwa-wiggle 3s ease-in-out infinite; transform-origin: 50% 70%; }
+@media (prefers-reduced-motion: reduce) { .pwa-pill.pwa-wiggle { animation: none; } }
