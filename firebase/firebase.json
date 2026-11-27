@@ -23,6 +23,20 @@
     ],
     "headers": [
       {
+        "source": "**/*.webmanifest",
+        "headers": [
+          { "key": "Content-Type", "value": "application/manifest+json" },
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      },
+      {
+        "source": "/sw.js",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, max-age=0" },
+          { "key": "Service-Worker-Allowed", "value": "/" }
+        ]
+      },
+      {
         "source": "**/*.@(js|css|html)",
         "headers": [
           {
