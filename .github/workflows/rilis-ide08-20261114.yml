@@ -1,4 +1,4 @@
-name: RILIS Samudra Follower 17 ikan komentar (bawaan MATI)
+name: RILIS PWA Nusa Island (instal di HP)
 on:
   push:
     branches: [main]
@@ -14,7 +14,7 @@ permissions:
   id-token: write
 
 env:
-  GAME_SHA: 1c8f47253829798ae89e2694f7ffa929c9c0b3dc
+  GAME_SHA: e4508f61c6f0f40d9e2001a4083f609bae7744ee
   BACKEND_SHA: 4d9aa425b93e85b5c082b0c4970c6043aa549571
   GUARD_SHA: ff3ab0b574bb4cd8b40b5438826b0049c8737dbb
 
@@ -180,6 +180,10 @@ jobs:
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/cloud/config.js | grep -Fq 'window.NUSA_KOPDES = true'
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/kopdes/crew.js | grep -Fq 'kopdesCrew'
           curl -fsS --retry 5 https://nusa-island-d2023.web.app/sf/draw-more.js | grep -Fq 'sf_megalodon_secret'
+          curl -fsS --retry 5 https://nusa-island-d2023.web.app/manifest.webmanifest | grep -Fq '"Nusa Island"'
+          curl -fsS --retry 5 https://nusa-island-d2023.web.app/sw.js | grep -Fq 'SKIP_WAITING'
+          if curl -fsS --retry 5 https://nusa-island-d2023.web.app/sw.js | grep -Fq '__NUSA_BUILD__'; then echo '::error::versi service worker belum terpasang'; exit 1; fi
+          curl -fsS --retry 5 https://nusa-island-d2023.web.app/pwa/pwa.js | grep -Fq 'pwaInstallPill'
           echo "OK: 17 ikan Samudra Follower terpasang (bawaan MATI, perlu persetujuan Owner); event satu pemenang global, hotfix Kapal Rombongan OFF + Bangku Teras dipertahankan, fitur kapal, Kopdes, kemudi klasik, UI memancing, Kota, Dapur, NusaPhone, ikan, QRIS/toko, dan fitur ON lama tetap dijaga."
 
       - name: Bersihkan kredensial sementara
