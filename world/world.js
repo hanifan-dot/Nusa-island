@@ -214,6 +214,7 @@ let target = null, busy = false, busyT = 0, fishSpotId = null;
 function areaCandidates() {
   const a = A(), list = a.map.points.filter((p) => !(p.id === "boat" && a.sea && NW.boat)).concat(H().points ? H().points() : []); // Bumbu 2.4: kapal pemain = "Naik Kapal" (NW.boat)
   if (NW.boat) list.push(...NW.boat.landCandidates(player));
+  list.push(...sarCand(false));
   if (NW.rombongan) list.push(...NW.rombongan.candidates(player));
   if (NW.port) list.push(...NW.port.candidates(player));   // Pelabuhan Kota: ambil kotak / mobil Pak Damar (hanya bila server pakDamar ON)   // Kapal Rombongan: Buat Kapal / Duduk (hanya bila server menyalakan)
   for (const n of a.npcs) if (!n.hidden && n.cur && (!H().npcTalkable || H().npcTalkable(n))) list.push({ id: "npc:" + n.id, x: n.x, y: n.y, r: 1.15, icon: "💬", label: "Bicara", npc: n });
@@ -221,7 +222,8 @@ function areaCandidates() {
 }
 const sailing = () => !!(NW.boat && NW.boat.on);
 const rbSeated = () => !!(NW.rombongan && NW.rombongan.seated());   // Kapal Rombongan (server): duduk di kursi = tidak berjalan, tidak ada titik interaksi darat
-const candidates = () => (inHome() ? scene().candidates() : rbSeated() ? [] : sailing() ? NW.boat.seaCandidates() : seat.on ? [{ id: "seat:stand", x: player.x, y: player.y, r: 9, icon: "🧍", label: "Berdiri", stand: true }] : areaCandidates());
+const sarCand = (sl) => { try { return NW.sar ? NW.sar.candidates(player, sl) : []; } catch (e) { return []; } };   // SAR Laut (prototipe, hanya bila NUSA_SAR menyala & misi aktif): korban di laut + Pos SAR Dermaga
+const candidates = () => (inHome() ? scene().candidates() : rbSeated() ? [] : sailing() ? NW.boat.seaCandidates().concat(sarCand(true)) : seat.on ? [{ id: "seat:stand", x: player.x, y: player.y, r: 9, icon: "🧍", label: "Berdiri", stand: true }] : areaCandidates());
 const walkable = (x, y) => (inHome() ? scene().walkable(x, y) : NW.walkable(x, y));
 function findTarget() {
   let best = null, bestS = 1e9;
@@ -248,6 +250,7 @@ function interact() {
   if (t.stand) return standUp();
   if (t.rb && NW.rombongan) return NW.rombongan.interact(t);
   if (t.pk && NW.port) return NW.port.interact(t);
+  if (t.sar && NW.sar) return NW.sar.interact(t, api);
   if (t.boat && NW.boat) return NW.boat.interact(t);
   if (t.npc) return t.npc.talk(t.npc, api);
   if (t.id === "spot" || t.fish) { // titik mancing (semua area): memakai lokasi mancing LOCATIONS milik area
@@ -541,6 +544,7 @@ function draw(ctx, t) {
   player.rodSpec = NW.look.rodSpec(); // joran aktif (dari S.up.rod) → tampil di punggung
   const onBoat = sailing();
   if (NW.boat) for (const it of NW.boat.layer(t, (dz) => drawSeated(ctx, t, dz))) list.push({ d: it.d, fn: it.draw }); // kapal (pemain duduk di dalamnya)
+  if (NW.sar) for (const it of NW.sar.layer(t, view, inView)) list.push({ d: it.d, fn: it.draw });   // SAR Laut: korban, petunjuk, Pos SAR (hanya saat misi aktif)
   if (NW.rombongan) for (const it of NW.rombongan.layer(t, view, inView)) list.push(it); // kapal rombongan + 3 awak di kursi (keadaan server)
   if (!onBoat && !(NW.rombongan && NW.rombongan.hidesSelf())) list.push({ d: pDepth, ch: player });
   if (NW.mp && !inHome()) for (const it of NW.mp.layer(view, inView)) list.push(it); // pemain lain (nyata) di Muara Kampung
@@ -601,7 +605,8 @@ function draw(ctx, t) {
     worldXf(ctx);
   }
   if (hk.drawSky) hk.drawSky(ctx, t, dk, view); // mis. kabut pagi di atas danau (setelah cahaya)
-  if (NW.weather) { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); NW.weather.drawScreen(ctx, W, H2, t, dk / 0.85, a.id, "world"); worldXf(ctx); } // warna langit, kabut, hujan
+  if (NW.weather) { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); NW.weather.drawScreen(ctx, W, H2, t, dk / 0.85, a.id, "world"); worldXf(ctx); }
+  if (NW.sar) { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); NW.sar.drawScreen(ctx, W, H2, t); worldXf(ctx); }   // kabut SAR (visual saja) // warna langit, kabut, hujan
 
   // gelembung aktivitas NPC (dekat pemain)
   for (const n of a.npcs) {

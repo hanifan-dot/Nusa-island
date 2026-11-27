@@ -1,0 +1,16 @@
+/* NUSA ISLAND — SAR Laut (prototipe). Hanya dimuat bila NUSA_SAR=true. Gaya mengikuti NusaPhone/HUD yang ada. Tidak ada elemen yang menutup joystick (kiri-bawah), tombol aksi (kanan-bawah), atau tombol kapal. */
+.sar-hint { position: fixed; z-index: 5; left: 8px; top: max(calc(env(safe-area-inset-top, 0px) + 200px), 22vh); max-width: min(62vw, 260px); padding: 6px 11px; border-radius: 999px; background: rgba(23, 63, 80, .8); color: #fff9ec; font: 600 12px/1.25 system-ui, sans-serif; pointer-events: none; text-align: left; }
+.sar-hint.hidden, .sar-card.hidden { display: none !important; }
+@media (max-height: 480px) { .sar-hint { top: calc(env(safe-area-inset-top, 0px) + 54px); } .sar-card { top: 8px !important; } }
+.sar-card { position: fixed; z-index: 14; left: 50%; top: 18%; transform: translateX(-50%); width: min(86vw, 300px); padding: 14px 16px 12px; border-radius: 16px; background: rgba(255, 249, 236, .97); color: #173f50; border: 3px solid #2fb39a; box-shadow: 0 8px 28px rgba(10, 35, 45, .35); text-align: center; font: 600 14px/1.4 system-ui, sans-serif; }
+.sar-card-h { font: 800 15px/1.25 system-ui, sans-serif; letter-spacing: .02em; margin-bottom: 6px; color: #0f6b5c; }
+.sar-card-l { padding: 2px 0; } .sar-card-b { margin: 8px 0 10px; font-size: 12px; color: #6a5a2e; }
+.sar-btn { min-width: 44px; min-height: 44px; padding: 10px 16px; border-radius: 12px; border: 2px solid #173f50; background: #fff9ec; color: #173f50; font: 700 14px system-ui, sans-serif; cursor: pointer; }
+.sar-btn.go { background: #2fb39a; color: #fff; border-color: #1c7f6d; } .sar-btn.no { background: #f4e0d8; border-color: #a5412c; color: #7a2a18; }
+.sar-view { padding: 10px 12px 16px; color: inherit; font: 500 13px/1.4 system-ui, sans-serif; }
+.sar-msg { background: rgba(255, 255, 255, .55); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; } .sar-msg b { display: block; margin-bottom: 4px; } .sar-msg p { margin: 0; }
+.sar-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; } .sar-row .sar-btn { flex: 1 1 30%; }
+.sar-note { margin: 6px 0; font-size: 12px; opacity: .8; } .sar-warn { color: #a5412c; font-weight: 700; margin-top: 4px !important; }
+.sar-rec { margin-top: 10px; padding: 8px 10px; border-radius: 12px; background: rgba(23, 63, 80, .08); display: flex; flex-direction: column; gap: 2px; } .sar-badge { font-weight: 700; }
+#dlg.sar-dlg #dlgOpts .btn { min-height: 44px; min-width: 44px; }
+.sar-row.col { flex-direction: column; } .sar-row.col .sar-btn { flex: 1 1 auto; width: 100%; }

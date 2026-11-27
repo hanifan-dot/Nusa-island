@@ -455,9 +455,9 @@ function drawWake(c, t, view) {
 // item yang disisipkan ke daftar kedalaman world.draw
 function layer(t, drawPlayer) {
   const ar = A(); if (!seaOf(ar) || B.area !== ar.id) return [];
-  if (B.on) return [{ d: B.x + B.y + 0.35, draw: (c) => { drawVessel(c, B, t, { player: drawPlayer }); if (NW.delivery && NW.delivery.drawCargo) NW.delivery.drawCargo(c, B, t); } }];
+  if (B.on) return [{ d: B.x + B.y + 0.35, draw: (c) => { drawVessel(c, B, t, { player: drawPlayer }); if (NW.delivery && NW.delivery.drawCargo) NW.delivery.drawCargo(c, B, t); if (NW.sar) NW.sar.drawVictim(c, B, t); } }];
   const m = moorById(ar, B.moor); if (!m) return [];
-  return [{ d: B.x + B.y + 0.35, draw: (c) => drawVessel(c, B, t, { moored: m }) }];
+  return [{ d: B.x + B.y + 0.35, draw: (c) => { drawVessel(c, B, t, { moored: m }); if (NW.sar) NW.sar.drawVictim(c, B, t); } }];
 }
 
 // ---------- Kamera ----------
