@@ -44,6 +44,7 @@ function tick() {
   try {
     const dl = $("dlg"); if (dl && dl.classList.contains("sar-dlg") && dl.classList.contains("hidden")) dl.classList.remove("sar-dlg");
     if (!enabled() || !N().isStarted()) return;
+    const po = !!(NW.phone && NW.phone.isOpen && NW.phone.isOpen()); if (po && !sv.phoneWasOpen) restoreInbox(); sv.phoneWasOpen = po;
     const now = trustedNow(), t = performance.now();
     if (document.visibilityState === "visible" && t - ses.lastInput < 60000) ses.activeMs += 1000;   // "bermain aktif": layar terlihat + ada sentuhan/tombol dalam 60 dtk terakhir
     const ex = K.expire(st(), now);
@@ -103,20 +104,22 @@ function stepMission(now) {
 function candidates(player, sailing) {
   const x = active(); if (!x || !inSelat() || !sv.spot) return [];
   const out = [];
-  if (x.stage === "search" && sailing) out.push({ id: "sar:vic", sar: "vic", x: sv.spot.x, y: sv.spot.y, r: 2.6, icon: "🛟", label: "Periksa Nelayan", pri: 0.5 });
+  if ((x.stage === "search" || x.stage === "found") && sailing) out.push({ id: "sar:vic", sar: "vic", x: sv.spot.x, y: sv.spot.y, r: 2.6, icon: "🛟", label: "Periksa Nelayan", pri: 0.5 });
   if (x.stage === "aboard") out.push({ id: "sar:pos", sar: "pos", x: OFFICER.x, y: OFFICER.y, r: 4.2, icon: "🛟", label: "Serahkan Nelayan", pri: 0.8 });
   else out.push({ id: "sar:pos", sar: "pos", x: OFFICER.x, y: OFFICER.y, r: 3.2, icon: "💬", label: "Pos SAR", npc: false });
   return out;
 }
 function interact(t, api) {
   const x = active(); if (!x) return;
-  if (t.sar === "vic" && x.stage === "search") return examine(api);
+  if (t.sar === "vic" && (x.stage === "search" || x.stage === "found")) return examine(api);
   if (t.sar === "pos") return officer(api, x);
 }
 function examine(api) {
-  const now = trustedNow(), f = K.find(st(), now);
-  if (!f.ok) { N().toast("Menunggu sinyal waktu server. Coba lagi sebentar.", "bad"); return; }
-  commit(f.st); N().sfx("temuan");
+  if (active().stage === "search") {   // tahap "found" (mis. setelah muat ulang sebelum memilih): dialog dibuka lagi tanpa menemukan ulang
+    const f = K.find(st(), trustedNow());
+    if (!f.ok) { N().toast("Menunggu sinyal waktu server. Coba lagi sebentar.", "bad"); return; }
+    commit(f.st); N().sfx("temuan");
+  }
   bigOpts(); const opt = K.CARE.map((c) => ({ label: (c.id === "selimut" ? "🧣 " : c.id === "air" ? "💧 " : "🚤 ") + c.label, act: () => care(c.id) }));
   api.openDialog({ name: "Nelayan", avatar: "🧑🏽‍🦲", role: "Ditemukan di dekat karang", lines: [K.victimText()], options: opt, noLater: true });
 }

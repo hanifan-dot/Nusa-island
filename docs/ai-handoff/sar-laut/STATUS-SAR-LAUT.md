@@ -13,7 +13,8 @@ Cabang kerja: `fitur/sar-laut-prototipe-20261128` (dasar: `origin/hotfix/tes-rec
 - `sar/client.js` — ketukan 1 dtk (tanpa jaringan), layar NusaPhone tersembunyi, korban/petunjuk/Pos SAR/kabut (gambar), hint, kartu hasil.
 - `sar/sar.css` — gaya (tombol ≥44 px).
 - Kait kecil: `game.js` (migrate + hook), `world/world.js` (kandidat interaksi, layer, kabut layar), `world/boat.js` (gambar korban di kapal pemain), `phone/core.js` + `phone/client.js` (layar tersembunyi `sar`, `toastMs`, `quiet`), `index.html` (pemuat), `firebase/scripts/build-hosting.sh` (salin `sar/`).
-- Uji: `tests/unit-sar.js`, `tests/browser/test_sar.py`, `tests/browser/test_sar_mp.py`.
+- Uji: `tests/unit-sar.js` (131), `tests/browser/test_sar.py` (74, stabil), `tests/browser/test_sar_mp.py` (7).
+- Tahap pemulihan: muat ulang di tahap "ditemukan" tidak menjebak pemain (korban bisa diperiksa lagi); muat ulang di tahap "aboard" memuat ulang korban di kapal + Pos SAR; catatan SAR yang tergeser dari kotak masuk (>20 pesan) dipulihkan saat NusaPhone dibuka.
 
 ## Aturan anti-spam (semua di `sar/core.js: canOffer/offer`)
 7 menit bermain aktif (per sesi; sentuhan/tombol ≤60 dtk, layar terlihat) · maks 1 panggilan per sesi (dering sekali) · jeda 4 jam (jam tepercaya) · maks 2 tawaran/hari WIB · satu misi aktif · "Nanti" = tetap di NusaPhone, tak berdering lagi · "Tolak" = misi sama tak ditawarkan lagi · ditunda (tanpa menghabiskan jatah) saat cutscene/dialog/memancing/Rumahku/toko/Kedai/Dapur/Cloud Save berjalan/belum punya kapal ke Selat · tawaran kedaluwarsa 3 jam, misi aktif 40 menit.

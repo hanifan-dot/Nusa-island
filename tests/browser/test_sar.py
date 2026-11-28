@@ -71,6 +71,16 @@ def press_opt(pg, i):
     wait_for(pg, "document.querySelectorAll('#dlgOpts button').length>%d" % i, 4)
     pg.evaluate("(i)=>document.querySelectorAll('#dlgOpts button')[i].click()", i); time.sleep(0.3)
 
+
+def start_mission(pg):
+    ring_now(pg); ev(pg, "NW.sar.accept()"); goto_selat_boarded(pg); time.sleep(0.6); tick(pg)
+def to_victim(pg):
+    sp = ev(pg, "NW.sar.spot()"); put_boat(pg, sp["x"] + 1.2, sp["y"] + 1.0); time.sleep(0.3)
+def open_victim_dialog(pg):
+    ev(pg, "NW.world.interact()"); wait_for(pg, "document.querySelectorAll('#dlgOpts button').length>=3", 4); time.sleep(0.2)
+def deliver(pg):
+    put_boat(pg, 12.4, 22.4); time.sleep(0.3); ev(pg, "NW.world.interact()"); time.sleep(0.4); press_opt(pg, 0); time.sleep(0.5)
+
 def main():
     with sync_playwright() as p:
         b = p.chromium.launch()
@@ -212,6 +222,28 @@ def main():
             open_phone_sar(pg); bs = [rect(pg, "[data-a=retry]"), rect(pg, "[data-a=cancel]")]
             ok(f"J {vp}: tombol layar SAR di NusaPhone ≥44×44 dan di dalam layar", all(r and r["w"] >= 44 and r["h"] >= 44 and r["x"] >= 0 and r["x"] + r["w"] <= vp[0] and r["y"] + r["h"] <= vp[1] for r in bs), bs)
             pg.screenshot(path=SCR + f"sar_phone_{vp[0]}x{vp[1]}.png"); ctx.close()
+        # ---------- K. jalur perawatan lain, muat ulang di tengah misi, kotak masuk tergeser ----------
+        for opt, name, cond in ((1, "Beri air", "cukup stabil"), (2, "Langsung evakuasi", "cukup stabil")):
+            ctx = new_ctx(b); pg, errs = boot(ctx); before = snap(pg); start_mission(pg); to_victim(pg); open_victim_dialog(pg); press_opt(pg, opt); time.sleep(0.3)
+            m_ = sar(pg)["m"]; deliver(pg); card = ev(pg, "document.getElementById('sarCard').innerText")
+            ok(f"K '{name}': korban tetap selamat ('{cond}'), skor lebih rendah dari selimut, ekonomi utuh, tanpa galat", sar(pg)["m"]["phase"] == "done" and f"Kondisi: {cond}" in card and sar(pg)["m"]["score"] < 100 and snap(pg) == before and not errs, [card.replace("\n", " | ")[:120], sar(pg)["m"]["score"], errs[:1]]); ctx.close()
+        ctx = new_ctx(b); pg, errs = boot(ctx); start_mission(pg); to_victim(pg); open_victim_dialog(pg)   # dialog terbuka, belum memilih
+        ev(pg, "NW.world.closeDialog && NW.world.closeDialog()"); time.sleep(0.3)
+        ok("K2a tahap 'ditemukan' tersimpan walau belum memilih perawatan", sar(pg)["m"]["stage"] == "found")
+        reload_game(pg); set_clock(pg, T0 + 90000); goto_selat_boarded(pg); time.sleep(0.8); tick(pg); to_victim(pg); time.sleep(0.4)
+        ok("K2b muat ulang di tahap 'ditemukan': pemain tidak terjebak — korban masih bisa diperiksa lagi", ev(pg, "NW.world.target && NW.world.target.id") == "sar:vic", ev(pg, "NW.world.target && NW.world.target.id"))
+        open_victim_dialog(pg); press_opt(pg, 0); time.sleep(0.3)
+        ok("K2c dilanjutkan sampai 'aboard' tanpa menemukan ulang", sar(pg)["m"]["stage"] == "aboard" and sar(pg)["m"]["care"] == "selimut")
+        reload_game(pg); set_clock(pg, T0 + 120000); goto_selat_boarded(pg); time.sleep(0.8); tick(pg)
+        ok("K3a muat ulang di tahap 'aboard': Pos SAR kembali dimuat & misi utuh", sar(pg)["m"]["stage"] == "aboard" and ev(pg, "!!NW.sar.spot()"))
+        deliver(pg)
+        ok("K3b diserahkan setelah muat ulang: selesai + lencana", sar(pg)["m"]["phase"] == "done" and sar(pg)["rec"]["badges"] == ["sar-laut-1"] and not errs, errs[:2]); ctx.close()
+        ctx = new_ctx(b); pg, errs = boot(ctx); ring_now(pg); time.sleep(0.3)
+        for i in range(26): ev(pg, "(i)=>NW.phone.notify({id:'xx'+i,title:'Pesan '+i,text:'isi'})", i)
+        ev(pg, "NW.phone.open()"); time.sleep(1.6)
+        ok("K4 catatan SAR tergeser dari kotak masuk (>20 pesan) dipulihkan saat NusaPhone dibuka", "PANGGILAN DARURAT" in ev(pg, "document.getElementById('nphRoot').innerText"), ev(pg, "document.getElementById('nphRoot').innerText")[:160]); ctx.close()
+        ctx = new_ctx(b); pg, errs = boot(ctx); start_mission(pg); sp = ev(pg, "NW.sar.spot()"); put_boat(pg, sp["x"] - 3.5, sp["y"] + 4.5); adv(pg, 90000); time.sleep(0.5)
+        pg.screenshot(path=SCR + "sar_far_view.png"); ctx.close()
         b.close()
     n = sum(R); print(f"\ntest_sar: {n}/{len(R)} lulus"); sys.exit(0 if n == len(R) else 1)
 main()
