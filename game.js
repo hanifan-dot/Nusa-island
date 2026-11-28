@@ -108,6 +108,7 @@ function migrate() {
   if (NW.kedai) NW.kedai.migrate(S);     // Bumbu 3.1 (v11): S.kedai — hanya merapikan/mengisi; tidak menambah koin atau gelar
   if (NW.quest) NW.quest.migrate(S);     // Quest Owner: S.questOwner (salinan kepemilikan Joran WhatsApp + status selesai) — hanya mengisi yang kosong
   if (NW.streak) NW.streak.migrate(S);   // Login Streak 7 Hari: S.streak (umpan hadiah, kepemilikan eksklusif) — hanya mengisi yang kosong
+  if (NW.sar) NW.sar.migrate(S);         // SAR Laut (prototipe): S.sar = field tambahan terisolasi; simpanan lama tanpa S.sar tetap terbaca
   if (NW.boat) NW.boat.migrate(S);       // Bumbu 2.4 (v10): kapal (S.sea) — nilai aman bila belum ada; tidak pernah mulai di laut tanpa kapal
   if (r.from === "2A") loadNote = "Rumahku diperbarui ke sistem 10 level. Semua perabot tetap ada.";
   S.v = SAVE_VERSION;
@@ -1546,6 +1547,7 @@ if (NW.house) NW.house.hook();                 // Kunjungi Rumah Teman (tombol d
 if (NW.recovery) NW.recovery.hook();        // 🔄 Pulihkan Data (ubin di menu ☰, dekat Profil & Akun)
 if (NW.worldMode) NW.worldMode.hook();       // Bermain di Dunia (ubin di menu ☰: pilih Multiplayer / Singleplayer)
 if (NW.rombongan) NW.rombongan.hook();   // Kapal Rombongan (hanya ada bila flag menyala)
+if (NW.sar) NW.sar.hook();   // SAR Laut (prototipe; hanya ada bila NUSA_SAR menyala)
 if (NW.delivery) NW.delivery.hook();   // Pengiriman Segar (hanya ada bila flag menyala)
 if (NW.dapur) NW.dapur.hook();   // Ide 08: Kedai Bu Indah + Dapur Rumahku (hanya ada bila NUSA_DAPUR menyala; akses = server dapurRumahku)
 if (NW.podium) NW.podium.hook();          // Podium Juara fisik di Muara (data hanya dari server)

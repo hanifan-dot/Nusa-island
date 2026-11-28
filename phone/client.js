@@ -51,6 +51,7 @@ function hook() {
 
 // ---------- seni orisinal (SVG) ----------
 const ICONS = {
+  sar: '<circle cx="24" cy="24" r="13" fill="none" stroke="#fff" stroke-width="7"/><path d="M15 15l6 6M33 15l-6 6M15 33l6-6M33 33l-6-6" stroke="CLR" stroke-width="7"/><circle cx="24" cy="24" r="6" fill="CLR" opacity=".18"/>',
   klippy: '<path d="M10 14h28a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4H10a4 4 0 0 1-4-4V18a4 4 0 0 1 4-4z" fill="#fff" opacity=".95"/><path d="M21 20.5v7l6.5-3.5z" fill="CLR"/><circle cx="37" cy="12" r="3" fill="#fff"/><path d="M37 8.2v1.6M37 14.2v1.6M33.2 12h1.6M39.2 12h1.6" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/>',
   nusachat: '<path d="M8 12h21a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4H19l-6 5v-5H8a4 4 0 0 1-4-4v-8a4 4 0 0 1 4-4z" fill="#fff" opacity=".95"/><path d="M33 20h7a4 4 0 0 1 4 4v7a4 4 0 0 1-4 4h-2v4l-5-4h-7a4 4 0 0 1-4-4v-1" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="20" r="1.8" fill="CLR"/><circle cx="19" cy="20" r="1.8" fill="CLR"/><circle cx="26" cy="20" r="1.8" fill="CLR"/>',
   playgame: '<path d="M14 16h20c5 0 8 5 8 11s-3 8-6 8-4-3-6-3H18c-2 0-3 3-6 3s-6-2-6-8 3-11 8-11z" fill="#fff" opacity=".95"/><path d="M15 21v7M11.5 24.5h7" stroke="CLR" stroke-width="2.4" stroke-linecap="round"/><circle cx="30" cy="22" r="1.9" fill="CLR"/><circle cx="34" cy="26" r="1.9" fill="CLR"/>',
@@ -61,7 +62,7 @@ const ICONS = {
   pengaturan: '<circle cx="24" cy="24" r="8.5" fill="none" stroke="#fff" stroke-width="5"/><g stroke="#fff" stroke-width="5" stroke-linecap="round"><path d="M24 6v5M24 37v5M6 24h5M37 24h5M11.3 11.3l3.5 3.5M33.2 33.2l3.5 3.5M11.3 36.7l3.5-3.5M33.2 14.8l3.5-3.5"/></g><circle cx="24" cy="24" r="3.4" fill="CLR"/>',
 };
 function icon(id) {
-  const a = C.appOf(id) || { hue: "#888", hue2: "#bbb" };
+  const a = C.appOf(id) || (HIDDEN_APP[id] && HIDDEN_APP[id].hue ? HIDDEN_APP[id] : { hue: "#888", hue2: "#bbb" });
   return `<svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><defs><linearGradient id="nphg-${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a.hue2}"/><stop offset="1" stop-color="${a.hue}"/></linearGradient></defs><rect x="0" y="0" width="48" height="48" rx="12" fill="url(#nphg-${id})"/>${(ICONS[id] || "").replace(/CLR/g, a.hue)}</svg>`;
 }
 const WALL = (k) => `<svg class="nph-wall" viewBox="0 0 300 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
@@ -197,9 +198,9 @@ function paintBadge() { const b = $("nphBadge"); if (!b) return; const n = C.not
 // ---------- aplikasi ----------
 function closeApp() { if (st.appCtl) { try { st.appCtl.close && st.appCtl.close(); } catch (e) { /* abaikan */ } st.appCtl = null; } }
 function paintApp() {
-  const id = st.nav.app, a = C.appOf(id); if (!a) return; const body = $("nphAppB");
+  const id = st.nav.app, a = C.appOf(id) || HIDDEN_APP[id]; if (!a) return; const body = $("nphAppB");
   $("nphAppT").textContent = a.name; $("nphAppI").innerHTML = icon(id);
-  if (!C.appUsable(id, linkOk())) { closeApp(); body.innerHTML = `<div class="nph-lockpane" role="alert"><div class="nph-lock-ic" aria-hidden="true">📡</div><b>Koneksi terputus</b><p>${esc(a.name)} membutuhkan server. Semua aksi jaringan dikunci sampai koneksi pulih. Tidak ada mode offline.</p></div>`; return; }
+  if (!HIDDEN_APP[id] && !C.appUsable(id, linkOk())) { closeApp(); body.innerHTML = `<div class="nph-lockpane" role="alert"><div class="nph-lock-ic" aria-hidden="true">📡</div><b>Koneksi terputus</b><p>${esc(a.name)} membutuhkan server. Semua aksi jaringan dikunci sampai koneksi pulih. Tidak ada mode offline.</p></div>`; return; }
   if (st.appCtl && st.appCtl.id === id) { try { st.appCtl.update && st.appCtl.update(); } catch (e) { /* abaikan */ } return; }
   closeApp(); body.innerHTML = "";
   const impl = st.apps[id] || BUILTIN[id];
@@ -214,9 +215,10 @@ const APP_SCRIPTS = { klippy: ["klippy.js"], nusachat: ["nusachat.js"], dompet: 
 const loaded = {};
 function loadFile(f) { return loaded[f] || (loaded[f] = new Promise((ok, no) => { const e = document.createElement("script"); e.src = BASE + f; e.async = false; e.onload = ok; e.onerror = () => { delete loaded[f]; no(new Error("gagal memuat " + f)); }; document.head.appendChild(e); })); }
 const loadFiles = (fs) => fs.reduce((p, f) => p.then(() => loadFile(f)), Promise.resolve());
-function registerApp(id, impl) { if (C.APP_IDS.includes(id) && impl && typeof impl.mount === "function") st.apps[id] = impl; }
+function registerApp(id, impl) { if ((C.APP_IDS.includes(id) || C.HIDDEN_VIEWS.includes(id)) && impl && typeof impl.mount === "function") st.apps[id] = impl; }
 
 // bawaan: Peta + Pengaturan (tanpa jaringan)
+const HIDDEN_APP = { sar: { id: "sar", name: "Panggilan Darurat", net: false, hue: "#e5483a", hue2: "#ff9a7a" } };   // layar tersembunyi (bukan ikon layar utama; tetap terbuka saat koneksi putus karena tidak butuh server)
 const BUILTIN = {
   peta: { mount(body, x) {
     const a = NW.areas && NW.areas.cur, name = a && a.name ? a.name : "Nusa Island";
@@ -240,13 +242,13 @@ const BUILTIN = {
 function noteAdd(n) {
   if (!n) return; const had = st.notes.some((x) => x.id === n.id);
   st.notes = C.noteAdd(st.notes, n, now());
-  if (!had) { if (!st.open) toastNote(st.notes.find((x) => x.id === n.id)); else paintNotes(); }
+  if (!had) { if (!st.open && !n.quiet) toastNote(st.notes.find((x) => x.id === n.id)); else paintNotes(); }
   paintBadge();
 }
 function toastNote(n) {
   if (!n || n.read || !st.srv || !world() || document.body.classList.contains("mp-chat-open") || st.open) return;
   const t = $("nphToast"); if (!t) return; t.innerHTML = `<span aria-hidden="true">${esc(n.icon)}</span><span><b>${esc(n.title)}</b><small>${esc(n.text)}</small></span>`; t.classList.remove("hidden");
-  clearTimeout(st.toastT); st.toastT = setTimeout(hideToast, 4200);
+  clearTimeout(st.toastT); st.toastT = setTimeout(hideToast, n.toastMs || 4200);
 }
 function hideToast() { const t = $("nphToast"); if (t) t.classList.add("hidden"); clearTimeout(st.toastT); }
 

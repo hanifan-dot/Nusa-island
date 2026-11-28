@@ -72,13 +72,15 @@ function cleanPrefs(o) {
 // Layar: "lock" → "home" → "app". Kembali: dari dalam app ke home; di home & kunci tidak berbuat apa-apa. Tutup: menutup perangkat.
 // Mesin murni: nav(state, aksi) → state baru. state = { screen, app, sub }
 const NAV0 = { screen: "lock", app: null, sub: 0 };
+// Layar tersembunyi: BUKAN aplikasi (tidak ada ikon di layar utama, kontrak 8 aplikasi tetap). Hanya dibuka lewat notifikasi/NW.phone.open dari modul yang mendaftarkannya (mis. SAR Laut).
+const HIDDEN_VIEWS = ["sar"];
 function nav(s, a, arg) {
   s = s || NAV0;
   switch (a) {
     case "unlock": return s.screen === "lock" ? { screen: "home", app: null, sub: 0 } : s;
     case "home": return s.screen === "lock" ? s : { screen: "home", app: null, sub: 0 };
     case "back": if (s.screen === "app") return s.sub > 0 ? { screen: "app", app: s.app, sub: s.sub - 1 } : { screen: "home", app: null, sub: 0 }; return s;
-    case "open": return s.screen !== "lock" && APP_IDS.includes(arg) ? { screen: "app", app: arg, sub: 0 } : s;
+    case "open": return s.screen !== "lock" && (APP_IDS.includes(arg) || HIDDEN_VIEWS.includes(arg)) ? { screen: "app", app: arg, sub: 0 } : s;
     case "deeper": return s.screen === "app" ? { screen: "app", app: s.app, sub: s.sub + 1 } : s;
     case "lock": return NAV0;
     default: return s;
@@ -92,7 +94,8 @@ const NOTE_MAX = 20;
 function noteAdd(list, n, now) {
   list = Array.isArray(list) ? list.slice() : [];
   if (!n || typeof n.id !== "string" || !n.id || list.some((x) => x.id === n.id)) return list;
-  const item = { id: n.id.slice(0, 40), icon: String(n.icon || "🔔").slice(0, 4), title: String(n.title || "").slice(0, 40), text: String(n.text || "").slice(0, 120), at: Number.isFinite(now) ? now : 0, read: false, app: APP_IDS.includes(n.app) ? n.app : null };
+  const item = { id: n.id.slice(0, 40), icon: String(n.icon || "🔔").slice(0, 4), title: String(n.title || "").slice(0, 40), text: String(n.text || "").slice(0, 120), at: Number.isFinite(now) ? now : 0, read: false, app: APP_IDS.includes(n.app) || HIDDEN_VIEWS.includes(n.app) ? n.app : null };
+  if (Number.isFinite(n.toastMs) && n.toastMs > 0) item.toastMs = Math.min(12000, Math.floor(n.toastMs));   // lama notifikasi kecil (opsional, maks 12 dtk); pesan tetap di kotak masuk
   list.unshift(item); return list.slice(0, NOTE_MAX);
 }
 const noteUnread = (list) => (Array.isArray(list) ? list.filter((x) => !x.read).length : 0);
@@ -102,6 +105,6 @@ const noteReadAll = (list) => (Array.isArray(list) ? list.map((x) => Object.assi
 // Tautan dianggap hidup hanya bila perangkat daring, API mode Worker aktif, pemain masuk, dan panggilan terakhir tidak gagal jaringan.
 function linkOk(s) { return !!(s && s.online && s.api && s.user && !s.failed); }
 
-const API = { CORE_GB, LINES, clock, dateLine, APPS, APP_IDS, appOf, MODELS, MODEL_IDS, modelOf, cleanOwned, cleanUse, THEMES, MOTIONS, theme, reduced, cleanPrefs, NAV0, nav, appUsable, noteAdd, noteUnread, noteReadAll, NOTE_MAX, linkOk, pad2 };
+const API = { CORE_GB, LINES, clock, dateLine, APPS, APP_IDS, appOf, MODELS, MODEL_IDS, modelOf, cleanOwned, cleanUse, THEMES, MOTIONS, theme, reduced, cleanPrefs, NAV0, nav, appUsable, noteAdd, noteUnread, noteReadAll, NOTE_MAX, linkOk, pad2, HIDDEN_VIEWS };
 if (typeof module !== "undefined" && module.exports) module.exports = API; else root.NusaPhoneCore = API;
 })(typeof window !== "undefined" ? window : globalThis);
