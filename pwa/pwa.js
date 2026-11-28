@@ -3,8 +3,8 @@
  * Penyimpanan hanya untuk kenyamanan tampilan (localStorage opsional, dibungkus try/catch). */
 (function () {
   "use strict";
-  var UPDATE_RECHECK_MS = 30 * 60 * 1000, REMIND_MS = 15 * 60 * 1000, RESHOW_MS = 30 * 60 * 1000, ASK_AFTER = 5, FALLBACK_WAIT_MS = 4000;
-  var S = { sw: "none", installable: false, installed: false, updateReady: false, pill: null, modal: null, dismissedAt: 0, userRequested: false, reloaded: false };
+  var UPDATE_RECHECK_MS = 30 * 60 * 1000, REMIND_MS = 15 * 60 * 1000, RESHOW_MS = 30 * 60 * 1000, ASK_AFTER = 5, FALLBACK_WAIT_MS = 6000;
+  var S = { sw: "none", installable: false, installed: false, updateReady: false, pill: null, modal: null, dismissedAt: 0, userRequested: false, reloaded: false, waited: false };
   var deferred = null, reg = null, lastCheck = 0;
   var $ = function (id) { return document.getElementById(id); };
 
@@ -25,7 +25,8 @@
   var reshowTimer = null;
   function removePill() { if (S.pill && S.pill.parentNode) S.pill.parentNode.removeChild(S.pill); S.pill = null; }
   function canShowPill() { return !done() && !optedOut() && Date.now() >= rejLoad().next; }
-  function howtoEligible() { return !("onbeforeinstallprompt" in window) && mobileUA(); }
+  // Browser HP tanpa prompt: langsung. Chrome (punya prompt): hanya bila event instal tak kunjung datang (S.waited), supaya pemain tetap punya jalan pasang.
+  function howtoEligible() { return mobileUA() && (!("onbeforeinstallprompt" in window) || S.waited); }
   function refreshPill() {
     clearTimeout(reshowTimer); reshowTimer = null;
     if (done() || optedOut()) { removePill(); return; }
@@ -73,11 +74,12 @@
     c.appendChild(row); m.appendChild(c); document.body.appendChild(m); S.modal = m; return m;
   }
   function closeModal() { if (S.modal && S.modal.parentNode) S.modal.parentNode.removeChild(S.modal); S.modal = null; }
-  function showHowTo() { modal("Pasang Nusa Island", "Buka menu browser lalu pilih Tambahkan ke layar utama.", [{ label: "Mengerti", id: "pwaHowtoOk", cls: "pwa-go", fn: closeModal }]); }
+  function showHowTo() { modal("Pasang Nusa Island", "Buka menu browser lalu pilih Tambahkan ke layar utama. (Di Chrome: menu ⋮ lalu Instal aplikasi.)", [{ label: "Mengerti", id: "pwaHowtoOk", cls: "pwa-go", fn: closeModal }]); }
 
-  window.addEventListener("beforeinstallprompt", function (e) {
-    e.preventDefault(); deferred = e; S.installable = true; removePill(); refreshPill(); syncSettingsRow();
-  });
+  function gotPrompt(e) { try { e.preventDefault(); } catch (x) {} deferred = e; S.installable = true; removePill(); refreshPill(); syncSettingsRow(); }
+  window.addEventListener("beforeinstallprompt", gotPrompt);
+  // Event bisa terjadi sebelum skrip ini selesai dimuat (skrip game banyak): ambil yang disimpan pendengar awal di <head>.
+  if (window.__nusaBIP) { var early = window.__nusaBIP; window.__nusaBIP = null; gotPrompt(early); }
   window.addEventListener("appinstalled", function () { markInstalled(); closeHowToIfAny(); });
   function closeHowToIfAny() { if (S.modal && $("pwaHowtoOk")) closeModal(); }
 
@@ -143,7 +145,7 @@
   function start() {
     registerSW();
     // Petunjuk manual hanya untuk browser HP yang TIDAK punya prompt instal (mis. Safari iOS, Firefox); bukan tombol instal. Chrome yang sudah memasang app tidak ditampilkan petunjuk.
-    setTimeout(function () { if (howtoEligible() && !deferred) refreshPill(); }, FALLBACK_WAIT_MS);
+    setTimeout(function () { S.waited = true; if (howtoEligible() && !deferred) refreshPill(); }, FALLBACK_WAIT_MS);
     refreshPill(); watchSettings();
   }
   window.NusaPWA = { state: function () { return { rej: rejLoad(), optout: optedOut(), settingsRow: !!$("pwaSettingsRow"), sw: S.sw, installable: S.installable, installed: S.installed, standalone: standalone(), updateReady: S.updateReady, pill: S.pill ? S.pill.getAttribute("data-kind") : null, modal: !!S.modal, reloaded: S.reloaded }; },
