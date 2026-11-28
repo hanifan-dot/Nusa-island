@@ -174,6 +174,29 @@ with sync_playwright() as p:
     else:
         ok("F1 fallback (lewati: Chromium ini tetap punya onbeforeinstallprompt; logika diuji lewat kode)", ev(pg, "'onbeforeinstallprompt' in window"), st)
     ctx.close()
+    # ---- 6b) event instal yang datang SEBELUM pwa.js dimuat (skrip game banyak) tetap dipakai
+    ctx, pg, errs, cdp = boot(b)
+    FAKE = "window.dispatchEvent(Object.assign(new Event('beforeinstallprompt',{cancelable:true}),{prompt(){window.__prompted=1;return Promise.resolve()},userChoice:Promise.resolve({outcome:'dismissed'})}));\n"
+    def early(route):
+        body = FAKE + open(os.path.join(ROOT_DIR, "pwa", "pwa.js"), encoding="utf-8").read()
+        route.fulfill(status=200, content_type="text/javascript", body=body)
+    pg.route("**/pwa/pwa.js", early); pg.goto(BASE + "?cloud=demo"); time.sleep(1.2)
+    st = ev(pg, "NusaPWA.state()")
+    ok("E1 event instal yang terjadi sebelum pwa.js dimuat tetap menampilkan tombol 'Instal Nusa Island'", st["pill"] == "install" and st["installable"], st)
+    ev(pg, "document.getElementById('pwaInstallBtn').click()"); time.sleep(0.4)
+    ok("E2 menekan tombol itu memanggil prompt() instal asli sekali", ev(pg, "window.__prompted") == 1)
+    ctx.close()
+    # ---- 6c) Chrome HP yang tidak pernah mengirim event: tetap ada jalan lewat petunjuk (bukan tombol instal palsu)
+    ctx, pg, errs, cdp = boot(b); pg.goto(BASE + "?cloud=demo"); time.sleep(1.0)
+    ok("E3 sebelum jeda tunggu tidak ada tombol palsu", ev(pg, "NusaPWA.state().pill") in (None, "install"))
+    time.sleep(6.5); st = ev(pg, "NusaPWA.state()")
+    if st["installable"]:
+        ok("E4 (lewati: Chromium ini mengirim event instal sungguhan)", True, st)
+    else:
+        ok("E4 tanpa event instal: setelah jeda muncul 'Cara pasang' (bukan tombol instal palsu)", st["pill"] == "howto", st)
+        ev(pg, "document.getElementById('pwaInstallBtn').click()")
+        ok("E5 petunjuk menyebut menu Chrome", "Instal aplikasi" in ev(pg, "document.querySelector('.pwa-card').innerText"))
+    ctx.close()
     # ---- 7) pembaruan: versi baru -> modal -> Nanti -> Perbarui Sekarang -> satu reload
     STATE["build"] = "v1"; ctx, pg, errs, cdp = boot(b); pg.goto(BASE + "?cloud=demo"); time.sleep(1.0); wf(pg, "!!navigator.serviceWorker.controller", 8)
     ev(pg, "window.__marker='lama'")
