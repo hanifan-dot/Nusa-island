@@ -1,7 +1,7 @@
 # SAR Laut — "Panggilan Darurat Nusa" (PROTOTIPE LOKAL)
 
-Status: **dibangun & diuji lokal. BELUM di-push, BELUM di-merge, BELUM di-deploy, BELUM live.** Menunggu izin Owner.
-Cabang kerja: `fitur/sar-laut-prototipe-20261128` (dasar: `origin/hotfix/tes-recovery-4h-20261109` @ `e4508f6`, basis game live).
+Status: **dibangun & diuji lokal, di-push, Draft PR terbuka. BELUM di-merge, BELUM ada preview, BELUM di-deploy, BELUM live.** Menunggu izin Owner.
+Cabang kerja: `fitur/sar-laut-prototipe-20261128` (basis PR: `hotfix/tes-recovery-4h-20261109` @ `dc5fb33`, sudah memuat PR #190 perbaikan instal PWA; `main` hanya artefak deploy/workflow).
 
 ## Saklar (semua MATI)
 - Klien: `window.NUSA_SAR` (bawaan `false`, `cloud/config.js`). `sar/*` tidak diunduh bila false.
